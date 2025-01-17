@@ -1,0 +1,42 @@
+# Compile
+POST http://localhost:8000/compile
+Content-Type: application/json
+
+{
+  "project": {
+    "name": "LEQO Example Project",
+    "description": "A project that demonstrates quantum computing using low-code blocks and QASM.",
+    "version": "1.0.0"
+  },
+  "blocks": [
+    {
+      "id": "block-1",
+      "type": "quantum-gate",
+      "label": "Apply Hadamard Gate",
+      "qasm": "h q[0];",
+      "connections": [
+        "block-2"
+      ]
+    },
+    {
+      "id": "block-2",
+      "type": "measurement",
+      "label": "Measure Qubit 0",
+      "qasm": "measure q[0] -> c[0];",
+      "connections": []
+    },
+    {
+      "id": "block-3",
+      "type": "classical-operation",
+      "label": "Classical Operation Exampl",
+      "description": "This block represents a classical operation that can manipulate the result of measurements.",
+      "qasm": "",
+      "dependencies": [
+        "block-2"
+      ],
+      "parameters": {
+        "parameter1": "result_of_measurement"
+      }
+    }
+  ]
+}
