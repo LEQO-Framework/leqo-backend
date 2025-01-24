@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from io import StringIO, TextIOBase
-from typing import Set, List
 
-from openqasm3.ast import Program, Statement, Include
+from openqasm3.ast import Include, Program, Statement
 from openqasm3.printer import Printer, PrinterState
 
 
@@ -35,8 +34,8 @@ class QASMBuilder:
     """
 
     def __init__(self) -> None:
-        self.includes: Set[str] = set()
-        self.statements: List[Statement] = list()
+        self.includes: set[str] = set()
+        self.statements: list[Statement] = []
 
     def include(self, filename: str) -> None:
         """
@@ -73,7 +72,7 @@ class QASMBuilder:
         :return: Final QASM program.
         """
 
-        all_statements: List[Statement] = []
+        all_statements: list[Statement] = []
         all_statements.extend([Include(include) for include in self.includes])
         all_statements.extend(self.statements)
 
