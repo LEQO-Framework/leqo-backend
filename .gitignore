@@ -9,3 +9,6 @@ wheels/
 # Virtual environments
 .venv
 .idea
+
+# Documentation
+site/

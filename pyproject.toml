@@ -15,6 +15,11 @@ dev = [
     "pytest>=8.3.4",
     "ruff>=0.9.2",
 ]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.5.50",
+    "mkdocstrings[python]>=0.27.0",
+]
 
 # https://github.com/DSD-DBS/py-capellambse/blob/b0d63fac33c90d15f0d2d4c6c111184a5801ce6c/pyproject.toml#L174-L204
 [tool.ruff.lint]
