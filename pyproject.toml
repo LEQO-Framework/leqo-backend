@@ -5,3 +5,38 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = []
+
+[dependency-groups]
+dev = [
+    "mypy>=1.14.1",
+    "ruff>=0.9.4",
+]
+
+# https://github.com/DSD-DBS/py-capellambse/blob/b0d63fac33c90d15f0d2d4c6c111184a5801ce6c/pyproject.toml#L174-L204
+[tool.ruff.lint]
+extend-select = [
+    "ARG", # flake8-unused-arguments
+    "B", # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "ERA", # eradicate
+    "FA", # flake8-future-annotations
+    "FAST", # Fastapi
+    "FURB", # refurb
+    "G", # flake8-logging-format
+    "I", # isort
+    "ICN", # flake8-import-conventions
+    "ISC001", # "Implicitly concatenated string literals on one line"
+    "ISC003", # "Explicitly concatenated string should be implicitly concatenated"
+    "LOG", # flake8-logging
+    "PIE", # flake8-pie
+    "PL", # pylint
+    "PT", # flake8-pytest-style
+    "RET", # flake8-return
+    "RUF", # ruff
+    "SIM", # flake8-simplify
+    "TC005", # "Found empty type-checking block"
+    "T1", # flake8-debugger
+    "UP", # pyupgrade
+    "YTT", # flake8-2020
+]
