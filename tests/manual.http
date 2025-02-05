@@ -1,0 +1,17 @@
+### Hello World
+
+GET http://localhost:8000
+
+### Post Echo
+
+POST http://localhost:8000
+Content-Type: application/json
+
+{
+  "test": "abc",
+  "test2": [
+    "1",
+    "2",
+    "3"
+  ]
+}
