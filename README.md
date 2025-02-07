@@ -8,7 +8,11 @@ This project uses the [uv package manager](https://docs.astral.sh/uv/#getting-st
 
 ---
 
-## Start LEQO Backend with Docker
+
+
+## Development
+
+### Start LEQO Backend with Docker
 
 Run the following command:
 
@@ -20,8 +24,6 @@ Then you can access the backend on:
 http://localhost:8000  
 http://localhost:8000/docs
 
-
-## Development
 
 ## Disclaimer of Warranty
 
