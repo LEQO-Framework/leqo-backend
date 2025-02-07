@@ -14,4 +14,3 @@ wheels/
 
 # Other
 .run.sh
-mypy.ini
