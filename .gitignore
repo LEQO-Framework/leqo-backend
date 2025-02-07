@@ -11,3 +11,7 @@ wheels/
 
 # PyCharm
 .idea/
+
+# Other
+.run.sh
+mypy.ini
