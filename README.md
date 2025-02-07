@@ -9,7 +9,6 @@ This project uses the [uv package manager](https://docs.astral.sh/uv/#getting-st
 ---
 
 
-
 ## Development
 
 ### Start LEQO Backend with Docker
