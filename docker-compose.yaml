@@ -1,0 +1,7 @@
+services:
+  leqo-backend:
+    build: .
+    ports:
+     - "8000:80"
+    volumes:
+     - ./app:/leqo-backend/app
