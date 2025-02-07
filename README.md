@@ -9,14 +9,22 @@ It does:
 
 ## Deployment
 
-## Development
+Run the following command:
 
-### Start LEQO Back-End with Docker
+```bash
+docker compose build && docker compose up -d
+```
+
+Then you can access the back-end on:  
+http://localhost:8000  
+http://localhost:8000/docs
+
+## Development
 
 Run the following command:
 
 ```bash
-docker compose build && docker compose up
+uv run fastapi dev
 ```
 
 Then you can access the back-end on:  
