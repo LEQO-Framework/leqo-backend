@@ -8,12 +8,10 @@ COPY ./.python-version /leqo-backend/.python-version
 
 COPY ./uv.lock /leqo-backend/uv.lock
 
-RUN pip install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-RUN pip install "fastapi[standard]"
-
-RUN uv sync
+RUN uv sync --frozen --no-cache
 
 COPY ./app /leqo-backend/app
 
-CMD ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "80"]
+CMD ["/leqo-backend/.venv/bin/fastapi", "run", "app/main.py", "--port", "80"]
