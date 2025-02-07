@@ -7,6 +7,8 @@ It does:
 - enrich QASM programs via ID-based imports
 - merge multiple QASM programs into one
 
+This project uses the [uv package manager](https://docs.astral.sh/uv/#getting-started).
+
 ## Deployment
 
 Run the following command:
