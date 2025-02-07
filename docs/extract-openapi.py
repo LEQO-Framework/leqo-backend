@@ -2,6 +2,7 @@
 
 # extract-openapi.py
 import sys
+
 import yaml
 
 sys.path.insert(0, "../")
@@ -15,4 +16,4 @@ if __name__ == "__main__":
     with open("./docs/openapi.yaml", "w") as f:
         yaml.dump(openapi, f, sort_keys=False)
 
-    print(f"spec written to 'openapi.yaml'")
+    print("spec written to 'openapi.yaml'")
