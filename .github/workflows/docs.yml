@@ -12,7 +12,7 @@ jobs:
 
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.artifact }}
 
     permissions:
       pages: write
@@ -21,3 +21,5 @@ jobs:
     steps:
       - id: deployment
         uses: sphinx-notes/pages@v3
+        with:
+          publish: 'false'
