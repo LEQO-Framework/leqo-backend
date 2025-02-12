@@ -10,10 +10,6 @@ jobs:
   docs:
     runs-on: ubuntu-latest
 
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.artifact }}
-
     permissions:
       pages: write
       id-token: write
