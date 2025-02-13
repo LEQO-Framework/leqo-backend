@@ -18,5 +18,24 @@ jobs:
       - id: deployment
         uses: sphinx-notes/pages@v3
         with:
+          python_version: '3.13'
           publish: 'false'
+
+  docs-deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - id: deployment
+        uses: sphinx-notes/pages@v3
+        with:
           python_version: '3.13'
