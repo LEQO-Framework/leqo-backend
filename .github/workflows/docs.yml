@@ -7,12 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  docs:
+  build-docs:
     runs-on: ubuntu-latest
-
-    permissions:
-      pages: write
-      id-token: write
 
     steps:
       - name: Checkout
@@ -21,31 +17,36 @@ jobs:
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v5
 
-      - run: uv sync
+      - name: uv Sync (including dev-dependencies)
+        run: uv sync --all-groups
 
-      - run: uv run extract-openapi.py
+      - name: Extract OpenAPI spec
+        run: uv run extract-openapi.py
 
-      - id: deployment
-        uses: sphinx-notes/pages@v3
+      - name: Build static files
+        run: uv run sphinx-build docs/ docs/_build
+
+      - name: Upload static files as artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          python_version: '3.13'
-          publish: 'false'
+          path: docs/_build/
 
-  docs-deploy:
+  deploy-docs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
-    runs-on: ubuntu-latest
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build-docs
 
     permissions:
       pages: write
       id-token: write
 
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+
     steps:
-      - id: deployment
-        uses: sphinx-notes/pages@v3
-        with:
-          python_version: '3.13'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
