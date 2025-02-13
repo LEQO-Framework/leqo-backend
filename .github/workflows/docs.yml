@@ -15,6 +15,8 @@ jobs:
       id-token: write
 
     steps:
+      - run: python .\extract-openapi.py
+
       - id: deployment
         uses: sphinx-notes/pages@v3
         with:
