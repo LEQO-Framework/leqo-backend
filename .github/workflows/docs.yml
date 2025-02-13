@@ -15,7 +15,15 @@ jobs:
       id-token: write
 
     steps:
-      - run: python .\extract-openapi.py
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v5
+
+      - run: uv sync
+
+      - run: uv run extract-openapi.py
 
       - id: deployment
         uses: sphinx-notes/pages@v3
