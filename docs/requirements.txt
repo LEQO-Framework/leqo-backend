@@ -1,3 +1,0 @@
-myst-parser
-sphinxcontrib-openapi
-sphinx-rtd-theme
