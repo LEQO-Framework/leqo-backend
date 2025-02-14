@@ -1,14 +1,37 @@
-# TODO
+# LEQO Back-End
 
-This service is used for TODO...
+The back-end for the QASM low-code platform LEQO.
+It does:
 
----
+- provide a REST-API for the LEQO front-end
+- enrich QASM programs via ID-based imports
+- merge multiple QASM programs into one
 
 This project uses the [uv package manager](https://docs.astral.sh/uv/#getting-started).
 
----
+## Deployment
+
+Run the following command:
+
+```bash
+docker compose build && docker compose up -d
+```
+
+Then you can access the back-end on:  
+http://localhost:8000  
+http://localhost:8000/docs
 
 ## Development
+
+Run the following command:
+
+```bash
+uv run fastapi dev
+```
+
+Then you can access the back-end on:  
+http://localhost:8000  
+http://localhost:8000/docs
 
 ## Disclaimer of Warranty
 
