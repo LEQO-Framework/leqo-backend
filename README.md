@@ -1,5 +1,7 @@
 # LEQO Back-End
 
+[![Docker image on ghcr.io](https://img.shields.io/badge/Docker-GitHub%20Container%20Registry-green?style=flat&logo=docker&logoColor=%23fff)](https://github.com/LEQO-Framework/leqo-backend/pkgs/container/leqo-backend)
+
 The back-end for the QASM low-code platform LEQO.
 It does:
 

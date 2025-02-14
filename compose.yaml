@@ -1,0 +1,5 @@
+services:
+  leqo-backend:
+    image: ghcr.io/leqo-framework/leqo-backend:main
+    ports:
+      - "8000:80"
