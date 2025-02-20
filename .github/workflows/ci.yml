@@ -25,6 +25,9 @@ jobs:
       - name: Type checking
         run: uv run mypy app --strict
 
+      - name: Run tests
+        run: uv run pytest tests
+
   linting:
     runs-on: ubuntu-latest
     steps:
