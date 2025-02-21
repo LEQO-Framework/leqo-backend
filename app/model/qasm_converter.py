@@ -8,7 +8,7 @@ class QASMConversionError(Exception):
     pass
 
 
-def change_qasm2_line_to_qasm3(line: str):
+def change_qasm2_line_to_qasm3(line: str) -> str:
     """
     Converts a single line of QASM 2.x code into a QASM 3.0 compatible format.
 
@@ -54,7 +54,7 @@ def change_qasm2_line_to_qasm3(line: str):
     return line + "\n"
 
 
-def convert_qasm2_to_qasm3(qasm2_code: str):
+def convert_qasm2_to_qasm3(qasm2_code: str) -> str:
     """
     Converts an entire QASM 2.x program into a QASM 3.0 compatible program.
 
