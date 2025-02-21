@@ -1,7 +1,10 @@
 import os
 import unittest
-from app.model.qasm_converter import convert_qasm2_to_qasm3, QASMConversionError
+
+import pytest
 from qiskit.qasm3 import loads
+
+from app.model.qasm_converter import QASMConversionError, convert_qasm2_to_qasm3
 
 
 def check_out(out, expected):
@@ -13,7 +16,7 @@ def check_out(out, expected):
 def get_qasm3_def():
     lib_dir = os.path.dirname(os.path.dirname(__file__)) + "\\app\model\qasm_lib"
     return open(
-        os.path.join(lib_dir, "qasm3_qelib1.qasm"), mode="r", encoding="utf-8"
+        os.path.join(lib_dir, "qasm3_qelib1.qasm"), encoding="utf-8"
     ).read()
 
 
@@ -125,23 +128,17 @@ class TestCases(unittest.TestCase):
 
     def test_unsupported_qasm_version_exception(self):
         # Test that an exception is raised for an unsupported QASM version.
-        with self.assertRaises(QASMConversionError) as context:
+        with pytest.raises(QASMConversionError) as context:
             # Pass a qasm2_code with an incorrect QASM version.
             convert_qasm2_to_qasm3("OPENQASM 3.0;")
-        self.assertEqual(
-            str(context.exception),
-            "Unsupported QASM version. Only 'OPENQASM 2.x' is allowed.",
-        )
+        assert str(context.value) == "Unsupported QASM version. Only 'OPENQASM 2.x' is allowed."
 
     def test_unsupported_library_exception(self):
         # Test that an exception is raised for an invalid include statement.
-        with self.assertRaises(QASMConversionError) as context:
+        with pytest.raises(QASMConversionError) as context:
             # Pass a qasm2_code with an invalid include command.
             convert_qasm2_to_qasm3('include "otherlib.inc";')
-        self.assertEqual(
-            str(context.exception),
-            "Unsupported library included. Only 'qelib1.inc' is allowed.",
-        )
+        assert str(context.value) == "Unsupported library included. Only 'qelib1.inc' is allowed."
 
     def test_valid_qasm_version(self):
         # Test that a valid OPENQASM 2.1 statement does not raise an exception.

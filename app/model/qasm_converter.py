@@ -1,4 +1,5 @@
 import os
+
 from openqasm3 import parser, printer
 
 
@@ -35,18 +36,16 @@ def change_qasm2_line_to_qasm3(line: str):
     if line.startswith("OPENQASM"):
         if line.startswith("OPENQASM 2"):
             return ""
-        else:
-            raise QASMConversionError(
-                "Unsupported QASM version. Only 'OPENQASM 2.x' is allowed."
-            )
+        raise QASMConversionError(
+            "Unsupported QASM version. Only 'OPENQASM 2.x' is allowed."
+        )
 
     if line.startswith("include"):
         if line == 'include "qelib1.inc";':
             return ""
-        else:
-            raise QASMConversionError(
-                "Unsupported library included. Only 'qelib1.inc' is allowed."
-            )
+        raise QASMConversionError(
+            "Unsupported library included. Only 'qelib1.inc' is allowed."
+        )
 
     if line.startswith("opaque"):
         # As opaque is ignored by OpenQASM 3, add it as a comment
@@ -85,19 +84,17 @@ def convert_qasm2_to_qasm3(qasm2_code: str):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     with open(
         os.path.join(current_dir, "qasm_lib/qasm3_qelib1.qasm"),
-        mode="r",
         encoding="utf-8",
     ) as gate_defs:
         for line in gate_defs:
             qasm3_code += line
 
     for line in qasm2_code.splitlines():
-        line = change_qasm2_line_to_qasm3(line)
-        qasm3_code += line
+        transformed_line = change_qasm2_line_to_qasm3(line)
+        qasm3_code += transformed_line
 
     # Parse the QASM 3 code into an Abstract Syntax Tree (AST)
     program_ast = parser.parse(qasm3_code)
 
     # Convert the AST back into a formatted QASM string
-    formatted_qasm = printer.dumps(program_ast)
-    return formatted_qasm
+    return printer.dumps(program_ast)
