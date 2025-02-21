@@ -15,9 +15,7 @@ def check_out(out, expected):
 
 def get_qasm3_def():
     lib_dir = os.path.dirname(os.path.dirname(__file__)) + "\\app\model\qasm_lib"
-    return open(
-        os.path.join(lib_dir, "qasm3_qelib1.qasm"), encoding="utf-8"
-    ).read()
+    return open(os.path.join(lib_dir, "qasm3_qelib1.qasm"), encoding="utf-8").read()
 
 
 class TestCases(unittest.TestCase):
@@ -131,14 +129,20 @@ class TestCases(unittest.TestCase):
         with pytest.raises(QASMConversionError) as context:
             # Pass a qasm2_code with an incorrect QASM version.
             convert_qasm2_to_qasm3("OPENQASM 3.0;")
-        assert str(context.value) == "Unsupported QASM version. Only 'OPENQASM 2.x' is allowed."
+        assert (
+            str(context.value)
+            == "Unsupported QASM version. Only 'OPENQASM 2.x' is allowed."
+        )
 
     def test_unsupported_library_exception(self):
         # Test that an exception is raised for an invalid include statement.
         with pytest.raises(QASMConversionError) as context:
             # Pass a qasm2_code with an invalid include command.
             convert_qasm2_to_qasm3('include "otherlib.inc";')
-        assert str(context.value) == "Unsupported library included. Only 'qelib1.inc' is allowed."
+        assert (
+            str(context.value)
+            == "Unsupported library included. Only 'qelib1.inc' is allowed."
+        )
 
     def test_valid_qasm_version(self):
         # Test that a valid OPENQASM 2.1 statement does not raise an exception.
