@@ -9,6 +9,7 @@ def check_out(out, expected):
     expected_circuit = loads(expected)
     assert actual_circuit == expected_circuit
 
+
 def get_qasm3_def():
     lib_dir = os.path.dirname(os.path.dirname(__file__)) + "\\app\model\qasm_lib"
     return open(
@@ -129,7 +130,7 @@ class TestCases(unittest.TestCase):
             convert_qasm2_to_qasm3("OPENQASM 3.0;")
         self.assertEqual(
             str(context.exception),
-            "Unsupported QASM version. Only 'OPENQASM 2.x' is allowed."
+            "Unsupported QASM version. Only 'OPENQASM 2.x' is allowed.",
         )
 
     def test_unsupported_library_exception(self):
@@ -139,7 +140,7 @@ class TestCases(unittest.TestCase):
             convert_qasm2_to_qasm3('include "otherlib.inc";')
         self.assertEqual(
             str(context.exception),
-            "Unsupported library included. Only 'qelib1.inc' is allowed."
+            "Unsupported library included. Only 'qelib1.inc' is allowed.",
         )
 
     def test_valid_qasm_version(self):
@@ -161,5 +162,6 @@ class TestCases(unittest.TestCase):
             self.fail("convert_qasm2_to_qasm3 raised QASMConversionError unexpectedly!")
         check_out(result, expected)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
