@@ -18,13 +18,13 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: uv Sync (including dev-dependencies)
-        run: uv sync --all-groups
+        run: uv sync --all-groups --frozen
 
       - name: Extract OpenAPI spec
-        run: uv run extract-openapi.py
+        run: uv run --no-sync extract-openapi.py
 
       - name: Build static files
-        run: uv run sphinx-build docs/ docs/_build
+        run: uv run --no-sync sphinx-build docs/ docs/_build
 
       - name: Upload static files as artifact
         uses: actions/upload-pages-artifact@v3
