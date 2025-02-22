@@ -6,3 +6,10 @@ Add your content using ``reStructuredText`` syntax. See the
 documentation for details.
 
 .. openapi:: openapi.json
+
+.. toctree::
+    :hidden:
+    :maxdepth: 2
+
+    index
+    testing
