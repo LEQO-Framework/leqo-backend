@@ -23,7 +23,7 @@ jobs:
         run: uv sync --all-extras --dev
 
       - name: Type checking
-        run: uv run mypy app --strict
+        run: uv run mypy . --strict
 
       - name: Run tests
         run: uv run pytest tests
