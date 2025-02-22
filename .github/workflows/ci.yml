@@ -20,7 +20,7 @@ jobs:
           python-version-file: ".python-version"
 
       - name: Install the project
-        run: uv sync --all-extras --all-groups --frozen
+        run: uv sync --all-extras --all-groups --locked
 
       - name: Type checking
         run: uv run --no-sync mypy . --strict
