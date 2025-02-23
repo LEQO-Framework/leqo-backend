@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.115.8",
-    "openqasm3>=1.0.1",
+    "openqasm3[parser]>=1.0.1",
 ]
 
 [dependency-groups]
