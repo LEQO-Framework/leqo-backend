@@ -4,7 +4,7 @@ from openqasm3.ast import Include, Program, QASMNode
 from openqasm3.visitor import QASMTransformer
 
 
-class Imports(QASMTransformer[None]):
+class SortImports(QASMTransformer[None]):
     """
     Makes following changes to the imports:
     - remove dublicates
@@ -26,12 +26,10 @@ class Imports(QASMTransformer[None]):
 
         self.seen[node.filename] = node
 
-    @override
-    def visit(self, node: QASMNode, context: object | None = None) -> Any | None:
+    def transform(self, program: Program) -> Program:
         """
-        Execute normal visit to remove imports, than add them to the beginning.
+        Transforms the program to have unique imports at the top.
         """
-        breakpoint()
-        program: Program = super().visit(node, None)
+        program = self.visit(program)
         program.statements = list(self.seen.values()) + program.statements
         return program
