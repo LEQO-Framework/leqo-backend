@@ -1,13 +1,12 @@
-from textwrap import dedent
-
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
 from app.postprocess.sort_imports import SortImports
+from tests.postprocess.helper import normalize
 
 
 def test_basic() -> None:
-    before = dedent("""
+    before = normalize("""
     include "stdgates.inc";
     bit[2] c;
     qubit[4] _all_qubits;
@@ -19,8 +18,8 @@ def test_basic() -> None:
     include "stdgates.inc";
     include "qelib1.inc";
     ccx q[0], q[1], q[3];
-    """).strip()
-    target = dedent("""
+    """)
+    target = normalize("""
     include "stdgates.inc";
     include "qelib1.inc";
     bit[2] c;
@@ -31,6 +30,6 @@ def test_basic() -> None:
     cx q[0], q[2];
     cx q[1], q[2];
     ccx q[0], q[1], q[3];
-    """).strip()
-    actual = dedent(dumps(SortImports().transform(parse(before)))).strip()
+    """)
+    actual = normalize(dumps(SortImports().transform(parse(before))))
     assert target == actual
