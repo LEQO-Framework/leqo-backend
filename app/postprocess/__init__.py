@@ -1,14 +1,13 @@
 from openqasm3.ast import Program
-from openqasm3.parser import parse
+from openqasm3.printer import dumps
 
-from app.postprocess.imports import Imports
+from app.postprocess.sort_imports import SortImports
 
 
-def preprocess_str(program_raw: str) -> Program:
-    program = parse(program_raw)
-    return preprocess(program)
+def preprocess_str(program: Program) -> str:
+    return dumps(preprocess(program))
 
 
 def preprocess(program: Program) -> Program:
-    program = Imports().visit(program)
+    program = SortImports().visit(program)
     return program
