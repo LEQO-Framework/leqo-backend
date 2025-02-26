@@ -1,6 +1,4 @@
-from typing import Any, override
-
-from openqasm3.ast import Include, Program, QASMNode
+from openqasm3.ast import Include, Program
 from openqasm3.visitor import QASMTransformer
 
 
