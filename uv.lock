@@ -322,6 +322,7 @@ dev = [
     { name = "sphinx-autobuild" },
     { name = "sphinx-rtd-theme" },
     { name = "sphinxcontrib-openapi" },
+    { name = "sphobjinv" },
 ]
 
 [package.metadata]
@@ -340,6 +341,7 @@ dev = [
     { name = "sphinx-autobuild", specifier = ">=2024.10.3" },
     { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
     { name = "sphinxcontrib-openapi", specifier = ">=0.8.4" },
+    { name = "sphobjinv", specifier = ">=2.3.1.2" },
 ]
 
 [[package]]
@@ -909,6 +911,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/3b/44/6716b257b0aa6bfd51a1b31665d1c205fb12cb5ad56de752dfa15657de2f/sphinxcontrib_serializinghtml-2.0.0.tar.gz", hash = "sha256:e9d912827f872c029017a53f0ef2180b327c3f7fd23c87229f7a8e8b70031d4d", size = 16080 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/52/a7/d2782e4e3f77c8450f727ba74a8f12756d5ba823d81b941f1b04da9d033a/sphinxcontrib_serializinghtml-2.0.0-py3-none-any.whl", hash = "sha256:6e2cb0eef194e10c27ec0023bfeb25badbbb5868244cf5bc5bdc04e4464bf331", size = 92072 },
+]
+
+[[package]]
+name = "sphobjinv"
+version = "2.3.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "certifi" },
+    { name = "jsonschema" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8c/5e/cf2c54fcc6cc999f64d3a34edeee1ca69d6e1f8aee40772c5f3f036296dc/sphobjinv-2.3.1.2.tar.gz", hash = "sha256:1c874a368460851352d45c92afa172b5c42653b47e2e70d78d61dac93308aa9d", size = 268026 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9c/4d/103e541e2533df159e1070cd4372b447a0b689e08a49d271b7b950e21f92/sphobjinv-2.3.1.2-py3-none-any.whl", hash = "sha256:66478d1787d28ef3ebeeedad57c592fdea04cf10eeed0df56307c85ab4eee789", size = 50820 },
 ]
 
 [[package]]

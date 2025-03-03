@@ -11,5 +11,5 @@ documentation for details.
     :hidden:
     :maxdepth: 2
 
-    index
     testing
+    example-cross-references
