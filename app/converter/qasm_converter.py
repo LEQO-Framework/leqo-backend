@@ -165,7 +165,7 @@ class QASMConverter:
 
         for filename in file_list:
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            path = os.path.join(current_dir, "qasm_lib\\" + filename)
+            path = os.path.join(current_dir, "qasm_lib/" + filename)
             with open(
                 path,
                 encoding="utf-8",
