@@ -3,7 +3,7 @@ import os
 import pytest
 from qiskit.qasm3 import loads
 
-from app.model.qasm_converter import QASMConversionError, QASMConverter
+from app.converter.qasm_converter import QASMConversionError, QASMConverter
 
 
 def test_qubit_conversion():
