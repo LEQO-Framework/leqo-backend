@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from qiskit.qasm3 import loads
 
