@@ -213,8 +213,7 @@ def test_unsupported_qasm_version_exception():
         QASMConversionError,
         match="Unsupported QASM version. Only 'OPENQASM 2.x' is allowed.",
     ):
-        converter = QASMConverter()
-        converter.qasm2_to_qasm3("OPENQASM 3.0;")
+        QASMConverter().qasm2_to_qasm3("OPENQASM 3.0;")
 
 
 def test_unsupported_library_exception():
@@ -222,8 +221,7 @@ def test_unsupported_library_exception():
         QASMConversionError,
         match="Unsupported library included. Only 'qelib1.inc' is allowed.",
     ):
-        converter = QASMConverter()
-        converter.qasm2_to_qasm3('include "otherlib.inc";')
+        QASMConverter.qasm2_to_qasm3('include "otherlib.inc";')
 
 
 def test_valid_qasm_version():
