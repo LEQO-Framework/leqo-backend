@@ -11,7 +11,7 @@ class QASMConversionError(Exception):
     """
 
 
-def remove_comments(content):
+def remove_comments(content: str) -> str:
     """
     Removes both single-line (//) and multi-line (/* */) comments from the given QASM content.
 
@@ -30,7 +30,7 @@ class QASMConverter:
     Converts QASM 2.x code to QASM 3.0, handling unsupported gates and libraries.
     """
 
-    def __init__(self, libs_extens_files=None) -> None:
+    def __init__(self, libs_extens_files: list[str] | None = None) -> None:
         """
         Initializes the QASMConverter with optional external QASM files for unsupported gates.
 
@@ -132,6 +132,11 @@ class QASMConverter:
                 gate = match_gates.group(0)
                 details = self.qasm2_unsupported_gates.get(gate)
 
+                if details is None:
+                    raise QASMConversionError(
+                        f"Couldn't process unsupported QASM 2.x gate '{gate}'"
+                    )
+
                 added_gates.add(gate)
 
                 qasm3_code = f"""// Helper gate for {gate} \ngate {gate}{details[0]} {details[1]} \n{{\n    {details[2]}\n}}\n\n"""
@@ -144,7 +149,7 @@ class QASMConverter:
         return """"""
 
     @staticmethod
-    def __load_unique_gates_from_files(file_list: list[str]) -> dict:
+    def __load_unique_gates_from_files(file_list: list[str]) -> dict[str, list[str]]:
         """
         Reads QASM files specified during initialization and extracts unique gate definitions.
 
@@ -155,7 +160,7 @@ class QASMConverter:
             dict: A dictionary where the gate name maps to its parameters, qubits, body, and source file.
         """
         unique_gates = set()
-        gate_details = {}
+        gate_details: dict[str, list[str]] = {}
         pattern = r"gate\s+(\w+)\s*(\([^)]*\))?\s*([\w,\s]+)\s*\{([\s\S]*?)\}\s*"
 
         for filename in file_list:

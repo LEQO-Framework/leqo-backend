@@ -51,3 +51,10 @@ extend-select = [
     "UP", # pyupgrade
     "YTT", # flake8-2020
 ]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "qiskit.qasm3"
+ignore_missing_imports = true

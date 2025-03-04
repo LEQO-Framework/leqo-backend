@@ -6,7 +6,7 @@ from qiskit.qasm3 import loads
 from app.converter.qasm_converter import QASMConversionError, QASMConverter
 
 
-def test_qubit_conversion():
+def test_qubit_conversion() -> None:
     converter = QASMConverter()
     input_qasm2 = """OPENQASM 2.0;
     include "qelib1.inc";
@@ -25,7 +25,7 @@ def test_qubit_conversion():
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
 
-def test_measure_statement_conversion():
+def test_measure_statement_conversion() -> None:
     input_qasm2 = """
     OPENQASM 2.0;
     include "qelib1.inc";
@@ -47,7 +47,7 @@ def test_measure_statement_conversion():
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
 
-def test_opaque_comment_conversion():
+def test_opaque_comment_conversion() -> None:
     input_qasm2 = """
     OPENQASM 2.0;
     include "qelib1.inc";
@@ -67,7 +67,7 @@ def test_opaque_comment_conversion():
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
 
-def test_std_header_conversion():
+def test_std_header_conversion() -> None:
     input_qasm2 = """
     OPENQASM 2.0;
     include "qelib1.inc";
@@ -83,7 +83,7 @@ def test_std_header_conversion():
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
 
-def test_unsupported_gate_conversion():
+def test_unsupported_gate_conversion() -> None:
     input_qasm2 = """
     OPENQASM 2.0;
     include "qelib1.inc";
@@ -208,7 +208,7 @@ def test_unsupported_gate_conversion():
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
 
-def test_unsupported_qasm_version_exception():
+def test_unsupported_qasm_version_exception() -> None:
     with pytest.raises(
         QASMConversionError,
         match="Unsupported QASM version. Only 'OPENQASM 2.x' is allowed.",
@@ -216,15 +216,15 @@ def test_unsupported_qasm_version_exception():
         QASMConverter().qasm2_to_qasm3("OPENQASM 3.0;")
 
 
-def test_unsupported_library_exception():
+def test_unsupported_library_exception() -> None:
     with pytest.raises(
         QASMConversionError,
         match="Unsupported library included. Only 'qelib1.inc' is allowed.",
     ):
-        QASMConverter.qasm2_to_qasm3('include "otherlib.inc";')
+        QASMConverter().qasm2_to_qasm3('include "otherlib.inc";')
 
 
-def test_valid_qasm_version():
+def test_valid_qasm_version() -> None:
     # Test that a valid OPENQASM 2.1 statement does not raise an exception.
     input_qasm2 = """
             OPENQASM 2.1;
@@ -243,12 +243,12 @@ def test_valid_qasm_version():
 
 
 # Helper functions # # # # #
-def check_out(out, expected):
+def check_out(out: str, expected: str) -> None:
     actual_circuit = loads(out)
     expected_circuit = loads(expected)
     assert actual_circuit == expected_circuit
 
 
-def get_qasm3_def():
-    lib_dir = os.path.dirname(os.path.dirname(__file__)) + "\\app\model\qasm_lib"
+def get_qasm3_def() -> str:
+    lib_dir = os.path.dirname(os.path.dirname(__file__)) + "\\app\\converter\\qasm_lib"
     return open(os.path.join(lib_dir, "qasm3_qelib1.qasm"), encoding="utf-8").read()
