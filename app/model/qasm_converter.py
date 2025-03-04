@@ -134,7 +134,7 @@ class QASMConverter:
 
                 added_gates.add(gate)
 
-                qasm3_code = f"""// Helper gate for {gate} \ngate {gate}{details[0]} {details[1]} \n{{\n    {details[2]}\n}}\n"""
+                qasm3_code = f"""// Helper gate for {gate} \ngate {gate}{details[0]} {details[1]} \n{{\n    {details[2]}\n}}\n\n"""
 
                 snippets += qasm3_code
 
