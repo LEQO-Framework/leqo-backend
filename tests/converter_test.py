@@ -26,6 +26,7 @@ def test_qubit_conversion() -> None:
 
 
 def test_measure_statement_conversion() -> None:
+    converter = QASMConverter()
     input_qasm2 = """
     OPENQASM 2.0;
     include "qelib1.inc";
@@ -37,17 +38,17 @@ def test_measure_statement_conversion() -> None:
     expected = f"""
     OPENQASM 3.0;
     include "stdgates.inc";
-    {get_qasm3_def()}
+    {converter.create_unsupported_gates_snippet(input_qasm2)}
     qubit[2] q;
     bit[2] c;
     c = measure q;
     c[1] = measure q[0];
     """
-    converter = QASMConverter()
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
 
 def test_opaque_comment_conversion() -> None:
+    converter = QASMConverter()
     input_qasm2 = """
     OPENQASM 2.0;
     include "qelib1.inc";
@@ -58,16 +59,16 @@ def test_opaque_comment_conversion() -> None:
     expected = f"""
     OPENQASM 3.0;
     include "stdgates.inc";
-    {get_qasm3_def()}
+    {converter.create_unsupported_gates_snippet(input_qasm2)}
     qubit[2] q;
     bit[2] c;
     // opaque custom_gate (a,b,c) p,q,r;
     """
-    converter = QASMConverter()
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
 
 def test_std_header_conversion() -> None:
+    converter = QASMConverter()
     input_qasm2 = """
     OPENQASM 2.0;
     include "qelib1.inc";
@@ -76,10 +77,9 @@ def test_std_header_conversion() -> None:
     expected = f"""
     OPENQASM 3.0;
     include "stdgates.inc";
-    {get_qasm3_def()}
+    {converter.create_unsupported_gates_snippet(input_qasm2)}
     qubit[1] q;
     """
-    converter = QASMConverter()
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
 
@@ -226,6 +226,7 @@ def test_unsupported_library_exception() -> None:
 
 def test_valid_qasm_version() -> None:
     # Test that a valid OPENQASM 2.1 statement does not raise an exception.
+    converter = QASMConverter()
     input_qasm2 = """
             OPENQASM 2.1;
             include "qelib1.inc";
@@ -234,12 +235,10 @@ def test_valid_qasm_version() -> None:
     expected = f"""
             OPENQASM 3.0;
             include "stdgates.inc";
-            {get_qasm3_def()}
+            {converter.create_unsupported_gates_snippet(input_qasm2)}
             qubit[1] q;
             """
-    converter = QASMConverter()
-    result = converter.qasm2_to_qasm3(input_qasm2)
-    check_out(result, expected)
+    check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
 
 # Helper functions # # # # #
@@ -247,8 +246,3 @@ def check_out(out: str, expected: str) -> None:
     actual_circuit = loads(out)
     expected_circuit = loads(expected)
     assert actual_circuit == expected_circuit
-
-
-def get_qasm3_def() -> str:
-    lib_dir = os.path.dirname(os.path.dirname(__file__)) + "\\app\\converter\\qasm_lib"
-    return open(os.path.join(lib_dir, "qasm3_qelib1.qasm"), encoding="utf-8").read()
