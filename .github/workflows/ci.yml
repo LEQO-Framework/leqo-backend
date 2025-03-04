@@ -20,10 +20,13 @@ jobs:
           python-version-file: ".python-version"
 
       - name: Install the project
-        run: uv sync --all-extras --dev
+        run: uv sync --all-extras --all-groups --locked
 
       - name: Type checking
-        run: uv run mypy app --strict
+        run: uv run --no-sync mypy . --strict
+
+      - name: Run tests
+        run: uv run --no-sync pytest tests
 
   linting:
     runs-on: ubuntu-latest
