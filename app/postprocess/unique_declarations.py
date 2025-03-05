@@ -4,7 +4,6 @@ from openqasm3.ast import (
     ClassicalDeclaration,
     ConstantDeclaration,
     Identifier,
-    Program,
     QASMNode,
     QubitDeclaration,
 )
