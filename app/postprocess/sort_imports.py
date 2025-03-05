@@ -21,13 +21,14 @@ class SortImports(QASMTransformer[None]):
         :param node: The statement to process
         :return: None removes the node
         """
-
         self.seen[node.filename] = node
 
-    def transform(self, program: Program) -> Program:
+    def visit_Program(self, node: Program) -> Program:
         """
-        Transforms the program to have unique imports at the top.
+        Executes a normal (generic) visit first, then add removed imports back.
         """
-        program = self.visit(program)
+        program = self.generic_visit(node)
+        if not isinstance(program, Program):
+            raise RuntimeError("This can't happen.")
         program.statements = list(self.seen.values()) + program.statements
         return program

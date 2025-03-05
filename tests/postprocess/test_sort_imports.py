@@ -31,5 +31,5 @@ def test_basic() -> None:
     cx q[1], q[2];
     ccx q[0], q[1], q[3];
     """)
-    actual = normalize(dumps(SortImports().transform(parse(before))))
+    actual = normalize(dumps(SortImports().visit(parse(before))))
     assert target == actual

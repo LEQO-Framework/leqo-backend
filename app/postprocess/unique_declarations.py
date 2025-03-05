@@ -125,12 +125,3 @@ class UniqueDeclarations(QASMTransformer[None]):
         else:
             self.names.add(name)
         return self.generic_visit(node)
-
-    def transform(self, program: Program) -> Program:
-        """
-        Apply the transformation of this class.
-        """
-        result = self.visit(program)
-        if not isinstance(result, Program):
-            raise RuntimeError(f"{result} has type {type(result)} not Program")
-        return result

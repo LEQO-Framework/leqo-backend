@@ -6,7 +6,7 @@ from tests.postprocess.helper import normalize
 
 
 def get_result(program: str) -> str:
-    return normalize(dumps(UniqueDeclarations().transform(parse(program))))
+    return normalize(dumps(UniqueDeclarations().visit(parse(program))))
 
 
 def test_duplicate_constant() -> None:

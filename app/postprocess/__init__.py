@@ -1,4 +1,4 @@
-from openqasm3.ast import Program
+from openqasm3.ast import Program, QASMNode
 from openqasm3.printer import dumps
 
 from app.postprocess.sort_imports import SortImports
@@ -10,5 +10,10 @@ def preprocess_str(program: Program) -> str:
 
 
 def preprocess(program: Program) -> Program:
-    program = SortImports().transform(program)
-    return UniqueDeclarations().transform(program)
+    tmp: QASMNode | None = None
+    for Transformer in (SortImports, UniqueDeclarations):
+        tmp = Transformer().visit(program)
+        if not isinstance(tmp, Program):
+            raise RuntimeError(f"{Transformer} returned {tmp}, not a Program")
+        program = tmp
+    return program
