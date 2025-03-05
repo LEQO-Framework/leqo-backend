@@ -7,6 +7,9 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.115.8",
     "openqasm3[parser]>=1.0.1",
+    "psycopg2>=2.9.10",
+    "python-dotenv>=1.0.1",
+    "sqlalchemy>=2.0.38",
 ]
 
 [dependency-groups]
