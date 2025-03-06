@@ -1,3 +1,5 @@
+"""Fix QASMTransformer ignoring lists in lists."""
+
 from typing import override
 
 from openqasm3.ast import QASMNode
@@ -5,25 +7,11 @@ from openqasm3.visitor import QASMTransformer
 
 
 class Transformer(QASMTransformer[None]):
-    """
-    This QASMTransformer child fixes an issue in the parent,
-    where it was not recursively visiting lists in lists.
-    This is important if visit_Identifier is used.
-    """
-
-    names: set[str]
-    rename: dict[str, str]
-
-    def __init__(self) -> None:
-        self.names = set()
-        self.rename = {}
+    """Fixes an issue in the parent, walk through lists in lists."""
 
     @override
     def generic_visit(self, node: QASMNode, context: None = None) -> QASMNode:
-        """
-        This is almost a clone of the parent generic_visit,
-        but it handles lists recursively.
-        """
+        """Otherwise almost a clone of the parent method."""
         for field, old_value in node.__dict__.items():
             if isinstance(old_value, list):
                 self.list_visit(old_value)
@@ -38,9 +26,7 @@ class Transformer(QASMTransformer[None]):
         return node
 
     def list_visit(self, values: list[object]) -> None:
-        """
-        A helper function to recursively visit lists in lists.
-        """
+        """Recursively visits lists in lists."""
         new_values: list[object] = []
         for value in values:
             if isinstance(value, list):
@@ -54,4 +40,4 @@ class Transformer(QASMTransformer[None]):
                     new_values.extend(new_value)
                     continue
                 new_values.append(new_value)
-        values[:] = new_values  # modify the input inplace
+        values[:] = new_values  # modify values inplace
