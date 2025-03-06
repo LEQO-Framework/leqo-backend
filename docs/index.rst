@@ -14,3 +14,4 @@ documentation for details.
     app.lib
     testing
     example-cross-references
+    app.postprocess
