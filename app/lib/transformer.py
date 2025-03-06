@@ -11,7 +11,7 @@ class Transformer(QASMTransformer[None]):
 
     @override
     def generic_visit(self, node: QASMNode, context: None = None) -> QASMNode:
-        """Otherwise almost a clone of the parent method."""
+        """Almost a clone of the parent method, but handles lists via list_visit."""
         for field, old_value in node.__dict__.items():
             if isinstance(old_value, list):
                 self.list_visit(old_value)
