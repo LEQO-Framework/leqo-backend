@@ -20,7 +20,7 @@ class ConnectVariables(Transformer):
         - one list of sub-lists
         - each sub-lists contains the names of all variables to connect
         """
-        self.conn_name_counter = 1
+        self.conn_name_counter = 0
         self.spec = spec
         self.rename = {}
         self.declared = {}
@@ -33,6 +33,7 @@ class ConnectVariables(Transformer):
 
     def new_conncetion_name(self) -> str:
         """Generate unique names for connections."""
+        self.conn_name_counter += 1
         return f"connect{self.conn_name_counter}"
 
     def visit_Identifier(self, node: Identifier) -> Identifier:

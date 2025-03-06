@@ -34,3 +34,29 @@ def test_renaming() -> None:
     """)
     actual = normalize(dumps(ConnectVariables([["q1", "q2"]]).visit(parse(before))))
     assert target == actual
+
+
+def test_multiple_connections() -> None:
+    """Test multiple connections + declamations."""
+    before = normalize("""
+    qubit q1;
+    qubit q2;
+    qubit q3;
+    qubit q4;
+    x q1;
+    x q2;
+    ccx q1, q2, q3;
+    ccx q2, q3, q4;
+    """)
+    target = normalize("""
+    qubit connect1;
+    qubit connect2;
+    x connect1;
+    x connect2;
+    ccx connect1, connect2, connect1;
+    ccx connect2, connect1, connect2;
+    """)
+    actual = normalize(
+        dumps(ConnectVariables([["q1", "q3"], ["q2", "q4"]]).visit(parse(before))),
+    )
+    assert target == actual
