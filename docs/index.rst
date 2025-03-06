@@ -11,5 +11,6 @@ documentation for details.
     :hidden:
     :maxdepth: 2
 
+    app.lib
     testing
     example-cross-references
