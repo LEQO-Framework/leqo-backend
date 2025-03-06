@@ -6,6 +6,7 @@ from tests.postprocess.helper import normalize
 
 
 def test_basic() -> None:
+    """Basic test that covers a single example."""
     before = normalize("""
     include "stdgates.inc";
     bit[2] c;
