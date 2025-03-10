@@ -25,15 +25,35 @@ class AllToYFixed(Transformer):
         return node
 
 
-def test_basic() -> None:
-    """Covers the error fixed by the Transformer."""
+def test_indecies() -> None:
+    """Check if Transformer can handle variables in indices."""
     before = normalize("""
-    const uint I = 100;
     x q[I];
     """)
     true = normalize("""
-    const uint y = 100;
     y y[y];
+    """)
+    previous = normalize(dumps(AllToYDefault().visit(parse(before))))
+    fixed = normalize(dumps(AllToYFixed().visit(parse(before))))
+    assert true != previous
+    assert true == fixed
+
+
+def test_switch() -> None:
+    """Check if Transformer can handle tuples in switches."""
+    before = normalize("""
+    switch (i) {
+        case 1, B, C {
+            x q;
+            }
+        }
+    """)
+    true = normalize("""
+    switch (y) {
+        case 1, y, y {
+            y y;
+            }
+        }
     """)
     previous = normalize(dumps(AllToYDefault().visit(parse(before))))
     fixed = normalize(dumps(AllToYFixed().visit(parse(before))))
