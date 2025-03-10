@@ -62,4 +62,5 @@ class Transformer(QASMTransformer[T]):
         values: tuple[object, ...],
         context: T | None,
     ) -> tuple[object, ...]:
+        """Wrap list_visit for tuples."""
         return tuple(self.list_visit(list(values), context))
