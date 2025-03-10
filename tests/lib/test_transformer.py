@@ -1,16 +1,10 @@
-from textwrap import dedent
-
 from openqasm3.ast import Identifier
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 from openqasm3.visitor import QASMTransformer
 
+from app.lib.qasm_string import normalize
 from app.lib.transformer import Transformer
-
-
-def normalize(program: str) -> str:
-    """Normalize QASM-string."""
-    return dedent(program).strip()
 
 
 class AllToYDefault(QASMTransformer[None]):
