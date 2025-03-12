@@ -12,30 +12,34 @@ from openqasm3.ast import (
 )
 from openqasm3.visitor import QASMTransformer
 
+from app.model.SectionInfo import SectionInfo
 
-class RenameRegisterTransformer(QASMTransformer[None]):
+
+class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
     """
     Renames all declarations inside a qasm program to prevent collisions when merging.
     """
 
-    stage_index: int
     declarations: dict[str, Identifier]
 
-    def __init__(self, stage_index: int):
-        self.stage_index = stage_index
+    def __init__(self):
         self.declarations = {}
 
-    def new_identifier(self, old_identifier: Identifier) -> Identifier:
+    def new_identifier(
+        self, old_identifier: Identifier, context: SectionInfo
+    ) -> Identifier:
         if self.declarations.get(old_identifier.name) is not None:
             raise Exception("Variable already defined")
 
         index = len(self.declarations)
-        identifier = Identifier(f"leqo_section{self.stage_index}_declaration{index}")
+        identifier = Identifier(f"leqo_section{context.index}_declaration{index}")
         self.declarations[old_identifier.name] = identifier
 
         return identifier
 
-    def visit_QubitDeclaration(self, node: QubitDeclaration) -> QubitDeclaration:
+    def visit_QubitDeclaration(
+        self, node: QubitDeclaration, context: SectionInfo
+    ) -> QubitDeclaration:
         """
         Renames identifier of qubit declaration.
 
@@ -43,25 +47,27 @@ class RenameRegisterTransformer(QASMTransformer[None]):
         :return: Modified declaration
         """
 
-        identifier = self.new_identifier(node.qubit)
+        identifier = self.new_identifier(node.qubit, context)
         return QubitDeclaration(identifier, node.size)
 
     def visit_QuantumGateDefinition(
-        self, node: QuantumGateDefinition
+        self, node: QuantumGateDefinition, context: SectionInfo
     ) -> QuantumGateDefinition:
         body: list[QuantumStatement] = []
         for child in node.body:
             body.append(self.visit(child))
 
-        name = self.new_identifier(node.name)
+        name = self.new_identifier(node.name, context)
         return QuantumGateDefinition(name, node.arguments, node.qubits, body)
 
-    def visit_ExternDeclaration(self, node: ExternDeclaration) -> ExternDeclaration:
-        identifier = self.new_identifier(node.name)
+    def visit_ExternDeclaration(
+        self, node: ExternDeclaration, context: SectionInfo
+    ) -> ExternDeclaration:
+        identifier = self.new_identifier(node.name, context)
         return ExternDeclaration(identifier, node.arguments, node.return_type)
 
     def visit_ClassicalDeclaration(
-        self, node: ClassicalDeclaration
+        self, node: ClassicalDeclaration, context: SectionInfo
     ) -> ClassicalDeclaration:
         """
         Renames identifier of classical declaration.
@@ -70,25 +76,27 @@ class RenameRegisterTransformer(QASMTransformer[None]):
         :return: Modified declaration
         """
 
-        identifier = self.new_identifier(node.identifier)
+        identifier = self.new_identifier(node.identifier, context)
         return ClassicalDeclaration(node.type, identifier, node.init_expression)
 
-    def visit_IODeclaration(self, node: IODeclaration) -> IODeclaration:
-        identifier = self.new_identifier(node.identifier)
+    def visit_IODeclaration(
+        self, node: IODeclaration, context: SectionInfo
+    ) -> IODeclaration:
+        identifier = self.new_identifier(node.identifier, context)
         return IODeclaration(node.io_identifier, node.type, identifier)
 
     def visit_CalibrationDefinition(
-        self, node: CalibrationDefinition
+        self, node: CalibrationDefinition, context: SectionInfo
     ) -> CalibrationDefinition:
-        name = self.new_identifier(node.name)
+        name = self.new_identifier(node.name, context)
         return CalibrationDefinition(
             name, node.arguments, node.qubits, node.return_type, node.body
         )
 
     def visit_SubroutineDefinition(
-        self, node: SubroutineDefinition
+        self, node: SubroutineDefinition, context: SectionInfo
     ) -> SubroutineDefinition:
-        name = self.new_identifier(node.name)
+        name = self.new_identifier(node.name, context)
 
         body: list[Statement] = []
         for child in node.body:

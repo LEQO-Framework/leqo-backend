@@ -7,8 +7,10 @@ from openqasm3.ast import (
 )
 from openqasm3.visitor import QASMTransformer
 
+from app.model.SectionInfo import SectionInfo
 
-class InliningTransformer(QASMTransformer[None]):
+
+class InliningTransformer(QASMTransformer[SectionInfo]):
     """
     Inlines all :py:class:`openqasm3.ast.AliasStatement` in a qasm ast.
     """
