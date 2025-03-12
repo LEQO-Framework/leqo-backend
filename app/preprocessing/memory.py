@@ -13,8 +13,8 @@ class MemoryTransformer(QASMTransformer[SectionInfo]):
     def visit_QubitDeclaration(
         self, node: QubitDeclaration, context: SectionInfo
     ) -> QubitDeclaration:
-        is_input = any(filter(lambda x: x.keyword == "leqo.input", node.annotations))
-        is_output = any(filter(lambda x: x.keyword == "leqo.output", node.annotations))
+        is_input = any(x for x in node.annotations if x.keyword == "leqo.input")
+        is_output = any(x for x in node.annotations if x.keyword == "leqo.output")
 
         context.globals[node.qubit.name] = SectionGlobal(
             QasmDataType.QUBIT, is_input, is_output, isReset=False

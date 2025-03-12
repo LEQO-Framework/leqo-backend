@@ -4,7 +4,7 @@ from tests.preprocessing.utils import assert_processor
 
 def test_register_renaming() -> None:
     assert_processor(
-        RenameRegisterTransformer(1),
+        RenameRegisterTransformer(),
         """
         OPENQASM 3;
         float f1;

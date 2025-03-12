@@ -22,7 +22,7 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
 
     declarations: dict[str, Identifier]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.declarations = {}
 
     def new_identifier(
@@ -107,7 +107,7 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
     # `ForInLoop` only declares variable inside a scope
     # => No collisions with other blocks but theoretically without renamed globals
 
-    def visit_Identifier(self, node: Identifier) -> Identifier:
+    def visit_Identifier(self, node: Identifier, context: SectionInfo) -> Identifier:
         """
         Renames identifiers using the old declaration names.
 
