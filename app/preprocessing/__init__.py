@@ -23,7 +23,7 @@ def preprocess(program: Program, section_info: SectionInfo) -> Program:
     """
     Runs an openqasm3 snippet through the preprocessing pipeline.
 
-    :param program: A valid openqasm3 program (as string) to preprocess.
+    :param program: A valid openqasm3 program (as AST) to preprocess.
     :param section_info: MetaData of the section to preprocess.
     :return: The preprocessed program.
     """
