@@ -21,6 +21,13 @@ def get_int(expression: Expression | None) -> int | None:
 
 
 def parse_io_range(value: str | None) -> int | None:
+    """
+    Parses the optional :py:class:`openqasm3.ast.Annotation.command` string.
+
+    :param value: Value to be parsed.
+    :return: Parsed value or None if input was None.
+    """
+
     if value is None:
         return None
 
