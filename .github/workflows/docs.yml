@@ -25,6 +25,8 @@ jobs:
 
       - name: Build static files
         run: uv run --no-sync sphinx-build docs/ docs/_build
+        env:
+          PYTHONPATH: ${{ github.workspace }}
 
       - name: Upload static files as artifact
         uses: actions/upload-pages-artifact@v3
