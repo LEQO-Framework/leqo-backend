@@ -28,6 +28,8 @@ def test_register_renaming() -> None:
         let alias = q1_2;
         @leqo.input 8
         bit classicalTest = q1_2;
+        @leqo.input 9
+        const bit classicalTest2 = measure q1_2;
         x q1;
         x q1_2;
         x q2;
@@ -54,6 +56,8 @@ def test_register_renaming() -> None:
         let leqo_section1_declaration7 = leqo_section1_declaration3;
         @leqo.input 8
         bit leqo_section1_declaration8 = leqo_section1_declaration3;
+        @leqo.input 9
+        const bit leqo_section1_declaration9 = measure leqo_section1_declaration3;
         x leqo_section1_declaration2;
         x leqo_section1_declaration3;
         x leqo_section1_declaration4;

@@ -8,9 +8,7 @@ from openqasm3.ast import (
     IODeclaration,
     QASMNode,
     QuantumGateDefinition,
-    QuantumStatement,
     QubitDeclaration,
-    Statement,
     SubroutineDefinition,
 )
 from openqasm3.visitor import QASMTransformer
@@ -24,10 +22,10 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
     Renames all declarations inside a qasm program to prevent collisions when merging.
     """
 
-    declarations: dict[str, Identifier]
+    renames: dict[str, Identifier]
 
     def __init__(self) -> None:
-        self.declarations = {}
+        self.renames = {}
 
     def new_identifier(
         self, old_identifier: Identifier, context: SectionInfo
@@ -41,14 +39,14 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
         :return: A new globally unique identifier.
         """
 
-        if self.declarations.get(old_identifier.name) is not None:
+        if self.renames.get(old_identifier.name) is not None:
             raise Exception("Variable already defined")
 
-        index = len(self.declarations)
-        identifier = Identifier(f"leqo_section{context.index}_declaration{index}")
-        self.declarations[old_identifier.name] = identifier
+        index = len(self.renames)
+        new_identifier = Identifier(f"leqo_section{context.index}_declaration{index}")
+        self.renames[old_identifier.name] = new_identifier
 
-        return identifier
+        return new_identifier
 
     def visit_ConstantDeclaration(
         self, node: ConstantDeclaration, context: SectionInfo
@@ -72,21 +70,19 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
 
     def visit_QubitDeclaration(
         self, node: QubitDeclaration, context: SectionInfo
-    ) -> QubitDeclaration:
+    ) -> QASMNode:
         identifier = self.new_identifier(node.qubit, context)
-        return annotate(QubitDeclaration(identifier, node.size), node.annotations)
+        return self.generic_visit(
+            annotate(QubitDeclaration(identifier, node.size), node.annotations), context
+        )
 
     def visit_QuantumGateDefinition(
         self, node: QuantumGateDefinition, context: SectionInfo
     ) -> QASMNode:
-        body: list[QuantumStatement] = []
-        for child in node.body:
-            body.append(self.visit(child))
-
         name = self.new_identifier(node.name, context)
         return self.generic_visit(
             annotate(
-                QuantumGateDefinition(name, node.arguments, node.qubits, body),
+                QuantumGateDefinition(name, node.arguments, node.qubits, node.body),
                 node.annotations,
             ),
             context,
@@ -142,14 +138,9 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
         self, node: SubroutineDefinition, context: SectionInfo
     ) -> QASMNode:
         name = self.new_identifier(node.name, context)
-
-        body: list[Statement] = []
-        for child in node.body:
-            body.append(self.visit(child))
-
         return self.generic_visit(
             annotate(
-                SubroutineDefinition(name, node.arguments, body, node.return_type),
+                SubroutineDefinition(name, node.arguments, node.body, node.return_type),
                 node.annotations,
             ),
             context,
@@ -167,7 +158,7 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
         :return: Modified identifier
         """
 
-        new_identifier = self.declarations.get(node.name)
+        new_identifier = self.renames.get(node.name)
         if new_identifier is None:
             return node
 
