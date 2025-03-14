@@ -12,16 +12,11 @@ In order to prevent collision while merging all the standalone qasm snippets, th
 .. automodule:: app.model.SectionInfo
    :members:
 
-Inlining
---------
-
-.. automodule:: app.preprocessing.inlining
-   :members:
-
 Renaming
 --------
 
 .. automodule:: app.preprocessing.renaming
-   :members:
+    :members:
+    :undoc-members:
 
 
