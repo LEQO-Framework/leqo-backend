@@ -8,7 +8,9 @@ from app.model.SectionInfo import SectionInfo
 
 
 def assert_processor(
-    transformer: QASMTransformer[SectionInfo], original: str, expected: str
+    transformer: QASMTransformer[SectionInfo],
+    section_info: SectionInfo,
+    original: str,
+    expected: str,
 ) -> None:
-    section_info = SectionInfo(1, globals={})
     assert dumps(transformer.visit(parse(original), section_info)) == dedent(expected)

@@ -1,10 +1,13 @@
+from app.model.SectionInfo import SectionInfo
 from app.preprocessing.inlining import InliningTransformer
 from tests.preprocessing.utils import assert_processor
 
 
 def test_inline_aliases() -> None:
+    section_info = SectionInfo(1, globals={})
     assert_processor(
         InliningTransformer(),
+        section_info,
         """
         OPENQASM 3;
         include "stdgates.inc";

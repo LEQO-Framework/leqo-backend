@@ -1,10 +1,13 @@
+from app.model.SectionInfo import SectionInfo
 from app.preprocessing.renaming import RenameRegisterTransformer
 from tests.preprocessing.utils import assert_processor
 
 
 def test_register_renaming() -> None:
+    section_info = SectionInfo(1, globals={})
     assert_processor(
         RenameRegisterTransformer(),
+        section_info,
         """
         OPENQASM 3;
         float f1;
