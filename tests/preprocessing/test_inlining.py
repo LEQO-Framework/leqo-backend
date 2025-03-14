@@ -4,7 +4,7 @@ from tests.preprocessing.utils import assert_processor
 
 
 def test_inline_aliases() -> None:
-    section_info = SectionInfo(1, globals={})
+    section_info = SectionInfo(1)
     assert_processor(
         InliningTransformer(),
         section_info,

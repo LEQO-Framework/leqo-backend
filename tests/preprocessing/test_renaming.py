@@ -4,7 +4,7 @@ from tests.preprocessing.utils import assert_processor
 
 
 def test_register_renaming() -> None:
-    section_info = SectionInfo(1, globals={})
+    section_info = SectionInfo(1)
     assert_processor(
         RenameRegisterTransformer(),
         section_info,
