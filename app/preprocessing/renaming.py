@@ -1,4 +1,5 @@
 from openqasm3.ast import (
+    AliasStatement,
     CalibrationDefinition,
     ClassicalDeclaration,
     ExternDeclaration,
@@ -36,6 +37,12 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
         self.declarations[old_identifier.name] = identifier
 
         return identifier
+
+    def visit_AliasStatement(
+        self, node: AliasStatement, context: SectionInfo
+    ) -> AliasStatement:
+        identifier = self.new_identifier(node.target, context)
+        return AliasStatement(identifier, node.value)
 
     def visit_QubitDeclaration(
         self, node: QubitDeclaration, context: SectionInfo

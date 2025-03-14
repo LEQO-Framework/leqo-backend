@@ -1,6 +1,4 @@
 from openqasm3.ast import (
-    AliasStatement,
-    Concatenation,
     ConstantDeclaration,
     Expression,
     Identifier,
@@ -12,30 +10,24 @@ from app.model.SectionInfo import SectionInfo
 
 class InliningTransformer(QASMTransformer[SectionInfo]):
     """
-    Inlines all :py:class:`openqasm3.ast.AliasStatement` in a qasm ast.
+    Inlines all :py:class:`openqasm3.ast.ConstantDeclaration` in a qasm ast.
     """
 
-    lookup: dict[str, AliasStatement | ConstantDeclaration]
+    lookup: dict[str, ConstantDeclaration]
 
     def __init__(self) -> None:
         self.lookup = {}
 
-    def visit_AliasStatement(self, node: AliasStatement, _context: SectionInfo) -> None:
+    def visit_ConstantDeclaration(
+        self, node: ConstantDeclaration, _context: SectionInfo
+    ) -> None:
         """
-        Stores the alias statement and removes it from the ast.
+        Stores the const declaration and removes it from the ast.
 
         :param node: The statement to process
         :return: None to remove the alias statement
         """
 
-        if self.lookup.get(node.target.name) is not None:
-            raise Exception("Alias already defined")
-
-        self.lookup[node.target.name] = node
-
-    def visit_ConstantDeclaration(
-        self, node: ConstantDeclaration, _context: SectionInfo
-    ) -> None:
         if self.lookup.get(node.identifier.name) is not None:
             raise Exception("Alias already defined")
 
@@ -43,7 +35,7 @@ class InliningTransformer(QASMTransformer[SectionInfo]):
 
     def visit_Identifier(
         self, node: Identifier, _context: SectionInfo
-    ) -> Identifier | Concatenation | Expression:
+    ) -> Identifier | Expression:
         """
         Rewrites an identifier to use the inlined aliases.
         ToDo: We might change the type here: Is this a problem?
@@ -56,8 +48,4 @@ class InliningTransformer(QASMTransformer[SectionInfo]):
         if replacement is None:
             return node
 
-        match replacement:
-            case ConstantDeclaration():
-                return replacement.init_expression
-            case AliasStatement():
-                return replacement.value
+        return replacement.init_expression
