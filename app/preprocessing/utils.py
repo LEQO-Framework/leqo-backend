@@ -1,4 +1,6 @@
-from openqasm3.ast import Expression, IntegerLiteral
+from typing import TypeVar
+
+from openqasm3.ast import Annotation, Expression, IntegerLiteral, Statement
 
 
 def get_int(expression: Expression | None) -> int | None:
@@ -18,6 +20,14 @@ def get_int(expression: Expression | None) -> int | None:
             return expression.value
         case _:
             raise Exception("Invalid size")
+
+
+TQasmStatement = TypeVar("TQasmStatement", bound=Statement)
+
+
+def annotate(node: TQasmStatement, annotations: list[Annotation]) -> TQasmStatement:
+    node.annotations = annotations
+    return node
 
 
 def parse_io_range(value: str | None) -> int | None:

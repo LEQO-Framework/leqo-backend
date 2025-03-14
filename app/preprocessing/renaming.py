@@ -5,6 +5,7 @@ from openqasm3.ast import (
     ExternDeclaration,
     Identifier,
     IODeclaration,
+    QASMNode,
     QuantumGateDefinition,
     QuantumStatement,
     QubitDeclaration,
@@ -14,6 +15,7 @@ from openqasm3.ast import (
 from openqasm3.visitor import QASMTransformer
 
 from app.model.SectionInfo import SectionInfo
+from app.preprocessing.utils import annotate
 
 
 class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
@@ -49,62 +51,96 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
 
     def visit_AliasStatement(
         self, node: AliasStatement, context: SectionInfo
-    ) -> AliasStatement:
+    ) -> QASMNode:
         identifier = self.new_identifier(node.target, context)
-        return AliasStatement(identifier, node.value)
+        return self.generic_visit(
+            annotate(AliasStatement(identifier, node.value), node.annotations), context
+        )
 
     def visit_QubitDeclaration(
         self, node: QubitDeclaration, context: SectionInfo
     ) -> QubitDeclaration:
         identifier = self.new_identifier(node.qubit, context)
-        return QubitDeclaration(identifier, node.size)
+        return annotate(QubitDeclaration(identifier, node.size), node.annotations)
 
     def visit_QuantumGateDefinition(
         self, node: QuantumGateDefinition, context: SectionInfo
-    ) -> QuantumGateDefinition:
+    ) -> QASMNode:
         body: list[QuantumStatement] = []
         for child in node.body:
             body.append(self.visit(child))
 
         name = self.new_identifier(node.name, context)
-        return QuantumGateDefinition(name, node.arguments, node.qubits, body)
+        return self.generic_visit(
+            annotate(
+                QuantumGateDefinition(name, node.arguments, node.qubits, body),
+                node.annotations,
+            ),
+            context,
+        )
 
     def visit_ExternDeclaration(
         self, node: ExternDeclaration, context: SectionInfo
-    ) -> ExternDeclaration:
+    ) -> QASMNode:
         identifier = self.new_identifier(node.name, context)
-        return ExternDeclaration(identifier, node.arguments, node.return_type)
+        return self.generic_visit(
+            annotate(
+                ExternDeclaration(identifier, node.arguments, node.return_type),
+                node.annotations,
+            ),
+            context,
+        )
 
     def visit_ClassicalDeclaration(
         self, node: ClassicalDeclaration, context: SectionInfo
-    ) -> ClassicalDeclaration:
+    ) -> QASMNode:
         identifier = self.new_identifier(node.identifier, context)
-        return ClassicalDeclaration(node.type, identifier, node.init_expression)
+        return self.generic_visit(
+            annotate(
+                ClassicalDeclaration(node.type, identifier, node.init_expression),
+                node.annotations,
+            ),
+            context,
+        )
 
     def visit_IODeclaration(
         self, node: IODeclaration, context: SectionInfo
     ) -> IODeclaration:
         identifier = self.new_identifier(node.identifier, context)
-        return IODeclaration(node.io_identifier, node.type, identifier)
+        return annotate(
+            IODeclaration(node.io_identifier, node.type, identifier), node.annotations
+        )
 
     def visit_CalibrationDefinition(
         self, node: CalibrationDefinition, context: SectionInfo
-    ) -> CalibrationDefinition:
+    ) -> QASMNode:
         name = self.new_identifier(node.name, context)
-        return CalibrationDefinition(
-            name, node.arguments, node.qubits, node.return_type, node.body
+        return self.generic_visit(
+            annotate(
+                CalibrationDefinition(
+                    name, node.arguments, node.qubits, node.return_type, node.body
+                ),
+                node.annotations,
+            ),
+            context,
         )
 
     def visit_SubroutineDefinition(
         self, node: SubroutineDefinition, context: SectionInfo
-    ) -> SubroutineDefinition:
+    ) -> QASMNode:
         name = self.new_identifier(node.name, context)
 
         body: list[Statement] = []
         for child in node.body:
             body.append(self.visit(child))
 
-        return SubroutineDefinition(name, node.arguments, body, node.return_type)
+        return self.generic_visit(
+            annotate(
+                SubroutineDefinition(name, node.arguments, body, node.return_type),
+                node.annotations,
+            ),
+            context,
+        )
 
     # `ForInLoop` only declares variable inside a scope
     # => No collisions with other blocks but theoretically without renamed globals

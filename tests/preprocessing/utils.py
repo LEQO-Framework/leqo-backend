@@ -13,4 +13,7 @@ def assert_processor(
     original: str,
     expected: str,
 ) -> None:
-    assert dumps(transformer.visit(parse(original), section_info)) == dedent(expected)
+    program = parse(original)
+    program = transformer.visit(program, section_info)
+    processed = dumps(program)
+    assert processed == dedent(expected), f"{processed} != {expected}"
