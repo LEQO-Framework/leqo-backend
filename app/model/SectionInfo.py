@@ -9,9 +9,8 @@ class QasmDataType(Enum):
 @dataclass
 class SectionGlobal:
     type: QasmDataType
-    isInput: bool
-    isOutput: bool
-    isReset: bool
+    inputIndex: int | None
+    outputIndex: int | None
 
 
 @dataclass

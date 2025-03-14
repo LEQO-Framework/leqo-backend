@@ -9,36 +9,25 @@ def test_extract_memory_info() -> None:
     OPENQASM 3.0;
     include "stdgates.inc";
     
-    @leqo.input
+    @leqo.input 1
     qubit someInput;
     
-    @leqo.output
+    @leqo.output 1
     qubit someOutput;
     
-    @leqo.input
-    @leqo.output
+    @leqo.input 2
+    @leqo.output 3
     qubit someRef;
-    
-    h someInput;
-    reset someInput;
-    h someInput;
-    
-    reset someRef;
-    
-    h someOutput;
     """
 
     section_info = SectionInfo(1, globals={})
     MemoryTransformer().visit(parse(original), section_info)
 
-    assert not section_info.globals["someInput"].isReset
-    assert section_info.globals["someInput"].isInput
-    assert not section_info.globals["someInput"].isOutput
+    assert section_info.globals["someInput"].inputIndex == 1
+    assert section_info.globals["someInput"].outputIndex is None
 
-    assert not section_info.globals["someOutput"].isReset
-    assert not section_info.globals["someOutput"].isInput
-    assert section_info.globals["someOutput"].isOutput
+    assert section_info.globals["someOutput"].inputIndex is None
+    assert section_info.globals["someOutput"].outputIndex == 1
 
-    assert section_info.globals["someRef"].isReset
-    assert section_info.globals["someRef"].isInput
-    assert section_info.globals["someRef"].isOutput
+    assert section_info.globals["someRef"].inputIndex == 2
+    assert section_info.globals["someRef"].outputIndex == 3
