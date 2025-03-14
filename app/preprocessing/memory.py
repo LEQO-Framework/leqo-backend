@@ -4,6 +4,7 @@ from openqasm3.ast import (
 from openqasm3.visitor import QASMTransformer
 
 from app.model.SectionInfo import QasmDataType, SectionGlobal, SectionInfo
+from app.preprocessing.utils import parse_io_range
 
 
 class MemoryTransformer(QASMTransformer[SectionInfo]):
@@ -14,7 +15,7 @@ class MemoryTransformer(QASMTransformer[SectionInfo]):
         input_index: int | None = None
         match len(input_annotations):
             case 1:
-                input_index = int(input_annotations[0].command)
+                input_index = parse_io_range(input_annotations[0].command)
 
             case count if count > 1:
                 raise Exception("Only a single input is allowed")
@@ -23,7 +24,7 @@ class MemoryTransformer(QASMTransformer[SectionInfo]):
         output_index: int | None = None
         match len(output_annotations):
             case 1:
-                output_index = int(output_annotations[0].command)
+                output_index = parse_io_range(output_annotations[0].command)
 
             case count if count > 1:
                 raise Exception("Only a single output is allowed")

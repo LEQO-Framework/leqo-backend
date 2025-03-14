@@ -18,3 +18,10 @@ def get_int(expression: Expression | None) -> int | None:
             return expression.value
         case _:
             raise Exception("Invalid size")
+
+
+def parse_io_range(value: str | None) -> int | None:
+    if value is None:
+        return None
+
+    return int(value)
