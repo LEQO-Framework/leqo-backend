@@ -2,6 +2,7 @@ from openqasm3.ast import (
     AliasStatement,
     CalibrationDefinition,
     ClassicalDeclaration,
+    ConstantDeclaration,
     ExternDeclaration,
     Identifier,
     IODeclaration,
@@ -48,6 +49,18 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
         self.declarations[old_identifier.name] = identifier
 
         return identifier
+
+    def visit_ConstantDeclaration(
+        self, node: ConstantDeclaration, context: SectionInfo
+    ) -> QASMNode:
+        identifier = self.new_identifier(node.identifier, context)
+        return self.generic_visit(
+            annotate(
+                ConstantDeclaration(node.type, identifier, node.init_expression),
+                node.annotations,
+            ),
+            context,
+        )
 
     def visit_AliasStatement(
         self, node: AliasStatement, context: SectionInfo
