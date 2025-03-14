@@ -29,6 +29,15 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
     def new_identifier(
         self, old_identifier: Identifier, context: SectionInfo
     ) -> Identifier:
+        """
+        Generates a new identifier that will be globally unique even after merging multiple programs.
+        Adds the old identifier to the list of renames.
+
+        :param old_identifier: The old identifier to be renamed.
+        :param context: The context of the current program.
+        :return: A new globally unique identifier.
+        """
+
         if self.declarations.get(old_identifier.name) is not None:
             raise Exception("Variable already defined")
 
@@ -47,13 +56,6 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
     def visit_QubitDeclaration(
         self, node: QubitDeclaration, context: SectionInfo
     ) -> QubitDeclaration:
-        """
-        Renames identifier of qubit declaration.
-
-        :param node: Declaration to modify
-        :return: Modified declaration
-        """
-
         identifier = self.new_identifier(node.qubit, context)
         return QubitDeclaration(identifier, node.size)
 
@@ -76,13 +78,6 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
     def visit_ClassicalDeclaration(
         self, node: ClassicalDeclaration, context: SectionInfo
     ) -> ClassicalDeclaration:
-        """
-        Renames identifier of classical declaration.
-
-        :param node: Declaration to modify
-        :return: Modified declaration
-        """
-
         identifier = self.new_identifier(node.identifier, context)
         return ClassicalDeclaration(node.type, identifier, node.init_expression)
 
@@ -117,6 +112,7 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
     def visit_Identifier(self, node: Identifier, _context: SectionInfo) -> Identifier:
         """
         Renames identifiers using the old declaration names.
+        ToDo: We currently ignore scope!!
 
         :param node: Identifier to rename
         :return: Modified identifier
