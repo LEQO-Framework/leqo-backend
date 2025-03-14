@@ -29,5 +29,5 @@ def test_extract_memory_info() -> None:
     assert section_info.globals["someOutput"].inputIndex is None
     assert section_info.globals["someOutput"].outputIndex == 1
 
-    assert section_info.globals["someRef"].inputIndex == 2
-    assert section_info.globals["someRef"].outputIndex == 3
+    assert section_info.globals["someRef"].inputIndex == 2  # noqa: PLR2004
+    assert section_info.globals["someRef"].outputIndex == 3  # noqa: PLR2004
