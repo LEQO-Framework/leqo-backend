@@ -1,10 +1,10 @@
 from openqasm3.parser import parse
 
 from app.model.SectionInfo import SectionInfo
-from app.preprocessing import MemoryTransformer
+from app.preprocessing.memory import MemoryTransformer
 
 
-def test_extract_memory_info():
+def test_extract_memory_info() -> None:
     original = """
     OPENQASM 3.0;
     include "stdgates.inc";

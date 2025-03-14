@@ -107,7 +107,7 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
     # `ForInLoop` only declares variable inside a scope
     # => No collisions with other blocks but theoretically without renamed globals
 
-    def visit_Identifier(self, node: Identifier, context: SectionInfo) -> Identifier:
+    def visit_Identifier(self, node: Identifier, _context: SectionInfo) -> Identifier:
         """
         Renames identifiers using the old declaration names.
 

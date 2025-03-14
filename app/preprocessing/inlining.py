@@ -20,7 +20,7 @@ class InliningTransformer(QASMTransformer[SectionInfo]):
     def __init__(self) -> None:
         self.lookup = {}
 
-    def visit_AliasStatement(self, node: AliasStatement, context: SectionInfo) -> None:
+    def visit_AliasStatement(self, node: AliasStatement, _context: SectionInfo) -> None:
         """
         Stores the alias statement and removes it from the ast.
 
@@ -34,7 +34,7 @@ class InliningTransformer(QASMTransformer[SectionInfo]):
         self.lookup[node.target.name] = node
 
     def visit_ConstantDeclaration(
-        self, node: ConstantDeclaration, context: SectionInfo
+        self, node: ConstantDeclaration, _context: SectionInfo
     ) -> None:
         if self.lookup.get(node.identifier.name) is not None:
             raise Exception("Alias already defined")
@@ -42,7 +42,7 @@ class InliningTransformer(QASMTransformer[SectionInfo]):
         self.lookup[node.identifier.name] = node
 
     def visit_Identifier(
-        self, node: Identifier, context: SectionInfo
+        self, node: Identifier, _context: SectionInfo
     ) -> Identifier | Concatenation | Expression:
         """
         Rewrites an identifier to use the inlined aliases.
