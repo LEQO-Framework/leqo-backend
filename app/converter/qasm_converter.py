@@ -65,6 +65,11 @@ class QASMConverter:
             QASMConversionError: If any line contains an unsupported QASM version or library.
         """
 
+        qasm2_code = re.sub(
+            r"/\*.*?\*/", "", qasm2_code, flags=re.DOTALL
+        )  # Remove multi-line comments
+        qasm2_code = re.sub(r"//.*", "", qasm2_code)  # Remove end-of-line comments
+
         # Start the QASM 3 code with the required header and include statement for standard gates
         qasm3_code = """OPENQASM 3.0;
         include 'stdgates.inc';
@@ -221,22 +226,36 @@ class QASMConverter:
         # Remove leading whitespace from the line
         line = line.lstrip()
 
-        if line.startswith("OPENQASM"):
-            if line.startswith("OPENQASM 2"):
-                return ""
-            raise QASMConversionError(
-                "Unsupported QASM version. Only 'OPENQASM 2.x' is allowed."
-            )
+        # Split the line into individual commands using `;`, keeping `;`
+        commands = [cmd.strip() + ";" for cmd in line.split(";") if cmd.strip()]
 
-        if line.startswith("include"):
-            if line == 'include "qelib1.inc";':
-                return ""
-            raise QASMConversionError(
-                "Unsupported library included. Only 'qelib1.inc' is allowed."
-            )
+        processed_commands = []
 
-        if line.startswith("opaque"):
-            # As opaque is ignored by OpenQASM 3, add it as a comment
-            return "// " + line + "\n"
+        for cmd in commands:
+            # Check for a valid OPENQASM version
+            match = re.match(r"^OPENQASM\s+(\d+(\.\d+)?)\s*;", cmd)
+            if match:
+                if match.group(1).startswith("2"):
+                    continue  # Remove the line (replace with nothing)
+                raise QASMConversionError(
+                    "Unsupported QASM version. Only 'OPENQASM 2.x' is allowed."
+                )
 
-        return line + "\n"
+            # Check for the allowed `include` statement
+            if re.fullmatch(r'include\s+"qelib1\.inc"\s*;', cmd):
+                continue  # Remove this command
+
+            if cmd.startswith("include"):
+                raise QASMConversionError(
+                    "Unsupported library included. Only 'qelib1.inc' is allowed."
+                )
+
+            # Convert `opaque` statements into comments
+            if re.match(r"^opaque\s", cmd):
+                processed_commands.append("// " + cmd)
+                continue
+
+            # Keep all other valid commands
+            processed_commands.append(cmd)
+
+        return "".join(processed_commands) + "\n"
