@@ -9,9 +9,25 @@ documentation for details.
 .. include:: missing_gates.rst
 
 .. toctree::
+    :caption: Qasm Pipeline
+    :hidden:
+    :maxdepth: 2
+
+    preprocessing
+
+.. toctree::
+    :caption: Development
     :hidden:
     :maxdepth: 2
 
     testing
     example-cross-references
+
+.. toctree::
+    :caption: OpenQasm3
+    :hidden:
+    :titlesonly:
+
+    openqasm3/ast
+    openqasm3/visitor
 
