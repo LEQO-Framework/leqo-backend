@@ -1,5 +1,5 @@
 import pytest
-from qiskit.qasm3 import loads
+from openqasm3 import parse
 
 from app.converter.qasm_converter import QASMConversionError, QASMConverter
 
@@ -241,6 +241,6 @@ def test_valid_qasm_version() -> None:
 
 # Helper functions # # # # #
 def check_out(out: str, expected: str) -> None:
-    actual_circuit = loads(out)
-    expected_circuit = loads(expected)
+    actual_circuit = parse(out)
+    expected_circuit = parse(expected)
     assert actual_circuit == expected_circuit
