@@ -2,6 +2,8 @@ FROM python:3.13.2-alpine
 
 WORKDIR /leqo-backend
 
+COPY ./.env /.env
+
 COPY ./pyproject.toml /leqo-backend/pyproject.toml
 
 COPY ./.python-version /leqo-backend/.python-version

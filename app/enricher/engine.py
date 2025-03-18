@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 url = URL.create(
-    "postgressql+psycopg",
+    drivername="postgresql+psycopg",
     host="postgres",
     port=os.environ['POSTGRES_PORT'],
     username=os.environ['POSTGRES_USER'],

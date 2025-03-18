@@ -34,5 +34,6 @@ def populateQuasmImplementation() -> None:
     createQuasmImplementation("cx q[1], q[2]")
     createQuasmImplementation("c[0] = measure q[2]")
 
-populateQuasmImplementation()
-findQuasmImplementation("x q[0]")
+def demo():
+    populateQuasmImplementation()
+    findQuasmImplementation("x q[0]")
