@@ -1,15 +1,10 @@
 from fastapi import FastAPI
 
-from app.model.HelloWorld import HelloWorld
+from app.model.CompileRequest import CompileRequest
 
 app = FastAPI()
 
 
-@app.get("/")
-def root() -> dict[str, str]:
-    return {"message": "Hello World"}
-
-
-@app.post("/")
-def echo(body: HelloWorld) -> HelloWorld:
+@app.post("/compile")
+def compile(body: CompileRequest) -> CompileRequest:
     return body
