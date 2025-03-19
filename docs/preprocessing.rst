@@ -12,6 +12,13 @@ In order to prevent collision while merging all the standalone qasm snippets, th
 .. automodule:: app.model.SectionInfo
    :members:
 
+Utils
+-----
+
+.. automodule:: app.preprocessing.utils
+    :members:
+    :undoc-members:
+
 Renaming
 --------
 
