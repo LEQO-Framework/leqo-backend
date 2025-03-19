@@ -20,6 +20,8 @@ documentation for details.
     :maxdepth: 2
 
     testing
+    app.lib
+    app.postprocess
     example-cross-references
 
 .. toctree::
