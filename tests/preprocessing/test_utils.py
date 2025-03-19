@@ -4,8 +4,8 @@ from openqasm3.ast import Annotation
 from app.preprocessing.utils import parse_io_annotation
 
 
-def test_parse_io_annotation():
-    def assert_parse(command: str | None, expected: list[int]):
+def test_parse_io_annotation() -> None:
+    def assert_parse(command: str | None, expected: list[int]) -> None:
         assert parse_io_annotation(Annotation("leqo.input", command)) == expected, (
             f"'{command}' != {expected}"
         )
@@ -13,7 +13,7 @@ def test_parse_io_annotation():
             f"'{command}' != {expected}"
         )
 
-    def assert_parse_failure(command: str | None, match: str):
+    def assert_parse_failure(command: str | None, match: str) -> None:
         with pytest.raises(ValueError, match=match):
             parse_io_annotation(Annotation("leqo.input", command))
 
