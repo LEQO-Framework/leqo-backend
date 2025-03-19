@@ -12,7 +12,7 @@ class MetaData(BaseModel):
     timestamp: str
 
 
-class NodeIdRef(BaseModel):  # ToDo: remove
+class NodeIdRef(BaseModel):  # ToDo: remove after frontend changed inputs to type list[str]
     id: str
 
 
