@@ -11,6 +11,7 @@ from openqasm3.ast import (
     QASMNode,
     QuantumGate,
     QuantumGateDefinition,
+    QuantumStatement,
     QubitDeclaration,
     Statement,
     SubroutineDefinition,
@@ -45,14 +46,15 @@ class SplitRegAndIOParse(QASMTransformer[None]):
 
     def split_qubits(
         self,
-        statements: list[Statement | Pragma] | list[Statement],
+        statements: list[Statement | Pragma] | list[Statement] | list[QuantumStatement],
     ) -> None:
-        self.split_qubit_reg_declaration(statements)
+        if isinstance(statements, list[Statement | Pragma] | list[Statement]):
+            self.split_qubit_reg_declaration(statements)
         self.split_qubit_reg_gates(statements)
 
     def split_qubit_reg_gates(
         self,
-        statements: list[Statement | Pragma] | list[Statement],
+        statements: list[Statement | Pragma] | list[Statement] | list[QuantumStatement],
     ) -> None:
         to_replace: list[tuple[QubitDeclaration, list[QubitDeclaration]]] = []
         for node in statements:
