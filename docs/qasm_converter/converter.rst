@@ -1,9 +1,6 @@
 QASM Converter
 ==============
 
-Introduction
-------------
-
 The **QASM Converter** is a Python-based tool designed to convert **OpenQASM 2.x** code
 into **OpenQASM 3.0**, ensuring compatibility with modern quantum computing frameworks.
 This conversion process includes handling unsupported gates, transforming obsolete syntax,
