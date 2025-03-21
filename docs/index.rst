@@ -6,6 +6,7 @@ Add your content using ``reStructuredText`` syntax. See the
 documentation for details.
 
 .. openapi:: openapi.json
+.. include:: missing_gates.rst
 
 .. toctree::
     :caption: Qasm Pipeline
@@ -13,6 +14,14 @@ documentation for details.
     :maxdepth: 2
 
     preprocessing
+
+.. toctree::
+    :caption: Converter
+    :hidden:
+    :maxdepth: 2
+
+    qasm_converter/converter
+    qasm_converter/conversion_error
 
 .. toctree::
     :caption: Development
@@ -29,3 +38,4 @@ documentation for details.
 
     openqasm3/ast
     openqasm3/visitor
+
