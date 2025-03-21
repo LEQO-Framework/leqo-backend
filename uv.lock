@@ -332,6 +332,7 @@ dev = [
     { name = "sphinx-rtd-theme" },
     { name = "sphinxcontrib-openapi" },
     { name = "sphobjinv" },
+    { name = "types-antlr4-python3-runtime" },
     { name = "types-pygments" },
 ]
 
@@ -352,6 +353,7 @@ dev = [
     { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
     { name = "sphinxcontrib-openapi", specifier = ">=0.8.4" },
     { name = "sphobjinv", specifier = ">=2.3.1.2" },
+    { name = "types-antlr4-python3-runtime", specifier = ">=4.13.0.20240519" },
     { name = "types-pygments", specifier = ">=2.19.0.20250305" },
 ]
 
@@ -968,6 +970,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/cb/ce/dca7b219718afd37a0068f4f2530a727c2b74a8b6e8e0c0080a4c0de4fcd/typer-0.15.1.tar.gz", hash = "sha256:a0588c0a7fa68a1978a069818657778f86abe6ff5ea6abf472f940a08bfe4f0a", size = 99789 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/cc/0a838ba5ca64dc832aa43f727bd586309846b0ffb2ce52422543e6075e8a/typer-0.15.1-py3-none-any.whl", hash = "sha256:7994fb7b8155b64d3402518560648446072864beefd44aa2dc36972a5972e847", size = 44908 },
+]
+
+[[package]]
+name = "types-antlr4-python3-runtime"
+version = "4.13.0.20240519"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/dc/7b/9cd1346fb578e2ff620298cbf36d2291f562762ed77063d88bbc57cd2740/types-antlr4-python3-runtime-4.13.0.20240519.tar.gz", hash = "sha256:c26c0a15c69fd3921cb95ffe84e386e69437cd51ac402c016f3155354fd5ea01", size = 18454 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/42/54/3032c354a8f4e89dad90042b175c3d8f90d418e70ec43d2810691f093760/types_antlr4_python3_runtime-4.13.0.20240519-py3-none-any.whl", hash = "sha256:2e3bb146f0cf08244c0927b727846a06032f217318235af33d99e319b20a2c77", size = 34315 },
 ]
 
 [[package]]

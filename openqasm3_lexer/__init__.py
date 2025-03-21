@@ -13,7 +13,7 @@ from sphinx.highlighting import lexers
 
 
 class OpenQasmLexer(Lexer):
-    def map_token_types(self, token_type: Any) -> Token:
+    def map_token_types(self, token_type: Any) -> Token:  # type: ignore # noqa PLR0911: Too many returns
         match cast(int, token_type):
             case qasm3Lexer.AnnotationKeyword:
                 return PygmentTokens.Name.Decorator
@@ -52,14 +52,14 @@ class OpenQasmLexer(Lexer):
 
         return PygmentTokens.Generic
 
-    def get_tokens_unprocessed(self, text: str) -> Iterable[tuple[int, Token, str]]:
+    def get_tokens_unprocessed(self, text: str) -> Iterable[tuple[int, Token, str]]:  # type: ignore
         lexer = qasm3Lexer(InputStream(text))
         stream = CommonTokenStream(lexer)
 
         last_end = 0
 
-        current_token: Antlr4Token = stream.LT(1)
-        while current_token.type != Antlr4Token.EOF:
+        current_token = stream.LT(1)
+        while current_token is not None and current_token.type != Antlr4Token.EOF:
             stream.consume()
 
             if current_token.start != last_end:
