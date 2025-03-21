@@ -3,6 +3,21 @@ import re
 
 from openqasm3 import parser, printer
 
+# regex comment pattern
+line_comment_pattern = re.compile(r"//.*")
+block_comment_pattern = re.compile(r"/\*.*?\*/", re.DOTALL)
+
+# regex gate pattern
+gate_pattern = re.compile(
+    r"gate\s+(\w+)\s*(\([^)]*\))?\s*([\w,\s]+)\s*\{([\s\S]*?)\}\s*", re.DOTALL
+)
+letter_number_pattern = re.compile(r"^[a-zA-Z0-9]+")
+
+# regex OpenQASM pattern
+qasm_version_pattern = re.compile(r"^OPENQASM\s+(\d+(\.\d+)?)\s*;")
+qelib1_pattern = re.compile(r'include\s+"qelib1\.inc"\s*;')
+opaque_statement_pattern = re.compile(r"^opaque\s")
+
 
 # Custom exception for errors during QASM conversion
 class QASMConversionError(Exception):
@@ -19,8 +34,8 @@ def remove_comments(content: str) -> str:
 
     :returns: The QASM content with comments removed.
     """
-    content = re.sub(r"//.*", "", content)  # Remove single-line comments
-    return re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
+    content = line_comment_pattern.sub("", content)  # Remove single-line comments
+    return block_comment_pattern.sub("", content)
 
 
 class QASMConverter:
@@ -62,10 +77,8 @@ class QASMConverter:
         :raises QASMConversionError: If any line contains an unsupported QASM version or library.
         """
 
-        qasm2_code = re.sub(
-            r"/\*.*?\*/", "", qasm2_code, flags=re.DOTALL
-        )  # Remove multi-line comments
-        qasm2_code = re.sub(r"//.*", "", qasm2_code)  # Remove end-of-line comments
+        # Remove single- and multi-line comments
+        qasm2_code = remove_comments(qasm2_code)
 
         # Start the QASM 3 code with the required header and include statement for standard gates
         qasm3_code = """OPENQASM 3.0;
@@ -121,7 +134,7 @@ class QASMConverter:
         unsupported_gate_detected = False
         for rawline in qasm3_code.splitlines():
             line = rawline.lstrip()
-            match_gates = re.search(r"^[a-zA-Z0-9]+", line)
+            match_gates = letter_number_pattern.search(line)
             if (
                 match_gates
                 and self.is_unsupported_gate(match_gates.group(0))
@@ -158,7 +171,6 @@ class QASMConverter:
         """
         unique_gates = set()
         gate_details: dict[str, list[str]] = {}
-        pattern = r"gate\s+(\w+)\s*(\([^)]*\))?\s*([\w,\s]+)\s*\{([\s\S]*?)\}\s*"
 
         for filename in file_list:
             current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -172,7 +184,7 @@ class QASMConverter:
                 # Remove comments before processing
                 content = remove_comments(content)
 
-                for match in re.finditer(pattern, content, re.DOTALL):
+                for match in gate_pattern.finditer(content):
                     name = match.group(1)
                     parameters = match.group(2) if match.group(2) is not None else ""
                     qubits = match.group(3).strip()
@@ -223,7 +235,7 @@ class QASMConverter:
 
         for cmd in commands:
             # Check for a valid OPENQASM version
-            match = re.match(r"^OPENQASM\s+(\d+(\.\d+)?)\s*;", cmd)
+            match = qasm_version_pattern.match(cmd)
             if match:
                 if match.group(1).startswith("2"):
                     continue  # Remove the line (replace with nothing)
@@ -232,7 +244,7 @@ class QASMConverter:
                 )
 
             # Check for the allowed `include` statement
-            if re.fullmatch(r'include\s+"qelib1\.inc"\s*;', cmd):
+            if qelib1_pattern.fullmatch(cmd):
                 continue  # Remove this command
 
             if cmd.startswith("include"):
@@ -241,7 +253,7 @@ class QASMConverter:
                 )
 
             # Convert `opaque` statements into comments
-            if re.match(r"^opaque\s", cmd):
+            if opaque_statement_pattern.match(cmd):
                 processed_commands.append("// " + cmd)
                 continue
 
