@@ -16,6 +16,14 @@ documentation for details.
     preprocessing
 
 .. toctree::
+    :caption: Converter
+    :hidden:
+    :maxdepth: 2
+
+    qasm_converter/converter
+    qasm_converter/conversion_error
+
+.. toctree::
     :caption: Development
     :hidden:
     :maxdepth: 2
