@@ -8,6 +8,13 @@ documentation for details.
 .. openapi:: openapi.json
 
 .. toctree::
+    :caption: Usage
+    :hidden:
+    :maxdepth: 2
+
+    usage/annotations.rst
+
+.. toctree::
     :caption: Qasm Pipeline
     :hidden:
     :maxdepth: 2
