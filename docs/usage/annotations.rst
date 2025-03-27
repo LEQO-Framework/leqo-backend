@@ -55,7 +55,7 @@ In this case the backend will fill the lowest bytes with the actual input and en
         :header: "0", "1", "2", "3", "4", "5", "6"
 
         "p[0]", "p[1]", "p[2]", "p[3]", "p[4]", "p[5]", "p[6]"
-        "p[0]", "p[1]", "0", "0", "0", "0", "0"
+        "p[0]", "p[1]", "\|0⟩", "\|0⟩", "\|0⟩", "\|0⟩", "\|0⟩"
 
 .. note::
     The input might be split into separate non-contiguous memory blocks by the backend.
