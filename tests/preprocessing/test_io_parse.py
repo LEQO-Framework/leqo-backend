@@ -115,6 +115,31 @@ def test_output_concatenation() -> None:
     assert expected == actual
 
 
+def test_output_big_concatenation() -> None:
+    code = """
+    qubit[2] q0;
+    qubit[2] q1;
+
+    @leqo.output 0
+    let a = q0[0] ++ q1[0] ++ q0[1];
+    """
+    expected = SnippetIOInfo(
+        {
+            "q0": [0, 1],
+            "q1": [2, 3],
+        },
+        {"a": [0, 2, 1]},
+        {
+            0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
+            1: SingleIOInfo(output=SingleOutputInfo(0, 2)),
+            2: SingleIOInfo(output=SingleOutputInfo(0, 1)),
+            3: SingleIOInfo(),
+        },
+    )
+    actual = IOParse().extract_io_info(parse(code))
+    assert expected == actual
+
+
 def test_raise_on_missing_io_index() -> None:
     code = """
         @leqo.input 0
