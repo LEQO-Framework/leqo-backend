@@ -38,7 +38,7 @@ def get_int(expression: Expression | None) -> int | None:
             op = expr.op
             match op.name:
                 case "-":
-                    return -get_int(expr.expression)
+                    return -expr_to_int(expr.expression)
                 case _:
                     msg = f"Unsported op: {op=}"
                     raise TypeError(msg)
@@ -90,9 +90,14 @@ def parse_io_annotation(annotation: Annotation) -> list[int]:
 
 
 def parse_range_definition(range_def: RangeDefinition, length: int) -> list[int]:
-    start = get_int(range_def.start) if range_def.start is not None else 0
-    end = get_int(range_def.end) if range_def.end is not None else length
-    step = get_int(range_def.step) if range_def.step is not None else 1
+    """Return list of integers expressed by qasm3-range.
+
+    The complexity of this function arises because openqasm3 includes the last element
+    and python does not.
+    """
+    start = expr_to_int(range_def.start) if range_def.start is not None else 0
+    end = expr_to_int(range_def.end) if range_def.end is not None else length
+    step = expr_to_int(range_def.step) if range_def.step is not None else 1
     if start < 0:
         start = length + start
     if end < 0:
@@ -104,18 +109,28 @@ def parse_range_definition(range_def: RangeDefinition, length: int) -> list[int]
     return list(range(start, end, step))
 
 
-def parse_qasm_index(index: IndexElement, length: int) -> list[int]:
-    match index:
-        case DiscreteSet():
-            return [get_int(expr) for expr in index.values]
-        case list():
-            result: list[int] = []
-            for v in index[
-                0
-            ]:  # there is a bug in openqasm3 parser, random list in list
-                match v:
+def parse_qasm_index(index: list[IndexElement], length: int) -> list[int]:
+    """Parse list of qasm3 indexes and returns them as a list of integers.
+
+    Multiple indexes are applied iteratively (as qiskit also does it).
+    """
+    result = list(range(length))
+    for subindex in index:
+        match subindex:
+            case DiscreteSet():
+                indecies = [expr_to_int(expr) for expr in subindex.values]
+                tmp = [result[i] for i in indecies]
+            case list():
+                if len(subindex) != 1:
+                    msg = "only 1D indexers are supported"  # qiskit 1.4.2 also raises this
+                    raise TypeError(msg)
+                match subindex[0]:
                     case Expression():
-                        result.append(get_int(v))
+                        tmp = [result[expr_to_int(subindex[0])]]
                     case RangeDefinition():
-                        result.extend(parse_range_definition(v, length))
-            return result
+                        tmp = [
+                            result[i]
+                            for i in parse_range_definition(subindex[0], len(result))
+                        ]
+        result = tmp
+    return result
