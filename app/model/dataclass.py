@@ -52,6 +52,9 @@ class SnippetIOInfo:
         except KeyError:
             return self.alias_to_id[identifier]
 
+    def identifier_to_infos(self, identifier: str) -> list[SingleIOInfo]:
+        return [self.id_to_info[i] for i in self.identifier_to_ids(identifier)]
+
 
 @dataclass()
 class IOInfo:
