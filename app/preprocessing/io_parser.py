@@ -125,10 +125,13 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
         context: SnippetIOInfo,
     ) -> QASMNode:
         name = node.target.name
-        ids = self.alias_expr_to_ids(node.value, context)
+        try:
+            ids = self.alias_expr_to_ids(node.value, context)
+        except KeyError:  # non-qubit in alias expression (classic)
+            return self.generic_visit(node, context)
         output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
 
-        if ids is None:
+        if len(ids) == 0:
             msg = f"Failed to parse alias statement {node}"
             raise UnsupportedOperation(msg)
         context.alias_to_id[name] = ids
