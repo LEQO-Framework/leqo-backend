@@ -1,3 +1,4 @@
+import pytest
 from openqasm3.parser import parse
 
 from app.lib.qasm_string import normalize
@@ -112,6 +113,17 @@ def test_output_concatenation() -> None:
     )
     actual = IOParse().extract_io_info(parse(code))
     assert expected == actual
+
+
+def test_raise_on_missing_io_index() -> None:
+    code = """
+        @leqo.input 0
+        qubit[2] q0;
+        @leqo.input 2
+        qubit[2] q1;
+        """
+    with pytest.raises(IndexError):
+        IOParse().extract_io_info(parse(code))
 
 
 def test_all() -> None:

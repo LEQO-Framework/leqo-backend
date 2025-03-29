@@ -25,6 +25,8 @@ from app.model.dataclass import (
 
 class IOParse(QASMTransformer[SnippetIOInfo]):
     qubit_id: int = 0
+    input_counter: int = 0
+    output_counter: int = 0
 
     def extract_io_info(self, program: Program) -> SnippetIOInfo:
         result = SnippetIOInfo()
@@ -49,6 +51,12 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
                 msg = f"Unsuported: output/reusable annotations over QubitDeclaration {name}"
                 raise UnsupportedOperation(msg)
         context.declaration_to_id[name] = []
+        if input_id is not None:
+            if input_id == self.input_counter:
+                self.input_counter += 1
+            else:
+                msg = f"expected input index {self.input_counter} but got {input_id}"
+                raise IndexError(msg)
         for i in range(size):
             context.declaration_to_id[name].append(self.qubit_id)
             input_info = SingleInputInfo(input_id, i) if input_id is not None else None
@@ -130,6 +138,13 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
         except KeyError:  # non-qubit in alias expression (classic)
             return self.generic_visit(node, context)
         output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
+
+        if output_id is not None:
+            if output_id == self.output_counter:
+                self.output_counter += 1
+            else:
+                msg = f"expected output index {self.output_counter} but got {output_id}"
+                raise IndexError(msg)
 
         if len(ids) == 0:
             msg = f"Failed to parse alias statement {node}"
