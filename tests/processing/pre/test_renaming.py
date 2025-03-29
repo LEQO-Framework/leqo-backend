@@ -1,12 +1,12 @@
-from openqasm3.ast import Program
-
-from app.processing.graph import ProgramNode, SectionInfo
+from app.processing.graph import ProgramNode, QasmImplementation, SectionInfo
 from app.processing.pre.renaming import RenameRegisterTransformer
 from tests.processing.utils import assert_processor
 
 
 def test_register_renaming() -> None:
-    section_info = SectionInfo(1, node=ProgramNode("42", Program([]), None))
+    section_info = SectionInfo(
+        1, node=ProgramNode("42", QasmImplementation.create("qubit a;"), None)
+    )
     assert_processor(
         RenameRegisterTransformer(),
         section_info,

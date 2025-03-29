@@ -2,32 +2,12 @@ from graphlib import TopologicalSorter
 from io import StringIO
 
 from openqasm3.ast import Pragma, Program, Statement
-from openqasm3.parser import parse
 
 from app.openqasm3.ast import CommentStatement
 from app.openqasm3.printer import LeqoPrinter
 from app.processing.graph import ProgramNode, SectionInfo
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
-
-
-def parse_qasm(qasm: str) -> Program:
-    """
-    Parses an openqasm2 or openqasm3 string into an ast (:class:`~openqasm3.ast.Program`)
-
-    :param qasm: The qasm string to parse
-    :return: The parse ast
-    """
-
-    # ToDo: Check for openqasm2 and wire converter
-    return parse(qasm)
-
-
-def parse_qasm_nullable(qasm: str | None) -> Program | None:
-    if qasm is None:
-        return None
-
-    return parse_qasm(qasm)
 
 
 def merge_nodes(graph: TopologicalSorter[ProgramNode]) -> Program:
@@ -44,7 +24,7 @@ def merge_nodes(graph: TopologicalSorter[ProgramNode]) -> Program:
     for i, node in enumerate(graph.static_order()):
         all_statements.append(CommentStatement(f"Start node {node.id}"))
 
-        ast = preprocess(node.Implementation, SectionInfo(i, node))
+        ast = preprocess(node.implementation.ast, SectionInfo(i, node))
         all_statements.extend(ast.statements)
 
         all_statements.append(CommentStatement(f"End node {node.id}"))
