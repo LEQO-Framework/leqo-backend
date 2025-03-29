@@ -1,10 +1,12 @@
-from app.model.SectionInfo import SectionInfo
-from app.preprocessing.renaming import RenameRegisterTransformer
-from tests.preprocessing.utils import assert_processor
+from openqasm3.ast import Program
+
+from app.processing.graph import ProgramNode, SectionInfo
+from app.processing.pre.renaming import RenameRegisterTransformer
+from tests.processing.utils import assert_processor
 
 
 def test_register_renaming() -> None:
-    section_info = SectionInfo(1)
+    section_info = SectionInfo(1, node=ProgramNode("42", Program([]), None))
     assert_processor(
         RenameRegisterTransformer(),
         section_info,

@@ -12,7 +12,7 @@ documentation for details.
     :hidden:
     :maxdepth: 2
 
-    preprocessing
+    processing/pre
 
 .. toctree::
     :caption: Development

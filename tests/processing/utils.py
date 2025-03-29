@@ -4,7 +4,7 @@ from openqasm3.parser import parse
 from openqasm3.printer import dumps
 from openqasm3.visitor import QASMTransformer
 
-from app.model.SectionInfo import SectionInfo
+from app.processing.graph import SectionInfo
 
 
 def assert_processor(

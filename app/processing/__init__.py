@@ -4,12 +4,11 @@ from io import StringIO
 from openqasm3.ast import Pragma, Program, Statement
 from openqasm3.parser import parse
 
-from app.model.ModelNode import ModelNode
-from app.model.SectionInfo import SectionInfo
 from app.openqasm3.ast import CommentStatement
 from app.openqasm3.printer import LeqoPrinter
-from app.postprocessing import postprocess
-from app.preprocessing import preprocess
+from app.processing.graph import ProgramNode, SectionInfo
+from app.processing.post import postprocess
+from app.processing.pre import preprocess
 
 
 def parse_qasm(qasm: str) -> Program:
@@ -31,7 +30,7 @@ def parse_qasm_nullable(qasm: str | None) -> Program | None:
     return parse_qasm(qasm)
 
 
-def merge_nodes(graph: TopologicalSorter[ModelNode]) -> Program:
+def merge_nodes(graph: TopologicalSorter[ProgramNode]) -> Program:
     """
     Creates a unified :class:`openqasm3.ast.Program` from a modelled graph with attached qasm implementation snippets.
 
@@ -45,7 +44,7 @@ def merge_nodes(graph: TopologicalSorter[ModelNode]) -> Program:
     for i, node in enumerate(graph.static_order()):
         all_statements.append(CommentStatement(f"Start node {node.id}"))
 
-        ast = preprocess(node.Implementation, SectionInfo(i))
+        ast = preprocess(node.Implementation, SectionInfo(i, node))
         all_statements.extend(ast.statements)
 
         all_statements.append(CommentStatement(f"End node {node.id}"))
