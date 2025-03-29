@@ -28,6 +28,26 @@ def test_simple_input() -> None:
     assert expected == actual
 
 
+def test_output_simple() -> None:
+    code = """
+    qubit[3] q;
+
+    @leqo.output 0
+    let a = q;
+    """
+    expected = SnippetIOInfo(
+        {"q": [0, 1, 2]},
+        {"a": [0, 1, 2]},
+        {
+            0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
+            1: SingleIOInfo(output=SingleOutputInfo(0, 1)),
+            2: SingleIOInfo(output=SingleOutputInfo(0, 2)),
+        },
+    )
+    actual = IOParse().extract_io_info(parse(code))
+    assert expected == actual
+
+
 def test_output_indexed() -> None:
     code = """
     qubit[3] q;
