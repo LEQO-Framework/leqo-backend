@@ -21,6 +21,6 @@ def test_basic() -> None:
     @leqo.reusable
     let _reuse = q0[2:4];
     """)
-    expected = IOInfo()
+    expected = IOInfo({}, {})
     actual = IOParse().extract_io_info(parse(code))
     assert expected == actual
