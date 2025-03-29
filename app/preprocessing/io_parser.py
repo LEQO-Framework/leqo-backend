@@ -47,12 +47,8 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
         context.declaration_to_id[name] = []
         for i in range(size):
             context.declaration_to_id[name].append(self.qubit_id)
-            if input_id is not None:
-                context.id_to_info[self.qubit_id] = SingleIOInfo(
-                    input=SingleInputInfo(input_id, i),
-                )
-            else:
-                context.id_to_info[self.qubit_id] = SingleIOInfo()
+            input_info = SingleInputInfo(input_id, i) if input_id is not None else None
+            context.id_to_info[self.qubit_id] = SingleIOInfo(input=input_info)
             self.qubit_id += 1
         self.qubit_id += size
         return self.generic_visit(node, context)
@@ -88,7 +84,10 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
                 indices = parse_qasm_index([value.index], len(collection))
                 ids = [collection[i] for i in indices]
             case Identifier():
-                pass
+                ids = context.identifier_to_ids(value.name)
+            case _:
+                msg = f"{type(value)} is not implemented as alias expresion"
+                raise NotImplementedError(msg)
 
         if ids is None:
             msg = f"Failed to parse alias statement {node}"
