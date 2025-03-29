@@ -2,7 +2,11 @@ from io import UnsupportedOperation
 
 from openqasm3.ast import (
     AliasStatement,
+    Annotation,
+    Concatenation,
+    Expression,
     Identifier,
+    IndexElement,
     IndexExpression,
     Program,
     QASMNode,
@@ -50,18 +54,16 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
             input_info = SingleInputInfo(input_id, i) if input_id is not None else None
             context.id_to_info[self.qubit_id] = SingleIOInfo(input=input_info)
             self.qubit_id += 1
-        self.qubit_id += size
         return self.generic_visit(node, context)
 
-    def visit_AliasStatement(
+    def get_alias_annotation_info(
         self,
-        node: AliasStatement,
-        context: SnippetIOInfo,
-    ) -> QASMNode:
-        name = node.target.name
+        name: str,
+        annotations: list[Annotation],
+    ) -> tuple[int | None, bool]:
         output_id: int | None = None
         reusable = False
-        for annotation in node.annotations:
+        for annotation in annotations:
             if annotation.keyword == "leqo.output":
                 if output_id is not None or reusable:
                     msg = f"Unsuported: two output/reusable annotations over {name}"
@@ -75,19 +77,56 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
             elif annotation.keyword == "leqo.input":
                 msg = f"Unsuported: input annotations over AliasStatement {name}"
                 raise UnsupportedOperation(msg)
-        value = node.value
-        ids: list[int] | None = None
+        return (output_id, reusable)
+
+    def get_indexed_expr_to_ids(
+        self,
+        source_name: str,
+        index: IndexElement,
+        context: SnippetIOInfo,
+    ) -> list[int]:
+        source = context.identifier_to_ids(source_name)
+        indices = parse_qasm_index([index], len(source))
+        return [source[i] for i in indices]
+
+    def alias_expr_to_ids(
+        self,
+        value: Identifier | IndexExpression | Concatenation | Expression,
+        context: SnippetIOInfo,
+    ) -> list[int]:
         match value:
             case IndexExpression():
-                collection_name = value.collection.name
-                collection = context.identifier_to_ids(collection_name)
-                indices = parse_qasm_index([value.index], len(collection))
-                ids = [collection[i] for i in indices]
+                collection = value.collection
+                if not isinstance(collection, Identifier):
+                    msg = f"Unsupported expresion in alias: {type(collection)}"
+                    raise TypeError(msg)
+                return self.get_indexed_expr_to_ids(
+                    collection.name,
+                    value.index,
+                    context,
+                )
             case Identifier():
-                ids = context.identifier_to_ids(value.name)
+                return context.identifier_to_ids(value.name)
+            case Concatenation():
+                return self.alias_expr_to_ids(
+                    value.lhs,
+                    context,
+                ) + self.alias_expr_to_ids(value.rhs, context)
+            case Expression():
+                msg = f"Unsupported expresion in alias: {type(value)}"
+                raise UnsupportedOperation(msg)
             case _:
                 msg = f"{type(value)} is not implemented as alias expresion"
                 raise NotImplementedError(msg)
+
+    def visit_AliasStatement(
+        self,
+        node: AliasStatement,
+        context: SnippetIOInfo,
+    ) -> QASMNode:
+        name = node.target.name
+        ids = self.alias_expr_to_ids(node.value, context)
+        output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
 
         if ids is None:
             msg = f"Failed to parse alias statement {node}"

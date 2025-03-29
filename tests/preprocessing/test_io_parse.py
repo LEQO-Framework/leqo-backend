@@ -68,8 +68,32 @@ def test_output_indexed() -> None:
     assert expected == actual
 
 
+def test_output_concatenation() -> None:
+    code = """
+    qubit[2] q0;
+    qubit[2] q1;
+
+    @leqo.output 0
+    let a = q0[0] ++ q1[0];
+    """
+    expected = SnippetIOInfo(
+        {
+            "q0": [0, 1],
+            "q1": [2, 3],
+        },
+        {"a": [0, 2]},
+        {
+            0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
+            1: SingleIOInfo(),
+            2: SingleIOInfo(output=SingleOutputInfo(0, 1)),
+            3: SingleIOInfo(),
+        },
+    )
+    actual = IOParse().extract_io_info(parse(code))
+    assert expected == actual
+
+
 def test_all() -> None:
-    return True
     code = normalize("""
     @leqo.input 0
     qubit[5] q0;
@@ -92,8 +116,9 @@ def test_all() -> None:
             "q1": [5, 6, 7, 8, 9],
         },
         {
+            "a": [9, 8, 7, 6, 5],
             "_out0": [0, 5],
-            "_out1": [1, 7],
+            "_out1": [1, 8],
             "_reuse": [2, 3, 4],
         },
         {
@@ -113,11 +138,11 @@ def test_all() -> None:
                 output=SingleOutputInfo(0, 1),
             ),
             6: SingleIOInfo(input=SingleInputInfo(1, 1)),
-            7: SingleIOInfo(
-                input=SingleInputInfo(1, 2),
+            7: SingleIOInfo(input=SingleInputInfo(1, 2)),
+            8: SingleIOInfo(
+                input=SingleInputInfo(1, 3),
                 output=SingleOutputInfo(1, 1),
             ),
-            8: SingleIOInfo(input=SingleInputInfo(1, 3)),
             9: SingleIOInfo(input=SingleInputInfo(1, 4)),
         },
     )
