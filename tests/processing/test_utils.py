@@ -1,5 +1,5 @@
 import pytest
-from openqasm3.ast import Annotation
+from openqasm3.ast import Annotation, IndexedIdentifier, QuantumGate
 from openqasm3.parser import parse
 
 from app.processing.utils import parse_io_annotation
@@ -45,7 +45,15 @@ def test_parse_io_annotation() -> None:
 def test_parse_qasm_index() -> None:
     def assert_parse(index_str: str, length: int, expected: list[int]) -> None:
         ast = parse(f"x q{index_str};")
-        result = parse_qasm_index(ast.statements[0].qubits[0].indices, length)
+        statement = ast.statements[0]
+        if not isinstance(statement, QuantumGate):
+            msg = "This should not be possible..."
+            raise TypeError(msg)
+        qubit = statement.qubits[0]
+        if not isinstance(qubit, IndexedIdentifier):
+            msg = "This should not be possible..."
+            raise TypeError(msg)
+        result = parse_qasm_index(qubit.indices, length)
         assert result == expected
 
     assert_parse("[0]", 1, [0])
