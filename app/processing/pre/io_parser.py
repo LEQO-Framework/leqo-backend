@@ -6,7 +6,6 @@ from openqasm3.ast import (
     Concatenation,
     Expression,
     Identifier,
-    IndexElement,
     IndexExpression,
     Program,
     QASMNode,
@@ -29,6 +28,7 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
     output_counter: int = 0
 
     def extract_io_info(self, program: Program) -> SnippetIOInfo:
+        """Get io-info from qasm-program via the transformer."""
         result = SnippetIOInfo()
         self.visit(program, result)
         return result
@@ -38,6 +38,7 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
         node: QubitDeclaration,
         context: SnippetIOInfo,
     ) -> QASMNode:
+        """Parse qubit-declarations an there corresponding input annotations."""
         name = node.qubit.name
         size = expr_to_int(node.size)
         input_id: int | None = None
@@ -69,6 +70,7 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
         name: str,
         annotations: list[Annotation],
     ) -> tuple[int | None, bool]:
+        """Extract annotation info for alias, throw error on bad usage."""
         output_id: int | None = None
         reusable = False
         for annotation in annotations:
@@ -87,32 +89,21 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
                 raise UnsupportedOperation(msg)
         return (output_id, reusable)
 
-    def get_indexed_expr_to_ids(
-        self,
-        source_name: str,
-        index: IndexElement,
-        context: SnippetIOInfo,
-    ) -> list[int]:
-        source = context.identifier_to_ids(source_name)
-        indices = parse_qasm_index([index], len(source))
-        return [source[i] for i in indices]
-
     def alias_expr_to_ids(
         self,
         value: Identifier | IndexExpression | Concatenation | Expression,
         context: SnippetIOInfo,
     ) -> list[int]:
+        """Recursively get IDs list for alias expression."""
         match value:
             case IndexExpression():
                 collection = value.collection
                 if not isinstance(collection, Identifier):
                     msg = f"Unsupported expresion in alias: {type(collection)}"
                     raise TypeError(msg)
-                return self.get_indexed_expr_to_ids(
-                    collection.name,
-                    value.index,
-                    context,
-                )
+                source = context.identifier_to_ids(collection.name)
+                indices = parse_qasm_index([value.index], len(source))
+                return [source[i] for i in indices]
             case Identifier():
                 return context.identifier_to_ids(value.name)
             case Concatenation():
@@ -132,6 +123,7 @@ class IOParse(QASMTransformer[SnippetIOInfo]):
         node: AliasStatement,
         context: SnippetIOInfo,
     ) -> QASMNode:
+        """Parse qubit-alias an there corresponding output annotations."""
         name = node.target.name
         try:
             ids = self.alias_expr_to_ids(node.value, context)
