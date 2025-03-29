@@ -46,6 +46,12 @@ class SnippetIOInfo:
         self.alias_to_id = alias_to_id or {}
         self.id_to_info = id_to_info or {}
 
+    def identifier_to_ids(self, identifier: str) -> list[int]:
+        try:
+            return self.declaration_to_id[identifier]
+        except KeyError:
+            return self.alias_to_id[identifier]
+
 
 @dataclass()
 class IOInfo:
