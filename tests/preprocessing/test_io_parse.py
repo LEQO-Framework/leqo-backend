@@ -68,6 +68,27 @@ def test_output_indexed() -> None:
     assert expected == actual
 
 
+def test_classical_ignored() -> None:
+    code = """
+    qubit[2] q;
+    bit[2] c;
+
+    let a = c;
+    """
+    expected = SnippetIOInfo(
+        {
+            "q": [0, 1],
+        },
+        {},
+        {
+            0: SingleIOInfo(),
+            1: SingleIOInfo(),
+        },
+    )
+    actual = IOParse().extract_io_info(parse(code))
+    assert expected == actual
+
+
 def test_output_concatenation() -> None:
     code = """
     qubit[2] q0;
