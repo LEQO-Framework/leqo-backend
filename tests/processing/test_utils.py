@@ -1,7 +1,7 @@
 import pytest
 from openqasm3.ast import Annotation
 
-from app.preprocessing.utils import parse_io_annotation
+from app.processing.utils import parse_io_annotation
 
 
 def test_parse_io_annotation() -> None:
