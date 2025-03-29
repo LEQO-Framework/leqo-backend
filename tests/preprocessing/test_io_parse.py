@@ -28,7 +28,7 @@ def test_simple_input() -> None:
     assert expected == actual
 
 
-def test_simple_output() -> None:
+def test_output_indexed() -> None:
     code = """
     qubit[3] q;
 
