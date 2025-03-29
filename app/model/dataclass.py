@@ -1,36 +1,19 @@
-from typing import override
+from dataclasses import dataclass
 
 
+@dataclass()
 class SingleInputInfo:
     id: int
     position: int
 
-    def __init__(self, input_id: int, position: int) -> None:
-        self.id = input_id
-        self.position = position
 
-    @override
-    def __eq__(self, value: object, /) -> bool:
-        if not isinstance(value, SingleInputInfo):
-            return False
-        return self.id == value.id and self.position == value.position
-
-
+@dataclass()
 class SingleOutputInfo:
     id: int
     position: int
 
-    def __init__(self, output_id: int, position: int) -> None:
-        self.id = output_id
-        self.position = position
 
-    @override
-    def __eq__(self, value: object, /) -> bool:
-        if not isinstance(value, SingleOutputInfo):
-            return False
-        return self.id == value.id and self.position == value.position
-
-
+@dataclass()
 class SingleIOInfo:
     input: SingleInputInfo | None
     output: SingleOutputInfo | None
@@ -46,17 +29,8 @@ class SingleIOInfo:
         self.output = output
         self.reusable = reusable or False
 
-    @override
-    def __eq__(self, value: object, /) -> bool:
-        if not isinstance(value, SingleIOInfo):
-            return False
-        return (
-            self.input == value.input
-            and self.output == value.output
-            and self.reusable == self.reusable
-        )
 
-
+@dataclass()
 class SnippetIOInfo:
     declaration_to_id: dict[str, list[int]]
     alias_to_id: dict[str, list[int]]
@@ -72,16 +46,8 @@ class SnippetIOInfo:
         self.alias_to_id = alias_to_id or {}
         self.id_to_info = id_to_info or {}
 
-    @override
-    def __eq__(self, value: object, /) -> bool:
-        if not isinstance(value, SnippetIOInfo):
-            return False
-        return (
-            self.declaration_to_id == value.declaration_to_id
-            and self.id_to_info == value.id_to_info
-        )
 
-
+@dataclass()
 class IOInfo:
     snippets: list[SnippetIOInfo]
 
