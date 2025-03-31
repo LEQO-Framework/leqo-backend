@@ -30,6 +30,8 @@ class ProgramNode:
 
 @dataclass(frozen=True)
 class IOConnection:
+    """Map output-reg from source to target input-reg with specified size."""
+
     source: tuple[ProgramNode, int]
     target: tuple[ProgramNode, int]
     size: int

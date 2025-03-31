@@ -12,7 +12,8 @@ from app.processing.pre import preprocess
 def merge_nodes(nodes: set[ProgramNode], connections: set[IOConnection]) -> Program:
     """Create a unified :class:`openqasm3.ast.Program` from a modelled graph with attached qasm implementation snippets.
 
-    :param graph: Visual model of the qasm program
+    :param nodes: set containing the program snippets
+    :param connections: set containing the input/output connections
     :return: The unifed qasm program
     """
 
