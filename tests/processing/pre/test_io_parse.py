@@ -25,7 +25,8 @@ def test_simple_input() -> None:
             2: SingleIOInfo(input=SingleInputInfo(0, 2)),
         },
     )
-    actual = IOParse().extract_io_info(parse(code))
+    actual = SnippetIOInfo()
+    IOParse(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -45,7 +46,8 @@ def test_output_simple() -> None:
             2: SingleIOInfo(output=SingleOutputInfo(0, 2)),
         },
     )
-    actual = IOParse().extract_io_info(parse(code))
+    actual = SnippetIOInfo()
+    IOParse(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -65,7 +67,8 @@ def test_output_indexed() -> None:
             2: SingleIOInfo(),
         },
     )
-    actual = IOParse().extract_io_info(parse(code))
+    actual = SnippetIOInfo()
+    IOParse(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -86,7 +89,8 @@ def test_classical_ignored() -> None:
             1: SingleIOInfo(),
         },
     )
-    actual = IOParse().extract_io_info(parse(code))
+    actual = SnippetIOInfo()
+    IOParse(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -111,7 +115,8 @@ def test_output_concatenation() -> None:
             3: SingleIOInfo(),
         },
     )
-    actual = IOParse().extract_io_info(parse(code))
+    actual = SnippetIOInfo()
+    IOParse(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -136,7 +141,8 @@ def test_output_big_concatenation() -> None:
             3: SingleIOInfo(),
         },
     )
-    actual = IOParse().extract_io_info(parse(code))
+    actual = SnippetIOInfo()
+    IOParse(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -148,7 +154,7 @@ def test_raise_on_missing_io_index() -> None:
         qubit[2] q1;
         """
     with pytest.raises(IndexError):
-        IOParse().extract_io_info(parse(code))
+        IOParse(SnippetIOInfo()).visit(parse(code))
 
 
 def test_all() -> None:
@@ -204,5 +210,6 @@ def test_all() -> None:
             9: SingleIOInfo(input=SingleInputInfo(1, 4)),
         },
     )
-    actual = IOParse().extract_io_info(parse(code))
+    actual = SnippetIOInfo()
+    IOParse(actual).visit(parse(code))
     assert expected == actual
