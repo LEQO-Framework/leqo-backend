@@ -13,6 +13,7 @@ Input
 -----
 
 One input is defined as a single qubit register (:class:`~openqasm3.ast.QubitDeclaration`) with a single `@leqo.input` annotation.
+The annotation specifies the index of the corresponding input.
 
 * Inputs can be of arbitrary size (See :ref:`input-memory-layout`)
 * Inputs have to be defined as contiguous memory
@@ -73,6 +74,7 @@ Output
 ------
 
 One output is defined as a single alias (:class:`~openqasm3.ast.AliasStatement`) with a single `@leqo.output` annotation.
+The annotation specifies the index of the corresponding output.
 
 * One qubit may only be used in one output at most
 * Outputs may be concatenated from multiple non-contiguous blocks of memory.
