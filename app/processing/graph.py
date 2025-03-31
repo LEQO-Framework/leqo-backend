@@ -28,6 +28,13 @@ class ProgramNode:
     uncompute_implementation: QasmImplementation | None = None
 
 
+@dataclass(frozen=True)
+class IOConnection:
+    source: tuple[ProgramNode, int]
+    target: tuple[ProgramNode, int]
+    size: int
+
+
 @dataclass
 class SectionInfo:
     """Store the sorting order to a ProgramNode."""
