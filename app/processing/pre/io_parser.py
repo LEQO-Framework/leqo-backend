@@ -11,18 +11,18 @@ from openqasm3.ast import (
     QASMNode,
     QubitDeclaration,
 )
-from openqasm3.visitor import QASMTransformer
 
-from app.lib.ast_utils import expr_to_int, parse_io_annotation, parse_qasm_index
-from app.model.dataclass import (
+from app.openqasm3.visitor import LeqoTransformer
+from app.processing.graph import (
     SingleInputInfo,
     SingleIOInfo,
     SingleOutputInfo,
     SnippetIOInfo,
 )
+from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
 
 
-class IOParse(QASMTransformer[SnippetIOInfo]):
+class IOParse(LeqoTransformer[SnippetIOInfo]):
     qubit_id: int = 0
     input_counter: int = 0
     output_counter: int = 0

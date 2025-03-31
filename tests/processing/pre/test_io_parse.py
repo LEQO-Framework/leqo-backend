@@ -1,14 +1,14 @@
 import pytest
 from openqasm3.parser import parse
 
-from app.lib.qasm_string import normalize
-from app.model.dataclass import (
+from app.processing.graph import (
     SingleInputInfo,
     SingleIOInfo,
     SingleOutputInfo,
     SnippetIOInfo,
 )
-from app.preprocessing.io_parser import IOParse
+from app.processing.pre.io_parser import IOParse
+from app.processing.utils import normalize_qasm_string
 
 
 def test_simple_input() -> None:
@@ -152,7 +152,7 @@ def test_raise_on_missing_io_index() -> None:
 
 
 def test_all() -> None:
-    code = normalize("""
+    code = normalize_qasm_string("""
     @leqo.input 0
     qubit[5] q0;
     @leqo.input 1
