@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
@@ -8,7 +8,6 @@ class MetaData(BaseModel):
     name: str
     description: str
     author: str
-    id: str
     timestamp: str
 
 
@@ -18,7 +17,7 @@ class NodeIdRef(
     id: str
 
 
-class NodeType(str, Enum):
+class NodeType(StrEnum):
     POSITION_NODE = "positionNode"
     STATE_PREPARATION_NODE = "statePreparationNode"
     GATE_NODE = "gateNode"
