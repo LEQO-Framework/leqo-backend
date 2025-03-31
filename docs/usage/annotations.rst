@@ -30,8 +30,20 @@ One input is defined as a single qubit register (:class:`~openqasm3.ast.QubitDec
     @leqo.input <<InputIndex>>
     qubit[<<length>>] someName;
 
+.. code-block:: openqasm3
+    :linenos:
+
     // Single qubit
     @leqo.input <<InputIndex>>
+    qubit someName;
+
+`<<InputIndex>>` is replaced with the index of an input (positive integer literal)
+
+.. code-block:: openqasm3
+    :linenos:
+
+    // Example
+    @leqo.input 0
     qubit someName;
 
 .. _input-memory-layout:
@@ -76,7 +88,15 @@ One output is defined as a single alias (:class:`~openqasm3.ast.AliasStatement`)
     @leqo.output <<OutputIndex>>
     let someOutput = <<Expression>>;
 
+`<<OutputIndex>>` is replaced with the index of an output (positive integer literal)
+
+.. code-block:: openqasm3
+    :linenos:
+
     // Example
+    qubit[10] a;
+    qubit[4] b;
+
     @leqo.output 0
     let output1 = a[1:2:3] ++ b[{1,2,3}];
 
@@ -103,6 +123,9 @@ To do so, one can declare an alias to the reusable qubits.
 
     @leqo.reusable
     let reusable1 = <<Expression>>;
+
+.. code-block:: openqasm3
+    :linenos:
 
     // Example
     @leqo.reusable
