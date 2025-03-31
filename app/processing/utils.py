@@ -20,7 +20,7 @@ def normalize_qasm_string(program: str) -> str:
     return REMOVE_INDENT.sub("\n", program).strip()
 
 
-def get_int(expression: Expression | None) -> int | None:
+def expr_to_int(expr: Expression | None) -> int:
     """Get an integer from an expression.
 
     This method does no analysis of the overall AST.
