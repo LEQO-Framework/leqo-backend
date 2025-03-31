@@ -2,10 +2,10 @@
 
 from openqasm3.ast import Identifier, QASMNode, QubitDeclaration
 
-from app.lib.transformer import Transformer
+from app.openqasm3.visitor import LeqoTransformer
 
 
-class ConnectVariables(Transformer):
+class ConnectVariables(LeqoTransformer[None]):
     """Connect variables based on specification."""
 
     conn_name_counter: int
