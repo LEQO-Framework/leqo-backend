@@ -1,18 +1,25 @@
+import re
 from typing import TypeVar
 
 from openqasm3.ast import Annotation, Expression, IntegerLiteral, Statement
 
+REMOVE_INDENT = re.compile(r"\n +", re.MULTILINE)
+
+
+def normalize_qasm_string(program: str) -> str:
+    """Normalize QASM-string."""
+    return REMOVE_INDENT.sub("\n", program).strip()
+
 
 def get_int(expression: Expression | None) -> int | None:
-    """
-    Tries to get an integer from an expression.
-    This method does no analysis of the overall ast.
+    """Get an integer from an expression.
+
+    This method does no analysis of the overall AST.
     If it cannot extract an integer from an expression, it throws.
 
     :param expression: Expression to be analyses
     :return: Integer or None if input was None
     """
-
     match expression:
         case None:
             return 0
@@ -31,13 +38,11 @@ def annotate(node: TQasmStatement, annotations: list[Annotation]) -> TQasmStatem
 
 
 def parse_io_annotation(annotation: Annotation) -> list[int]:
-    """
-    Parses the :attr:`~openqasm3.ast.Annotation.command` of a `@leqo.input` or `@leqo.output` :class:`~openqasm3.ast.Annotation`.
+    """Parses the :attr:`~openqasm3.ast.Annotation.command` of a `@leqo.input` or `@leqo.output` :class:`~openqasm3.ast.Annotation`.
 
     :param annotation: The annotation to parse
     :return: The parsed indices
     """
-
     command = annotation.command and annotation.command.strip()
 
     if not command:

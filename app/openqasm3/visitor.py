@@ -8,7 +8,7 @@ from openqasm3.visitor import QASMTransformer
 T = TypeVar("T")
 
 
-class Transformer(QASMTransformer[T]):
+class LeqoTransformer(QASMTransformer[T]):
     """Fixes an issue in the parent, walk through lists/tuples recursively."""
 
     @override

@@ -3,8 +3,8 @@ from openqasm3.parser import parse
 from openqasm3.printer import dumps
 from openqasm3.visitor import QASMTransformer
 
-from app.lib.qasm_string import normalize
-from app.lib.transformer import Transformer
+from app.openqasm3.visitor import LeqoTransformer
+from app.processing.utils import normalize_qasm_string
 
 
 class AllToYDefault(QASMTransformer[None]):
@@ -16,7 +16,7 @@ class AllToYDefault(QASMTransformer[None]):
         return node
 
 
-class AllToYFixed(Transformer[None]):
+class AllToYFixed(LeqoTransformer[None]):
     """Like AllToYDefault but inherit from Transformer."""
 
     def visit_Identifier(self, node: Identifier) -> Identifier:
@@ -27,41 +27,41 @@ class AllToYFixed(Transformer[None]):
 
 def test_indecies() -> None:
     """Check if Transformer can handle variables in indices."""
-    before = normalize("""
+    before = normalize_qasm_string("""
     x q[I];
     """)
-    true = normalize("""
+    true = normalize_qasm_string("""
     y y[y];
     """)
-    previous = normalize(dumps(AllToYDefault().visit(parse(before))))
-    fixed = normalize(dumps(AllToYFixed().visit(parse(before))))
+    previous = normalize_qasm_string(dumps(AllToYDefault().visit(parse(before))))
+    fixed = normalize_qasm_string(dumps(AllToYFixed().visit(parse(before))))
     assert true != previous
     assert true == fixed
 
 
 def test_switch() -> None:
     """Check if Transformer can handle tuples in switches."""
-    before = normalize("""
+    before = normalize_qasm_string("""
     switch (i) {
         case 1, B, C {
             x q;
             }
         }
     """)
-    true = normalize("""
+    true = normalize_qasm_string("""
     switch (y) {
         case 1, y, y {
             y y;
             }
         }
     """)
-    previous = normalize(dumps(AllToYDefault().visit(parse(before))))
-    fixed = normalize(dumps(AllToYFixed().visit(parse(before))))
+    previous = normalize_qasm_string(dumps(AllToYDefault().visit(parse(before))))
+    fixed = normalize_qasm_string(dumps(AllToYFixed().visit(parse(before))))
     assert true != previous
     assert true == fixed
 
 
-class AllToYFixedContext(Transformer[bool]):
+class AllToYFixedContext(LeqoTransformer[bool]):
     """Check if context works."""
 
     def visit_Identifier(
@@ -77,35 +77,43 @@ class AllToYFixedContext(Transformer[bool]):
 
 def test_context() -> None:
     """Check if Transformer can handle variables in indices."""
-    before = normalize("""
+    before = normalize_qasm_string("""
     x q;
     """)
-    true = normalize("""
+    true = normalize_qasm_string("""
     y y;
     """)
-    none = normalize(dumps(AllToYFixedContext().visit(parse(before), False)))
-    replaced = normalize(dumps(AllToYFixedContext().visit(parse(before), True)))
+    none = normalize_qasm_string(
+        dumps(AllToYFixedContext().visit(parse(before), False)),
+    )
+    replaced = normalize_qasm_string(
+        dumps(AllToYFixedContext().visit(parse(before), True)),
+    )
     assert before == none
     assert true == replaced
 
 
 def test_all() -> None:
     """Check if Transformer can handle variables in indices."""
-    before = normalize("""
+    before = normalize_qasm_string("""
     switch (i) {
         case 1, B, C {
             x q[I];
             }
         }
     """)
-    true = normalize("""
+    true = normalize_qasm_string("""
     switch (y) {
         case 1, y, y {
             y y[y];
             }
         }
     """)
-    none = normalize(dumps(AllToYFixedContext().visit(parse(before), False)))
-    replaced = normalize(dumps(AllToYFixedContext().visit(parse(before), True)))
+    none = normalize_qasm_string(
+        dumps(AllToYFixedContext().visit(parse(before), False)),
+    )
+    replaced = normalize_qasm_string(
+        dumps(AllToYFixedContext().visit(parse(before), True)),
+    )
     assert before == none
     assert true == replaced
