@@ -8,6 +8,13 @@ documentation for details.
 .. openapi:: openapi.json
 
 .. toctree::
+    :caption: Usage
+    :hidden:
+    :maxdepth: 2
+
+
+.. toctree::
+    :caption: Development
     :hidden:
     :maxdepth: 2
 
@@ -15,3 +22,12 @@ documentation for details.
     app.lib
     app.postprocess
     example-cross-references
+    code/app
+
+.. toctree::
+    :caption: OpenQasm3
+    :hidden:
+    :titlesonly:
+
+    openqasm3/ast
+    openqasm3/visitor
