@@ -57,6 +57,7 @@ However, the number of physical qubits on a real device is limited.
 See :ref:`reusable-qubit-annotation` for workarounds.
 
 The annotated input size must match the input size of the corresponding node from the `visual model <https://github.com/LEQO-Framework/low-code-modeler>`_.
+Inputs are expected to be **Little Endian**.
 
 The backend actively ensures that input memory is initialized.
 All other qubits still have to be assumed to be in an undefined state (See `OpenQasm Specification <https://openqasm.com/language/types.html#qubits#:~:text=Qubits%20are%20initially%20in%20an%20undefined%20state>`_ and :ref:`reusable-qubit-annotation`).
