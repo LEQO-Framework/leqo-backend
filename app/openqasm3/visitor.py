@@ -55,6 +55,8 @@ class LeqoTransformer(QASMTransformer[T]):
                     new_values.extend(new_value)
                     continue
                 new_values.append(new_value)
+            else:
+                new_values.append(value)
         return new_values
 
     def tuple_visit(
