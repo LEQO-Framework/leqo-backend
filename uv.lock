@@ -325,6 +325,7 @@ dependencies = [
 dev = [
     { name = "mypy" },
     { name = "myst-parser" },
+    { name = "openqasm-pygments" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "sphinx" },
@@ -332,8 +333,6 @@ dev = [
     { name = "sphinx-rtd-theme" },
     { name = "sphinxcontrib-openapi" },
     { name = "sphobjinv" },
-    { name = "types-antlr4-python3-runtime" },
-    { name = "types-pygments" },
 ]
 
 [package.metadata]
@@ -346,6 +345,7 @@ requires-dist = [
 dev = [
     { name = "mypy", specifier = ">=1.14.1" },
     { name = "myst-parser", specifier = ">=4.0.0" },
+    { name = "openqasm-pygments", specifier = ">=0.1.2" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "ruff", specifier = ">=0.9.4" },
     { name = "sphinx", specifier = ">=8.1.3" },
@@ -353,8 +353,6 @@ dev = [
     { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
     { name = "sphinxcontrib-openapi", specifier = ">=0.8.4" },
     { name = "sphobjinv", specifier = ">=2.3.1.2" },
-    { name = "types-antlr4-python3-runtime", specifier = ">=4.13.0.20240519" },
-    { name = "types-pygments", specifier = ">=2.19.0.20250305" },
 ]
 
 [[package]]
@@ -470,6 +468,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/85/55/6d1741a1780e5e65038b74bce6689da15f620261c490c3511eb4c12bac4b/myst_parser-4.0.0.tar.gz", hash = "sha256:851c9dfb44e36e56d15d05e72f02b80da21a9e0d07cba96baf5e2d476bb91531", size = 93858 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ca/b4/b036f8fdb667587bb37df29dc6644681dd78b7a2a6321a34684b79412b28/myst_parser-4.0.0-py3-none-any.whl", hash = "sha256:b9317997552424448c6096c2558872fdb6f81d3ecb3a40ce84a7518798f3f28d", size = 84563 },
+]
+
+[[package]]
+name = "openqasm-pygments"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pygments" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/81/4c/c4722f133b5bbef71bc8043dc1610bb72d1d724630373f046fa477aa9e3e/openqasm-pygments-0.1.2.tar.gz", hash = "sha256:9740ce2eb13adbb1de53a1bb447eeaf5cc212aeb4560e4dbed6015c8f50e5bf9", size = 56016 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/61/a69266cbbddd686229947052d672154589bcd5cc3fee1573be8909c657da/openqasm_pygments-0.1.2-py3-none-any.whl", hash = "sha256:b224632f8a535ad81609a991ffd82222330a742c6fbd444ed707f8586653ecc0", size = 18387 },
 ]
 
 [[package]]
@@ -970,36 +980,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/cb/ce/dca7b219718afd37a0068f4f2530a727c2b74a8b6e8e0c0080a4c0de4fcd/typer-0.15.1.tar.gz", hash = "sha256:a0588c0a7fa68a1978a069818657778f86abe6ff5ea6abf472f940a08bfe4f0a", size = 99789 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d0/cc/0a838ba5ca64dc832aa43f727bd586309846b0ffb2ce52422543e6075e8a/typer-0.15.1-py3-none-any.whl", hash = "sha256:7994fb7b8155b64d3402518560648446072864beefd44aa2dc36972a5972e847", size = 44908 },
-]
-
-[[package]]
-name = "types-antlr4-python3-runtime"
-version = "4.13.0.20240519"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/dc/7b/9cd1346fb578e2ff620298cbf36d2291f562762ed77063d88bbc57cd2740/types-antlr4-python3-runtime-4.13.0.20240519.tar.gz", hash = "sha256:c26c0a15c69fd3921cb95ffe84e386e69437cd51ac402c016f3155354fd5ea01", size = 18454 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/42/54/3032c354a8f4e89dad90042b175c3d8f90d418e70ec43d2810691f093760/types_antlr4_python3_runtime-4.13.0.20240519-py3-none-any.whl", hash = "sha256:2e3bb146f0cf08244c0927b727846a06032f217318235af33d99e319b20a2c77", size = 34315 },
-]
-
-[[package]]
-name = "types-docutils"
-version = "0.21.0.20241128"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/dd/df/64e7ab01a4fc5ce46895dc94e31cffc8b8087c8d91ee54c45ac2d8d82445/types_docutils-0.21.0.20241128.tar.gz", hash = "sha256:4dd059805b83ac6ec5a223699195c4e9eeb0446a4f7f2aeff1759a4a7cc17473", size = 26739 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/b6/10ba95739f2cbb9c5bd2f6568148d62b468afe01a94c633e8892a2936d8a/types_docutils-0.21.0.20241128-py3-none-any.whl", hash = "sha256:e0409204009639e9b0bf4521eeabe58b5e574ce9c0db08421c2ac26c32be0039", size = 34677 },
-]
-
-[[package]]
-name = "types-pygments"
-version = "2.19.0.20250305"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "types-docutils" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/be/88f777c75022b111f9e9fe4cdb430bf92892fe90188b0fd037601ded2ea1/types_pygments-2.19.0.20250305.tar.gz", hash = "sha256:044c50e80ecd4128c00a7268f20355e16f5c55466d3d49dfda09be920af40b4b", size = 18521 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/c6/b6d3ad345b76425e46d25a2da1758603d80c3a59405bdcbbbaa86d8c8070/types_pygments-2.19.0.20250305-py3-none-any.whl", hash = "sha256:ca88aae5ec426f9b107c0f7adc36dc096d2882d930a49f679eaf4b8b643db35d", size = 25638 },
 ]
 
 [[package]]
