@@ -13,8 +13,8 @@ from openqasm3.ast import (
 )
 from openqasm3.visitor import QASMTransformer
 
-from app.model.SectionInfo import SectionInfo
-from app.preprocessing.utils import annotate
+from app.processing.graph import SectionInfo
+from app.processing.utils import annotate
 
 
 class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
