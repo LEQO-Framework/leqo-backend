@@ -29,3 +29,13 @@ Module contents
    :members:
    :undoc-members:
    :show-inheritance:
+
+
+.. toctree::
+    :caption: app
+    :hidden:
+    :maxdepth: 2
+
+    app.model
+    app.openqasm3
+    app.processing

@@ -20,12 +20,7 @@ documentation for details.
 
     testing
     example-cross-references
-    code/app/
-      model
-      openqasm3
-      processing/
-        post
-        pre
+    code/app
 
 .. toctree::
     :caption: OpenQasm3
