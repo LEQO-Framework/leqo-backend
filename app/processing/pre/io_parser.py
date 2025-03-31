@@ -22,12 +22,18 @@ from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_in
 
 
 class IOParse(LeqoTransformer[None]):
+    """Parse input/output qubits of a single qasm-snippet."""
+
     qubit_id: int
     input_counter: int
     output_counter: int
     io: SnippetIOInfo
 
     def __init__(self, io: SnippetIOInfo) -> None:
+        """Construct the LeqoTransformer.
+
+        :param io: The SnippetIOInfo to be modified in place.
+        """
         super().__init__()
         self.qubit_id = 0
         self.input_counter = 0
