@@ -61,6 +61,7 @@ def result(uuid: UUID) -> str:
 
     return results[uuid]
 
+
 async def process_request(body: CompileRequest, uuid: UUID) -> None:
     old_state: StatusBody = states[uuid]
 
