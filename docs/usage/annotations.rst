@@ -74,6 +74,7 @@ Output
 
 One output is defined as a single alias (:class:`~openqasm3.ast.AliasStatement`) with a single `@leqo.output` annotation.
 
+* One qubit may only be used in one output at most
 * Outputs may be concatenated from multiple non-contiguous blocks of memory.
 * Output indices must be selected from a contiguous range of integers starting at `0`
     No skips, no duplicates
@@ -112,6 +113,7 @@ Ancilla Qubits
 If the programmer manually resets a qubit they can mark it as reusable.
 To do so, one can declare an alias to the reusable qubits.
 
+* Reusable qubits may not contain output qubits
 * Reusable annotated aliases may be declared anywhere in code
 * Reusable annotated aliases may be used like any other alias
 * Reusable annotations may only appear above a :class:`~openqasm3.ast.AliasStatement` pointing to qubits
