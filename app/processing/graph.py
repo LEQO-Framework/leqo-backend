@@ -9,6 +9,8 @@ from app.openqasm3.parser import leqo_parse
 
 @dataclass(frozen=True)
 class QasmImplementation:
+    """Store a qasm snippet as string and AST."""
+
     qasm: str
     ast: Program = field(hash=False)
 
@@ -19,9 +21,7 @@ class QasmImplementation:
 
 @dataclass(frozen=True)
 class ProgramNode:
-    """
-    Represents a node in a visual model of an openqasm3 program.
-    """
+    """Represents a node in a visual model of an openqasm3 program."""
 
     id: str
     implementation: QasmImplementation
@@ -30,5 +30,7 @@ class ProgramNode:
 
 @dataclass
 class SectionInfo:
+    """Store the sorting order to a ProgramNode."""
+
     index: int
     node: ProgramNode
