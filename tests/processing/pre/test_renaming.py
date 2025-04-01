@@ -1,16 +1,17 @@
-from app.processing.graph import ProgramNode, QasmImplementation, SectionInfo
+from uuid import uuid4
+
+from app.processing.graph import SectionInfo
 from app.processing.pre.renaming import RenameRegisterTransformer
 from tests.processing.utils import assert_processor
 
 
 def test_register_renaming() -> None:
-    section_info = SectionInfo(
-        1, node=ProgramNode("42", QasmImplementation.create("qubit a;"), None)
-    )
+    id = uuid4()
+    section_info = SectionInfo(id)
     assert_processor(
         RenameRegisterTransformer(),
         section_info,
-        """
+        f"""
         OPENQASM 3;
         @leqo.input 0
         float f1;
@@ -25,7 +26,7 @@ def test_register_renaming() -> None:
         @leqo.input 5
         qubit[3] q3;
         @leqo.input 6
-        qubit leqo_section1_declaration1;
+        qubit leqo_{id.hex}_declaration1;
         @leqo.input 7
         let alias = q1_2;
         @leqo.input 8
@@ -36,34 +37,34 @@ def test_register_renaming() -> None:
         x q1_2;
         x q2;
         x q3;
-        x leqo_section1_declaration1;
+        x leqo_{id.hex}_declaration1;
         """,
-        """\
+        f"""\
         OPENQASM 3;
         @leqo.input 0
-        float leqo_section1_declaration0;
+        float leqo_{id.hex}_declaration0;
         @leqo.input 1
-        float leqo_section1_declaration1;
+        float leqo_{id.hex}_declaration1;
         @leqo.input 2
-        qubit leqo_section1_declaration2;
+        qubit leqo_{id.hex}_declaration2;
         @leqo.input 3
-        qubit[1] leqo_section1_declaration3;
+        qubit[1] leqo_{id.hex}_declaration3;
         @leqo.input 4
-        qubit[2] leqo_section1_declaration4;
+        qubit[2] leqo_{id.hex}_declaration4;
         @leqo.input 5
-        qubit[3] leqo_section1_declaration5;
+        qubit[3] leqo_{id.hex}_declaration5;
         @leqo.input 6
-        qubit leqo_section1_declaration6;
+        qubit leqo_{id.hex}_declaration6;
         @leqo.input 7
-        let leqo_section1_declaration7 = leqo_section1_declaration3;
+        let leqo_{id.hex}_declaration7 = leqo_{id.hex}_declaration3;
         @leqo.input 8
-        bit leqo_section1_declaration8 = leqo_section1_declaration3;
+        bit leqo_{id.hex}_declaration8 = leqo_{id.hex}_declaration3;
         @leqo.input 9
-        const bit leqo_section1_declaration9 = measure leqo_section1_declaration3;
-        x leqo_section1_declaration2;
-        x leqo_section1_declaration3;
-        x leqo_section1_declaration4;
-        x leqo_section1_declaration5;
-        x leqo_section1_declaration6;
+        const bit leqo_{id.hex}_declaration9 = measure leqo_{id.hex}_declaration3;
+        x leqo_{id.hex}_declaration2;
+        x leqo_{id.hex}_declaration3;
+        x leqo_{id.hex}_declaration4;
+        x leqo_{id.hex}_declaration5;
+        x leqo_{id.hex}_declaration6;
         """,
     )
