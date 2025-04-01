@@ -47,6 +47,8 @@ else:
 
 
 class ProgramGraph(DiGraphWithProgramNode):
+    """Internal representation of the program graph."""
+
     def append_node(self, node: ProgramNode) -> None:
         return super().add_node(node)
 
