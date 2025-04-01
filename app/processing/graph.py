@@ -8,6 +8,7 @@ from networkx import DiGraph
 from openqasm3.ast import Program
 
 from app.openqasm3.parser import leqo_parse
+from app.processing.pre.io_parser import SnippetIOInfo
 
 
 @dataclass(frozen=True)
@@ -27,8 +28,6 @@ class ProgramNode:
     """Represents a node in a visual model of an openqasm3 program."""
 
     id: str
-    implementation: QasmImplementation
-    uncompute_implementation: QasmImplementation | None = None
 
 
 @dataclass(frozen=True)
@@ -48,15 +47,15 @@ else:
 class ProgramGraph(DiGraphWithProgramNode):
     """Internal representation of the program graph."""
 
-    def append_node(self, node: ProgramNode) -> None:
-        return super().add_node(node)
+    def append_section(self, section: SectionInfo) -> None:
+        return super().add_node(section.node, sec=SectionInfo)
 
     def append_edge(self, edge: IOConnection) -> None:
         return super().add_edge(edge.source[0], edge.target[0], data=edge)
 
-    def append_nodes(self, nodes: Iterable[ProgramNode]) -> None:
-        for node in nodes:
-            self.append_node(node)
+    def append_sections(self, sections: Iterable[SectionInfo]) -> None:
+        for section in sections:
+            self.append_section(section)
 
     def append_edges(self, edges: Iterable[IOConnection]) -> None:
         for edge in edges:
@@ -67,5 +66,6 @@ class ProgramGraph(DiGraphWithProgramNode):
 class SectionInfo:
     """Store the sorting order to a ProgramNode."""
 
-    index: int
     node: ProgramNode
+    index: int
+    io: SnippetIOInfo | None
