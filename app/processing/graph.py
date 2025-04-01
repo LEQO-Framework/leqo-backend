@@ -37,7 +37,6 @@ class IOConnection:
 
     source: tuple[ProgramNode, int]
     target: tuple[ProgramNode, int]
-    size: int
 
 
 if TYPE_CHECKING:

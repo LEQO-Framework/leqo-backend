@@ -18,9 +18,9 @@ def test_merge_nodes() -> None:
     graph.append_nodes((node0, node1, node2))
     graph.append_edges(
         (
-            IOConnection((node1, 0), (node0, 0), 0),
-            IOConnection((node2, 0), (node0, 0), 0),
-            IOConnection((node1, 0), (node2, 0), 0),
+            IOConnection((node1, 0), (node0, 0)),
+            IOConnection((node2, 0), (node0, 0)),
+            IOConnection((node1, 0), (node2, 0)),
         ),
     )
 
