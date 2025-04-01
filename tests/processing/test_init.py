@@ -1,7 +1,12 @@
 from textwrap import dedent
 
 from app.processing import merge_nodes, print_program
-from app.processing.graph import IOConnection, ProgramNode, QasmImplementation
+from app.processing.graph import (
+    IOConnection,
+    ProgramGraph,
+    ProgramNode,
+    QasmImplementation,
+)
 
 
 def test_merge_nodes() -> None:
@@ -9,14 +14,17 @@ def test_merge_nodes() -> None:
     node1 = ProgramNode("42", QasmImplementation.create("qubit a;"))
     node2 = ProgramNode("420", QasmImplementation.create("qubit b;"))
 
-    nodes = {node0, node1, node2}
-    edges = {
-        IOConnection((node1, 0), (node0, 0), 0),
-        IOConnection((node2, 0), (node0, 0), 0),
-        IOConnection((node1, 0), (node2, 0), 0),
-    }
+    graph = ProgramGraph()
+    graph.append_nodes((node0, node1, node2))
+    graph.append_edges(
+        (
+            IOConnection((node1, 0), (node0, 0), 0),
+            IOConnection((node2, 0), (node0, 0), 0),
+            IOConnection((node1, 0), (node2, 0), 0),
+        ),
+    )
 
-    program = merge_nodes(nodes, edges)
+    program = merge_nodes(graph)
     result = print_program(program)
     assert result == dedent("""\
         OPENQASM 3.1;

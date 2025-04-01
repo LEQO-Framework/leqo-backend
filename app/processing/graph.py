@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Iterable
 
+from networkx import DiGraph
 from openqasm3.ast import Program
 
 from app.openqasm3.parser import leqo_parse
@@ -35,6 +37,28 @@ class IOConnection:
     source: tuple[ProgramNode, int]
     target: tuple[ProgramNode, int]
     size: int
+
+
+if TYPE_CHECKING:
+    DiGraphWithProgramNode = DiGraph[ProgramNode]
+else:
+    DiGraphWithProgramNode = DiGraph
+
+
+class ProgramGraph(DiGraphWithProgramNode):
+    def append_node(self, node: ProgramNode) -> None:
+        return super().add_node(node)
+
+    def append_edge(self, edge: IOConnection) -> None:
+        return super().add_edge(edge.source[0], edge.target[0], data=edge)
+
+    def append_nodes(self, nodes: Iterable[ProgramNode]) -> None:
+        for node in nodes:
+            self.append_node(node)
+
+    def append_edges(self, edges: Iterable[IOConnection]) -> None:
+        for edge in edges:
+            self.append_edge(edge)
 
 
 @dataclass
