@@ -43,7 +43,7 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
             raise Exception("Variable already defined")
 
         index = len(self.renames)
-        new_identifier = Identifier(f"leqo_section{context.index}_declaration{index}")
+        new_identifier = Identifier(f"leqo_{context.id.hex}_declaration{index}")
         self.renames[old_identifier.name] = new_identifier
 
         return new_identifier
