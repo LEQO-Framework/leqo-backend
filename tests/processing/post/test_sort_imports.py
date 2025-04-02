@@ -21,6 +21,7 @@ def test_move_to_top() -> None:
     actual = normalize_qasm_string(dumps(SortImports().visit(parse(code))))
     assert expected == actual
 
+
 def test_remove_duplicates() -> None:
     code = normalize_qasm_string("""
     include "stdgates.inc";
@@ -35,6 +36,7 @@ def test_remove_duplicates() -> None:
     """)
     actual = normalize_qasm_string(dumps(SortImports().visit(parse(code))))
     assert expected == actual
+
 
 def test_all() -> None:
     code = normalize_qasm_string("""
