@@ -16,7 +16,7 @@ from app.processing.graph import (
     SingleInputInfo,
     SingleIOInfo,
     SingleOutputInfo,
-    SnippetIOInfo,
+    IOInfo,
 )
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
 
@@ -33,12 +33,12 @@ class IOParse(LeqoTransformer[None]):
     qubit_id: int
     input_counter: int
     output_counter: int
-    io: SnippetIOInfo
+    io: IOInfo
 
-    def __init__(self, io: SnippetIOInfo) -> None:
+    def __init__(self, io: IOInfo) -> None:
         """Construct the LeqoTransformer.
 
-        :param io: The SnippetIOInfo to be modified in place.
+        :param io: The IOInfo to be modified in place.
         """
         super().__init__()
         self.qubit_id = 0

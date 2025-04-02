@@ -7,7 +7,7 @@ from app.processing.graph import (
     SingleInputInfo,
     SingleIOInfo,
     SingleOutputInfo,
-    SnippetIOInfo,
+    IOInfo,
 )
 from app.processing.pre.io_parser import IOParse
 from app.processing.utils import normalize_qasm_string
@@ -18,7 +18,7 @@ def test_simple_input() -> None:
     @leqo.input 0
     qubit[3] q;
     """
-    expected = SnippetIOInfo(
+    expected = IOInfo(
         {"q": [0, 1, 2]},
         {},
         {
@@ -27,7 +27,7 @@ def test_simple_input() -> None:
             2: SingleIOInfo(input=SingleInputInfo(0, 2)),
         },
     )
-    actual = SnippetIOInfo()
+    actual = IOInfo()
     IOParse(actual).visit(parse(code))
     assert expected == actual
 
@@ -39,7 +39,7 @@ def test_output_simple() -> None:
     @leqo.output 0
     let a = q;
     """
-    expected = SnippetIOInfo(
+    expected = IOInfo(
         {"q": [0, 1, 2]},
         {"a": [0, 1, 2]},
         {
@@ -48,7 +48,7 @@ def test_output_simple() -> None:
             2: SingleIOInfo(output=SingleOutputInfo(0, 2)),
         },
     )
-    actual = SnippetIOInfo()
+    actual = IOInfo()
     IOParse(actual).visit(parse(code))
     assert expected == actual
 
@@ -60,7 +60,7 @@ def test_output_indexed() -> None:
     @leqo.output 0
     let a = q[0:1];
     """
-    expected = SnippetIOInfo(
+    expected = IOInfo(
         {"q": [0, 1, 2]},
         {"a": [0, 1]},
         {
@@ -69,7 +69,7 @@ def test_output_indexed() -> None:
             2: SingleIOInfo(),
         },
     )
-    actual = SnippetIOInfo()
+    actual = IOInfo()
     IOParse(actual).visit(parse(code))
     assert expected == actual
 
@@ -81,7 +81,7 @@ def test_classical_ignored() -> None:
 
     let a = c;
     """
-    expected = SnippetIOInfo(
+    expected = IOInfo(
         {
             "q": [0, 1],
         },
@@ -91,7 +91,7 @@ def test_classical_ignored() -> None:
             1: SingleIOInfo(),
         },
     )
-    actual = SnippetIOInfo()
+    actual = IOInfo()
     IOParse(actual).visit(parse(code))
     assert expected == actual
 
@@ -104,7 +104,7 @@ def test_output_concatenation() -> None:
     @leqo.output 0
     let a = q0[0] ++ q1[0];
     """
-    expected = SnippetIOInfo(
+    expected = IOInfo(
         {
             "q0": [0, 1],
             "q1": [2, 3],
@@ -117,7 +117,7 @@ def test_output_concatenation() -> None:
             3: SingleIOInfo(),
         },
     )
-    actual = SnippetIOInfo()
+    actual = IOInfo()
     IOParse(actual).visit(parse(code))
     assert expected == actual
 
@@ -130,7 +130,7 @@ def test_output_big_concatenation() -> None:
     @leqo.output 0
     let a = q0[0] ++ q1[0] ++ q0[1];
     """
-    expected = SnippetIOInfo(
+    expected = IOInfo(
         {
             "q0": [0, 1],
             "q1": [2, 3],
@@ -143,7 +143,7 @@ def test_output_big_concatenation() -> None:
             3: SingleIOInfo(),
         },
     )
-    actual = SnippetIOInfo()
+    actual = IOInfo()
     IOParse(actual).visit(parse(code))
     assert expected == actual
 
@@ -159,7 +159,7 @@ def test_alias_chain() -> None:
     @leqo.reusable
     let e = d[0]; // get id 3
     """)
-    expected = SnippetIOInfo(
+    expected = IOInfo(
         {
             "q": [0, 1, 2, 3, 4],
         },
@@ -178,7 +178,7 @@ def test_alias_chain() -> None:
             4: SingleIOInfo(),
         },
     )
-    actual = SnippetIOInfo()
+    actual = IOInfo()
     IOParse(actual).visit(parse(code))
     assert expected == actual
 
@@ -191,7 +191,7 @@ def test_raise_on_missing_io_index() -> None:
     qubit[2] q1;
     """
     with pytest.raises(IndexError):
-        IOParse(SnippetIOInfo()).visit(parse(code))
+        IOParse(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_duplicate_declaration_annotation() -> None:
@@ -201,7 +201,7 @@ def test_raise_on_duplicate_declaration_annotation() -> None:
     qubit[2] q0;
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(SnippetIOInfo()).visit(parse(code))
+        IOParse(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_duplicate_alias_annotation() -> None:
@@ -213,7 +213,7 @@ def test_raise_on_duplicate_alias_annotation() -> None:
     let tmp = q0;
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(SnippetIOInfo()).visit(parse(code))
+        IOParse(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_input_annotation_over_alias() -> None:
@@ -224,7 +224,7 @@ def test_raise_on_input_annotation_over_alias() -> None:
     let tmp = q0;
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(SnippetIOInfo()).visit(parse(code))
+        IOParse(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_output_annotation_over_declaration() -> None:
@@ -233,7 +233,7 @@ def test_raise_on_output_annotation_over_declaration() -> None:
     qubit[2] q0;
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(SnippetIOInfo()).visit(parse(code))
+        IOParse(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_reusable_and_output() -> None:
@@ -246,7 +246,7 @@ def test_raise_on_reusable_and_output() -> None:
     let b = q0[2];
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(SnippetIOInfo()).visit(parse(code))
+        IOParse(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_double_output_declaration_on_single_qubit() -> None:
@@ -259,7 +259,7 @@ def test_raise_on_double_output_declaration_on_single_qubit() -> None:
     let b = q0[1];
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(SnippetIOInfo()).visit(parse(code))
+        IOParse(IOInfo()).visit(parse(code))
 
 
 def test_all() -> None:
@@ -279,7 +279,7 @@ def test_all() -> None:
     @leqo.reusable
     let _reuse = q0[2:4];
     """)
-    expected = SnippetIOInfo(
+    expected = IOInfo(
         {
             "q0": [0, 1, 2, 3, 4],
             "q1": [5, 6, 7, 8, 9],
@@ -315,6 +315,6 @@ def test_all() -> None:
             9: SingleIOInfo(input=SingleInputInfo(1, 4)),
         },
     )
-    actual = SnippetIOInfo()
+    actual = IOInfo()
     IOParse(actual).visit(parse(code))
     assert expected == actual
