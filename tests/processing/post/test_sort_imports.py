@@ -5,32 +5,54 @@ from app.processing.post.sort_imports import SortImports
 from app.processing.utils import normalize_qasm_string
 
 
-def test_basic() -> None:
-    """Basic test that covers a single example."""
-    before = normalize_qasm_string("""
+def test_move_to_top() -> None:
+    code = normalize_qasm_string("""
     include "stdgates.inc";
-    bit[2] c;
-    qubit[4] _all_qubits;
-    let q = _all_qubits[0:3];
-    x q[0];
-    x q[1];
-    cx q[0], q[2];
-    cx q[1], q[2];
+    qubit q0;
+    include "qelib1.inc";
+    qubit q1;
+    """)
+    expected = normalize_qasm_string("""
     include "stdgates.inc";
     include "qelib1.inc";
-    ccx q[0], q[1], q[3];
+    qubit q0;
+    qubit q1;
     """)
-    target = normalize_qasm_string("""
+    actual = normalize_qasm_string(dumps(SortImports().visit(parse(code))))
+    assert expected == actual
+
+def test_remove_duplicates() -> None:
+    code = normalize_qasm_string("""
+    include "stdgates.inc";
+    qubit q0;
+    include "stdgates.inc";
+    qubit q1;
+    """)
+    expected = normalize_qasm_string("""
+    include "stdgates.inc";
+    qubit q0;
+    qubit q1;
+    """)
+    actual = normalize_qasm_string(dumps(SortImports().visit(parse(code))))
+    assert expected == actual
+
+def test_all() -> None:
+    code = normalize_qasm_string("""
+    include "stdgates.inc";
+    qubit q0;
     include "stdgates.inc";
     include "qelib1.inc";
-    bit[2] c;
-    qubit[4] _all_qubits;
-    let q = _all_qubits[0:3];
-    x q[0];
-    x q[1];
-    cx q[0], q[2];
-    cx q[1], q[2];
-    ccx q[0], q[1], q[3];
+    qubit q1;
+    include "stdgates.inc";
+    include "qelib1.inc";
+    qubit q2;
     """)
-    actual = normalize_qasm_string(dumps(SortImports().visit(parse(before))))
-    assert target == actual
+    expected = normalize_qasm_string("""
+    include "stdgates.inc";
+    include "qelib1.inc";
+    qubit q0;
+    qubit q1;
+    qubit q2;
+    """)
+    actual = normalize_qasm_string(dumps(SortImports().visit(parse(code))))
+    assert expected == actual
