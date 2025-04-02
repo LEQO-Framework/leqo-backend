@@ -1,103 +1,82 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+from uuid import UUID
 
+from networkx import DiGraph
 from openqasm3.ast import Program
-
-from app.openqasm3.parser import leqo_parse
-
-
-@dataclass(frozen=True)
-class QasmImplementation:
-    qasm: str
-    ast: Program = field(hash=False)
-
-    @staticmethod
-    def create(value: str) -> QasmImplementation:
-        return QasmImplementation(value, leqo_parse(value))
 
 
 @dataclass(frozen=True)
 class ProgramNode:
     """Represents a node in a visual model of an openqasm3 program."""
 
-    id: str
-    implementation: QasmImplementation
-    uncompute_implementation: QasmImplementation | None = None
+    name: str
+    implementation: str
+    uncompute_implementation: str | None = None
 
 
 @dataclass
 class SectionInfo:
-    index: int
-    node: ProgramNode
-    io: SnippetIOInfo
+    """Store information scraped in preprocessing."""
+
+    id: UUID
 
 
-@dataclass()
-class SingleInputInfo:
-    """Store the input id and the corresponding register position."""
+@dataclass(frozen=True)
+class ProcessedProgramNode:
+    """Store a qasm snippet as string and AST."""
 
-    id: int
-    position: int
-
-
-@dataclass()
-class SingleOutputInfo:
-    """Store the output id and the corresponding register position."""
-
-    id: int
-    position: int
+    raw: ProgramNode
+    implementation: Program
+    info: SectionInfo
+    uncompute_implementation: Program | None
 
 
-@dataclass()
-class SingleIOInfo:
-    """Store input, output and reusable info for a single qubit."""
+@dataclass(frozen=True)
+class IOConnection:
+    """Map output-reg from source to target input-reg with specified size."""
 
-    input: SingleInputInfo | None
-    output: SingleOutputInfo | None
-    reusable: bool
-
-    def __init__(
-        self,
-        input: SingleInputInfo | None = None,
-        output: SingleOutputInfo | None = None,
-        reusable: bool | None = None,
-    ) -> None:
-        self.input = input
-        self.output = output
-        self.reusable = reusable or False
+    source: tuple[ProgramNode, int]
+    target: tuple[ProgramNode, int]
 
 
-@dataclass()
-class SnippetIOInfo:
-    """Store input, output and reusable info for a qasm-snippet.
+if TYPE_CHECKING:
+    ProgramGraphBase = DiGraph[ProgramNode]
+else:
+    ProgramGraphBase = DiGraph
 
-    :param declaration_to_id: Maps declared qubit names to list of IDs.
-    :param alias_to_id: Maps alias qubit names to list of IDs.
-    :param id_to_info: Maps IDs to their corresponding info objects.
-    """
 
-    declaration_to_id: dict[str, list[int]]
-    alias_to_id: dict[str, list[int]]
-    id_to_info: dict[int, SingleIOInfo]
+class ProgramGraph(ProgramGraphBase):
+    """Internal representation of the program graph."""
 
-    def __init__(
-        self,
-        declaration_to_id: dict[str, list[int]] | None = None,
-        alias_to_id: dict[str, list[int]] | None = None,
-        id_to_info: dict[int, SingleIOInfo] | None = None,
-    ) -> None:
-        self.declaration_to_id = declaration_to_id or {}
-        self.alias_to_id = alias_to_id or {}
-        self.id_to_info = id_to_info or {}
+    __node_data: dict[ProgramNode, ProcessedProgramNode]
+    __edge_data: dict[tuple[ProgramNode, ProgramNode], IOConnection]
 
-    def identifier_to_ids(self, identifier: str) -> list[int]:
-        """Get list of IDs for identifier in alias or declaration."""
-        try:
-            return self.declaration_to_id[identifier]
-        except KeyError:
-            return self.alias_to_id[identifier]
+    def __init__(self) -> None:
+        super().__init__()
+        self.__node_data = {}
+        self.__edge_data = {}
 
-    def identifier_to_infos(self, identifier: str) -> list[SingleIOInfo]:
-        """Get list of IO-info for identifier."""
-        return [self.id_to_info[i] for i in self.identifier_to_ids(identifier)]
+    def append_node(self, node: ProcessedProgramNode) -> None:
+        super().add_node(node.raw)
+        self.__node_data[node.raw] = node
+
+    def append_nodes(self, *nodes: ProcessedProgramNode) -> None:
+        for node in nodes:
+            self.append_node(node)
+
+    def append_edge(self, edge: IOConnection) -> None:
+        super().add_edge(edge.source[0], edge.target[0])
+        self.__edge_data[(edge.source[0], edge.source[0])] = edge
+
+    def append_edges(self, *edges: IOConnection) -> None:
+        for edge in edges:
+            self.append_edge(edge)
+
+    def get_data_node(self, node: ProgramNode) -> ProcessedProgramNode:
+        return self.__node_data[node]
+
+    def get_data_edge(self, source: ProgramNode, target: ProgramNode) -> IOConnection:
+        return self.__edge_data[(source, target)]

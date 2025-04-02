@@ -8,11 +8,10 @@ documentation for details.
 .. openapi:: openapi.json
 
 .. toctree::
-    :caption: Qasm Pipeline
+    :caption: Usage
     :hidden:
     :maxdepth: 2
 
-    processing/pre
 
 .. toctree::
     :caption: Development
@@ -22,6 +21,7 @@ documentation for details.
     app.lib
     testing
     example-cross-references
+    code/app
 
 .. toctree::
     :caption: OpenQasm3
