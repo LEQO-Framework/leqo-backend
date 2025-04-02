@@ -22,7 +22,13 @@ from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_in
 
 
 class IOParse(LeqoTransformer[None]):
-    """Parse input/output qubits of a single qasm-snippet."""
+    """Parse input/output qubits of a single qasm-snippet.
+
+    Do it the following way:
+    - give every declared qubit (not qubit-reg) and id, based on declaration order
+    - create map that points from declared identifiers to ids, this also parses aliases
+    - store annotation info based on the id of the qubit
+    """
 
     qubit_id: int
     input_counter: int

@@ -1,3 +1,5 @@
+from io import UnsupportedOperation
+
 import pytest
 from openqasm3.parser import parse
 
@@ -146,14 +148,117 @@ def test_output_big_concatenation() -> None:
     assert expected == actual
 
 
+def test_alias_chain() -> None:
+    code = normalize_qasm_string("""
+    qubit[5] q;
+
+    let a = q[{4, 3, 2, 1, 0}]; // reverse order
+    let b = a[{4, 3, 2, 1, 0}]; // reverse order back to normal
+    let c = b[2:-1]; // get ids 2, 3, 4
+    let d = c[1:2]; // get ids 3, 4
+    @leqo.reusable
+    let e = d[0]; // get id 3
+    """)
+    expected = SnippetIOInfo(
+        {
+            "q": [0, 1, 2, 3, 4],
+        },
+        {
+            "a": [4, 3, 2, 1, 0],
+            "b": [0, 1, 2, 3, 4],
+            "c": [2, 3, 4],
+            "d": [3, 4],
+            "e": [3],
+        },
+        {
+            0: SingleIOInfo(),
+            1: SingleIOInfo(),
+            2: SingleIOInfo(),
+            3: SingleIOInfo(reusable=True),
+            4: SingleIOInfo(),
+        },
+    )
+    actual = SnippetIOInfo()
+    IOParse(actual).visit(parse(code))
+    assert expected == actual
+
+
 def test_raise_on_missing_io_index() -> None:
     code = """
-        @leqo.input 0
-        qubit[2] q0;
-        @leqo.input 2
-        qubit[2] q1;
-        """
+    @leqo.input 0
+    qubit[2] q0;
+    @leqo.input 2
+    qubit[2] q1;
+    """
     with pytest.raises(IndexError):
+        IOParse(SnippetIOInfo()).visit(parse(code))
+
+
+def test_raise_on_duplicate_declaration_annotation() -> None:
+    code = """
+    @leqo.input 0
+    @leqo.input 1
+    qubit[2] q0;
+    """
+    with pytest.raises(UnsupportedOperation):
+        IOParse(SnippetIOInfo()).visit(parse(code))
+
+
+def test_raise_on_duplicate_alias_annotation() -> None:
+    code = """
+    qubit[2] q0;
+
+    @leqo.output 0
+    @leqo.output 1
+    let tmp = q0;
+    """
+    with pytest.raises(UnsupportedOperation):
+        IOParse(SnippetIOInfo()).visit(parse(code))
+
+
+def test_raise_on_input_annotation_over_alias() -> None:
+    code = """
+    qubit[2] q0;
+
+    @leqo.input 0
+    let tmp = q0;
+    """
+    with pytest.raises(UnsupportedOperation):
+        IOParse(SnippetIOInfo()).visit(parse(code))
+
+
+def test_raise_on_output_annotation_over_declaration() -> None:
+    code = """
+    @leqo.output 0
+    qubit[2] q0;
+    """
+    with pytest.raises(UnsupportedOperation):
+        IOParse(SnippetIOInfo()).visit(parse(code))
+
+
+def test_raise_on_reusable_and_output() -> None:
+    code = """
+    qubit[5] q0;
+
+    @leqo.output 0
+    let a = q0[2];
+    @leqo.reusable
+    let b = q0[2];
+    """
+    with pytest.raises(UnsupportedOperation):
+        IOParse(SnippetIOInfo()).visit(parse(code))
+
+
+def test_raise_on_double_output_declaration_on_single_qubit() -> None:
+    code = """
+    qubit[5] q0;
+
+    @leqo.output 0
+    let a = q0[1];
+    @leqo.output 1
+    let b = q0[1];
+    """
+    with pytest.raises(UnsupportedOperation):
         IOParse(SnippetIOInfo()).visit(parse(code))
 
 
