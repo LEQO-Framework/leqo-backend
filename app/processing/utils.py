@@ -1,7 +1,14 @@
 import re
 from typing import TypeVar
 
-from openqasm3.ast import Annotation, Expression, IntegerLiteral, Statement
+from openqasm3.ast import (
+    Annotation,
+    Expression,
+    IntegerLiteral,
+    Program,
+    QASMNode,
+    Statement,
+)
 
 REMOVE_INDENT = re.compile(r"\n +", re.MULTILINE)
 
@@ -9,6 +16,14 @@ REMOVE_INDENT = re.compile(r"\n +", re.MULTILINE)
 def normalize_qasm_string(program: str) -> str:
     """Normalize QASM-string."""
     return REMOVE_INDENT.sub("\n", program).strip()
+
+
+def cast_to_program(node: QASMNode | None) -> Program:
+    """Cast to Program or raise error."""
+    if not isinstance(node, Program):
+        msg = f"Tried to cast {type(node)} to Program."
+        raise TypeError(msg)
+    return node
 
 
 def get_int(expression: Expression | None) -> int | None:
