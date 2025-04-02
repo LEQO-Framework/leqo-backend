@@ -121,7 +121,7 @@ To do so, one can declare an alias to the reusable qubits.
 * Reusable annotated aliases may be used like any other alias
 * Reusable annotations may only appear above a :class:`~openqasm3.ast.AliasStatement` pointing to qubits
 * Reusable annotations may only appear once per statement
-* Reusable annotations guarantee that the backend is free to reuse the qubit (i.e. it is not entangled any more)
+* Reusable annotations guarantee that the backend is free to reuse the qubit (i.e. it is not entangled and reset to \|0⟩)
 
 .. code-block:: openqasm3
     :linenos:
