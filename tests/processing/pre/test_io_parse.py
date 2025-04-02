@@ -4,10 +4,10 @@ import pytest
 from openqasm3.parser import parse
 
 from app.processing.graph import (
+    IOInfo,
     SingleInputInfo,
     SingleIOInfo,
     SingleOutputInfo,
-    IOInfo,
 )
 from app.processing.pre.io_parser import IOParse
 from app.processing.utils import normalize_qasm_string

@@ -13,10 +13,10 @@ from openqasm3.ast import (
 
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
+    IOInfo,
     SingleInputInfo,
     SingleIOInfo,
     SingleOutputInfo,
-    IOInfo,
 )
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
 

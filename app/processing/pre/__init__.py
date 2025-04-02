@@ -21,5 +21,4 @@ def preprocess(program: Program, section_info: SectionInfo) -> Program:
         return node
 
     program = to_program(RenameRegisterTransformer().visit(program, section_info))
-    program = to_program(IOParse(section_info.io).visit(program))
-    return program
+    return to_program(IOParse(section_info.io).visit(program))
