@@ -64,6 +64,9 @@ def test_parse_qasm_index() -> None:
     assert_parse("[{1, 2, 4}]", 10000, [1, 2, 4])
     assert_parse("[{0, 1, 2, 3}][0:2][0]", 4, [0])
     assert_parse("[{3, 2, 1, 0}][1:3][0:1]", 4, [2, 1])
+    assert_parse("[1:]", 3, [1, 2])
+    assert_parse("[:1]", 3, [0, 1])
+    assert_parse("[:]", 3, [0, 1, 2])
     with pytest.raises(IndexError):
         assert_parse("[1000]", 4, [])
     with pytest.raises(IndexError):

@@ -96,7 +96,7 @@ def parse_range_definition(range_def: RangeDefinition, length: int) -> list[int]
     and python does not.
     """
     start = expr_to_int(range_def.start) if range_def.start is not None else 0
-    end = expr_to_int(range_def.end) if range_def.end is not None else length
+    end = expr_to_int(range_def.end) if range_def.end is not None else -1
     step = expr_to_int(range_def.step) if range_def.step is not None else 1
     if start < 0:
         start = length + start
