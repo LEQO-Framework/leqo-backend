@@ -20,6 +20,6 @@ try:
     engine = create_engine(url, echo=True)
     reset_database(engine)
 except KeyError as e:
-    raise RuntimeError(f"Missing required environment variable: {e}")
+    raise RuntimeError(f"Missing required environment variable: {e}") from e
 except Exception as e:
-    raise RuntimeError(f"Failed to create the database engine: {e}")
+    raise RuntimeError(f"Failed to create the database engine: {e}") from e
