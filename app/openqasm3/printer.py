@@ -1,3 +1,7 @@
+"""
+Extended printing for abstract syntax trees.
+"""
+
 from io import TextIOBase
 
 from openqasm3.printer import Printer, PrinterState

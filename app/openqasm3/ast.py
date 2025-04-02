@@ -1,3 +1,7 @@
+"""
+Leqo-backend specific extensions of the abstract syntax tree.
+"""
+
 from dataclasses import dataclass
 
 from openqasm3.ast import Statement

@@ -1,3 +1,8 @@
+"""
+Each qasm snippet attached to a node in the editor will first be passed through the preprocessing pipeline.
+The pipeline consists of multiple :class:`~openqasm3.visitor.QASMTransformer` that will transform the abstract syntax tree (AST) of the qasm snippet.
+"""
+
 from openqasm3.ast import Program
 
 from app.processing.graph import SectionInfo

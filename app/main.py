@@ -1,3 +1,7 @@
+"""
+All fastapi endpoints available.
+"""
+
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -29,6 +33,14 @@ results: dict[UUID, str] = {}
 def compile(
     body: CompileRequest, background_tasks: BackgroundTasks
 ) -> RedirectResponse:
+    """
+    Queue a compilation request.
+
+    :param body: Compilation request from frontend
+    :param background_tasks: Background tasks injected from fastapi
+    :return: RedirectResponse to status endpoint
+    """
+
     uuid: UUID = uuid4()
     states[uuid] = StatusBody(
         uuid=uuid,
@@ -44,6 +56,13 @@ def compile(
 
 @app.get("/status/{uuid}")
 def status(uuid: UUID) -> StatusBody:
+    """
+    Fetch status of a compile request.
+
+    :param uuid: Id of the compile request
+    :return: Current status of the compile request
+    """
+
     if uuid not in states:
         raise HTTPException(
             status_code=404, detail=f"No compile request with uuid '{uuid}' found."
@@ -54,6 +73,13 @@ def status(uuid: UUID) -> StatusBody:
 
 @app.get("/result/{uuid}")
 def result(uuid: UUID) -> str:
+    """
+    Fetch result of a compile request.
+
+    :param uuid: Id of the compile request
+    :return: Result of the compile request
+    """
+
     if uuid not in results:
         raise HTTPException(
             status_code=404, detail=f"No compile request with uuid '{uuid}' found."
@@ -63,6 +89,13 @@ def result(uuid: UUID) -> str:
 
 
 async def process_request(body: CompileRequest, uuid: UUID) -> None:
+    """
+    Process a compile request in background.
+
+    :param body: Compile request from frontend
+    :param uuid: Id of the compile request
+    """
+
     old_state: StatusBody = states[uuid]
 
     results[uuid] = body.model_dump_json()

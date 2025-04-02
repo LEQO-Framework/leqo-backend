@@ -1,3 +1,7 @@
+"""
+Extended parsing of abstract syntax trees.
+"""
+
 from openqasm3.ast import Program
 from openqasm3.parser import parse
 

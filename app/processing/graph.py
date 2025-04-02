@@ -1,3 +1,7 @@
+"""
+Basic datastructures used withing the :mod:`app.processing`.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

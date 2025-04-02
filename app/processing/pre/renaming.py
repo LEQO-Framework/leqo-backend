@@ -1,3 +1,7 @@
+"""
+Transformer to rename identifiers in a qasm program.
+"""
+
 from openqasm3.ast import (
     AliasStatement,
     CalibrationDefinition,

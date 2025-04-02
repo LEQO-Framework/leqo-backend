@@ -45,10 +45,11 @@ extensions = [
 
 # https://sphinx-autoapi.readthedocs.io/en/latest/reference/config.html
 autoapi_options = [
-    "undoc-members",
+    "members",
 ]
 autoapi_dirs = [*find_module_paths("openqasm3"), "../app"]
 autoapi_ignore = ["*migrations*", "*_antlr*"]
+autodoc_typehints = "both"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
