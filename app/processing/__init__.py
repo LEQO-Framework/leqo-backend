@@ -48,7 +48,7 @@ def merge_nodes(graph: ProgramGraph) -> Program:
     for node in topological_sort(graph):
         all_statements.append(CommentStatement(f"Start node {node.name}"))
 
-        all_statements.extend(graph.get_node_data(node).implementation.statements)
+        all_statements.extend(graph.get_data_node(node).implementation.statements)
 
         all_statements.append(CommentStatement(f"End node {node.name}"))
 

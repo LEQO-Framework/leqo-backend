@@ -19,7 +19,7 @@ class ProgramNode:
 
 @dataclass
 class SectionInfo:
-    """Stores information scraped in preprocessing"""
+    """Store information scraped in preprocessing."""
 
     id: UUID
 
@@ -52,13 +52,15 @@ class ProgramGraph(ProgramGraphBase):
     """Internal representation of the program graph."""
 
     __node_data: dict[ProgramNode, ProcessedProgramNode]
+    __edge_data: dict[tuple[ProgramNode, ProgramNode], IOConnection]
 
     def __init__(self) -> None:
         super().__init__()
         self.__node_data = {}
+        self.__edge_data = {}
 
     def append_node(self, node: ProcessedProgramNode) -> None:
-        super().add_node(node.raw, data=ProcessedProgramNode)
+        super().add_node(node.raw)
         self.__node_data[node.raw] = node
 
     def append_nodes(self, *nodes: ProcessedProgramNode) -> None:
@@ -66,11 +68,15 @@ class ProgramGraph(ProgramGraphBase):
             self.append_node(node)
 
     def append_edge(self, edge: IOConnection) -> None:
-        super().add_edge(edge.source[0], edge.target[0], data=edge)
+        super().add_edge(edge.source[0], edge.target[0])
+        self.__edge_data[(edge.source[0], edge.source[0])] = edge
 
     def append_edges(self, *edges: IOConnection) -> None:
         for edge in edges:
             self.append_edge(edge)
 
-    def get_node_data(self, node: ProgramNode) -> ProcessedProgramNode:
+    def get_data_node(self, node: ProgramNode) -> ProcessedProgramNode:
         return self.__node_data[node]
+
+    def get_data_edge(self, source: ProgramNode, target: ProgramNode) -> IOConnection:
+        return self.__edge_data[(source, target)]
