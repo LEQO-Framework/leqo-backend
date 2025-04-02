@@ -22,6 +22,7 @@ dev = [
     "sphinx-rtd-theme>=3.0.2",
     "sphinxcontrib-openapi>=0.8.4",
     "sphobjinv>=2.3.1.2",
+    "sphinx-autoapi>=3.6.0",
 ]
 
 # https://github.com/DSD-DBS/py-capellambse/blob/b0d63fac33c90d15f0d2d4c6c111184a5801ce6c/pyproject.toml#L174-L204
