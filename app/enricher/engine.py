@@ -8,11 +8,11 @@ load_dotenv()
 
 try:
     url = URL.create(
-        drivername="postgresql+psycopg",
-        host="172.18.0.3",
-        port=os.environ['POSTGRES_PORT'],
+        drivername=os.environ['SQLALCHEMY_DRIVER'],
         username=os.environ['POSTGRES_USER'],
         password=os.environ['POSTGRES_PASSWORD'],
+        host=os.environ['POSTGRES_HOST'],
+        port=os.environ['POSTGRES_PORT'],
         database=os.environ['POSTGRES_DB']
     )
     engine = create_engine(url, echo=True)
