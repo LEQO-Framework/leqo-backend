@@ -1,7 +1,9 @@
 import os
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
-from dotenv import load_dotenv
+
 from app.enricher.utils import reset_database
 
 load_dotenv()

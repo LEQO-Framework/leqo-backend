@@ -1,5 +1,7 @@
 from sqlalchemy import Engine
+
 from app.enricher.models import Base
+
 
 def create_database(engine: Engine) -> None:
     Base.metadata.create_all(engine)

@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
+
 from app.enricher.engine import engine
 from app.enricher.models import QuasmImplementation
 
