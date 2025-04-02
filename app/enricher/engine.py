@@ -2,7 +2,7 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
 from dotenv import load_dotenv
-from app.enricher.utils import create_database
+from app.enricher.utils import reset_database
 
 load_dotenv()
 
@@ -16,7 +16,7 @@ try:
         database=os.environ['POSTGRES_DB']
     )
     engine = create_engine(url, echo=True)
-    create_database(engine)
+    reset_database(engine)
 except KeyError as e:
     raise RuntimeError(f"Missing required environment variable: {e}")
 except Exception as e:
