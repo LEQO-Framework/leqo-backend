@@ -63,6 +63,8 @@ def test_parse_qasm_index() -> None:
     assert_parse("[1:2]", 4, [1, 2])
     assert_parse("[0:-1]", 3, [0, 1, 2])
     assert_parse("[1:-1]", 3, [1, 2])
+    assert_parse("[1:-2]", 5, [1, 2, 3])
+    assert_parse("[1:-4]", 5, [1])
     assert_parse("[0:2:5]", 10, [0, 2, 4])
     assert_parse("[0:3:9]", 10, [0, 3, 6, 9])
     assert_parse("[3:-1:1]", 10, [3, 2, 1])
