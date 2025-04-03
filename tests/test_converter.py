@@ -1,12 +1,14 @@
 import pytest
+from openqasm3.ast import Program
+from openqasm3.printer import dumps
 
 from app.converter.qasm_converter import QASMConversionError, QASMConverter
 from app.processing.utils import normalize_qasm_string
 
 
 # Helper functions # # # # #
-def check_out(out: str, expected: str) -> None:
-    actual_circuit = normalize_qasm_string(out)
+def check_out(out: Program, expected: str) -> None:
+    actual_circuit = normalize_qasm_string(dumps(out))
     expected_circuit = normalize_qasm_string(expected)
     assert actual_circuit == expected_circuit
 
@@ -24,7 +26,7 @@ def test_qubit_conversion() -> None:
     qubit[10] qubits;
     bit[1] c;
     bit[12] bits;"""
-    check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
+    check_out(converter.parse_to_qasm3(input_qasm2), expected)
 
 
 def test_measure_statement_conversion() -> None:
@@ -39,7 +41,7 @@ def test_measure_statement_conversion() -> None:
     c = measure q;
     c[1] = measure q[0];
     """
-    check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
+    check_out(converter.parse_to_qasm3(input_qasm2), expected)
 
 
 def test_raise_on_opaque() -> None:
@@ -49,7 +51,7 @@ def test_raise_on_opaque() -> None:
     opaque custom_gate (a,b,c) p,q,r;
     """
     with pytest.raises(QASMConversionError):
-        converter.qasm2_to_qasm3(input_qasm2)
+        converter.parse_to_qasm3(input_qasm2)
 
 
 def test_std_header_conversion() -> None:
@@ -60,12 +62,12 @@ def test_std_header_conversion() -> None:
     expected = """
     OPENQASM 3.1;
     """
-    check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
+    check_out(converter.parse_to_qasm3(input_qasm2), expected)
 
 
 def test_unsupported_qasm_version_exception() -> None:
     with pytest.raises(QASMConversionError):
-        QASMConverter().qasm2_to_qasm3("OPENQASM 3.0;")
+        QASMConverter().parse_to_qasm3("OPENQASM 1.0;")
 
 
 def test_non_raise_on_qasm_2_1() -> None:
@@ -77,7 +79,7 @@ def test_non_raise_on_qasm_2_1() -> None:
     expected = """
             OPENQASM 3.1;
             """
-    check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
+    check_out(converter.parse_to_qasm3(input_qasm2), expected)
 
 
 def test_lib_replace() -> None:
@@ -90,7 +92,7 @@ def test_lib_replace() -> None:
     OPENQASM 3.1;
     include "stdgates.inc";
     """
-    check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
+    check_out(converter.parse_to_qasm3(input_qasm2), expected)
 
 
 def test_raise_on_no_version() -> None:
@@ -100,7 +102,7 @@ def test_raise_on_no_version() -> None:
     include "stdgates.inc";
     """
     with pytest.raises(QASMConversionError):
-        converter.qasm2_to_qasm3(input_qasm2)
+        converter.parse_to_qasm3(input_qasm2)
 
 
 def test_single_custom_gate() -> None:
@@ -126,7 +128,7 @@ def test_single_custom_gate() -> None:
     }
     rccx q[0], q[1], q[2];
     """
-    check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
+    check_out(converter.parse_to_qasm3(input_qasm2), expected)
 
 
 def test_unsupported_gate_conversion() -> None:
@@ -250,4 +252,4 @@ def test_unsupported_gate_conversion() -> None:
     c4x q[0], q[1], q[2], q[3], q[4];
     """
     converter = QASMConverter()
-    check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
+    check_out(converter.parse_to_qasm3(input_qasm2), expected)

@@ -9,9 +9,9 @@ from app.processing.graph import (
 
 
 def test_merge_nodes() -> None:
-    node0 = preprocess(ProgramNode("0", "qubit last;"))
-    node1 = preprocess(ProgramNode("1", "qubit a;"))
-    node2 = preprocess(ProgramNode("2", "qubit b;"))
+    node0 = preprocess(ProgramNode("0", "OPENQASM 3.1; qubit last;"))
+    node1 = preprocess(ProgramNode("1", "OPENQASM 3.1; qubit a;"))
+    node2 = preprocess(ProgramNode("2", "OPENQASM 3.1; qubit b;"))
 
     graph = ProgramGraph()
     graph.append_nodes(node0, node1, node2)

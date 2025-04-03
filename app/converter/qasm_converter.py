@@ -1,4 +1,4 @@
-"""Convert **OpenQASM 2.x** code into **OpenQASM 3.1**.
+"""Convert **OpenQASM 2.x** code into **OpenQASM TARGET_QASM_VERSION** AST.
 
 The conversion process includes handling unsupported gates, transforming obsolete syntax
 and integrating necessary gate definitions from external libraries.
@@ -14,10 +14,14 @@ and integrating necessary gate definitions from external libraries.
    **Can't handle ``opaque``:** This converter will raise an error if it encounters an ``opaque``,
    as this is unsupported in Openqasm3.
 
+.. warning::
+
+   **Custom gates only for Openqasm2** CustomOpenqamsLib's have no effect if the code is already qasm3.
+
 Key Features
 ------------
 
-- **Automated QASM Conversion**: Seamlessly converts QASM 2.x code into valid QASM 3.0 format.
+- **Automated QASM Conversion**: Seamlessly converts QASM 2.x code into valid QASM TARGET_QASM_VERSION format.
 - **Unsupported Gate Management**: Detects and provides definitions for gates specified in "qelib1.inc".
 - **Library Integration**: Incorporates additional QASM gate definitions from provided strings.
 """
@@ -27,15 +31,16 @@ from pathlib import Path
 
 from openqasm3.ast import Include, Program, QASMNode, QuantumGate, QuantumGateDefinition
 from openqasm3.parser import parse
-from openqasm3.printer import dumps
 
 from app.openqasm3.visitor import LeqoTransformer
+from app.processing.utils import cast_to_program
 
 OPAQUE_STATEMENT_PATTERN = re.compile(
     r"opaque\s+[a-zA-Z0-9_\-]+\s*\([^;]+\)[^;]+;",
     re.MULTILINE,
 )
 LIB_REPLACEMENTS = {"qelib1.inc": "stdgates.inc"}
+TARGET_QASM_VERSION = "3.1"
 
 
 class CustomOpenqamsLib:
@@ -127,7 +132,7 @@ class ApplyCustomGates(LeqoTransformer[None]):
 
 
 class QASMConverter:
-    """Converts QASM 2.x code to QASM 3.0."""
+    """Converts QASM 2.x code to QASM TARGET_QASM_VERSION."""
 
     custom_libs: dict[str, CustomOpenqamsLib]
 
@@ -149,24 +154,24 @@ class QASMConverter:
         ).open() as f:
             self.add_custom_gate_lib(CustomOpenqamsLib("qelib1.inc", f.read()))
 
-    def qasm2_to_qasm3(self, qasm2_code: str) -> str:
-        """Convert an entire QASM 2.x program into a QASM 3.1 compatible program.
+    def parse_to_qasm3(self, qasm2_code: str) -> Program:
+        """Convert an entire QASM 2.x program into a QASM TARGET_QASM_VERSION compatible program.
 
         Warning: All comments present in the given QASM code will be removed!!!
 
-        This method processes a full QASM 2.x program, transforming it into valid QASM 3.1.
+        This method processes a full QASM 2.x program, transforming it into valid QASM TARGET_QASM_VERSION.
         The conversion process includes the following steps:
 
         1. Check for opaque, raise error if there
         2. Parse into AST
-        3. Check for version, raise error if not Openqasm2.x
-        4. Set version 3.1
-        5. Include gates from custom libs, replace/remove obsolete imports
-        6. Dump result
+        3. If version 3.x, return AST
+        4. If version not 3.x or 2.x, raise error
+        5. Set version TARGET_QASM_VERSION
+        6. Include gates from custom libs, replace/remove obsolete imports
 
         :param qasm2_code: A string containing QASM 2.x code to be converted.
 
-        :return: A string containing the converted QASM 3.0 code, formatted according to QASM 3.0 standards.
+        :return: AST in Openqasm TARGET_QASM_VERSION format.
 
         :raises QASMConversionError: If any line contains an unsupported QASM version or library or opaque was used.
         """
@@ -175,17 +180,20 @@ class QASMConverter:
             msg = f"Unsupported opaque definition {opaque} could not be ported to openqasm3."
             raise QASMConversionError(msg)
 
-        ast = parse(qasm2_code)
+        result = parse(qasm2_code)
 
-        if ast.version is None:
+        if result.version is None:
             msg = "No Openqasm version specified."
             raise QASMConversionError(msg)
-        if not ast.version.startswith("2"):
-            msg = f"Unsupported openqasm version {ast.version} could not be ported to openqasm3."
+        if result.version.startswith("3"):
+            result.version = TARGET_QASM_VERSION
+            return result
+        if not result.version.startswith("2"):
+            msg = f"Unsupported openqasm version {result.version} could not be ported to openqasm3."
             raise QASMConversionError(msg)
 
-        ast.version = "3.1"
+        result.version = TARGET_QASM_VERSION
 
-        ast = ApplyCustomGates(self.custom_libs, LIB_REPLACEMENTS).visit(ast)
-
-        return dumps(ast)
+        return cast_to_program(
+            ApplyCustomGates(self.custom_libs, LIB_REPLACEMENTS).visit(result),
+        )
