@@ -9,7 +9,6 @@ app.model.HelloWorld module
 
 .. automodule:: app.model.HelloWorld
    :members:
-   :undoc-members:
    :show-inheritance:
 
 Module contents
@@ -17,5 +16,4 @@ Module contents
 
 .. automodule:: app.model
    :members:
-   :undoc-members:
    :show-inheritance:
