@@ -1,8 +1,9 @@
-from openqasm3.ast import Program, QASMNode
+from openqasm3.ast import Program
 
 from app.processing.graph import SectionInfo
 from app.processing.pre.io_parser import IOParse
 from app.processing.pre.renaming import RenameRegisterTransformer
+from app.processing.utils import cast_to_program
 
 
 def preprocess(program: Program, section_info: SectionInfo) -> Program:
@@ -12,13 +13,5 @@ def preprocess(program: Program, section_info: SectionInfo) -> Program:
     :param section_info: MetaData of the section to preprocess.
     :return: The preprocessed program.
     """
-
-    def to_program(node: QASMNode | None) -> Program:
-        """Cast to Program or raise error."""
-        if not isinstance(node, Program):
-            msg = f"Tried to cast {type(node)} to Program."
-            raise TypeError(msg)
-        return node
-
-    program = to_program(RenameRegisterTransformer().visit(program, section_info))
-    return to_program(IOParse(section_info.io).visit(program))
+    program = RenameRegisterTransformer().visit(program, section_info)
+    return cast_to_program(IOParse(section_info.io).visit(program))
