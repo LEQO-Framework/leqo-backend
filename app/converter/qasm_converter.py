@@ -7,8 +7,11 @@ from openqasm3.printer import dumps
 
 from app.openqasm3.visitor import LeqoTransformer
 
-OPAQUE_STATEMENT_PATTERN = re.compile(r"opaque\s\([^;]+\).+;", re.MULTILINE)
-LIB_REPLACEMENTS = {"qelib1": "stdgates.inc"}
+OPAQUE_STATEMENT_PATTERN = re.compile(
+    r"opaque\s+[a-zA-Z0-9_\-]+\s*\([^;]+\)[^;]+;",
+    re.MULTILINE,
+)
+LIB_REPLACEMENTS = {"qelib1.inc": "stdgates.inc"}
 
 
 class CustomOpenqams2Lib:
@@ -71,7 +74,7 @@ class ApplyCustomGates(LeqoTransformer[None]):
         self.generic_visit(node)
         node.statements = (
             sorted(self.includes.values(), key=lambda imp: imp.filename)
-            + [self.gates[gd] for gd in self.require_gates]
+            + [self.gates[gd] for gd in sorted(self.require_gates)]
             + node.statements
         )
         return node
@@ -119,16 +122,20 @@ class QASMConverter:
         :raises QASMConversionError: If any line contains an unsupported QASM version or library.
         """
         opaque = OPAQUE_STATEMENT_PATTERN.findall(qasm2_code)
-        if opaque is not None:
+        if len(opaque) != 0:
             msg = f"Unsupported opaque definition {opaque} could not be ported to openqasm3."
             raise QASMConversionError(msg)
 
         ast = parse(qasm2_code)
-        ast.version = "3.1"
 
+        if ast.version is None:
+            msg = "No Openqasm version specified."
+            raise QASMConversionError(msg)
         if not ast.version.startswith("2"):
             msg = f"Unsupported openqasm version {ast.version} could not be ported to openqasm3."
             raise QASMConversionError(msg)
+
+        ast.version = "3.1"
 
         ast = ApplyCustomGates(self.custom_libs, LIB_REPLACEMENTS).visit(ast)
 
