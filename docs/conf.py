@@ -1,6 +1,5 @@
 import os
 import sys
-from importlib.util import find_spec
 
 # Configuration file for the Sphinx documentation builder.
 #
@@ -12,18 +11,6 @@ from importlib.util import find_spec
 
 # set system path to /leqo-backend/
 sys.path.insert(0, os.path.abspath("../"))
-
-
-def find_module_paths(module_name: str) -> list[str]:
-    spec = find_spec(module_name)
-    if spec is None:
-        return []
-
-    if spec.origin is None:
-        return []
-
-    return [os.path.dirname(spec.origin)]
-
 
 project = "LEQO-Backend"
 copyright = "2025, LEQO Backend Team"
@@ -47,7 +34,7 @@ extensions = [
 autoapi_options = [
     "members",
 ]
-autoapi_dirs = [*find_module_paths("openqasm3"), "../app"]
+autoapi_dirs = ["../app"]
 autoapi_ignore = ["*migrations*", "*_antlr*"]
 autodoc_typehints = "both"
 

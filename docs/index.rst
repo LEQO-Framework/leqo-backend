@@ -20,3 +20,4 @@ documentation for details.
 
     testing
     example-cross-references
+    openqasm3
