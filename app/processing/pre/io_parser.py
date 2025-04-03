@@ -53,19 +53,20 @@ class IOParse(LeqoTransformer[None]):
         input_id: int | None = None
         dirty = False
         for annotation in node.annotations:
-            if annotation.keyword == "leqo.input":
-                if input_id is not None or dirty:
-                    msg = f"Unsuported: two input/dirty annotations over {name}"
+            match annotation.keyword:
+                case "leqo.input":
+                    if input_id is not None or dirty:
+                        msg = f"Unsuported: two input/dirty annotations over {name}"
+                        raise UnsupportedOperation(msg)
+                    input_id = parse_io_annotation(annotation)
+                case "leqo.dirty":
+                    if input_id is not None or dirty:
+                        msg = f"Unsuported: two input/dirty annotations over {name}"
+                        raise UnsupportedOperation(msg)
+                    dirty = True
+                case "leqo.output" | "leqo.reusable":
+                    msg = f"Unsuported: output/reusable annotations over QubitDeclaration {name}"
                     raise UnsupportedOperation(msg)
-                input_id = parse_io_annotation(annotation)
-            elif annotation.keyword == "leqo.dirty":
-                if input_id is not None or dirty:
-                    msg = f"Unsuported: two input/dirty annotations over {name}"
-                    raise UnsupportedOperation(msg)
-                dirty = True
-            elif annotation.keyword in ("leqo.output", "leqo.reusable"):
-                msg = f"Unsuported: output/reusable annotations over QubitDeclaration {name}"
-                raise UnsupportedOperation(msg)
         self.io.declaration_to_id[name] = []
         if input_id is not None:
             if input_id == self.input_counter:
@@ -89,19 +90,20 @@ class IOParse(LeqoTransformer[None]):
         output_id: int | None = None
         reusable = False
         for annotation in annotations:
-            if annotation.keyword == "leqo.output":
-                if output_id is not None or reusable:
-                    msg = f"Unsuported: two output/reusable annotations over {name}"
+            match annotation.keyword:
+                case "leqo.output":
+                    if output_id is not None or reusable:
+                        msg = f"Unsuported: two output/reusable annotations over {name}"
+                        raise UnsupportedOperation(msg)
+                    output_id = parse_io_annotation(annotation)
+                case "leqo.reusable":
+                    if output_id is not None or reusable:
+                        msg = f"Unsuported: two output/reusable annotations over {name}"
+                        raise UnsupportedOperation(msg)
+                    reusable = True
+                case "leqo.input" | "leqo.dirty":
+                    msg = f"Unsuported: input/dirty annotations over AliasStatement {name}"
                     raise UnsupportedOperation(msg)
-                output_id = parse_io_annotation(annotation)
-            elif annotation.keyword == "leqo.reusable":
-                if output_id is not None or reusable:
-                    msg = f"Unsuported: two output/reusable annotations over {name}"
-                    raise UnsupportedOperation(msg)
-                reusable = True
-            elif annotation.keyword == "leqo.input":
-                msg = f"Unsuported: input annotations over AliasStatement {name}"
-                raise UnsupportedOperation(msg)
         return (output_id, reusable)
 
     def alias_expr_to_ids(
