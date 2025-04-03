@@ -51,12 +51,18 @@ class IOParse(LeqoTransformer[None]):
         name = node.qubit.name
         size = expr_to_int(node.size)
         input_id: int | None = None
+        dirty = False
         for annotation in node.annotations:
             if annotation.keyword == "leqo.input":
-                if input_id is not None:
-                    msg = f"Unsuported: two input annotations over {name}"
+                if input_id is not None or dirty:
+                    msg = f"Unsuported: two input/dirty annotations over {name}"
                     raise UnsupportedOperation(msg)
                 input_id = parse_io_annotation(annotation)
+            elif annotation.keyword == "leqo.dirty":
+                if input_id is not None or dirty:
+                    msg = f"Unsuported: two input/dirty annotations over {name}"
+                    raise UnsupportedOperation(msg)
+                dirty = True
             elif annotation.keyword in ("leqo.output", "leqo.reusable"):
                 msg = f"Unsuported: output/reusable annotations over QubitDeclaration {name}"
                 raise UnsupportedOperation(msg)

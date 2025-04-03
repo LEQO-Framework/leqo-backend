@@ -268,6 +268,8 @@ def test_all() -> None:
     qubit[5] q0;
     @leqo.input 1
     qubit[5] q1;
+    @leqo.dirty
+    qubit[1] q2;
 
     let a = q1[{4, 3, 2, 1, 0}];
 
@@ -283,6 +285,7 @@ def test_all() -> None:
         {
             "q0": [0, 1, 2, 3, 4],
             "q1": [5, 6, 7, 8, 9],
+            "q2": [10],
         },
         {
             "a": [9, 8, 7, 6, 5],
@@ -313,6 +316,7 @@ def test_all() -> None:
                 output=SingleOutputInfo(1, 1),
             ),
             9: SingleIOInfo(input=SingleInputInfo(1, 4)),
+            10: SingleIOInfo(dirty=True),
         },
     )
     actual = IOInfo()

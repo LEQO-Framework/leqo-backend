@@ -116,10 +116,12 @@ class SingleIOInfo:
         input: SingleInputInfo | None = None,
         output: SingleOutputInfo | None = None,
         reusable: bool | None = None,
+        dirty: bool | None = None,
     ) -> None:
         self.input = input
         self.output = output
         self.reusable = reusable or False
+        self.dirty = dirty or False
 
 
 @dataclass()
