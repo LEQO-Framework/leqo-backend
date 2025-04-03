@@ -15,19 +15,13 @@ documentation for details.
     usage/annotations.rst
 
 .. toctree::
-    :caption: Qasm Pipeline
-    :hidden:
-    :maxdepth: 2
-
-    preprocessing
-
-.. toctree::
     :caption: Development
     :hidden:
     :maxdepth: 2
 
     testing
     example-cross-references
+    code/app
 
 .. toctree::
     :caption: OpenQasm3
