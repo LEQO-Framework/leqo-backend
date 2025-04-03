@@ -55,7 +55,7 @@ def expr_to_int(expr: Expression | None) -> int:
                     raise TypeError(msg)
 
         case _:
-            msg = f"Unsported type: {type(expr)=} of {expr=}"
+            msg = f"Could not resolve {expr=} of type {type(expr)=} to an integer"
             raise TypeError(msg)
 
 
