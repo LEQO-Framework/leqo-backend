@@ -6,6 +6,7 @@ The pipeline consists of multiple :class:`~openqasm3.visitor.QASMTransformer` th
 from openqasm3.ast import Program
 
 from app.processing.graph import SectionInfo
+from app.processing.pre.inlining import InliningTransformer
 from app.processing.pre.renaming import RenameRegisterTransformer
 
 
@@ -19,4 +20,5 @@ def preprocess(program: Program, section_info: SectionInfo) -> Program:
     """
 
     program = RenameRegisterTransformer().visit(program, section_info)
+    program = InliningTransformer().visit(program, section_info)
     return program  # noqa: RET504 # Ignore because QASMTransformer.visit returns Any
