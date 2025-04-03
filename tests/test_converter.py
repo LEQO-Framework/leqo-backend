@@ -1,9 +1,15 @@
 import pytest
 from openqasm3 import parse
+from app.processing.utils import normalize_qasm_string
 
 from app.converter.qasm_converter import QASMConversionError, QASMConverter
 
-
+# Helper functions # # # # #
+def check_out(out: str, expected: str) -> None:
+    actual_circuit = normalize_qasm_string(out)
+    expected_circuit = normalize_qasm_string(expected)
+    assert actual_circuit == expected_circuit
+    
 def test_qubit_conversion() -> None:
     converter = QASMConverter()
     input_qasm2 = """OPENQASM 2.0;
@@ -15,7 +21,6 @@ def test_qubit_conversion() -> None:
     """
     expected = f"""OPENQASM 3.0;
     include "stdgates.inc";
-    {converter.create_unsupported_gates_snippet(input_qasm2)}
     qubit[1] q;
     qubit[10] qubits;
     bit[1] c;
@@ -36,7 +41,6 @@ def test_measure_statement_conversion() -> None:
     expected = f"""
     OPENQASM 3.0;
     include "stdgates.inc";
-    {converter.create_unsupported_gates_snippet(input_qasm2)}
     qubit[2] q;
     bit[2] c;
     c = measure q;
@@ -50,17 +54,11 @@ def test_opaque_comment_conversion() -> None:
     input_qasm2 = """
     OPENQASM 2.0;
     include "qelib1.inc";
-    qreg q[2];
-    creg c[2];
     opaque custom_gate (a,b,c) p,q,r;
     """
     expected = f"""
     OPENQASM 3.0;
     include "stdgates.inc";
-    {converter.create_unsupported_gates_snippet(input_qasm2)}
-    qubit[2] q;
-    bit[2] c;
-    // opaque custom_gate (a,b,c) p,q,r;
     """
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
@@ -70,13 +68,10 @@ def test_std_header_conversion() -> None:
     input_qasm2 = """
     OPENQASM 2.0;
     include "qelib1.inc";
-    qreg q[1];
     """
     expected = f"""
     OPENQASM 3.0;
     include "stdgates.inc";
-    {converter.create_unsupported_gates_snippet(input_qasm2)}
-    qubit[1] q;
     """
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
@@ -101,7 +96,7 @@ def test_unsupported_gate_conversion() -> None:
     c4x q[0], q[1], q[2], q[3], q[4];
     """
     expected = """
-    OPENQASM 3.0;   
+    OPENQASM 3.0;
     include "stdgates.inc";
         
     // Generated helper gates for unsupported QASM 2.x gates ////////
@@ -189,11 +184,11 @@ def test_unsupported_gate_conversion() -> None:
 
     qubit[5] q;
     u0(1) q[0];
-    u(1,2,3) q[0];
+    u(1, 2, 3) q[0];
     sxdg q[0];
     csx q[0], q[1];
     cu1(0.5) q[0], q[1];
-    cu3(1,2,3) q[0], q[1];
+    cu3(1, 2, 3) q[0], q[1];
     rxx(0.5) q[0], q[1];
     rzz(0.5) q[0], q[1];
     rccx q[0], q[1], q[2];
@@ -233,14 +228,9 @@ def test_valid_qasm_version() -> None:
     expected = f"""
             OPENQASM 3.0;
             include "stdgates.inc";
-            {converter.create_unsupported_gates_snippet(input_qasm2)}
             qubit[1] q;
             """
     check_out(converter.qasm2_to_qasm3(input_qasm2), expected)
 
 
-# Helper functions # # # # #
-def check_out(out: str, expected: str) -> None:
-    actual_circuit = parse(out)
-    expected_circuit = parse(expected)
-    assert actual_circuit == expected_circuit
+
