@@ -9,13 +9,17 @@ and integrating necessary gate definitions from external libraries.
    and multi-line (`/* */`) comments will be **permanently removed** during the conversion process.
    Ensure that important notes or documentation within the QASM code are backed up separately.
 
+.. warning::
+
+   **Can't handle ``opaque``:** This converter will raise an error if it encounters an ``opaque``,
+   as this is unsupported in Openqasm3.
+
 Key Features
 ------------
 
-- **Automated QASM Conversion**: Seamlessly converts QASM 2.x code into a valid QASM 3.0 format.
-- **Unsupported Gate Management**: Detects and provides definitions for gates not natively supported in QASM 3.0.
-- **Library Integration**: Incorporates additional QASM gate definitions from external files.
-- **Syntax Adjustments**: Ensures compatibility by modifying QASM 2.x elements like ``opaque`` statements and library inclusions.
+- **Automated QASM Conversion**: Seamlessly converts QASM 2.x code into valid QASM 3.0 format.
+- **Unsupported Gate Management**: Detects and provides definitions for gates specified in "qelib1.inc".
+- **Library Integration**: Incorporates additional QASM gate definitions from provided strings.
 """
 
 import re
@@ -34,12 +38,19 @@ OPAQUE_STATEMENT_PATTERN = re.compile(
 LIB_REPLACEMENTS = {"qelib1.inc": "stdgates.inc"}
 
 
-class CustomOpenqams2Lib:
+class CustomOpenqamsLib:
+    """Openqasm3 library for providing gates used in Openqasm2.x."""
+
     name: str
     content: str
     gates: list[QuantumGateDefinition]
 
     def __init__(self, name: str, content: str) -> None:
+        """Construct CustomOpenqamsLib.
+
+        :param name: The name of the module.
+        :param content: The code of the module as string.
+        """
         self.name = name
         self.content = content
         self.gates = []
@@ -54,7 +65,9 @@ class QASMConversionError(Exception):
 
 
 class ApplyCustomGates(LeqoTransformer[None]):
-    libs: dict[str, CustomOpenqams2Lib]
+    """Visitor to replace gates provided by custom libraries."""
+
+    libs: dict[str, CustomOpenqamsLib]
     lib_replacements: dict[str, str]
     gates: dict[str, QuantumGateDefinition]
     require_gates: set[str]
@@ -62,9 +75,14 @@ class ApplyCustomGates(LeqoTransformer[None]):
 
     def __init__(
         self,
-        custom_libs: dict[str, CustomOpenqams2Lib],
+        custom_libs: dict[str, CustomOpenqamsLib],
         lib_replacements: dict[str, str],
     ) -> None:
+        """Construct ApplyCustomGates.
+
+        :param custom_libs: Dictionary of custom libs to use.
+        :param lib_replacements: Replace lib-names to new names (qelib1.inc -> stdgates.inc)
+        """
         super().__init__()
         self.libs = custom_libs
         self.lib_replacements = lib_replacements
@@ -77,6 +95,7 @@ class ApplyCustomGates(LeqoTransformer[None]):
         self.includes = {}
 
     def visit_Include(self, node: Include) -> None:
+        """Remove and store required includes, possible modify via lib_replacements."""
         name = node.filename
         if name in self.lib_replacements:
             node.filename = self.lib_replacements[name]
@@ -85,12 +104,19 @@ class ApplyCustomGates(LeqoTransformer[None]):
             self.includes[name] = node
 
     def visit_QuantumGate(self, node: QuantumGate) -> QASMNode:
+        """Search for usages of custom declared gates."""
         name = node.name.name
         if name in self.gates:
             self.require_gates.add(name)
         return self.generic_visit(node)
 
     def visit_Program(self, node: Program) -> QASMNode:
+        """Apply the visitor.
+
+        1. Remove imports + gather info
+        2. Add required (possible imports) back
+        3. Insert definitions of custom gates
+        """
         self.generic_visit(node)
         node.statements = (
             sorted(self.includes.values(), key=lambda imp: imp.filename)
@@ -101,17 +127,18 @@ class ApplyCustomGates(LeqoTransformer[None]):
 
 
 class QASMConverter:
-    """Converts QASM 2.x code to QASM 3.0, handling unsupported gates and libraries."""
+    """Converts QASM 2.x code to QASM 3.0."""
 
-    custom_libs: dict[str, CustomOpenqams2Lib]
+    custom_libs: dict[str, CustomOpenqamsLib]
 
-    def add_custom_gate_lib(self, lib: CustomOpenqams2Lib) -> None:
+    def add_custom_gate_lib(self, lib: CustomOpenqamsLib) -> None:
+        """Append custom lib to internal data."""
         self.custom_libs[lib.name] = lib
 
-    def __init__(self, custom_libs: list[CustomOpenqams2Lib] | None = None) -> None:
+    def __init__(self, custom_libs: list[CustomOpenqamsLib] | None = None) -> None:
         """Initialize the QASMConverter with optional external QASM files for unsupported gates.
 
-        :param libs_extens_files: List of QASM files containing additional gate definitions.
+        :param custom_libs: List of CustomOpenqamsLib's containing additional gate definitions.
         """
         self.custom_libs = {}
         if custom_libs is not None:
@@ -120,26 +147,28 @@ class QASMConverter:
         with (
             Path(__file__).absolute().parent / "qasm_lib" / "qasm3_qelib1.qasm"
         ).open() as f:
-            self.add_custom_gate_lib(CustomOpenqams2Lib("qelib1.inc", f.read()))
+            self.add_custom_gate_lib(CustomOpenqamsLib("qelib1.inc", f.read()))
 
     def qasm2_to_qasm3(self, qasm2_code: str) -> str:
-        """Convert an entire QASM 2.x program into a QASM 3.0 compatible program.
+        """Convert an entire QASM 2.x program into a QASM 3.1 compatible program.
 
         Warning: All comments present in the given QASM code will be removed!!!
 
-        This method processes a full QASM 2.x program, transforming it into a valid QASM 3.0 format.
+        This method processes a full QASM 2.x program, transforming it into valid QASM 3.1.
         The conversion process includes the following steps:
 
-        - The 'OPENQASM 2.x' header is replaced with 'OPENQASM 3.0' and the inclusion of standard gates.
-        - The 'include "qelib1.inc";' statement is ignored.
-        - 'opaque' statements are converted into comments.
-        - Additional gate definitions from 'qelib1.inc' are appended.
+        1. Check for opaque, raise error if there
+        2. Parse into AST
+        3. Check for version, raise error if not Openqasm2.x
+        4. Set version 3.1
+        5. Include gates from custom libs, replace/remove obsolete imports
+        6. Dump result
 
         :param qasm2_code: A string containing QASM 2.x code to be converted.
 
         :return: A string containing the converted QASM 3.0 code, formatted according to QASM 3.0 standards.
 
-        :raises QASMConversionError: If any line contains an unsupported QASM version or library.
+        :raises QASMConversionError: If any line contains an unsupported QASM version or library or opaque was used.
         """
         opaque = OPAQUE_STATEMENT_PATTERN.findall(qasm2_code)
         if len(opaque) != 0:
