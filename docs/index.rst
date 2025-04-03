@@ -9,11 +9,10 @@ documentation for details.
 .. include:: missing_gates.rst
 
 .. toctree::
-    :caption: Qasm Pipeline
+    :caption: Usage
     :hidden:
     :maxdepth: 2
 
-    preprocessing
 
 .. toctree::
     :caption: Converter
@@ -30,6 +29,7 @@ documentation for details.
 
     testing
     example-cross-references
+    code/app
 
 .. toctree::
     :caption: OpenQasm3

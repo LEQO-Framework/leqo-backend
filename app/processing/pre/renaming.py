@@ -13,8 +13,8 @@ from openqasm3.ast import (
 )
 from openqasm3.visitor import QASMTransformer
 
-from app.model.SectionInfo import SectionInfo
-from app.preprocessing.utils import annotate
+from app.processing.graph import SectionInfo
+from app.processing.utils import annotate
 
 
 class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
@@ -43,7 +43,7 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
             raise Exception("Variable already defined")
 
         index = len(self.renames)
-        new_identifier = Identifier(f"leqo_section{context.index}_declaration{index}")
+        new_identifier = Identifier(f"leqo_{context.id.hex}_declaration{index}")
         self.renames[old_identifier.name] = new_identifier
 
         return new_identifier
