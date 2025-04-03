@@ -74,6 +74,23 @@ def test_output_indexed() -> None:
     assert expected == actual
 
 
+def test_empty_index() -> None:
+    code = """
+    @leqo.input 0
+    qubit q;
+    """
+    expected = IOInfo(
+        {"q": [0]},
+        {},
+        {
+            0: SingleIOInfo(input=SingleInputInfo(0, 0)),
+        },
+    )
+    actual = IOInfo()
+    IOParse(actual).visit(parse(code))
+    assert expected == actual
+
+
 def test_classical_ignored() -> None:
     code = """
     qubit[2] q;
@@ -269,7 +286,7 @@ def test_all() -> None:
     @leqo.input 1
     qubit[5] q1;
     @leqo.dirty
-    qubit[1] q2;
+    qubit q2;
 
     let a = q1[{4, 3, 2, 1, 0}];
 
