@@ -126,11 +126,10 @@ class SingleIOInfo:
 
 @dataclass()
 class IOInfo:
-    """Store input, output and reusable info for a qasm-snippet.
+    """Store input, output, dirty and reusable info for qubits in a qasm-snippet.
 
-    :param declaration_to_id: Maps declared qubit names to list of IDs.
-    :param alias_to_id: Maps alias qubit names to list of IDs.
-    :param id_to_info: Maps IDs to their corresponding info objects.
+    For this purpose, every qubit (not qubit-reg) is given an id, based on declaration order.
+    Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.SingleIOInfo`.
     """
 
     declaration_to_id: dict[str, list[int]]
@@ -143,6 +142,12 @@ class IOInfo:
         alias_to_id: dict[str, list[int]] | None = None,
         id_to_info: dict[int, SingleIOInfo] | None = None,
     ) -> None:
+        """Construct IOInfo.
+
+        :param declaration_to_id: Maps declared qubit names to list of IDs.
+        :param alias_to_id: Maps alias qubit names to list of IDs.
+        :param id_to_info: Maps IDs to their corresponding info objects.
+        """
         self.declaration_to_id = declaration_to_id or {}
         self.alias_to_id = alias_to_id or {}
         self.id_to_info = id_to_info or {}
