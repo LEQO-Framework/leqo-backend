@@ -42,6 +42,12 @@ class QubitDeclarationToAlias(LeqoTransformer[None]):
         qubit_to_index: dict[SingleQubit, int],
         io_info: IOInfo,
     ) -> None:
+        """Construct QubitDeclarationToAlias.
+
+        :param section_id: The UUID of the currently visited section.
+        :param qubit_to_index: Map qubits to the indexes in the global reg.
+        :param io_info: The IOInfo for the current section.
+        """
         self.section_id = section_id
         self.qubit_to_index = qubit_to_index
         self.io_info = io_info
