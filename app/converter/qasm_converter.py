@@ -49,7 +49,7 @@ class CustomOpenqamsLib:
         """Construct CustomOpenqamsLib.
 
         :param name: The name of the module.
-        :param content: The code of the module as string.
+        :param content: The Openqasm3 custom gate definitions as a string.
         """
         self.name = name
         self.content = content
