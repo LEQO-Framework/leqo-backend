@@ -76,13 +76,14 @@ class QubitDeclarationToAlias(LeqoTransformer[None]):
         return result
 
 
-def get_all_qubits(graph: ProgramGraph) -> set[SingleQubit]:
+def get_equiv_classes(graph: ProgramGraph) -> dict[SingleQubit, set[SingleQubit]]:
     """Iterate all nodes to get all existing qubits."""
-    qubits = set()
+    qubits = {}
     for nd in graph.nodes():
         section = graph.get_data_node(nd).info
         for qubit_id in section.io.id_to_info:
-            qubits.add(SingleQubit(section.id, qubit_id))
+            qubit = SingleQubit(section.id, qubit_id)
+            qubits[qubit] = {qubit}
     return qubits
 
 
@@ -96,8 +97,7 @@ def connect_qubits(graph: ProgramGraph) -> None:
 
     Note: The global reg is not yet created.
     """
-    qubits = get_all_qubits(graph)
-    equiv_classes: dict[SingleQubit, set[SingleQubit]] = {q: {q} for q in qubits}
+    equiv_classes = get_equiv_classes(graph)
     for source_node, target_node in graph.edges():
         edge = graph.get_data_edge(source_node, target_node)
         source_section = graph.get_data_node(source_node).info
@@ -119,17 +119,11 @@ def connect_qubits(graph: ProgramGraph) -> None:
 
     reg_index = 0
     qubit_to_reg_index: dict[SingleQubit, int] = {}
-    qubit_list = sorted(qubits)
-    # NOTE: design choice:
-    # Use list or set for this?
-    # Pros for set: already there, faster
-    # Pros for list: deterministic result (good for testing), raises error on remove if element not there
-    # Choice: use list for now (test won't work otherwise)
-    while len(qubit_list) > 0:
-        some_qubit = qubit_list[0]
+    while len(equiv_classes) > 0:
+        some_qubit = next(iter(equiv_classes))
         equiv_class = equiv_classes[some_qubit]
         for qubit in equiv_class:
-            qubit_list.remove(qubit)
+            _ = equiv_classes.pop(qubit)
             qubit_to_reg_index[qubit] = reg_index
         reg_index += 1
 
