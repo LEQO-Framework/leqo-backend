@@ -1,3 +1,8 @@
+import time
+from io import UnsupportedOperation
+from uuid import UUID
+
+import pytest
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
@@ -14,6 +19,21 @@ from app.processing.pre.io_parser import IOParse
 from app.processing.utils import normalize_qasm_string
 
 
+def ordered_uuidv1() -> UUID:
+    nanoseconds = time.time_ns()
+    return UUID(
+        fields=(
+            (nanoseconds & 0xFFFFFFFF00000000) >> 32,  # time_low
+            (nanoseconds & 0x00000000FFFF0000) >> 16,  # time_mid
+            (nanoseconds & 0x000000000000FFFF)
+            | 0x1000,  # time_hi_and_version (version=1)
+            0x80,  # clock_seq_hi_variant (RFC 4122)
+            0,  # clock_seq_low
+            0,  # node (set to 0 for simplicity)
+        ),
+    )
+
+
 def str_to_nodes(code: str) -> tuple[ProgramNode, ProcessedProgramNode]:
     ast = parse(code)
     io = IOInfo()
@@ -24,7 +44,7 @@ def str_to_nodes(code: str) -> tuple[ProgramNode, ProcessedProgramNode]:
         ProcessedProgramNode(
             node,
             ast,
-            SectionInfo(None, io),
+            SectionInfo(ordered_uuidv1(), io),
             None,
         ),
     )
@@ -59,6 +79,27 @@ def assert_connections(
     assert actual == expected
 
 
+def test_no_connections() -> None:
+    inputs = [
+        """
+        qubit[3] c0_q0;
+        """,
+        """
+        qubit[3] c1_q0;
+        """,
+    ]
+    connections: list[tuple[tuple[int, int], tuple[int, int]]] = []
+    expected = [
+        """
+        let c0_q0 = leqo_reg[{0, 1, 2}];
+        """,
+        """
+        let c1_q0 = leqo_reg[{3, 4, 5}];
+        """,
+    ]
+    assert_connections(inputs, expected, connections)
+
+
 def test_single_connections() -> None:
     inputs = [
         """
@@ -71,18 +112,86 @@ def test_single_connections() -> None:
         qubit[3] c1_q0;
         """,
     ]
-    connections: list[tuple[tuple[int, int], tuple[int, int]]] = [
-        ((0, 0), (1, 0)),
-    ]
+    connections = [((0, 0), (1, 0))]
     expected = [
         """
-        let c0_q0 = glob_reg[3, 4, 5];
+        let c0_q0 = leqo_reg[{0, 1, 2}];
         @leqo.output 0
         let _out = c0_q0;
         """,
         """
         @leqo.input 0
-        let c1_q0 = glob_reg[0, 1, 2];
+        let c1_q0 = leqo_reg[{0, 1, 2}];
         """,
     ]
     assert_connections(inputs, expected, connections)
+
+
+def test_all() -> None:
+    inputs = [
+        """
+        qubit[4] c0_q0;
+        @leqo.output 0
+        let _out_c0_0 = c0_q0[0:1];
+        @leqo.output 1
+        let _out_c0_1 = c0_q0[2:3];
+        """,
+        """
+        @leqo.input 0
+        qubit[2] c1_q0;
+        @leqo.output 0
+        let _out_c1_0 = c1_q0[0];
+        """,
+        """
+        @leqo.input 0
+        qubit[2] c2_q0;
+        @leqo.input 1
+        qubit c2_q1;
+        """,
+    ]
+    connections = [
+        ((0, 0), (1, 0)),
+        ((0, 1), (2, 0)),
+        ((1, 0), (2, 1)),
+    ]
+    expected = [
+        """
+        let c0_q0 = leqo_reg[{0, 1, 2, 3}];
+        @leqo.output 0
+        let _out_c0_0 = c0_q0[0:1];
+        @leqo.output 1
+        let _out_c0_1 = c0_q0[2:3];
+        """,
+        """
+        @leqo.input 0
+        let c1_q0 = leqo_reg[{0, 1}];
+        @leqo.output 0
+        let _out_c1_0 = c1_q0[0];
+        """,
+        """
+        @leqo.input 0
+        let c2_q0 = leqo_reg[{2, 3}];
+        @leqo.input 1
+        let c2_q1 = leqo_reg[{0}];
+        """,
+    ]
+    assert_connections(inputs, expected, connections)
+
+
+def test_on_mismatched_connection_size() -> None:
+    inputs = [
+        """
+        qubit[1] c0_q0;
+        @leqo.output 0
+        let _out = c0_q0;
+        """,
+        """
+        @leqo.input 0
+        qubit[100] c1_q0;
+        """,
+    ]
+    connections: list[tuple[tuple[int, int], tuple[int, int]]] = [
+        ((0, 0), (1, 0)),
+    ]
+    with pytest.raises(UnsupportedOperation):
+        assert_connections(inputs, [], connections)
