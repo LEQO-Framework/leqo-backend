@@ -20,6 +20,11 @@ GLOBAL_REG_NAME = "leqo_reg"
 
 @dataclass(frozen=True)
 class SingleQubit:
+    """Give an qubit a unique ID in the whole program.
+
+    Combines section_id and qubit id (of that single section).
+    """
+
     section_id: UUID
     id_in_section: int
 
@@ -50,9 +55,11 @@ class QubitDeclarationToAlias(LeqoTransformer[None]):
         self.io_info = io_info
 
     def id_to_qubit(self, id: int) -> SingleQubit:
+        """Create :class:`app.processing.merging.connections.SingleQubit` for encountered id."""
         return SingleQubit(self.section_id, id)
 
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
+        """Replace qubit declaration with alias to leqo_reg."""
         name = node.qubit.name
         ids = self.io_info.declaration_to_id[name]
         reg_indexes = [self.qubit_to_index[self.id_to_qubit(id)] for id in ids]
@@ -70,6 +77,7 @@ class QubitDeclarationToAlias(LeqoTransformer[None]):
 
 
 def get_all_qubits(graph: ProgramGraph) -> set[SingleQubit]:
+    """Iterate all nodes to get all existing qubits."""
     qubits = set()
     for nd in graph.nodes():
         section = graph.get_data_node(nd).info
@@ -79,6 +87,15 @@ def get_all_qubits(graph: ProgramGraph) -> set[SingleQubit]:
 
 
 def connect_qubits(graph: ProgramGraph) -> None:
+    """Connect qubits by replacing declarations with aliases.
+
+    1. Collects all qubits from sections
+    2. Iterate all edges to create equivalence classes of qubits
+    3. Give every equivalence classes an index
+    4. Replace all qubit declarations with alias to global reg based on index.
+
+    Note: The global reg is not yet created.
+    """
     qubits = get_all_qubits(graph)
     equiv_classes: dict[SingleQubit, set[SingleQubit]] = {q: {q} for q in qubits}
     for source_node, target_node in graph.edges():
