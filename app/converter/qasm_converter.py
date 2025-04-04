@@ -59,7 +59,6 @@ class CustomOpenqamsLib:
                 self.gates.append(statement)
 
 
-# Custom exception for errors during QASM conversion
 class QASMConversionError(Exception):
     """Custom exception raised for errors occurring during QASM conversion."""
 
@@ -81,7 +80,7 @@ class ApplyCustomGates(LeqoTransformer[None]):
         """Construct ApplyCustomGates.
 
         :param custom_libs: Dictionary of custom libs to use.
-        :param lib_replacements: Replace lib-names to new names (qelib1.inc -> stdgates.inc)
+        :param lib_replacements: lib-names to be replaced inside include statements (e.g. qelib1.inc -> stdgates.inc)
         """
         super().__init__()
         self.libs = custom_libs

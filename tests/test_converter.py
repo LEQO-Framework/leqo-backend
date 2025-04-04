@@ -69,7 +69,6 @@ def test_unsupported_qasm_version_exception() -> None:
 
 
 def test_non_raise_on_qasm_2_1() -> None:
-    # Test that a valid OPENQASM 2.1 statement does not raise an exception.
     converter = QASMConverter()
     input_qasm2 = """
             OPENQASM 2.1;
