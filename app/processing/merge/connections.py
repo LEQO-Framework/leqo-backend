@@ -21,8 +21,12 @@ def connect_qubits(graph: ProgramGraph) -> None:
     equiv_class_counter = 0
     equiv_classes: dict[SingleQubit, int | None] = {}
     for source_node, target_node in graph.edges():
+        breakpoint()
+        edge = graph.get_data_edge(source_node, target_node)
         source = graph.get_data_node(source_node).info
         target = graph.get_data_node(target_node).info
-        if len(source.io.id_to_info) != len(target.io.id_to_info):
+        if len(source.io.output_to_ids[edge.source[1]]) != len(
+            target.io.input_to_ids[edge.target[1]],
+        ):
             msg = f"Mismatched size in model connection between {source_node.name} and {target_node.name}"
             raise UnsupportedOperation(msg)
