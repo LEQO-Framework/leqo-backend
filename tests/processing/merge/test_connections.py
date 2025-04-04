@@ -1,6 +1,5 @@
-import time
 from io import UnsupportedOperation
-from uuid import UUID
+from uuid import uuid4
 
 import pytest
 from openqasm3.parser import parse
@@ -19,21 +18,6 @@ from app.processing.pre.io_parser import IOParse
 from app.processing.utils import normalize_qasm_string
 
 
-def ordered_uuidv1() -> UUID:
-    nanoseconds = time.time_ns()
-    return UUID(
-        fields=(
-            (nanoseconds & 0xFFFFFFFF00000000) >> 32,  # time_low
-            (nanoseconds & 0x00000000FFFF0000) >> 16,  # time_mid
-            (nanoseconds & 0x000000000000FFFF)
-            | 0x1000,  # time_hi_and_version (version=1)
-            0x80,  # clock_seq_hi_variant (RFC 4122)
-            0,  # clock_seq_low
-            0,  # node (set to 0 for simplicity)
-        ),
-    )
-
-
 def str_to_nodes(code: str) -> tuple[ProgramNode, ProcessedProgramNode]:
     ast = parse(code)
     io = IOInfo()
@@ -44,7 +28,7 @@ def str_to_nodes(code: str) -> tuple[ProgramNode, ProcessedProgramNode]:
         ProcessedProgramNode(
             node,
             ast,
-            SectionInfo(ordered_uuidv1(), io),
+            SectionInfo(uuid4(), io),
             None,
         ),
     )

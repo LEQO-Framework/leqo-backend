@@ -28,14 +28,6 @@ class SingleQubit:
     section_id: UUID
     id_in_section: int
 
-    def __lt__(self, other: object) -> bool:
-        if not isinstance(other, SingleQubit):
-            return NotImplemented
-        return (self.section_id, self.id_in_section) < (
-            other.section_id,
-            other.id_in_section,
-        )
-
 
 class QubitDeclarationToAlias(LeqoTransformer[None]):
     """Replace all qubit declarations with alias to global qubit-reg."""
