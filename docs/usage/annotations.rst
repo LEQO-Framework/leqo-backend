@@ -9,6 +9,7 @@ Annotations can be emulated in openqasm2 by using special comments.
     The `whole line <https://openqasm.com/language/directives.html#annotations#:~:text=continue%20to%20the%20end%20of%20the%20line>`_ will be interpreted like an annotation.
     Therefore you cannot use inline-comments on annotations!
 
+.. input-anker
 Input
 -----
 
@@ -139,3 +140,33 @@ To do so, one can declare an alias to the reusable qubits.
 .. note::
     Even if the reusable alias is not used in code, an alias must be defined to mark qubits as reusable.
     The identifier is insignificant and will be ignored.
+
+Dirty Ancilla Qubits
+--------------------
+
+If qubits were part of a program and are neither marked as output nor as reusable, they're assumed to be a dirty ancilla qubits.
+These qubits may be in any state, including being entangled with other qubits, and require the explicit annotation `@leqo.dirty_input` to indicate their intended usage.
+A dirty ancilla can be turned into a reusable ancilla by a provided uncompute.
+
+* Dirty ancilla qubits may be in any quantum state, including being entangled with other qubits
+* They must be explicitly opted-in using the `@leqo.dirty_input` annotation at the qubit definition
+* The `@leqo.dirty_input` annotation follows the same implementation rules as defined in :ref:`input definition <input-anker>`
+* A provided uncompute operation turn dirty ancilla qubits into reusable ancilla qubits
+
+.. code-block:: openqasm3
+    :linenos:
+
+    // Single dirty ancilla
+    @leqo.dirty_input <<InputIndex>>
+    qubit singleDirtyAncilla;
+
+.. code-block:: openqasm3
+    :linenos:
+
+    // Dirty ancilla array
+    @leqo.dirty_input <<InputIndex>>
+    qubit[<<length>>] dirtyAncillaArray;
+
+Uncomputation
+~~~~~~~~~~~~~
+
