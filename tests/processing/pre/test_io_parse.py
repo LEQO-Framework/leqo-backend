@@ -19,12 +19,14 @@ def test_simple_input() -> None:
     qubit[3] q;
     """
     expected = IOInfo(
-        {"q": [0, 1, 2]},
-        {},
-        {
+        declaration_to_id={"q": [0, 1, 2]},
+        id_to_info={
             0: SingleIOInfo(input=SingleInputInfo(0, 0)),
             1: SingleIOInfo(input=SingleInputInfo(0, 1)),
             2: SingleIOInfo(input=SingleInputInfo(0, 2)),
+        },
+        input_to_ids={
+            0: [0, 1, 2],
         },
     )
     actual = IOInfo()
@@ -40,13 +42,14 @@ def test_output_simple() -> None:
     let a = q;
     """
     expected = IOInfo(
-        {"q": [0, 1, 2]},
-        {"a": [0, 1, 2]},
-        {
+        declaration_to_id={"q": [0, 1, 2]},
+        alias_to_id={"a": [0, 1, 2]},
+        id_to_info={
             0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
             1: SingleIOInfo(output=SingleOutputInfo(0, 1)),
             2: SingleIOInfo(output=SingleOutputInfo(0, 2)),
         },
+        output_to_ids={0: [0, 1, 2]},
     )
     actual = IOInfo()
     IOParse(actual).visit(parse(code))
@@ -61,13 +64,14 @@ def test_output_indexed() -> None:
     let a = q[0:1];
     """
     expected = IOInfo(
-        {"q": [0, 1, 2]},
-        {"a": [0, 1]},
-        {
+        declaration_to_id={"q": [0, 1, 2]},
+        alias_to_id={"a": [0, 1]},
+        id_to_info={
             0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
             1: SingleIOInfo(output=SingleOutputInfo(0, 1)),
             2: SingleIOInfo(),
         },
+        output_to_ids={0: [0, 1]},
     )
     actual = IOInfo()
     IOParse(actual).visit(parse(code))
@@ -80,11 +84,11 @@ def test_empty_index() -> None:
     qubit q;
     """
     expected = IOInfo(
-        {"q": [0]},
-        {},
-        {
+        declaration_to_id={"q": [0]},
+        id_to_info={
             0: SingleIOInfo(input=SingleInputInfo(0, 0)),
         },
+        input_to_ids={0: [0]},
     )
     actual = IOInfo()
     IOParse(actual).visit(parse(code))
@@ -99,11 +103,10 @@ def test_classical_ignored() -> None:
     let a = c;
     """
     expected = IOInfo(
-        {
+        declaration_to_id={
             "q": [0, 1],
         },
-        {},
-        {
+        id_to_info={
             0: SingleIOInfo(),
             1: SingleIOInfo(),
         },
@@ -122,17 +125,18 @@ def test_output_concatenation() -> None:
     let a = q0[0] ++ q1[0];
     """
     expected = IOInfo(
-        {
+        declaration_to_id={
             "q0": [0, 1],
             "q1": [2, 3],
         },
-        {"a": [0, 2]},
-        {
+        alias_to_id={"a": [0, 2]},
+        id_to_info={
             0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
             1: SingleIOInfo(),
             2: SingleIOInfo(output=SingleOutputInfo(0, 1)),
             3: SingleIOInfo(),
         },
+        output_to_ids={0: [0, 2]},
     )
     actual = IOInfo()
     IOParse(actual).visit(parse(code))
@@ -148,17 +152,18 @@ def test_output_big_concatenation() -> None:
     let a = q0[0] ++ q1[0] ++ q0[1];
     """
     expected = IOInfo(
-        {
+        declaration_to_id={
             "q0": [0, 1],
             "q1": [2, 3],
         },
-        {"a": [0, 2, 1]},
-        {
+        alias_to_id={"a": [0, 2, 1]},
+        id_to_info={
             0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
             1: SingleIOInfo(output=SingleOutputInfo(0, 2)),
             2: SingleIOInfo(output=SingleOutputInfo(0, 1)),
             3: SingleIOInfo(),
         },
+        output_to_ids={0: [0, 2, 1]},
     )
     actual = IOInfo()
     IOParse(actual).visit(parse(code))
@@ -177,17 +182,17 @@ def test_alias_chain() -> None:
     let e = d[0]; // get id 3
     """)
     expected = IOInfo(
-        {
+        declaration_to_id={
             "q": [0, 1, 2, 3, 4],
         },
-        {
+        alias_to_id={
             "a": [4, 3, 2, 1, 0],
             "b": [0, 1, 2, 3, 4],
             "c": [2, 3, 4],
             "d": [3, 4],
             "e": [3],
         },
-        {
+        id_to_info={
             0: SingleIOInfo(),
             1: SingleIOInfo(),
             2: SingleIOInfo(),
@@ -299,18 +304,18 @@ def test_all() -> None:
     let _reuse = q0[2:4];
     """)
     expected = IOInfo(
-        {
+        declaration_to_id={
             "q0": [0, 1, 2, 3, 4],
             "q1": [5, 6, 7, 8, 9],
             "q2": [10],
         },
-        {
+        alias_to_id={
             "a": [9, 8, 7, 6, 5],
             "_out0": [0, 5],
             "_out1": [1, 8],
             "_reuse": [2, 3, 4],
         },
-        {
+        id_to_info={
             0: SingleIOInfo(
                 input=SingleInputInfo(0, 0),
                 output=SingleOutputInfo(0, 0),
@@ -335,6 +340,8 @@ def test_all() -> None:
             9: SingleIOInfo(input=SingleInputInfo(1, 4)),
             10: SingleIOInfo(dirty=True),
         },
+        input_to_ids={0: [0, 1, 2, 3, 4], 1: [5, 6, 7, 8, 9]},
+        output_to_ids={0: [0, 5], 1: [1, 8]},
     )
     actual = IOInfo()
     IOParse(actual).visit(parse(code))

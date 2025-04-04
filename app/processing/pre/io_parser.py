@@ -68,17 +68,21 @@ class IOParse(LeqoTransformer[None]):
                     msg = f"Unsuported: output/reusable annotations over QubitDeclaration {name}"
                     raise UnsupportedOperation(msg)
         self.io.declaration_to_id[name] = []
+        qubit_ids = []
+        for _ in range(size):
+            qubit_ids.append(self.qubit_id)
+            self.qubit_id += 1
         if input_id is not None:
             if input_id == self.input_counter:
                 self.input_counter += 1
             else:
                 msg = f"expected input index {self.input_counter} but got {input_id}"
                 raise IndexError(msg)
-        for i in range(size):
-            self.io.declaration_to_id[name].append(self.qubit_id)
+            self.io.input_to_ids[input_id] = qubit_ids
+        for i, qubit_id in enumerate(qubit_ids):
+            self.io.declaration_to_id[name].append(qubit_id)
             input_info = SingleInputInfo(input_id, i) if input_id is not None else None
-            self.io.id_to_info[self.qubit_id] = SingleIOInfo(input=input_info)
-            self.qubit_id += 1
+            self.io.id_to_info[qubit_id] = SingleIOInfo(input=input_info)
         return self.generic_visit(node)
 
     def get_alias_annotation_info(
@@ -151,8 +155,10 @@ class IOParse(LeqoTransformer[None]):
 
         if len(ids) == 0:
             msg = f"Failed to parse alias statement {node}"
-            raise UnsupportedOperation(msg)
+            raise RuntimeError(msg)
         self.io.alias_to_id[name] = ids
+        if output_id is not None:
+            self.io.output_to_ids[output_id] = ids
         for i, id in enumerate(ids):
             if reusable:
                 if self.io.id_to_info[id].output is not None:
