@@ -78,6 +78,45 @@ def test_output_indexed() -> None:
     assert expected == actual
 
 
+def test_reusable() -> None:
+    code = """
+    qubit[3] q;
+
+    @leqo.reusable 0
+    let a = q[0:1];
+    """
+    expected = IOInfo(
+        declaration_to_id={"q": [0, 1, 2]},
+        alias_to_id={"a": [0, 1]},
+        id_to_info={
+            0: QubitAnnotationInfo(reusable=True),
+            1: QubitAnnotationInfo(reusable=True),
+            2: QubitAnnotationInfo(),
+        },
+    )
+    actual = IOInfo()
+    IOParse(actual).visit(parse(code))
+    assert expected == actual
+
+
+def test_dirty() -> None:
+    code = """
+    @leqo.dirty
+    qubit[3] q;
+    """
+    expected = IOInfo(
+        declaration_to_id={"q": [0, 1, 2]},
+        id_to_info={
+            0: QubitAnnotationInfo(dirty=True),
+            1: QubitAnnotationInfo(dirty=True),
+            2: QubitAnnotationInfo(dirty=True),
+        },
+    )
+    actual = IOInfo()
+    IOParse(actual).visit(parse(code))
+    assert expected == actual
+
+
 def test_empty_index() -> None:
     code = """
     @leqo.input 0
