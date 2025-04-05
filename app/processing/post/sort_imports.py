@@ -29,7 +29,9 @@ class SortImportsTransformer(QASMTransformer[None]):
         """Execute a normal (generic) visit, then add removed imports back."""
         program = self.generic_visit(node)
         if not isinstance(program, Program):
-            msg = f"SortImportsTransformer: generic_visit returned non-Program: {program}"
+            msg = (
+                f"SortImportsTransformer: generic_visit returned non-Program: {program}"
+            )
             raise TypeError(msg)
         program.statements = list(self.seen.values()) + program.statements
         return program
