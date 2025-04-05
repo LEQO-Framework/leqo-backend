@@ -55,17 +55,19 @@ def expr_to_int(expr: Expression | None) -> int:
 TQasmStatement = TypeVar("TQasmStatement", bound=Statement)
 
 
-def annotate(node: TQasmStatement, annotations: list[Annotation]) -> TQasmStatement:
+def annotate(
+    statement: TQasmStatement, annotations: list[Annotation]
+) -> TQasmStatement:
     """
-    Sets annotations for the specified node.
+    Sets annotations on the specified node.
 
-    :param node:
-    :param annotations:
-    :return:
+    :param statement: The statement to be annotated
+    :param annotations: The annotations to be applied
+    :return: The node with annotations applied
     """
 
-    node.annotations = annotations
-    return node
+    statement.annotations = annotations
+    return statement
 
 
 def parse_io_annotation(annotation: Annotation) -> list[int]:

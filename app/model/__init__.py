@@ -1,3 +1,3 @@
 """
-Contains fastapi DTOs.
+Contains fastapi Data Transfer Objects (DTOs).
 """

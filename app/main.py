@@ -78,6 +78,8 @@ def result(uuid: UUID) -> str:
 
     :param uuid: Id of the compile request
     :return: Result of the compile request
+
+    :raises HTTPException: (Status 404) If no compile request with uuid is found
     """
 
     if uuid not in results:

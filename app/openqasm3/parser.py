@@ -1,5 +1,5 @@
 """
-Extended parsing of abstract syntax trees.
+Extended parsing of abstract syntax trees with support for `OPENQASM 2.x`.
 """
 
 from openqasm3.ast import Program

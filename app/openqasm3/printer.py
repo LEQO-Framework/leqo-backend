@@ -1,5 +1,5 @@
 """
-Extended printing for abstract syntax trees.
+Extended printing with support for custom comment nodes.
 """
 
 from io import TextIOBase
