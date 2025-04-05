@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from networkx import DiGraph
 from openqasm3.ast import Program
@@ -26,6 +26,11 @@ class SectionInfo:
     """Store information scraped in preprocessing."""
 
     id: UUID
+    io: IOInfo
+
+    def __init__(self, uuid: UUID | None = None, io_info: IOInfo | None = None) -> None:
+        self.id = uuid4() if uuid is None else uuid
+        self.io = IOInfo() if io_info is None else io_info
 
 
 @dataclass(frozen=True)
@@ -84,3 +89,62 @@ class ProgramGraph(ProgramGraphBase):
 
     def get_data_edge(self, source: ProgramNode, target: ProgramNode) -> IOConnection:
         return self.__edge_data[(source, target)]
+
+
+@dataclass()
+class QubitInputInfo:
+    """Store the input id and the corresponding register position."""
+
+    input_index: int
+    reg_position: int
+
+
+@dataclass()
+class QubitOutputInfo:
+    """Store the output id and the corresponding register position."""
+
+    output_index: int
+    reg_position: int
+
+
+@dataclass()
+class QubitAnnotationInfo:
+    """Store input, output and reusable info for a single qubit."""
+
+    input: QubitInputInfo | None = None
+    output: QubitOutputInfo | None = None
+    reusable: bool = False
+    dirty: bool = False
+
+
+@dataclass()
+class IOInfo:
+    """Store input, output, dirty and reusable info for qubits in a qasm-snippet.
+
+    For this purpose, every qubit (not qubit-reg) is given an id, based on declaration order.
+    Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.QubitAnnotationInfo`.
+    """
+
+    declaration_to_ids: dict[str, list[int]]
+    id_to_info: dict[int, QubitAnnotationInfo]
+    input_to_ids: dict[int, list[int]]
+    output_to_ids: dict[int, list[int]]
+
+    def __init__(
+        self,
+        declaration_to_ids: dict[str, list[int]] | None = None,
+        id_to_info: dict[int, QubitAnnotationInfo] | None = None,
+        input_to_ids: dict[int, list[int]] | None = None,
+        output_to_ids: dict[int, list[int]] | None = None,
+    ) -> None:
+        """Construct IOInfo.
+
+        :param declaration_to_ids: Maps declared qubit names to list of IDs.
+        :param id_to_info: Maps IDs to their corresponding info objects.
+        :param input_to_ids: Maps input indexes to their corresponding IDs.
+        :param output_to_ids: Maps output indexes to their corresponding IDs.
+        """
+        self.declaration_to_ids = declaration_to_ids or {}
+        self.id_to_info = id_to_info or {}
+        self.input_to_ids = input_to_ids or {}
+        self.output_to_ids = output_to_ids or {}
