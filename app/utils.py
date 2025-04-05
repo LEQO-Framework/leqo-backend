@@ -1,3 +1,7 @@
+"""
+Utils used throughout the whole application.
+"""
+
 from collections.abc import Callable
 from typing import TypeVar
 

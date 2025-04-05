@@ -1,3 +1,7 @@
+"""
+Provides the core logic of the backend.
+"""
+
 from io import StringIO
 from uuid import uuid4
 
