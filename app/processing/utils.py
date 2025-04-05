@@ -90,7 +90,7 @@ def parse_io_annotation(annotation: Annotation) -> int:
     command = annotation.command and annotation.command.strip()
 
     if not command:
-        msg = f"Annotation of type {type(annotation)} without index was found."
+        msg = f"Annotation of type {type(annotation).__qualname__} without index was found."
         raise UnsupportedOperation(msg)
 
     return int(command)

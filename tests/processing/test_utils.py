@@ -28,11 +28,11 @@ def test_parse_io_annotation() -> None:
     assert_parse("5", 5)
     assert_parse_failure(
         "",
-        "Annotation of type <class 'openqasm3.ast.Annotation'> without index was found.",
+        "Annotation of type Annotation without index was found.",
     )
     assert_parse_failure(
         "      ",
-        "Annotation of type <class 'openqasm3.ast.Annotation'> without index was found.",
+        "Annotation of type Annotation without index was found.",
     )
 
 
