@@ -4,7 +4,7 @@ from openqasm3.ast import Include, Program
 from openqasm3.visitor import QASMTransformer
 
 
-class SortImports(QASMTransformer[None]):
+class SortImportsTransformer(QASMTransformer[None]):
     """Unique imports at the front.
 
     Makes following changes:
@@ -15,7 +15,6 @@ class SortImports(QASMTransformer[None]):
     seen: dict[str, Include]
 
     def __init__(self) -> None:
-        """Initialize data structures."""
         self.seen = {}
 
     def visit_Include(self, node: Include) -> None:
@@ -30,7 +29,7 @@ class SortImports(QASMTransformer[None]):
         """Execute a normal (generic) visit, then add removed imports back."""
         program = self.generic_visit(node)
         if not isinstance(program, Program):
-            msg = f"SortImports: generic_visit returned non-Program: {program}"
+            msg = f"SortImportsTransformer: generic_visit returned non-Program: {program}"
             raise TypeError(msg)
         program.statements = list(self.seen.values()) + program.statements
         return program

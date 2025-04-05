@@ -1,7 +1,7 @@
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
-from app.processing.post.sort_imports import SortImports
+from app.processing.post.sort_imports import SortImportsTransformer
 from app.processing.utils import normalize_qasm_string
 
 
@@ -18,7 +18,7 @@ def test_move_to_top() -> None:
     qubit q0;
     qubit q1;
     """)
-    actual = normalize_qasm_string(dumps(SortImports().visit(parse(code))))
+    actual = normalize_qasm_string(dumps(SortImportsTransformer().visit(parse(code))))
     assert expected == actual
 
 
@@ -34,7 +34,7 @@ def test_remove_duplicates() -> None:
     qubit q0;
     qubit q1;
     """)
-    actual = normalize_qasm_string(dumps(SortImports().visit(parse(code))))
+    actual = normalize_qasm_string(dumps(SortImportsTransformer().visit(parse(code))))
     assert expected == actual
 
 
@@ -56,5 +56,5 @@ def test_all() -> None:
     qubit q1;
     qubit q2;
     """)
-    actual = normalize_qasm_string(dumps(SortImports().visit(parse(code))))
+    actual = normalize_qasm_string(dumps(SortImportsTransformer().visit(parse(code))))
     assert expected == actual
