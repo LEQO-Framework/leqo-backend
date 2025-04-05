@@ -1,5 +1,4 @@
-"""
-Basic program graph used withing the :mod:`app.processing`.
+"""Basic program graph used withing the :mod:`app.processing`.
 """
 
 from __future__ import annotations
@@ -95,16 +94,16 @@ class ProgramGraph(ProgramGraphBase):
 class QubitInputInfo:
     """Store the input id and the corresponding register position."""
 
-    id: int
-    position: int
+    input_index: int
+    reg_position: int
 
 
 @dataclass()
 class QubitOutputInfo:
     """Store the output id and the corresponding register position."""
 
-    id: int
-    position: int
+    output_index: int
+    reg_position: int
 
 
 @dataclass()
