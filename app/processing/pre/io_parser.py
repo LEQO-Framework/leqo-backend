@@ -91,15 +91,15 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 dirty=dirty,
             )
             self.qubit_id += 1
+        self.io.declaration_to_id[name] = qubit_ids
 
         if input_id is not None:
-            if input_id == self.input_counter:
-                self.input_counter += 1
-            else:
+            if input_id != self.input_counter:
                 msg = f"expected input index {self.input_counter} but got {input_id}"
                 raise IndexError(msg)
+            self.input_counter += 1
             self.io.input_to_ids[input_id] = qubit_ids
-        self.io.declaration_to_id[name] = qubit_ids
+
         return self.generic_visit(node)
 
     def get_alias_annotation_info(
