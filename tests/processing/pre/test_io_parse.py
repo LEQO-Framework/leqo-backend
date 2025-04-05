@@ -5,8 +5,8 @@ from openqasm3.parser import parse
 
 from app.processing.graph import (
     IOInfo,
-    QubitInputInfo,
     QubitAnnotationInfo,
+    QubitInputInfo,
     QubitOutputInfo,
 )
 from app.processing.pre.io_parser import IOParse
