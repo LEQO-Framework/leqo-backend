@@ -69,7 +69,7 @@ class ProgramGraph(ProgramGraphBase):
 
     def append_edge(self, edge: IOConnection) -> None:
         super().add_edge(edge.source[0], edge.target[0])
-        self.__edge_data[(edge.source[0], edge.source[0])] = edge
+        self.__edge_data[(edge.source[0], edge.target[0])] = edge
 
     def append_edges(self, *edges: IOConnection) -> None:
         for edge in edges:
