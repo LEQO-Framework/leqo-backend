@@ -6,6 +6,7 @@ Add your content using ``reStructuredText`` syntax. See the
 documentation for details.
 
 .. openapi:: openapi.json
+.. include:: missing_gates.rst
 
 .. toctree::
     :caption: Usage
@@ -29,3 +30,4 @@ documentation for details.
 
     openqasm3/ast
     openqasm3/visitor
+
