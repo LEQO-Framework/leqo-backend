@@ -58,20 +58,20 @@ class IOParse(LeqoTransformer[None]):
             match annotation.keyword:
                 case "leqo.input":
                     if input_id is not None:
-                        msg = f"Unsuported: two input annotations over {name}"
+                        msg = f"Unsupported: two input annotations over {name}"
                         raise UnsupportedOperation(msg)
                     input_id = parse_io_annotation(annotation)
                 case "leqo.dirty":
                     if dirty:
-                        msg = f"Unsuported: two dirty annotations over {name}"
+                        msg = f"Unsupported: two dirty annotations over {name}"
                         raise UnsupportedOperation(msg)
                     dirty = True
                 case "leqo.output" | "leqo.reusable":
-                    msg = f"Unsuported: {annotation.keyword} annotations over QubitDeclaration {name}"
+                    msg = f"Unsupported: {annotation.keyword} annotations over QubitDeclaration {name}"
                     raise UnsupportedOperation(msg)
         if input_id is not None and dirty:
             msg = (
-                f"Unsuported: dirty and input annotations over QubitDeclaration {name}"
+                f"Unsupported: dirty and input annotations over QubitDeclaration {name}"
             )
             raise UnsupportedOperation(msg)
 
@@ -107,19 +107,19 @@ class IOParse(LeqoTransformer[None]):
             match annotation.keyword:
                 case "leqo.output":
                     if output_id is not None:
-                        msg = f"Unsuported: two output annotations over {name}"
+                        msg = f"Unsupported: two output annotations over {name}"
                         raise UnsupportedOperation(msg)
                     output_id = parse_io_annotation(annotation)
                 case "leqo.reusable":
                     if reusable:
-                        msg = f"Unsuported: two reusable annotations over {name}"
+                        msg = f"Unsupported: two reusable annotations over {name}"
                         raise UnsupportedOperation(msg)
                     reusable = True
                 case "leqo.input" | "leqo.dirty":
-                    msg = f"Unsuported: {annotation.keyword} annotations over AliasStatement {name}"
+                    msg = f"Unsupported: {annotation.keyword} annotations over AliasStatement {name}"
                     raise UnsupportedOperation(msg)
         if output_id is not None and reusable:
-            msg = f"Unsuported: input and dirty annotations over AliasStatement {name}"
+            msg = f"Unsupported: input and dirty annotations over AliasStatement {name}"
             raise UnsupportedOperation(msg)
         return (output_id, reusable)
 
