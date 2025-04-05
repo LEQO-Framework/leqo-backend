@@ -59,7 +59,7 @@ class QubitDeclarationToAlias(LeqoTransformer[None]):
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
         """Replace qubit declaration with alias to leqo_reg."""
         name = node.qubit.name
-        ids = self.io_info.declaration_to_id[name]
+        ids = self.io_info.declaration_to_ids[name]
         reg_indexes = [self.qubit_to_index[self.id_to_qubit(id)] for id in ids]
         result = AliasStatement(
             Identifier(name),

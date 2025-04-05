@@ -14,14 +14,14 @@ from app.processing.graph import (
     SectionInfo,
 )
 from app.processing.merge.connections import connect_qubits
-from app.processing.pre.io_parser import IOParse
+from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.utils import normalize_qasm_string
 
 
 def str_to_nodes(code: str) -> tuple[ProgramNode, ProcessedProgramNode]:
     ast = parse(code)
     io = IOInfo()
-    IOParse(io).visit(ast)
+    ParseAnnotationsVisitor(io).visit(ast)
     node = ProgramNode("xxx", code, None)
     return (
         node,
