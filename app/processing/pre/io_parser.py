@@ -175,11 +175,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
         output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
         if output_id is not None:
-            if output_id == self.output_counter:
-                self.output_counter += 1
-            else:
+            if output_id != self.output_counter:
                 msg = f"expected output index {self.output_counter} but got {output_id}"
                 raise IndexError(msg)
+            self.output_counter += 1
 
         self.alias_to_id[name] = ids
         if output_id is not None:
