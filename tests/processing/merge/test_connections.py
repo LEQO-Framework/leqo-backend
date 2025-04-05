@@ -162,7 +162,7 @@ def test_all() -> None:
     assert_connections(inputs, expected, connections)
 
 
-def test_on_mismatched_connection_size() -> None:
+def test_raise_on_mismatched_connection_size() -> None:
     inputs = [
         """
         qubit[1] c0_q0;
