@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from io import UnsupportedOperation
 
 from openqasm3.ast import (
@@ -14,9 +16,9 @@ from openqasm3.ast import (
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     IOInfo,
-    SingleInputInfo,
-    SingleIOInfo,
-    SingleOutputInfo,
+    QubitAnnotationInfo,
+    QubitInputInfo,
+    QubitOutputInfo,
 )
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
 
@@ -55,23 +57,34 @@ class IOParse(LeqoTransformer[None]):
         for annotation in node.annotations:
             match annotation.keyword:
                 case "leqo.input":
-                    if input_id is not None or dirty:
-                        msg = f"Unsuported: two input/dirty annotations over {name}"
+                    if input_id is not None:
+                        msg = f"Unsuported: two input annotations over {name}"
                         raise UnsupportedOperation(msg)
                     input_id = parse_io_annotation(annotation)
                 case "leqo.dirty":
-                    if input_id is not None or dirty:
-                        msg = f"Unsuported: two input/dirty annotations over {name}"
+                    if dirty:
+                        msg = f"Unsuported: two dirty annotations over {name}"
                         raise UnsupportedOperation(msg)
                     dirty = True
                 case "leqo.output" | "leqo.reusable":
-                    msg = f"Unsuported: output/reusable annotations over QubitDeclaration {name}"
+                    msg = f"Unsuported: {annotation.keyword} annotations over QubitDeclaration {name}"
                     raise UnsupportedOperation(msg)
-        self.io.declaration_to_id[name] = []
+        if input_id is not None and dirty:
+            msg = (
+                f"Unsuported: dirty and input annotations over QubitDeclaration {name}"
+            )
+            raise UnsupportedOperation(msg)
+
         qubit_ids = []
-        for _ in range(size):
+        for i in range(size):
             qubit_ids.append(self.qubit_id)
+            input_info = QubitInputInfo(input_id, i) if input_id is not None else None
+            self.io.id_to_info[self.qubit_id] = QubitAnnotationInfo(
+                input=input_info,
+                dirty=dirty,
+            )
             self.qubit_id += 1
+
         if input_id is not None:
             if input_id == self.input_counter:
                 self.input_counter += 1
@@ -79,10 +92,7 @@ class IOParse(LeqoTransformer[None]):
                 msg = f"expected input index {self.input_counter} but got {input_id}"
                 raise IndexError(msg)
             self.io.input_to_ids[input_id] = qubit_ids
-        for i, qubit_id in enumerate(qubit_ids):
-            self.io.declaration_to_id[name].append(qubit_id)
-            input_info = SingleInputInfo(input_id, i) if input_id is not None else None
-            self.io.id_to_info[qubit_id] = SingleIOInfo(input=input_info)
+        self.io.declaration_to_id[name] = qubit_ids
         return self.generic_visit(node)
 
     def get_alias_annotation_info(
@@ -96,18 +106,21 @@ class IOParse(LeqoTransformer[None]):
         for annotation in annotations:
             match annotation.keyword:
                 case "leqo.output":
-                    if output_id is not None or reusable:
-                        msg = f"Unsuported: two output/reusable annotations over {name}"
+                    if output_id is not None:
+                        msg = f"Unsuported: two output annotations over {name}"
                         raise UnsupportedOperation(msg)
                     output_id = parse_io_annotation(annotation)
                 case "leqo.reusable":
-                    if output_id is not None or reusable:
-                        msg = f"Unsuported: two output/reusable annotations over {name}"
+                    if reusable:
+                        msg = f"Unsuported: two reusable annotations over {name}"
                         raise UnsupportedOperation(msg)
                     reusable = True
                 case "leqo.input" | "leqo.dirty":
-                    msg = f"Unsuported: input/dirty annotations over AliasStatement {name}"
+                    msg = f"Unsuported: {annotation.keyword} annotations over AliasStatement {name}"
                     raise UnsupportedOperation(msg)
+        if output_id is not None and reusable:
+            msg = f"Unsuported: input and dirty annotations over AliasStatement {name}"
+            raise UnsupportedOperation(msg)
         return (output_id, reusable)
 
     def alias_expr_to_ids(
@@ -172,5 +185,5 @@ class IOParse(LeqoTransformer[None]):
                 if self.io.id_to_info[id].reusable:
                     msg = f"alias {name} declares output for reusable qubit"
                     raise UnsupportedOperation(msg)
-                self.io.id_to_info[id].output = SingleOutputInfo(output_id, i)
+                self.io.id_to_info[id].output = QubitOutputInfo(output_id, i)
         return self.generic_visit(node)

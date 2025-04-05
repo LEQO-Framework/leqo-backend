@@ -5,9 +5,9 @@ from openqasm3.parser import parse
 
 from app.processing.graph import (
     IOInfo,
-    SingleInputInfo,
-    SingleIOInfo,
-    SingleOutputInfo,
+    QubitInputInfo,
+    QubitAnnotationInfo,
+    QubitOutputInfo,
 )
 from app.processing.pre.io_parser import IOParse
 from app.processing.utils import normalize_qasm_string
@@ -21,9 +21,9 @@ def test_simple_input() -> None:
     expected = IOInfo(
         declaration_to_id={"q": [0, 1, 2]},
         id_to_info={
-            0: SingleIOInfo(input=SingleInputInfo(0, 0)),
-            1: SingleIOInfo(input=SingleInputInfo(0, 1)),
-            2: SingleIOInfo(input=SingleInputInfo(0, 2)),
+            0: QubitAnnotationInfo(input=QubitInputInfo(0, 0)),
+            1: QubitAnnotationInfo(input=QubitInputInfo(0, 1)),
+            2: QubitAnnotationInfo(input=QubitInputInfo(0, 2)),
         },
         input_to_ids={
             0: [0, 1, 2],
@@ -45,9 +45,9 @@ def test_output_simple() -> None:
         declaration_to_id={"q": [0, 1, 2]},
         alias_to_id={"a": [0, 1, 2]},
         id_to_info={
-            0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
-            1: SingleIOInfo(output=SingleOutputInfo(0, 1)),
-            2: SingleIOInfo(output=SingleOutputInfo(0, 2)),
+            0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
+            1: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
+            2: QubitAnnotationInfo(output=QubitOutputInfo(0, 2)),
         },
         output_to_ids={0: [0, 1, 2]},
     )
@@ -67,9 +67,9 @@ def test_output_indexed() -> None:
         declaration_to_id={"q": [0, 1, 2]},
         alias_to_id={"a": [0, 1]},
         id_to_info={
-            0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
-            1: SingleIOInfo(output=SingleOutputInfo(0, 1)),
-            2: SingleIOInfo(),
+            0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
+            1: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
+            2: QubitAnnotationInfo(),
         },
         output_to_ids={0: [0, 1]},
     )
@@ -86,7 +86,7 @@ def test_empty_index() -> None:
     expected = IOInfo(
         declaration_to_id={"q": [0]},
         id_to_info={
-            0: SingleIOInfo(input=SingleInputInfo(0, 0)),
+            0: QubitAnnotationInfo(input=QubitInputInfo(0, 0)),
         },
         input_to_ids={0: [0]},
     )
@@ -107,8 +107,8 @@ def test_classical_ignored() -> None:
             "q": [0, 1],
         },
         id_to_info={
-            0: SingleIOInfo(),
-            1: SingleIOInfo(),
+            0: QubitAnnotationInfo(),
+            1: QubitAnnotationInfo(),
         },
     )
     actual = IOInfo()
@@ -131,10 +131,10 @@ def test_output_concatenation() -> None:
         },
         alias_to_id={"a": [0, 2]},
         id_to_info={
-            0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
-            1: SingleIOInfo(),
-            2: SingleIOInfo(output=SingleOutputInfo(0, 1)),
-            3: SingleIOInfo(),
+            0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
+            1: QubitAnnotationInfo(),
+            2: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
+            3: QubitAnnotationInfo(),
         },
         output_to_ids={0: [0, 2]},
     )
@@ -158,10 +158,10 @@ def test_output_big_concatenation() -> None:
         },
         alias_to_id={"a": [0, 2, 1]},
         id_to_info={
-            0: SingleIOInfo(output=SingleOutputInfo(0, 0)),
-            1: SingleIOInfo(output=SingleOutputInfo(0, 2)),
-            2: SingleIOInfo(output=SingleOutputInfo(0, 1)),
-            3: SingleIOInfo(),
+            0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
+            1: QubitAnnotationInfo(output=QubitOutputInfo(0, 2)),
+            2: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
+            3: QubitAnnotationInfo(),
         },
         output_to_ids={0: [0, 2, 1]},
     )
@@ -193,11 +193,11 @@ def test_alias_chain() -> None:
             "e": [3],
         },
         id_to_info={
-            0: SingleIOInfo(),
-            1: SingleIOInfo(),
-            2: SingleIOInfo(),
-            3: SingleIOInfo(reusable=True),
-            4: SingleIOInfo(),
+            0: QubitAnnotationInfo(),
+            1: QubitAnnotationInfo(),
+            2: QubitAnnotationInfo(),
+            3: QubitAnnotationInfo(reusable=True),
+            4: QubitAnnotationInfo(),
         },
     )
     actual = IOInfo()
@@ -316,29 +316,29 @@ def test_all() -> None:
             "_reuse": [2, 3, 4],
         },
         id_to_info={
-            0: SingleIOInfo(
-                input=SingleInputInfo(0, 0),
-                output=SingleOutputInfo(0, 0),
+            0: QubitAnnotationInfo(
+                input=QubitInputInfo(0, 0),
+                output=QubitOutputInfo(0, 0),
             ),
-            1: SingleIOInfo(
-                input=SingleInputInfo(0, 1),
-                output=SingleOutputInfo(1, 0),
+            1: QubitAnnotationInfo(
+                input=QubitInputInfo(0, 1),
+                output=QubitOutputInfo(1, 0),
             ),
-            2: SingleIOInfo(input=SingleInputInfo(0, 2), reusable=True),
-            3: SingleIOInfo(input=SingleInputInfo(0, 3), reusable=True),
-            4: SingleIOInfo(input=SingleInputInfo(0, 4), reusable=True),
-            5: SingleIOInfo(
-                input=SingleInputInfo(1, 0),
-                output=SingleOutputInfo(0, 1),
+            2: QubitAnnotationInfo(input=QubitInputInfo(0, 2), reusable=True),
+            3: QubitAnnotationInfo(input=QubitInputInfo(0, 3), reusable=True),
+            4: QubitAnnotationInfo(input=QubitInputInfo(0, 4), reusable=True),
+            5: QubitAnnotationInfo(
+                input=QubitInputInfo(1, 0),
+                output=QubitOutputInfo(0, 1),
             ),
-            6: SingleIOInfo(input=SingleInputInfo(1, 1)),
-            7: SingleIOInfo(input=SingleInputInfo(1, 2)),
-            8: SingleIOInfo(
-                input=SingleInputInfo(1, 3),
-                output=SingleOutputInfo(1, 1),
+            6: QubitAnnotationInfo(input=QubitInputInfo(1, 1)),
+            7: QubitAnnotationInfo(input=QubitInputInfo(1, 2)),
+            8: QubitAnnotationInfo(
+                input=QubitInputInfo(1, 3),
+                output=QubitOutputInfo(1, 1),
             ),
-            9: SingleIOInfo(input=SingleInputInfo(1, 4)),
-            10: SingleIOInfo(dirty=True),
+            9: QubitAnnotationInfo(input=QubitInputInfo(1, 4)),
+            10: QubitAnnotationInfo(dirty=True),
         },
         input_to_ids={0: [0, 1, 2, 3, 4], 1: [5, 6, 7, 8, 9]},
         output_to_ids={0: [0, 5], 1: [1, 8]},

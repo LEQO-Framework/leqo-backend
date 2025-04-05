@@ -88,7 +88,7 @@ class ProgramGraph(ProgramGraphBase):
 
 
 @dataclass()
-class SingleInputInfo:
+class QubitInputInfo:
     """Store the input id and the corresponding register position."""
 
     id: int
@@ -96,7 +96,7 @@ class SingleInputInfo:
 
 
 @dataclass()
-class SingleOutputInfo:
+class QubitOutputInfo:
     """Store the output id and the corresponding register position."""
 
     id: int
@@ -104,24 +104,13 @@ class SingleOutputInfo:
 
 
 @dataclass()
-class SingleIOInfo:
+class QubitAnnotationInfo:
     """Store input, output and reusable info for a single qubit."""
 
-    input: SingleInputInfo | None
-    output: SingleOutputInfo | None
-    reusable: bool
-
-    def __init__(
-        self,
-        input: SingleInputInfo | None = None,
-        output: SingleOutputInfo | None = None,
-        reusable: bool | None = None,
-        dirty: bool | None = None,
-    ) -> None:
-        self.input = input
-        self.output = output
-        self.reusable = reusable or False
-        self.dirty = dirty or False
+    input: QubitInputInfo | None = None
+    output: QubitOutputInfo | None = None
+    reusable: bool = False
+    dirty: bool = False
 
 
 @dataclass()
@@ -129,12 +118,12 @@ class IOInfo:
     """Store input, output, dirty and reusable info for qubits in a qasm-snippet.
 
     For this purpose, every qubit (not qubit-reg) is given an id, based on declaration order.
-    Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.SingleIOInfo`.
+    Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.QubitAnnotationInfo`.
     """
 
     declaration_to_id: dict[str, list[int]]
     alias_to_id: dict[str, list[int]]
-    id_to_info: dict[int, SingleIOInfo]
+    id_to_info: dict[int, QubitAnnotationInfo]
     input_to_ids: dict[int, list[int]]
     output_to_ids: dict[int, list[int]]
 
@@ -142,7 +131,7 @@ class IOInfo:
         self,
         declaration_to_id: dict[str, list[int]] | None = None,
         alias_to_id: dict[str, list[int]] | None = None,
-        id_to_info: dict[int, SingleIOInfo] | None = None,
+        id_to_info: dict[int, QubitAnnotationInfo] | None = None,
         input_to_ids: dict[int, list[int]] | None = None,
         output_to_ids: dict[int, list[int]] | None = None,
     ) -> None:
@@ -167,6 +156,6 @@ class IOInfo:
         except KeyError:
             return self.alias_to_id[identifier]
 
-    def identifier_to_infos(self, identifier: str) -> list[SingleIOInfo]:
+    def identifier_to_infos(self, identifier: str) -> list[QubitAnnotationInfo]:
         """Get list of IO-info for identifier."""
         return [self.id_to_info[i] for i in self.identifier_to_ids(identifier)]
