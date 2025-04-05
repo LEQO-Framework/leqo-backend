@@ -16,18 +16,24 @@ def test_parse_io_annotation() -> None:
             f"'{command}' != {expected}"
         )
 
-    def assert_parse_failure(command: str | None) -> None:
-        with pytest.raises(UnsupportedOperation):
+    def assert_parse_failure(command: str | None, match: str) -> None:
+        with pytest.raises(UnsupportedOperation, match=match):
             parse_io_annotation(Annotation("leqo.input", command))
 
-        with pytest.raises(UnsupportedOperation):
+        with pytest.raises(UnsupportedOperation, match=match):
             parse_io_annotation(Annotation("leqo.output", command))
 
     assert_parse("1", 1)
     assert_parse(" 3   ", 3)
     assert_parse("5", 5)
-    assert_parse_failure("")
-    assert_parse_failure("      ")
+    assert_parse_failure(
+        "",
+        "Annotation of type <class 'openqasm3.ast.Annotation'> without index was found.",
+    )
+    assert_parse_failure(
+        "      ",
+        "Annotation of type <class 'openqasm3.ast.Annotation'> without index was found.",
+    )
 
 
 def test_parse_qasm_index() -> None:
