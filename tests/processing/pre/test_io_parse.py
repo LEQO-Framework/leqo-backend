@@ -114,6 +114,21 @@ def test_dirty() -> None:
     assert expected == actual
 
 
+def test_spaces_tabes_on_dirty_or_reusable() -> None:
+    code = """
+    @leqo.dirty   
+    qubit[3] q0;
+    @leqo.dirty\t
+    qubit[3] q1;
+
+    @leqo.reusable   
+    let a = q0;
+    @leqo.reusable\t
+    let b = q1;
+    """
+    ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
 def test_empty_index() -> None:
     code = """
     @leqo.input 0
