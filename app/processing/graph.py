@@ -148,7 +148,3 @@ class IOInfo:
         self.id_to_info = id_to_info or {}
         self.input_to_ids = input_to_ids or {}
         self.output_to_ids = output_to_ids or {}
-
-    def identifier_to_infos(self, identifier: str) -> list[QubitAnnotationInfo]:
-        """Get list of IO-info for identifier."""
-        return [self.id_to_info[i] for i in self.identifier_to_ids(identifier)]
