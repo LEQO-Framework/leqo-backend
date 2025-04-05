@@ -132,7 +132,7 @@ class IOParse(LeqoTransformer[None]):
             case IndexExpression():
                 collection = value.collection
                 if not isinstance(collection, Identifier):
-                    msg = f"Unsupported expresion in alias: {type(collection)}"
+                    msg = f"Unsupported expression in alias: {type(collection)}"
                     raise TypeError(msg)
                 source = self.io.identifier_to_ids(collection.name)
                 indices = parse_qasm_index([value.index], len(source))
@@ -144,10 +144,10 @@ class IOParse(LeqoTransformer[None]):
                     value.rhs,
                 )
             case Expression():
-                msg = f"Unsupported expresion in alias: {type(value)}"
+                msg = f"Unsupported expression in alias: {type(value)}"
                 raise UnsupportedOperation(msg)
             case _:
-                msg = f"{type(value)} is not implemented as alias expresion"
+                msg = f"{type(value)} is not implemented as alias expression"
                 raise NotImplementedError(msg)
 
     def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
