@@ -9,6 +9,7 @@ from openqasm3.ast import (
     Expression,
     Identifier,
     IndexExpression,
+    Program,
     QASMNode,
     QubitDeclaration,
 )
@@ -33,9 +34,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     """
 
     qubit_id: int
-    input_counter: int
-    output_counter: int
-    alias_to_id: dict[str, list[int]]
+    alias_to_ids: dict[str, list[int]]
+    found_input_ids: set[int]
+    found_output_ids: set[int]
     io: IOInfo
 
     def __init__(self, io: IOInfo) -> None:
@@ -44,15 +45,15 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         :param io: The IOInfo to be modified in place.
         """
         super().__init__()
-        self.qubit_id = 0
-        self.input_counter = 0
-        self.output_counter = 0
-        self.alias_to_id = {}
         self.io = io
+        self.qubit_id = 0
+        self.alias_to_ids = {}
+        self.found_input_ids = set()
+        self.found_output_ids = set()
 
     def identifier_to_ids(self, identifier: str) -> list[int] | None:
-        result = self.io.declaration_to_id.get(identifier)
-        return self.alias_to_id.get(identifier) if result is None else result
+        result = self.io.declaration_to_ids.get(identifier)
+        return self.alias_to_ids.get(identifier) if result is None else result
 
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
         """Parse qubit-declarations and their corresponding input annotations."""
@@ -97,14 +98,14 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 dirty=dirty,
             )
             self.qubit_id += 1
-        self.io.declaration_to_id[name] = qubit_ids
+        self.io.declaration_to_ids[name] = qubit_ids
 
         if input_id is not None:
-            if input_id != self.input_counter:
-                msg = f"expected input index {self.input_counter} but got {input_id}"
-                raise IndexError(msg)
-            self.input_counter += 1
             self.io.input_to_ids[input_id] = qubit_ids
+            if input_id in self.found_input_ids:
+                msg = f"Unsupported: duplicate input id: {input_id}"
+                raise IndexError(msg)
+            self.found_input_ids.add(input_id)
 
         return self.generic_visit(node)
 
@@ -187,12 +188,12 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
         output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
         if output_id is not None:
-            if output_id != self.output_counter:
-                msg = f"expected output index {self.output_counter} but got {output_id}"
+            if output_id in self.found_output_ids:
+                msg = f"Unsupported: duplicate output id: {output_id}"
                 raise IndexError(msg)
-            self.output_counter += 1
+            self.found_output_ids.add(output_id)
 
-        self.alias_to_id[name] = ids
+        self.alias_to_ids[name] = ids
         if output_id is not None:
             self.io.output_to_ids[output_id] = ids
         for i, id in enumerate(ids):
@@ -211,3 +212,17 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     raise UnsupportedOperation(msg)
                 current_info.output = QubitOutputInfo(output_id, i)
         return self.generic_visit(node)
+
+    @staticmethod
+    def raise_on_non_continuos_range(numbers: set[int], name_of_check: str) -> None:
+        for i, j in enumerate(sorted(numbers)):
+            if i == j:
+                continue
+            msg = f"Unsupported: Missing {name_of_check} index {i}, next index was {j}"
+            raise IndexError(msg)
+
+    def visit_Program(self, node: Program) -> QASMNode:
+        result = self.generic_visit(node)
+        self.raise_on_non_continuos_range(self.found_input_ids, "input")
+        self.raise_on_non_continuos_range(self.found_output_ids, "output")
+        return result

@@ -19,7 +19,7 @@ def test_simple_input() -> None:
     qubit[3] q;
     """
     expected = IOInfo(
-        declaration_to_id={"q": [0, 1, 2]},
+        declaration_to_ids={"q": [0, 1, 2]},
         id_to_info={
             0: QubitAnnotationInfo(input=QubitInputInfo(0, 0)),
             1: QubitAnnotationInfo(input=QubitInputInfo(0, 1)),
@@ -42,7 +42,7 @@ def test_output_simple() -> None:
     let a = q;
     """
     expected = IOInfo(
-        declaration_to_id={"q": [0, 1, 2]},
+        declaration_to_ids={"q": [0, 1, 2]},
         id_to_info={
             0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
             1: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
@@ -63,7 +63,7 @@ def test_output_indexed() -> None:
     let a = q[0:1];
     """
     expected = IOInfo(
-        declaration_to_id={"q": [0, 1, 2]},
+        declaration_to_ids={"q": [0, 1, 2]},
         id_to_info={
             0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
             1: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
@@ -84,7 +84,7 @@ def test_reusable() -> None:
     let a = q[0:1];
     """
     expected = IOInfo(
-        declaration_to_id={"q": [0, 1, 2]},
+        declaration_to_ids={"q": [0, 1, 2]},
         id_to_info={
             0: QubitAnnotationInfo(reusable=True),
             1: QubitAnnotationInfo(reusable=True),
@@ -102,7 +102,7 @@ def test_dirty() -> None:
     qubit[3] q;
     """
     expected = IOInfo(
-        declaration_to_id={"q": [0, 1, 2]},
+        declaration_to_ids={"q": [0, 1, 2]},
         id_to_info={
             0: QubitAnnotationInfo(dirty=True),
             1: QubitAnnotationInfo(dirty=True),
@@ -120,7 +120,7 @@ def test_empty_index() -> None:
     qubit q;
     """
     expected = IOInfo(
-        declaration_to_id={"q": [0]},
+        declaration_to_ids={"q": [0]},
         id_to_info={
             0: QubitAnnotationInfo(input=QubitInputInfo(0, 0)),
         },
@@ -139,7 +139,7 @@ def test_classical_ignored() -> None:
     let a = c;
     """
     expected = IOInfo(
-        declaration_to_id={
+        declaration_to_ids={
             "q": [0, 1],
         },
         id_to_info={
@@ -161,7 +161,7 @@ def test_output_concatenation() -> None:
     let a = q0[0] ++ q1[0];
     """
     expected = IOInfo(
-        declaration_to_id={
+        declaration_to_ids={
             "q0": [0, 1],
             "q1": [2, 3],
         },
@@ -187,7 +187,7 @@ def test_output_big_concatenation() -> None:
     let a = q0[0] ++ q1[0] ++ q0[1];
     """
     expected = IOInfo(
-        declaration_to_id={
+        declaration_to_ids={
             "q0": [0, 1],
             "q1": [2, 3],
         },
@@ -216,7 +216,7 @@ def test_alias_chain() -> None:
     let e = d[0]; // get id 3
     """)
     expected = IOInfo(
-        declaration_to_id={
+        declaration_to_ids={
             "q": [0, 1, 2, 3, 4],
         },
         id_to_info={
@@ -232,6 +232,37 @@ def test_alias_chain() -> None:
     assert expected == actual
 
 
+def test_input_index_weird_order() -> None:
+    code = """
+    @leqo.input 1
+    qubit q1;
+    @leqo.input 0
+    qubit q0;
+    @leqo.input 2
+    qubit q2;
+    """
+    expected = IOInfo(
+        declaration_to_ids={
+            "q1": [0],
+            "q0": [1],
+            "q2": [2],
+        },
+        id_to_info={
+            0: QubitAnnotationInfo(input=QubitInputInfo(1, 0)),
+            1: QubitAnnotationInfo(input=QubitInputInfo(0, 0)),
+            2: QubitAnnotationInfo(input=QubitInputInfo(2, 0)),
+        },
+        input_to_ids={
+            0: [1],
+            1: [0],
+            2: [2],
+        },
+    )
+    actual = IOInfo()
+    ParseAnnotationsVisitor(actual).visit(parse(code))
+    assert expected == actual
+
+
 def test_raise_on_missing_io_index() -> None:
     code = """
     @leqo.input 0
@@ -239,18 +270,80 @@ def test_raise_on_missing_io_index() -> None:
     @leqo.input 2
     qubit[2] q1;
     """
-    with pytest.raises(IndexError, match="expected input index 1 but got 2"):
+    with pytest.raises(
+        IndexError,
+        match="Unsupported: Missing input index 1, next index was 2",
+    ):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
-def test_raise_on_index_on_reuable() -> None:
+def test_raise_on_duplicate_input_index() -> None:
     code = """
+    @leqo.input 0
+    qubit[2] q0;
+    @leqo.input 0
+    qubit[2] q1;
+    """
+    with pytest.raises(
+        IndexError,
+        match="Unsupported: duplicate input id: 0",
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_duplicate_output_index() -> None:
+    code = """
+    qubit[2] q0;
+    qubit[2] q1;
+
+    @leqo.output 0
+    let a = q0;
+    @leqo.output 0
+    let b = q1;
+    """
+    with pytest.raises(
+        IndexError,
+        match="Unsupported: duplicate output id: 0",
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_not_starting_at_zero() -> None:
+    code = """
+    @leqo.input 1
+    qubit[2] q0;
+    @leqo.input 2
+    qubit[2] q1;
+    """
+    with pytest.raises(
+        IndexError,
+        match="Unsupported: Missing input index 0, next index was 1",
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_index_on_reusable() -> None:
+    code = """
+    qubit[2] q1;
+
     @leqo.reusable 3
+    let a = q1;
+    """
+    with pytest.raises(
+        UnsupportedOperation,
+        match="Unsupported: found 3 over reusable annotations a",
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_index_on_dirty() -> None:
+    code = """
+    @leqo.dirty 3
     qubit[2] q1;
     """
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: leqo.reusable annotations over QubitDeclaration q1",
+        match="Unsupported: found 3 over dirty annotations q1",
     ):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
@@ -361,7 +454,7 @@ def test_all() -> None:
     let _reuse = q0[2:4];
     """)
     expected = IOInfo(
-        declaration_to_id={
+        declaration_to_ids={
             "q0": [0, 1, 2, 3, 4],
             "q1": [5, 6, 7, 8, 9],
             "q2": [10],

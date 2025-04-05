@@ -1,5 +1,4 @@
-"""
-Basic program graph used withing the :mod:`app.processing`.
+"""Basic program graph used withing the :mod:`app.processing`.
 """
 
 from __future__ import annotations
@@ -125,26 +124,26 @@ class IOInfo:
     Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.QubitAnnotationInfo`.
     """
 
-    declaration_to_id: dict[str, list[int]]
+    declaration_to_ids: dict[str, list[int]]
     id_to_info: dict[int, QubitAnnotationInfo]
     input_to_ids: dict[int, list[int]]
     output_to_ids: dict[int, list[int]]
 
     def __init__(
         self,
-        declaration_to_id: dict[str, list[int]] | None = None,
+        declaration_to_ids: dict[str, list[int]] | None = None,
         id_to_info: dict[int, QubitAnnotationInfo] | None = None,
         input_to_ids: dict[int, list[int]] | None = None,
         output_to_ids: dict[int, list[int]] | None = None,
     ) -> None:
         """Construct IOInfo.
 
-        :param declaration_to_id: Maps declared qubit names to list of IDs.
+        :param declaration_to_ids: Maps declared qubit names to list of IDs.
         :param id_to_info: Maps IDs to their corresponding info objects.
         :param input_to_ids: Maps input indexes to their corresponding IDs.
         :param output_to_ids: Maps output indexes to their corresponding IDs.
         """
-        self.declaration_to_id = declaration_to_id or {}
+        self.declaration_to_ids = declaration_to_ids or {}
         self.id_to_info = id_to_info or {}
         self.input_to_ids = input_to_ids or {}
         self.output_to_ids = output_to_ids or {}
