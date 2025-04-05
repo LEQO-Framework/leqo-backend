@@ -308,7 +308,7 @@ def test_raise_on_duplicate_output_index() -> None:
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
-def test_raise_on_not_starting_at_zero() -> None:
+def test_raise_on_input_index_not_starting_at_zero() -> None:
     code = """
     @leqo.input 1
     qubit[2] q0;
@@ -318,6 +318,23 @@ def test_raise_on_not_starting_at_zero() -> None:
     with pytest.raises(
         IndexError,
         match="Unsupported: Missing input index 0, next index was 1",
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_output_index_not_starting_at_zero() -> None:
+    code = """
+    qubit[2] q0;
+    qubit[2] q1;
+
+    @leqo.output 1
+    let a = q0;
+    @leqo.output 2
+    let b = q1;
+    """
+    with pytest.raises(
+        IndexError,
+        match="Unsupported: Missing output index 0, next index was 1",
     ):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
