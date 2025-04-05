@@ -13,6 +13,7 @@ documentation for details.
     :hidden:
     :maxdepth: 2
 
+    usage/annotations.rst
 
 .. toctree::
     :caption: Development
