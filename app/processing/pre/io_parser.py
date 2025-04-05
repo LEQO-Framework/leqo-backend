@@ -163,9 +163,14 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
         """Parse qubit-alias and their corresponding output annotations."""
         name = node.target.name
+
         ids = self.alias_expr_to_ids(node.value)
-        if ids is None:  # non-qubit in alias expression (classic)
-            return self.generic_visit(node)
+        match ids:
+            case None:  # non-qubit in alias expression (classic)
+                return self.generic_visit(node)
+            case []:
+                msg = f"Failed to parse alias statement {node}"
+                raise RuntimeError(msg)
         output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
 
         if output_id is not None:
@@ -175,9 +180,6 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 msg = f"expected output index {self.output_counter} but got {output_id}"
                 raise IndexError(msg)
 
-        if len(ids) == 0:
-            msg = f"Failed to parse alias statement {node}"
-            raise RuntimeError(msg)
         self.alias_to_id[name] = ids
         if output_id is not None:
             self.io.output_to_ids[output_id] = ids
