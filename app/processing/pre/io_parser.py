@@ -49,7 +49,7 @@ class IOParse(LeqoTransformer[None]):
         self.io = io
 
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
-        """Parse qubit-declarations an there corresponding input annotations."""
+        """Parse qubit-declarations and their corresponding input annotations."""
         name = node.qubit.name
         size = expr_to_int(node.size) if node.size is not None else 1
         input_id: int | None = None
