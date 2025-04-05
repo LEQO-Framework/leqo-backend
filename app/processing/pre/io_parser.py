@@ -151,7 +151,7 @@ class IOParse(LeqoTransformer[None]):
                 raise NotImplementedError(msg)
 
     def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
-        """Parse qubit-alias an there corresponding output annotations."""
+        """Parse qubit-alias and their corresponding output annotations."""
         name = node.target.name
         try:
             ids = self.alias_expr_to_ids(node.value)
