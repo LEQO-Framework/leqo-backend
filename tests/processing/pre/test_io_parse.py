@@ -321,7 +321,7 @@ def test_all() -> None:
     assert expected == actual
 
 
-def test_raise_on_missing_io_index() -> None:
+def test_raise_on_missing_input_index() -> None:
     code = """
     @leqo.input 0
     qubit[2] q0;
@@ -331,6 +331,23 @@ def test_raise_on_missing_io_index() -> None:
     with pytest.raises(
         IndexError,
         match="Unsupported: Missing input index 1, next index was 2",
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_missing_output_index() -> None:
+    code = """
+    qubit[2] q0;
+    qubit[2] q1;
+
+    @leqo.output 0
+    let a = q0;
+    @leqo.output 2
+    let b = q1;
+    """
+    with pytest.raises(
+        IndexError,
+        match="Unsupported: Missing output index 1, next index was 2",
     ):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
