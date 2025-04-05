@@ -43,7 +43,6 @@ def test_output_simple() -> None:
     """
     expected = IOInfo(
         declaration_to_id={"q": [0, 1, 2]},
-        alias_to_id={"a": [0, 1, 2]},
         id_to_info={
             0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
             1: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
@@ -65,7 +64,6 @@ def test_output_indexed() -> None:
     """
     expected = IOInfo(
         declaration_to_id={"q": [0, 1, 2]},
-        alias_to_id={"a": [0, 1]},
         id_to_info={
             0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
             1: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
@@ -87,7 +85,6 @@ def test_reusable() -> None:
     """
     expected = IOInfo(
         declaration_to_id={"q": [0, 1, 2]},
-        alias_to_id={"a": [0, 1]},
         id_to_info={
             0: QubitAnnotationInfo(reusable=True),
             1: QubitAnnotationInfo(reusable=True),
@@ -168,7 +165,6 @@ def test_output_concatenation() -> None:
             "q0": [0, 1],
             "q1": [2, 3],
         },
-        alias_to_id={"a": [0, 2]},
         id_to_info={
             0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
             1: QubitAnnotationInfo(),
@@ -195,7 +191,6 @@ def test_output_big_concatenation() -> None:
             "q0": [0, 1],
             "q1": [2, 3],
         },
-        alias_to_id={"a": [0, 2, 1]},
         id_to_info={
             0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
             1: QubitAnnotationInfo(output=QubitOutputInfo(0, 2)),
@@ -223,13 +218,6 @@ def test_alias_chain() -> None:
     expected = IOInfo(
         declaration_to_id={
             "q": [0, 1, 2, 3, 4],
-        },
-        alias_to_id={
-            "a": [4, 3, 2, 1, 0],
-            "b": [0, 1, 2, 3, 4],
-            "c": [2, 3, 4],
-            "d": [3, 4],
-            "e": [3],
         },
         id_to_info={
             0: QubitAnnotationInfo(),
@@ -347,12 +335,6 @@ def test_all() -> None:
             "q0": [0, 1, 2, 3, 4],
             "q1": [5, 6, 7, 8, 9],
             "q2": [10],
-        },
-        alias_to_id={
-            "a": [9, 8, 7, 6, 5],
-            "_out0": [0, 5],
-            "_out1": [1, 8],
-            "_reuse": [2, 3, 4],
         },
         id_to_info={
             0: QubitAnnotationInfo(

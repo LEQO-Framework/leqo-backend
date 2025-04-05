@@ -35,6 +35,7 @@ class IOParse(LeqoTransformer[None]):
     qubit_id: int
     input_counter: int
     output_counter: int
+    alias_to_id: dict[str, list[int]]
     io: IOInfo
 
     def __init__(self, io: IOInfo) -> None:
@@ -46,7 +47,12 @@ class IOParse(LeqoTransformer[None]):
         self.qubit_id = 0
         self.input_counter = 0
         self.output_counter = 0
+        self.alias_to_id = {}
         self.io = io
+
+    def identifier_to_ids(self, identifier: str) -> list[int] | None:
+        result = self.io.declaration_to_id.get(identifier)
+        return self.alias_to_id.get(identifier) if result is None else result
 
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
         """Parse qubit-declarations and their corresponding input annotations."""
@@ -126,7 +132,7 @@ class IOParse(LeqoTransformer[None]):
     def alias_expr_to_ids(
         self,
         value: Identifier | IndexExpression | Concatenation | Expression,
-    ) -> list[int]:
+    ) -> list[int] | None:
         """Recursively get IDs list for alias expression."""
         match value:
             case IndexExpression():
@@ -134,15 +140,19 @@ class IOParse(LeqoTransformer[None]):
                 if not isinstance(collection, Identifier):
                     msg = f"Unsupported expression in alias: {type(collection)}"
                     raise TypeError(msg)
-                source = self.io.identifier_to_ids(collection.name)
+                source = self.identifier_to_ids(collection.name)
+                if source is None:
+                    return None
                 indices = parse_qasm_index([value.index], len(source))
                 return [source[i] for i in indices]
             case Identifier():
-                return self.io.identifier_to_ids(value.name)
+                return self.identifier_to_ids(value.name)
             case Concatenation():
-                return self.alias_expr_to_ids(value.lhs) + self.alias_expr_to_ids(
-                    value.rhs,
-                )
+                lhs = self.alias_expr_to_ids(value.lhs)
+                rhs = self.alias_expr_to_ids(value.rhs)
+                if lhs is None or rhs is None:
+                    return None
+                return lhs + rhs
             case Expression():
                 msg = f"Unsupported expression in alias: {type(value)}"
                 raise UnsupportedOperation(msg)
@@ -153,9 +163,8 @@ class IOParse(LeqoTransformer[None]):
     def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
         """Parse qubit-alias and their corresponding output annotations."""
         name = node.target.name
-        try:
-            ids = self.alias_expr_to_ids(node.value)
-        except KeyError:  # non-qubit in alias expression (classic)
+        ids = self.alias_expr_to_ids(node.value)
+        if ids is None:  # non-qubit in alias expression (classic)
             return self.generic_visit(node)
         output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
 
@@ -169,21 +178,22 @@ class IOParse(LeqoTransformer[None]):
         if len(ids) == 0:
             msg = f"Failed to parse alias statement {node}"
             raise RuntimeError(msg)
-        self.io.alias_to_id[name] = ids
+        self.alias_to_id[name] = ids
         if output_id is not None:
             self.io.output_to_ids[output_id] = ids
         for i, id in enumerate(ids):
+            current_info = self.io.id_to_info[id]
             if reusable:
-                if self.io.id_to_info[id].output is not None:
+                if current_info.output is not None:
                     msg = f"alias {name} declares output qubit as reusable"
                     raise UnsupportedOperation(msg)
-                self.io.id_to_info[id].reusable = True
+                current_info.reusable = True
             elif output_id is not None:
-                if self.io.id_to_info[id].output is not None:
+                if current_info.output is not None:
                     msg = f"alias {name} tries to overwrite already declared output"
                     raise UnsupportedOperation(msg)
-                if self.io.id_to_info[id].reusable:
+                if current_info.reusable:
                     msg = f"alias {name} declares output for reusable qubit"
                     raise UnsupportedOperation(msg)
-                self.io.id_to_info[id].output = QubitOutputInfo(output_id, i)
+                current_info.output = QubitOutputInfo(output_id, i)
         return self.generic_visit(node)
