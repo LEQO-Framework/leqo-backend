@@ -1,4 +1,9 @@
+"""
+Utils used within :mod:`app.processing`.
+"""
+
 import re
+from io import UnsupportedOperation
 from typing import TypeVar
 
 from openqasm3.ast import (
@@ -36,7 +41,7 @@ def expr_to_int(expr: Expression | None) -> int:
     This method does no analysis of the overall AST.
     If it cannot extract an integer from an expression, it throws.
 
-    :param expression: Expression to be analyses
+    :param expr: Expression to be analyses
     :return: Integer or None if input was None
     """
     match expr:
@@ -54,49 +59,41 @@ def expr_to_int(expr: Expression | None) -> int:
                     raise TypeError(msg)
 
         case _:
-            msg = f"Unsported type: {type(expr)=} of {expr=}"
+            msg = f"Could not resolve {expr=} of type {type(expr)=} to an integer"
             raise TypeError(msg)
 
 
 TQasmStatement = TypeVar("TQasmStatement", bound=Statement)
 
 
-def annotate(node: TQasmStatement, annotations: list[Annotation]) -> TQasmStatement:
-    node.annotations = annotations
-    return node
+def annotate(
+    statement: TQasmStatement, annotations: list[Annotation]
+) -> TQasmStatement:
+    """
+    Sets annotations on the specified node.
+
+    :param statement: The statement to be annotated
+    :param annotations: The annotations to be applied
+    :return: The node with annotations applied
+    """
+
+    statement.annotations = annotations
+    return statement
 
 
-def parse_io_annotation(annotation: Annotation) -> list[int]:
-    """Parses the :attr:`~openqasm3.ast.Annotation.command` of a `@leqo.input` or `@leqo.output` :class:`~openqasm3.ast.Annotation`.
+def parse_io_annotation(annotation: Annotation) -> int:
+    """Parse the :attr:`~openqasm3.ast.Annotation.command` of a `@leqo.input` or `@leqo.output` :class:`~openqasm3.ast.Annotation`.
 
     :param annotation: The annotation to parse
-    :return: The parsed indices
+    :return: The indices
     """
     command = annotation.command and annotation.command.strip()
 
     if not command:
-        return []
+        msg = f"Annotation of type {type(annotation).__qualname__} without index was found."
+        raise UnsupportedOperation(msg)
 
-    result: list[int] = []
-    for segment in command.split(","):
-        range_elements = [int(x.strip()) for x in segment.split("-")]
-        match len(range_elements):
-            case 0:
-                raise ValueError("Detected empty segment")
-
-            case 1:
-                result.append(range_elements[0])
-
-            case 2:
-                if range_elements[0] > range_elements[1]:
-                    raise ValueError("Start of range must be <= end of range")
-
-                result.extend(range(range_elements[0], range_elements[1] + 1))
-
-            case _:
-                raise ValueError("A range may only contain 2 integers")
-
-    return result
+    return int(command)
 
 
 def parse_range_definition(range_def: RangeDefinition, length: int) -> list[int]:
