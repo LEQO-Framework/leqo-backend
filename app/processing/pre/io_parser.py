@@ -23,7 +23,7 @@ from app.processing.graph import (
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
 
 
-class IOParse(LeqoTransformer[None]):
+class ParseAnnotationsVisitor(LeqoTransformer[None]):
     """Parse input/output qubits of a single qasm-snippet.
 
     Do it the following way:

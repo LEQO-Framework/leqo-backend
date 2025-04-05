@@ -9,7 +9,7 @@ from app.processing.graph import (
     QubitInputInfo,
     QubitOutputInfo,
 )
-from app.processing.pre.io_parser import IOParse
+from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.utils import normalize_qasm_string
 
 
@@ -30,7 +30,7 @@ def test_simple_input() -> None:
         },
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -51,7 +51,7 @@ def test_output_simple() -> None:
         output_to_ids={0: [0, 1, 2]},
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -72,7 +72,7 @@ def test_output_indexed() -> None:
         output_to_ids={0: [0, 1]},
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -92,7 +92,7 @@ def test_reusable() -> None:
         },
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -110,7 +110,7 @@ def test_dirty() -> None:
         },
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -127,7 +127,7 @@ def test_empty_index() -> None:
         input_to_ids={0: [0]},
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -148,7 +148,7 @@ def test_classical_ignored() -> None:
         },
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -174,7 +174,7 @@ def test_output_concatenation() -> None:
         output_to_ids={0: [0, 2]},
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -200,7 +200,7 @@ def test_output_big_concatenation() -> None:
         output_to_ids={0: [0, 2, 1]},
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -228,7 +228,7 @@ def test_alias_chain() -> None:
         },
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
@@ -240,7 +240,7 @@ def test_raise_on_missing_io_index() -> None:
     qubit[2] q1;
     """
     with pytest.raises(IndexError):
-        IOParse(IOInfo()).visit(parse(code))
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_duplicate_declaration_annotation() -> None:
@@ -250,7 +250,7 @@ def test_raise_on_duplicate_declaration_annotation() -> None:
     qubit[2] q0;
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(IOInfo()).visit(parse(code))
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_duplicate_alias_annotation() -> None:
@@ -262,7 +262,7 @@ def test_raise_on_duplicate_alias_annotation() -> None:
     let tmp = q0;
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(IOInfo()).visit(parse(code))
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_input_annotation_over_alias() -> None:
@@ -273,7 +273,7 @@ def test_raise_on_input_annotation_over_alias() -> None:
     let tmp = q0;
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(IOInfo()).visit(parse(code))
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_output_annotation_over_declaration() -> None:
@@ -282,7 +282,7 @@ def test_raise_on_output_annotation_over_declaration() -> None:
     qubit[2] q0;
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(IOInfo()).visit(parse(code))
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_reusable_and_output() -> None:
@@ -295,7 +295,7 @@ def test_raise_on_reusable_and_output() -> None:
     let b = q0[2];
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(IOInfo()).visit(parse(code))
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
 def test_raise_on_double_output_declaration_on_single_qubit() -> None:
@@ -308,7 +308,7 @@ def test_raise_on_double_output_declaration_on_single_qubit() -> None:
     let b = q0[1];
     """
     with pytest.raises(UnsupportedOperation):
-        IOParse(IOInfo()).visit(parse(code))
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
 def test_all() -> None:
@@ -365,5 +365,5 @@ def test_all() -> None:
         output_to_ids={0: [0, 5], 1: [1, 8]},
     )
     actual = IOInfo()
-    IOParse(actual).visit(parse(code))
+    ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
