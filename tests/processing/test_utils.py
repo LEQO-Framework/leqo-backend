@@ -24,6 +24,7 @@ def test_parse_io_annotation() -> None:
             parse_io_annotation(Annotation("leqo.output", command))
 
     assert_parse("1", 1)
+    assert_parse(" 3   ", 3)
     assert_parse("5", 5)
     assert_parse_failure("")
     assert_parse_failure("      ")
