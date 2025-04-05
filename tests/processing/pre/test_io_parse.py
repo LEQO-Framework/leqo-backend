@@ -80,7 +80,7 @@ def test_reusable() -> None:
     code = """
     qubit[3] q;
 
-    @leqo.reusable 0
+    @leqo.reusable
     let a = q[0:1];
     """
     expected = IOInfo(
@@ -240,6 +240,15 @@ def test_raise_on_missing_io_index() -> None:
     qubit[2] q1;
     """
     with pytest.raises(IndexError):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_index_on_reuable() -> None:
+    code = """
+    @leqo.reusable 3
+    qubit[2] q1;
+    """
+    with pytest.raises(UnsupportedOperation):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 

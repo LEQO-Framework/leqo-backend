@@ -71,6 +71,12 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     if dirty:
                         msg = f"Unsupported: two dirty annotations over {name}"
                         raise UnsupportedOperation(msg)
+                    if (
+                        annotation.command is not None
+                        and annotation.command.strip() != ""
+                    ):
+                        msg = f"Unsupported: found {annotation.command} over dirty annotations {name}"
+                        raise UnsupportedOperation(msg)
                     dirty = True
                 case "leqo.output" | "leqo.reusable":
                     msg = f"Unsupported: {annotation.keyword} annotations over QubitDeclaration {name}"
@@ -120,6 +126,12 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 case "leqo.reusable":
                     if reusable:
                         msg = f"Unsupported: two reusable annotations over {name}"
+                        raise UnsupportedOperation(msg)
+                    if (
+                        annotation.command is not None
+                        and annotation.command.strip() != ""
+                    ):
+                        msg = f"Unsupported: found {annotation.command} over reusable annotations {name}"
                         raise UnsupportedOperation(msg)
                     reusable = True
                 case "leqo.input" | "leqo.dirty":
