@@ -239,7 +239,7 @@ def test_raise_on_missing_io_index() -> None:
     @leqo.input 2
     qubit[2] q1;
     """
-    with pytest.raises(IndexError):
+    with pytest.raises(IndexError, match="expected input index 1 but got 2"):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
@@ -248,7 +248,7 @@ def test_raise_on_index_on_reuable() -> None:
     @leqo.reusable 3
     qubit[2] q1;
     """
-    with pytest.raises(UnsupportedOperation):
+    with pytest.raises(UnsupportedOperation, match="Unsupported: leqo.reusable annotations over QubitDeclaration q1"):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
@@ -258,7 +258,7 @@ def test_raise_on_duplicate_declaration_annotation() -> None:
     @leqo.input 1
     qubit[2] q0;
     """
-    with pytest.raises(UnsupportedOperation):
+    with pytest.raises(UnsupportedOperation, match="Unsupported: two input annotations over q0"):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
@@ -270,7 +270,7 @@ def test_raise_on_duplicate_alias_annotation() -> None:
     @leqo.output 1
     let tmp = q0;
     """
-    with pytest.raises(UnsupportedOperation):
+    with pytest.raises(UnsupportedOperation, match="Unsupported: two output annotations over tmp"):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
@@ -281,7 +281,7 @@ def test_raise_on_input_annotation_over_alias() -> None:
     @leqo.input 0
     let tmp = q0;
     """
-    with pytest.raises(UnsupportedOperation):
+    with pytest.raises(UnsupportedOperation, match="Unsupported: leqo.input annotations over AliasStatement tmp"):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
@@ -290,7 +290,7 @@ def test_raise_on_output_annotation_over_declaration() -> None:
     @leqo.output 0
     qubit[2] q0;
     """
-    with pytest.raises(UnsupportedOperation):
+    with pytest.raises(UnsupportedOperation, match="Unsupported: leqo.output annotations over QubitDeclaration q0"):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
@@ -303,7 +303,7 @@ def test_raise_on_reusable_and_output() -> None:
     @leqo.reusable
     let b = q0[2];
     """
-    with pytest.raises(UnsupportedOperation):
+    with pytest.raises(UnsupportedOperation, match="alias b declares output qubit as reusable"):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
@@ -316,7 +316,7 @@ def test_raise_on_double_output_declaration_on_single_qubit() -> None:
     @leqo.output 1
     let b = q0[1];
     """
-    with pytest.raises(UnsupportedOperation):
+    with pytest.raises(UnsupportedOperation, match="alias b tries to overwrite already declared output"):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
