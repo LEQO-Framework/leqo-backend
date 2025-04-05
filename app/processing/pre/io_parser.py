@@ -171,8 +171,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             case []:
                 msg = f"Failed to parse alias statement {node}"
                 raise RuntimeError(msg)
-        output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
 
+        output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
         if output_id is not None:
             if output_id == self.output_counter:
                 self.output_counter += 1
