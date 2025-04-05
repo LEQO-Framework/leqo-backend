@@ -57,7 +57,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
         """Parse qubit-declarations and their corresponding input annotations."""
         name = node.qubit.name
-        size = expr_to_int(node.size) if node.size is not None else 1
+
         input_id: int | None = None
         dirty = False
         for annotation in node.annotations:
@@ -81,8 +81,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             )
             raise UnsupportedOperation(msg)
 
+        reg_size = expr_to_int(node.size) if node.size is not None else 1
         qubit_ids = []
-        for i in range(size):
+        for i in range(reg_size):
             qubit_ids.append(self.qubit_id)
             input_info = QubitInputInfo(input_id, i) if input_id is not None else None
             self.io.id_to_info[self.qubit_id] = QubitAnnotationInfo(
