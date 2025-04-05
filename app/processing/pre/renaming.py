@@ -1,3 +1,7 @@
+"""
+Transformer to rename identifiers in a qasm program to globally unique names.
+"""
+
 from openqasm3.ast import (
     AliasStatement,
     CalibrationDefinition,
