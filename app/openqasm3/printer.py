@@ -1,3 +1,7 @@
+"""
+Extended printing with support for custom comment nodes.
+"""
+
 from io import TextIOBase
 
 from openqasm3.printer import Printer, PrinterState

@@ -1,3 +1,7 @@
+"""
+Utils used within :mod:`app.processing`.
+"""
+
 import re
 from typing import TypeVar
 
@@ -36,7 +40,7 @@ def expr_to_int(expr: Expression | None) -> int:
     This method does no analysis of the overall AST.
     If it cannot extract an integer from an expression, it throws.
 
-    :param expression: Expression to be analyses
+    :param expr: Expression to be analyses
     :return: Integer or None if input was None
     """
     match expr:
@@ -61,9 +65,19 @@ def expr_to_int(expr: Expression | None) -> int:
 TQasmStatement = TypeVar("TQasmStatement", bound=Statement)
 
 
-def annotate(node: TQasmStatement, annotations: list[Annotation]) -> TQasmStatement:
-    node.annotations = annotations
-    return node
+def annotate(
+    statement: TQasmStatement, annotations: list[Annotation]
+) -> TQasmStatement:
+    """
+    Sets annotations on the specified node.
+
+    :param statement: The statement to be annotated
+    :param annotations: The annotations to be applied
+    :return: The node with annotations applied
+    """
+
+    statement.annotations = annotations
+    return statement
 
 
 def parse_io_annotation(annotation: Annotation) -> list[int]:

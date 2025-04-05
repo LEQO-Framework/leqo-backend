@@ -6,7 +6,6 @@ Add your content using ``reStructuredText`` syntax. See the
 documentation for details.
 
 .. openapi:: openapi.json
-.. include:: missing_gates.rst
 
 .. toctree::
     :caption: Usage
@@ -21,13 +20,4 @@ documentation for details.
 
     testing
     example-cross-references
-    code/app
-
-.. toctree::
-    :caption: OpenQasm3
-    :hidden:
-    :titlesonly:
-
-    openqasm3/ast
-    openqasm3/visitor
-
+    openqasm3
