@@ -7,6 +7,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   app.converter
    app.model
    app.openqasm3
    app.processing
@@ -36,6 +37,7 @@ Module contents
     :hidden:
     :maxdepth: 2
 
+    app.converter
     app.model
     app.openqasm3
     app.processing
