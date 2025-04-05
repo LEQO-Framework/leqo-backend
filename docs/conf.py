@@ -35,7 +35,6 @@ autoapi_options = [
     "members",
 ]
 autoapi_dirs = ["../app"]
-autoapi_ignore = ["*migrations*", "*_antlr*"]
 autodoc_typehints = "both"
 
 intersphinx_mapping = {
@@ -55,5 +54,3 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 html_theme = "sphinx_rtd_theme"
 # uncomment if static files are needed: html_static_path = ["_static"]
-
-suppress_warnings = ["autoapi.python_import_resolution", "autoapi.not_readable"]
