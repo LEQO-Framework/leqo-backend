@@ -42,7 +42,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     def __init__(self, io: IOInfo) -> None:
         """Construct the LeqoTransformer.
 
-        :param io: The IOInfo to be modified in place.
+        :param io: The IOInfo to be modified in-place.
         """
         super().__init__()
         self.io = io
@@ -52,6 +52,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self.found_output_ids = set()
 
     def identifier_to_ids(self, identifier: str) -> list[int] | None:
+        """Get ids via declaration_to_ids or alias_to_ids."""
         result = self.io.declaration_to_ids.get(identifier)
         return self.alias_to_ids.get(identifier) if result is None else result
 
@@ -214,7 +215,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         return self.generic_visit(node)
 
     @staticmethod
-    def raise_on_non_continuos_range(numbers: set[int], name_of_check: str) -> None:
+    def raise_on_non_contiguous_range(numbers: set[int], name_of_check: str) -> None:
+        """Check if int set is contiguous."""
         for i, j in enumerate(sorted(numbers)):
             if i == j:
                 continue
@@ -222,7 +224,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise IndexError(msg)
 
     def visit_Program(self, node: Program) -> QASMNode:
+        """Ensure contiguous input/output indexes"""
         result = self.generic_visit(node)
-        self.raise_on_non_continuos_range(self.found_input_ids, "input")
-        self.raise_on_non_continuos_range(self.found_output_ids, "output")
+        self.raise_on_non_contiguous_range(self.found_input_ids, "input")
+        self.raise_on_non_contiguous_range(self.found_output_ids, "output")
         return result
