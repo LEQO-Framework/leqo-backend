@@ -26,13 +26,13 @@ def createQuasmImplementation(quasm: str) -> None:
         session.add(qasmImplementation)
         session.commit()
 
-def findQuasmImplementation(searchTerm: str):
+def findQuasmImplementation(searchTerm: str) -> None:
     with Session() as session:
         query = select(QuasmImplementation).where(QuasmImplementation.quasm == searchTerm)
         result = session.execute(query)
         return [(row[0].id, row[0].quasm) for row in result.all()]
 
-def demo():
+def demo() -> list[tuple]:
     reset_database(engine)
     createQuasmImplementation("x q[0]")
     createQuasmImplementation("cx q[1], q[2]")
