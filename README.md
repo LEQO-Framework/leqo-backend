@@ -16,7 +16,7 @@ This project uses the [uv package manager](https://docs.astral.sh/uv/#getting-st
 Run the following command:
 
 ```bash
-docker compose build && docker compose up -d
+docker compose -f compose-dev.yaml up --build
 ```
 
 Then you can access the back-end on:  
@@ -29,6 +29,20 @@ Run the following command:
 
 ```bash
 uv run fastapi dev
+```
+
+To access the database you either need a postgres database on your
+local maschine or an docker container. 
+In either case you have to change the host in your `.env` to the
+ip address of the postgres database. For docker you get the ip with:
+
+Unix:
+```bash
+docker inspect <container id> | grep "IPAddress"
+```
+Windows:
+```bash
+docker inspect <container id> | findstr "IPAddress"
 ```
 
 Then you can access the back-end on:  
