@@ -3,12 +3,11 @@
 # Delete this file after the review
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-from sqlalchemy import Column, Integer, Text
-from app.enricher.models import Base
-from sqlalchemy import select
+from sqlalchemy import Column, Integer, Text, select
 from sqlalchemy.orm import sessionmaker
 
 from app.enricher.engine import engine
+from app.enricher.models import Base
 from app.enricher.utils import reset_database
 
 
