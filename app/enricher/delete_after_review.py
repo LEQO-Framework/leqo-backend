@@ -11,14 +11,17 @@ from sqlalchemy.orm import sessionmaker
 from app.enricher.engine import engine
 from app.enricher.utils import reset_database
 
+
 class QuasmImplementation(Base):
-    __tablename__ = 'qasm_impl'
+    __tablename__ = "qasm_impl"
 
     id = Column(Integer(), primary_key=True)
     quasm = Column(Text, nullable=False)
 
+
 Session = sessionmaker(bind=engine)
 session = Session()
+
 
 def createQuasmImplementation(quasm: str) -> None:
     with Session() as session:
@@ -26,11 +29,15 @@ def createQuasmImplementation(quasm: str) -> None:
         session.add(qasmImplementation)
         session.commit()
 
+
 def findQuasmImplementation(searchTerm: str) -> None:
     with Session() as session:
-        query = select(QuasmImplementation).where(QuasmImplementation.quasm == searchTerm)
+        query = select(QuasmImplementation).where(
+            QuasmImplementation.quasm == searchTerm
+        )
         result = session.execute(query)
         return [(row[0].id, row[0].quasm) for row in result.all()]
+
 
 def demo() -> list[tuple]:
     reset_database(engine)
