@@ -38,9 +38,13 @@ results: dict[UUID, str] = {}
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # This is only for testing delete after review
 from app.enricher.delete_after_review import demo
+
+
 @app.get("/enricher")
 def enricher() -> None:
     print(demo())
+
+
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 def get_enricher() -> Enricher:
