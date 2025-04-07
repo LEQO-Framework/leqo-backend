@@ -1,9 +1,19 @@
 from networkx import topological_sort
-from openqasm3.ast import Pragma, Program, Statement
+from openqasm3.ast import (
+    Identifier,
+    IntegerLiteral,
+    Pragma,
+    Program,
+    QubitDeclaration,
+    Statement,
+)
 
 from app.openqasm3.ast import CommentStatement
 from app.processing.graph import ProgramGraph
+from app.processing.merge.connections import connect_qubits
 from app.processing.post import postprocess
+
+GLOBAL_REG_NAME = "leqo_reg"
 
 
 def merge_nodes(graph: ProgramGraph) -> Program:
@@ -12,9 +22,12 @@ def merge_nodes(graph: ProgramGraph) -> Program:
     :param graph: Graph of all nodes representing the program
     :return: The unified qasm program
     """
-    all_statements: list[Statement | Pragma] = []
+    reg_size = connect_qubits(graph, GLOBAL_REG_NAME)
 
-    # TODO: this does not sort the nodes the right way, this will need io-info
+    all_statements: list[Statement | Pragma] = [
+        QubitDeclaration(Identifier(GLOBAL_REG_NAME), IntegerLiteral(reg_size)),
+    ]
+
     for node in topological_sort(graph):
         all_statements.append(CommentStatement(f"Start node {node.name}"))
 
