@@ -16,6 +16,7 @@ from app.processing.graph import (
     SectionInfo,
 )
 from app.processing.merge import merge_nodes as merge_impl
+from app.processing.optimize import optimize as optimize_impl
 from app.processing.post import postprocess
 from app.processing.pre import preprocess as preprocess_impl
 from app.utils import opt_call
