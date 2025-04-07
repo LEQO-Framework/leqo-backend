@@ -137,7 +137,7 @@ class ApplyCustomGates(LeqoTransformer[None]):
 
 
 class QASMConverter:
-    """Convert QASM 2.x code to QASM 3.1 AST or return parsed OpenQASM 3.x."""
+    """Convert QASM 2.x code to QASM 3.1 AST or return parsed OpenQASM 3.x. directly"""
 
     custom_libs: dict[str, CustomOpenqamsLib]
 
@@ -160,7 +160,7 @@ class QASMConverter:
             self.add_custom_gate_lib(CustomOpenqamsLib("qelib1.inc", f.read()))
 
     def parse_to_qasm3(self, qasm2_code: str) -> Program:
-        """Convert entire QASM 2.x code to QASM 3.1 AST or return parsed OpenQASM 3.x.
+        """Convert entire QASM 2.x code to QASM 3.1 AST or return parsed OpenQASM 3.x. directly
 
         Warning: All comments present in the given QASM code will be removed!!!
 
