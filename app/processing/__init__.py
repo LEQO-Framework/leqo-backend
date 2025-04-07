@@ -39,6 +39,15 @@ def preprocess(node: ProgramNode) -> ProcessedProgramNode:
     )
 
 
+def optimize(graph: ProgramGraph) -> None:
+    """
+    Optimize the given graph in-place based on :class:`app.processing.graph.IOInfo`.
+
+    :param graph: Graph of all nodes representing the program
+    """
+    optimize_impl(graph)
+
+
 def merge_nodes(graph: ProgramGraph) -> Program:
     """Create a unified :class:`openqasm3.ast.Program` from a modelled graph with attached qasm implementation snippets.
 
