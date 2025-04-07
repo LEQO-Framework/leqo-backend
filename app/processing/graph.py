@@ -51,6 +51,25 @@ class IOConnection:
     target: tuple[ProgramNode, int]
 
 
+@dataclass()
+class AncillaConnection:
+    """Map output qubits from source to target input qubits.
+
+    The qubits are identified via the id specified in :class:`app.processing.graph.IOInfo`.
+    """
+
+    source: tuple[ProgramNode, list[int]]
+    target: tuple[ProgramNode, list[int]]
+
+
+@dataclass()
+class CombinedConnection:
+    """Combine IOConnection with AncillaConnection if same source and target."""
+
+    source: tuple[ProgramNode, int, list[int]]
+    target: tuple[ProgramNode, int, list[int]]
+
+
 if TYPE_CHECKING:
     ProgramGraphBase = DiGraph[ProgramNode]
 else:
@@ -61,12 +80,14 @@ class ProgramGraph(ProgramGraphBase):
     """Internal representation of the program graph."""
 
     __node_data: dict[ProgramNode, ProcessedProgramNode]
-    __edge_data: dict[tuple[ProgramNode, ProgramNode], IOConnection]
+    __io_connections: dict[tuple[ProgramNode, ProgramNode], IOConnection]
+    __ancilla_connections: dict[tuple[ProgramNode, ProgramNode], AncillaConnection]
 
     def __init__(self) -> None:
         super().__init__()
         self.__node_data = {}
-        self.__edge_data = {}
+        self.__io_connections = {}
+        self.__ancilla_connections = {}
 
     def append_node(self, node: ProcessedProgramNode) -> None:
         super().add_node(node.raw)
@@ -76,19 +97,44 @@ class ProgramGraph(ProgramGraphBase):
         for node in nodes:
             self.append_node(node)
 
-    def append_edge(self, edge: IOConnection) -> None:
+    def append_edge(self, edge: IOConnection | AncillaConnection) -> None:
         super().add_edge(edge.source[0], edge.target[0])
-        self.__edge_data[(edge.source[0], edge.target[0])] = edge
+        match edge:
+            case IOConnection():
+                self.__io_connections[(edge.source[0], edge.target[0])] = edge
+            case AncillaConnection():
+                self.__ancilla_connections[(edge.source[0], edge.target[0])] = edge
+            case _:
+                msg = f"Invalid type {type(edge)} in ProgramGraph.append_edge"
+                raise TypeError(msg)
 
-    def append_edges(self, *edges: IOConnection) -> None:
+    def append_edges(self, *edges: IOConnection | AncillaConnection) -> None:
         for edge in edges:
             self.append_edge(edge)
 
     def get_data_node(self, node: ProgramNode) -> ProcessedProgramNode:
         return self.__node_data[node]
 
-    def get_data_edge(self, source: ProgramNode, target: ProgramNode) -> IOConnection:
-        return self.__edge_data[(source, target)]
+    def get_data_edge(
+        self,
+        source: ProgramNode,
+        target: ProgramNode,
+    ) -> IOConnection | AncillaConnection | CombinedConnection:
+        io = self.__io_connections.get((source, target))
+        ancilla = self.__ancilla_connections.get((source, target))
+        match io, ancilla:
+            case IOConnection(), AncillaConnection():
+                return CombinedConnection(
+                    (io.source[0], io.source[1], ancilla.source[1]),
+                    (io.target[0], io.target[1], ancilla.target[1]),
+                )
+            case IOConnection(), None:
+                return io
+            case None, AncillaConnection():
+                return ancilla
+            case _:
+                msg = f"No edge {source.name} to {target.name} in the graph"
+                raise RuntimeError(msg)
 
 
 @dataclass()
