@@ -180,7 +180,7 @@ class IOInfo:
     reusable_ancillas: int
     reusable_after_uncompute: int  # TODO: not implemented, as no spec for uncompute
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         declaration_to_ids: dict[str, list[int]] | None = None,
         id_to_info: dict[int, QubitAnnotationInfo] | None = None,
