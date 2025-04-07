@@ -59,6 +59,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
         """Parse qubit-declarations and their corresponding input annotations."""
         name = node.qubit.name
+        reg_size = expr_to_int(node.size) if node.size is not None else 1
 
         input_id: int | None = None
         dirty = False
@@ -79,6 +80,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     ):
                         msg = f"Unsupported: found {annotation.command} over dirty annotations {name}"
                         raise UnsupportedOperation(msg)
+                    self.io.dirty_ancillas += reg_size
                     dirty = True
                 case "leqo.output" | "leqo.reusable":
                     msg = f"Unsupported: {annotation.keyword} annotations over QubitDeclaration {name}"
@@ -89,7 +91,6 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             )
             raise UnsupportedOperation(msg)
 
-        reg_size = expr_to_int(node.size) if node.size is not None else 1
         qubit_ids = []
         for i in range(reg_size):
             qubit_ids.append(self.qubit_id)
@@ -107,6 +108,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 msg = f"Unsupported: duplicate input id: {input_id}"
                 raise IndexError(msg)
             self.found_input_ids.add(input_id)
+        else:
+            self.io.required_ancillas += len(qubit_ids)
 
         return self.generic_visit(node)
 
@@ -204,6 +207,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     msg = f"alias {name} declares output qubit as reusable"
                     raise UnsupportedOperation(msg)
                 current_info.reusable = True
+                self.io.reusable_ancillas += 1
             elif output_id is not None:
                 if current_info.output is not None:
                     msg = f"alias {name} tries to overwrite already declared output"

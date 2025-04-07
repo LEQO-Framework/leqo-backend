@@ -175,6 +175,10 @@ class IOInfo:
     id_to_info: dict[int, QubitAnnotationInfo]
     input_to_ids: dict[int, list[int]]
     output_to_ids: dict[int, list[int]]
+    required_ancillas: int
+    dirty_ancillas: int
+    reusable_ancillas: int
+    reusable_after_uncompute: int  # TODO: not implemented, as no spec for uncompute
 
     def __init__(
         self,
@@ -182,6 +186,10 @@ class IOInfo:
         id_to_info: dict[int, QubitAnnotationInfo] | None = None,
         input_to_ids: dict[int, list[int]] | None = None,
         output_to_ids: dict[int, list[int]] | None = None,
+        required_ancillas: int = 0,
+        dirty_ancillas: int = 0,
+        reusable_ancillas: int = 0,
+        reusable_after_uncompute: int = 0,
     ) -> None:
         """Construct IOInfo.
 
@@ -189,8 +197,16 @@ class IOInfo:
         :param id_to_info: Maps IDs to their corresponding info objects.
         :param input_to_ids: Maps input indexes to their corresponding IDs.
         :param output_to_ids: Maps output indexes to their corresponding IDs.
+        :param required_ancillas: The total amount of required ancillas including dirty ones.
+        :param dirty_ancillas: The amount of required ancillas that can be dirty.
+        :param reusable_ancillas: The amount of reusable ancillas the snippet returns.
+        :param reusable_after_uncompute: The total amount of reusable ancillas the snippet returns after uncompute.
         """
         self.declaration_to_ids = declaration_to_ids or {}
         self.id_to_info = id_to_info or {}
         self.input_to_ids = input_to_ids or {}
         self.output_to_ids = output_to_ids or {}
+        self.required_ancillas = required_ancillas
+        self.dirty_ancillas = dirty_ancillas
+        self.reusable_ancillas = reusable_ancillas
+        self.reusable_after_uncompute = reusable_after_uncompute
