@@ -151,7 +151,6 @@ A dirty ancilla can be turned into a reusable ancilla by a provided uncompute.
 * Dirty ancilla qubits may be in any quantum state, including being entangled with other qubits
 * They must be explicitly opted-in using the `@leqo.dirty_input` annotation at the qubit definition
 * The `@leqo.dirty_input` annotation follows the same implementation rules as defined in :ref:`input definition <input-anker>`
-* A provided uncompute operation turn dirty ancilla qubits into reusable ancilla qubits
 
 .. code-block:: openqasm3
     :linenos:
@@ -169,4 +168,24 @@ A dirty ancilla can be turned into a reusable ancilla by a provided uncompute.
 
 Uncomputation
 ~~~~~~~~~~~~~
+When dirty ancilla qubits can be uncomputed, the programmer may provide an explicit uncomputation block to reverse their effects.
+This is done using the `@leqo.uncompute` annotation, which defines a scoped region where the inverse operations are applied.
+
+* The `@leqo.uncompute` annotation must appear directly above a scoped block ({}) containing only valid quantum operations
+* Each `@leqo.uncompute` block must be associated with at least one dirty ancilla qubit previously annotated with `@leqo.dirty_input`
+* The `@leqo.uncompute` block must contain a valid inverse of all quantum operations previously applied to the dirty ancillae in that scope
+* `@leqo.uncompute` annotations may appear multiple times in a program, each time referring to different uncomputation logic
+* Nested `@leqo.uncompute` blocks are not allowed
+* `@leqo.uncompute` blocks only operate on existing variables and qubits
+* A `@leqo.uncompute` block does not by itself make qubits reusable -> a corresponding `@leqo.reusable` alias must still be declared if needed
+
+.. note::
+    Uncomputation ensures that any transformations applied to dirty ancilla qubits are reversed, removing entanglement and restoring their initial |0⟩ state.
+    Once uncomputation is applied, a dirty ancilla is markt as a reusable ancilla, making it safe to use for further computation or release.
+
+.. warning::
+    Not all operations are reversible; in such cases, the qubit must remain marked as dirty and should not be reused
+
+.. code-block:: openqasm3
+    :linenos:
 
