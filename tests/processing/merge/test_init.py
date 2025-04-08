@@ -38,6 +38,7 @@ def assert_merge(
 def test_pseudo_merge_single() -> None:
     codes = [
         """
+        OPENQASM 3.1;
         qubit a;
         """,
     ]
@@ -55,11 +56,13 @@ def test_pseudo_merge_single() -> None:
 def test_merge_two_nodes() -> None:
     codes = [
         """
+        OPENQASM 3.1;
         qubit a;
         @leqo.output 0
         let _out = a;
         """,
         """
+        OPENQASM 3.1;
         @leqo.input 0
         qubit a;
         """,
@@ -84,6 +87,7 @@ def test_merge_two_nodes() -> None:
 def test_complex_merge() -> None:
     codes = [
         """
+        OPENQASM 3.1;
         qubit[4] q;
         @leqo.output 0
         let _out0 = q[0:2];
@@ -91,12 +95,14 @@ def test_complex_merge() -> None:
         let _out1 = q[3];
         """,
         """
+        OPENQASM 3.1;
         @leqo.input 0
         qubit q;
         @leqo.output 0
         let _out0 = q;
         """,
         """
+        OPENQASM 3.1;
         @leqo.input 0
         qubit q0;
         @leqo.input 1
