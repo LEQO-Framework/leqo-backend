@@ -21,8 +21,6 @@ from app.processing.graph import (
     ProgramGraph,
 )
 
-GLOBAL_REG_NAME = "leqo_reg"
-
 
 @dataclass(frozen=True)
 class SingleQubit:
@@ -41,12 +39,14 @@ class QubitDeclarationToAlias(LeqoTransformer[None]):
     section_id: UUID
     qubit_to_index: dict[SingleQubit, int]
     io_info: IOInfo
+    global_reg_name: str
 
     def __init__(
         self,
         section_id: UUID,
         qubit_to_index: dict[SingleQubit, int],
         io_info: IOInfo,
+        global_reg_name: str,
     ) -> None:
         """Construct QubitDeclarationToAlias.
 
@@ -57,6 +57,7 @@ class QubitDeclarationToAlias(LeqoTransformer[None]):
         self.section_id = section_id
         self.qubit_to_index = qubit_to_index
         self.io_info = io_info
+        self.global_reg_name = global_reg_name
 
     def id_to_qubit(self, id: int) -> SingleQubit:
         """Create :class:`app.processing.merging.connections.SingleQubit` for encountered id."""
@@ -72,7 +73,7 @@ class QubitDeclarationToAlias(LeqoTransformer[None]):
             # ignore type cause of bug in openqasm3.ast:
             # IndexExpression is allowed as value in AliasStatement
             IndexExpression(  # type: ignore
-                Identifier(GLOBAL_REG_NAME),
+                Identifier(self.global_reg_name),
                 DiscreteSet([IntegerLiteral(index) for index in reg_indexes]),
             ),
         )
@@ -91,7 +92,7 @@ def get_equiv_classes(graph: ProgramGraph) -> dict[SingleQubit, set[SingleQubit]
     return qubits
 
 
-def connect_qubits(graph: ProgramGraph) -> None:
+def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
     """Connect qubits by replacing declarations with aliases.
 
     1. Collects all qubits from sections
@@ -99,7 +100,8 @@ def connect_qubits(graph: ProgramGraph) -> None:
     3. Give every equivalence classes an index
     4. Replace all qubit declarations with alias to global reg based on index.
 
-    Note: The global reg is not yet created.
+    :param graph: The :class:`app.processing.graph.ProgramGraph` to be changed in-place.
+    :return: The size of the global reg.
     """
     equiv_classes = get_equiv_classes(graph)
     for source_node, target_node in graph.edges():
@@ -147,6 +149,13 @@ def connect_qubits(graph: ProgramGraph) -> None:
 
     for nd in graph.nodes():
         node = graph.get_data_node(nd)
-        QubitDeclarationToAlias(node.info.id, qubit_to_reg_index, node.info.io).visit(
+        QubitDeclarationToAlias(
+            node.info.id,
+            qubit_to_reg_index,
+            node.info.io,
+            global_reg_name,
+        ).visit(
             node.implementation,
         )
+
+    return reg_index

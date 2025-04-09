@@ -68,7 +68,7 @@ def assert_connections(
                 for con in ancilla_connections
             ],
         )
-    connect_qubits(graph)
+    connect_qubits(graph, "leqo_reg")
     actual = [
         normalize_qasm_string(dumps(graph.get_data_node(node).implementation))
         for node in graph.nodes()
