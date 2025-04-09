@@ -145,7 +145,7 @@ Dirty Ancilla Qubits
 --------------------
 
 If qubits were part of a program and are neither marked as output nor as reusable, they're assumed to be a dirty ancilla qubits.
-These qubits may be in any state, including being entangled with other qubits, and require the explicit annotation `@leqo.dirty_input` to indicate their intended usage.
+These qubits may be in any state, including being entangled with other qubits, and require the explicit annotation `@leqo.dirty_input` to indicate their intended usage in another snippet.
 A dirty ancilla can be turned into a reusable ancilla by a provided uncompute.
 
 * Dirty ancilla qubits may be in any quantum state, including being entangled with other qubits
@@ -169,15 +169,16 @@ A dirty ancilla can be turned into a reusable ancilla by a provided uncompute.
 Uncomputation
 ~~~~~~~~~~~~~
 When dirty ancilla qubits can be uncomputed, the programmer may provide an explicit uncomputation block to reverse their effects.
-This is done using the `@leqo.uncompute` annotation, which defines a scoped region where the inverse operations are applied.
+This is done using the `@leqo.uncompute` annotation, which defines a scoped region that is disabled by default via an `if (false)` statement.
+The compiler may override this value to `true` if uncomputation of the associated dirty ancillae is required.
 
-* The `@leqo.uncompute` annotation must appear directly above a scoped block ({}) containing only valid quantum operations
-* Each `@leqo.uncompute` block must be associated with at least one dirty ancilla qubit previously annotated with `@leqo.dirty_input`
-* The `@leqo.uncompute` block must contain a valid inverse of all quantum operations previously applied to the dirty ancillae in that scope
+* The `@leqo.uncompute` annotation must appear directly above a `if (false)` statement with a block body that must not be followed by an `else` statement
 * `@leqo.uncompute` annotations may appear multiple times in a program, each time referring to different uncomputation logic
-* Nested `@leqo.uncompute` blocks are not allowed
-* `@leqo.uncompute` blocks only operate on existing variables and qubits
-* A `@leqo.uncompute` block does not by itself make qubits reusable -> a corresponding `@leqo.reusable` alias must still be declared if needed
+* Nested `@leqo.uncompute` if-blocks are not allowed
+* Each `@leqo.uncompute` block body must be associated with at least one dirty ancilla qubit previously annotated with `@leqo.dirty_input`
+* The `@leqo.uncompute` block body must contain a valid inverse of all quantum operations previously applied to the dirty ancillae in that scope
+* `@leqo.uncompute` blocks only operate on existing variables, qubits or selfdeclared aliases
+* A `@leqo.uncompute` if-block must declare the uncomputed ancillae as reusable qubits by using the corresponding `@leqo.reusable` annotation
 
 .. note::
     Uncomputation ensures that any transformations applied to dirty ancilla qubits are reversed, removing entanglement and restoring their initial |0⟩ state.
@@ -188,4 +189,10 @@ This is done using the `@leqo.uncompute` annotation, which defines a scoped regi
 
 .. code-block:: openqasm3
     :linenos:
+    @leqo.uncompute
+    if (false) {
+        someUncomputeOperation
 
+        @leqo.reusable
+        let reusable1 = dirtyAncilla1
+    }
