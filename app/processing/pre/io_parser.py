@@ -57,14 +57,15 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         result = self.io.declaration_to_ids.get(identifier)
         return self.alias_to_ids.get(identifier) if result is None else result
 
-    def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
-        """Parse qubit-declarations and their corresponding input annotations."""
-        name = node.qubit.name
-        reg_size = expr_to_int(node.size) if node.size is not None else 1
-
+    def get_declaration_annotation_info(
+        self,
+        name: str,
+        annotations: list[Annotation],
+    ) -> tuple[int | None, bool]:
+        """Extract annotation info for declaration, throw error on bad usage."""
         input_id: int | None = None
         dirty = False
-        for annotation in node.annotations:
+        for annotation in annotations:
             match annotation.keyword:
                 case "leqo.input":
                     if input_id is not None:
@@ -90,6 +91,13 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 f"Unsupported: dirty and input annotations over QubitDeclaration {name}"
             )
             raise UnsupportedOperation(msg)
+        return (input_id, dirty)
+
+    def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
+        """Parse qubit-declarations and their corresponding input annotations."""
+        name = node.qubit.name
+        reg_size = expr_to_int(node.size) if node.size is not None else 1
+        input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
 
         qubit_ids = []
         for i in range(reg_size):
@@ -232,7 +240,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise IndexError(msg)
 
     def visit_Program(self, node: Program) -> QASMNode:
-        """Ensure contiguous input/output indexes"""
+        """Ensure contiguous input/output indexes."""
         result = self.generic_visit(node)
         self.raise_on_non_contiguous_range(self.found_input_ids, "input")
         self.raise_on_non_contiguous_range(self.found_output_ids, "output")
