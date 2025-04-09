@@ -144,13 +144,13 @@ To do so, one can declare an alias to the reusable qubits.
 Dirty Ancilla Qubits
 --------------------
 
-If qubits were part of a program and are neither marked as output nor as reusable, they're assumed to be a dirty ancilla qubits.
-These qubits may be in any state, including being entangled with other qubits, and require the explicit annotation `@leqo.dirty` to indicate their intended usage in another snippet.
-A dirty ancilla can be turned into a reusable ancilla by a provided uncompute.
+If qubits are used in a program and are neither marked as output nor reusable, they are considered dirty ancilla qubits thereafter.
+These qubits may be in an arbitrary state, including entanglement with other qubits, and require the explicit `@leqo.dirty` annotation to indicate their intended use in another snippet.
+A dirty ancilla may be promoted to a reusable ancilla via an associated uncomputation block.
 
-* Dirty ancilla qubits may be in any quantum state, including being entangled with other qubits
-* They must be explicitly opted-in using the `@leqo.dirty` annotation at the qubit definition
-* The `@leqo.dirty` annotation follows the same implementation rules as defined in :ref:`input definition <input-anker>`
+To use dirty ancillae within a snippet, the programmer must explicitly opt in by annotating the qubit definition with `@leqo.dirty`.
+
+* The `@leqo.dirty` annotation follows the same implementation rules as input definitions, but omits indexing, as defined in :ref:`input definition <input-anker>`
 
 .. warning::
     The state of a dirty ancilla qubit can be altered temporarily but must be restored at the end of a snippet.
