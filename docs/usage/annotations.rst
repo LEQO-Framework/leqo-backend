@@ -145,29 +145,29 @@ Dirty Ancilla Qubits
 --------------------
 
 If qubits were part of a program and are neither marked as output nor as reusable, they're assumed to be a dirty ancilla qubits.
-These qubits may be in any state, including being entangled with other qubits, and require the explicit annotation `@leqo.dirty_input` to indicate their intended usage in another snippet.
+These qubits may be in any state, including being entangled with other qubits, and require the explicit annotation `@leqo.dirty` to indicate their intended usage in another snippet.
 A dirty ancilla can be turned into a reusable ancilla by a provided uncompute.
 
 * Dirty ancilla qubits may be in any quantum state, including being entangled with other qubits
-* They must be explicitly opted-in using the `@leqo.dirty_input` annotation at the qubit definition
-* The `@leqo.dirty_input` annotation follows the same implementation rules as defined in :ref:`input definition <input-anker>`
+* They must be explicitly opted-in using the `@leqo.dirty` annotation at the qubit definition
+* The `@leqo.dirty` annotation follows the same implementation rules as defined in :ref:`input definition <input-anker>`
 
 .. warning::
-    * The state of a dirty ancilla qubit can be altered temporarily but must be restored at the end of a snippet.
-    * Measuring a dirty qubit is not permitted.
+    The state of a dirty ancilla qubit can be altered temporarily but must be restored at the end of a snippet.
+    Therefore measuring a dirty qubit is not permitted.
 
 .. code-block:: openqasm3
     :linenos:
 
     // Single dirty ancilla
-    @leqo.dirty_input <<InputIndex>>
+    @leqo.dirty
     qubit singleDirtyAncilla;
 
 .. code-block:: openqasm3
     :linenos:
 
     // Dirty ancilla array
-    @leqo.dirty_input <<InputIndex>>
+    @leqo.dirty
     qubit[<<length>>] dirtyAncillaArray;
 
 Uncomputation
@@ -184,7 +184,7 @@ The compiler may override this value to `true` if uncomputation of the associate
 * A `@leqo.uncompute` if-block must declare the uncomputed ancillae as reusable qubits by using the corresponding `@leqo.reusable` annotation
 
 .. warning::
-    Qubits previously annotated with `@leqo.dirty_input` must not be uncomputed
+    Qubits previously annotated with `@leqo.dirty` must not be uncomputed
 
 .. note::
     Not all operations are reversible; in such cases, the qubit should not be reused.
