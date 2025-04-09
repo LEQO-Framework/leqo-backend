@@ -175,10 +175,11 @@ class IOInfo:
     id_to_info: dict[int, QubitAnnotationInfo]
     input_to_ids: dict[int, list[int]]
     output_to_ids: dict[int, list[int]]
-    required_ancillas: int
-    dirty_ancillas: int
-    reusable_ancillas: int
-    reusable_after_uncompute: int  # TODO: not implemented, as no spec for uncompute
+    required_ancillas: list[int]
+    dirty_ancillas: list[int]
+    reusable_ancillas: list[int]
+    reusable_after_uncompute: list[int]  # TODO: not implemented
+    returned_dirty_ancillas: list[int]
 
     def __init__(  # noqa: PLR0913
         self,
@@ -186,10 +187,11 @@ class IOInfo:
         id_to_info: dict[int, QubitAnnotationInfo] | None = None,
         input_to_ids: dict[int, list[int]] | None = None,
         output_to_ids: dict[int, list[int]] | None = None,
-        required_ancillas: int = 0,
-        dirty_ancillas: int = 0,
-        reusable_ancillas: int = 0,
-        reusable_after_uncompute: int = 0,
+        required_ancillas: list[int] | None = None,
+        dirty_ancillas: list[int] | None = None,
+        reusable_ancillas: list[int] | None = None,
+        reusable_after_uncompute: list[int] | None = None,
+        returned_dirty_ancillas: list[int] | None = None,
     ) -> None:
         """Construct IOInfo.
 
@@ -197,16 +199,18 @@ class IOInfo:
         :param id_to_info: Maps IDs to their corresponding info objects.
         :param input_to_ids: Maps input indexes to their corresponding IDs.
         :param output_to_ids: Maps output indexes to their corresponding IDs.
-        :param required_ancillas: The total amount of required ancillas including dirty ones.
-        :param dirty_ancillas: The amount of required ancillas that can be dirty.
-        :param reusable_ancillas: The amount of reusable ancillas the snippet returns.
-        :param reusable_after_uncompute: The total amount of reusable ancillas the snippet returns after uncompute.
+        :param required_ancillas: Id list of required non-dirty ancillas.
+        :param dirty_ancillas: Id list of required (possible) dirty ancillas.
+        :param reusable_ancillas: Id list of reusable ancillas.
+        :param reusable_after_uncompute: Id list of additional reusable ancillas after uncompute.
+        :param returned_dirty_ancillas: Id list of ancillas that are returned dirty in any case.
         """
         self.declaration_to_ids = declaration_to_ids or {}
         self.id_to_info = id_to_info or {}
         self.input_to_ids = input_to_ids or {}
         self.output_to_ids = output_to_ids or {}
-        self.required_ancillas = required_ancillas
-        self.dirty_ancillas = dirty_ancillas
-        self.reusable_ancillas = reusable_ancillas
-        self.reusable_after_uncompute = reusable_after_uncompute
+        self.required_ancillas = required_ancillas or []
+        self.dirty_ancillas = dirty_ancillas or []
+        self.reusable_ancillas = reusable_ancillas or []
+        self.reusable_after_uncompute = reusable_after_uncompute or []
+        self.returned_dirty_ancillas = returned_dirty_ancillas or []

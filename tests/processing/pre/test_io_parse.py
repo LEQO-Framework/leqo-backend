@@ -28,6 +28,7 @@ def test_simple_input() -> None:
         input_to_ids={
             0: [0, 1, 2],
         },
+        returned_dirty_ancillas=[0, 1, 2],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -49,7 +50,7 @@ def test_output_simple() -> None:
             2: QubitAnnotationInfo(output=QubitOutputInfo(0, 2)),
         },
         output_to_ids={0: [0, 1, 2]},
-        required_ancillas=3,
+        required_ancillas=[0, 1, 2],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -71,7 +72,8 @@ def test_output_indexed() -> None:
             2: QubitAnnotationInfo(),
         },
         output_to_ids={0: [0, 1]},
-        required_ancillas=3,
+        required_ancillas=[0, 1, 2],
+        returned_dirty_ancillas=[2],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -92,8 +94,9 @@ def test_reusable() -> None:
             1: QubitAnnotationInfo(reusable=True),
             2: QubitAnnotationInfo(),
         },
-        required_ancillas=3,
-        reusable_ancillas=2,
+        required_ancillas=[0, 1, 2],
+        reusable_ancillas=[0, 1],
+        returned_dirty_ancillas=[2],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -112,8 +115,8 @@ def test_dirty() -> None:
             1: QubitAnnotationInfo(dirty=True),
             2: QubitAnnotationInfo(dirty=True),
         },
-        required_ancillas=3,
-        dirty_ancillas=3,
+        dirty_ancillas=[0, 1, 2],
+        returned_dirty_ancillas=[0, 1, 2],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -146,6 +149,7 @@ def test_empty_index() -> None:
             0: QubitAnnotationInfo(input=QubitInputInfo(0, 0)),
         },
         input_to_ids={0: [0]},
+        returned_dirty_ancillas=[0],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -167,7 +171,8 @@ def test_classical_ignored() -> None:
             0: QubitAnnotationInfo(),
             1: QubitAnnotationInfo(),
         },
-        required_ancillas=2,
+        required_ancillas=[0, 1],
+        returned_dirty_ancillas=[0, 1],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -194,7 +199,8 @@ def test_output_concatenation() -> None:
             3: QubitAnnotationInfo(),
         },
         output_to_ids={0: [0, 2]},
-        required_ancillas=4,
+        required_ancillas=[0, 1, 2, 3],
+        returned_dirty_ancillas=[1, 3],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -221,7 +227,8 @@ def test_output_big_concatenation() -> None:
             3: QubitAnnotationInfo(),
         },
         output_to_ids={0: [0, 2, 1]},
-        required_ancillas=4,
+        required_ancillas=[0, 1, 2, 3],
+        returned_dirty_ancillas=[3],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -250,8 +257,9 @@ def test_alias_chain() -> None:
             3: QubitAnnotationInfo(reusable=True),
             4: QubitAnnotationInfo(),
         },
-        required_ancillas=5,
-        reusable_ancillas=1,
+        required_ancillas=[0, 1, 2, 3, 4],
+        reusable_ancillas=[3],
+        returned_dirty_ancillas=[0, 1, 2, 4],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -283,6 +291,7 @@ def test_input_index_weird_order() -> None:
             1: [0],
             2: [2],
         },
+        returned_dirty_ancillas=[0, 1, 2],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -341,9 +350,9 @@ def test_all() -> None:
         },
         input_to_ids={0: [0, 1, 2, 3, 4], 1: [5, 6, 7, 8, 9]},
         output_to_ids={0: [0, 5], 1: [1, 8]},
-        required_ancillas=1,
-        dirty_ancillas=1,
-        reusable_ancillas=3,
+        dirty_ancillas=[10],
+        reusable_ancillas=[2, 3, 4],
+        returned_dirty_ancillas=[6, 7, 9, 10],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import UnsupportedOperation
+from itertools import chain
 
 from openqasm3.ast import (
     AliasStatement,
@@ -80,7 +81,6 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     ):
                         msg = f"Unsupported: found {annotation.command} over dirty annotations {name}"
                         raise UnsupportedOperation(msg)
-                    self.io.dirty_ancillas += reg_size
                     dirty = True
                 case "leqo.output" | "leqo.reusable":
                     msg = f"Unsupported: {annotation.keyword} annotations over QubitDeclaration {name}"
@@ -108,8 +108,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 msg = f"Unsupported: duplicate input id: {input_id}"
                 raise IndexError(msg)
             self.found_input_ids.add(input_id)
-        else:
-            self.io.required_ancillas += len(qubit_ids)
+        elif dirty:
+            self.io.dirty_ancillas.extend(qubit_ids)
+        else:  # non-input and non-dirty
+            self.io.required_ancillas.extend(qubit_ids)
 
         return self.generic_visit(node)
 
@@ -182,8 +184,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         """Parse qubit-alias and their corresponding output annotations."""
         name = node.target.name
 
-        ids = self.alias_expr_to_ids(node.value)
-        match ids:
+        qubit_ids = self.alias_expr_to_ids(node.value)
+        match qubit_ids:
             case None:  # non-qubit in alias expression (classic)
                 return self.generic_visit(node)
             case []:
@@ -197,17 +199,19 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 raise IndexError(msg)
             self.found_output_ids.add(output_id)
 
-        self.alias_to_ids[name] = ids
+        self.alias_to_ids[name] = qubit_ids
         if output_id is not None:
-            self.io.output_to_ids[output_id] = ids
-        for i, id in enumerate(ids):
+            self.io.output_to_ids[output_id] = qubit_ids
+        elif reusable:
+            self.io.reusable_ancillas.extend(qubit_ids)
+
+        for i, id in enumerate(qubit_ids):
             current_info = self.io.id_to_info[id]
             if reusable:
                 if current_info.output is not None:
                     msg = f"alias {name} declares output qubit as reusable"
                     raise UnsupportedOperation(msg)
                 current_info.reusable = True
-                self.io.reusable_ancillas += 1
             elif output_id is not None:
                 if current_info.output is not None:
                     msg = f"alias {name} tries to overwrite already declared output"
@@ -232,4 +236,13 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         result = self.generic_visit(node)
         self.raise_on_non_contiguous_range(self.found_input_ids, "input")
         self.raise_on_non_contiguous_range(self.found_output_ids, "output")
+
+        returned_dirty = set(self.io.id_to_info.keys())
+        returned_dirty.difference_update(
+            self.io.reusable_ancillas,
+            self.io.reusable_after_uncompute,
+            set(chain(*self.io.output_to_ids.values())),
+        )
+        self.io.returned_dirty_ancillas = sorted(returned_dirty)
+
         return result
