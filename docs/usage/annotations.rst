@@ -179,7 +179,7 @@ The compiler may override this value to `true` if uncomputation of the associate
 * The `@leqo.uncompute` annotation must appear directly above a `if (false)` statement with a block body that must not be followed by an `else` statement
 * `@leqo.uncompute` annotations may appear multiple times in a program, each time referring to different uncomputation logic
 * Nested `@leqo.uncompute` if-blocks are not allowed
-* The `@leqo.uncompute` block body must contain a valid inverse of all quantum operations previously applied to the dirty ancillae in that scope
+* The `@leqo.uncompute` block must reverse all transformations on the associated ancillae, removing entanglement and restoring each to the |0⟩ state
 * `@leqo.uncompute` blocks only operate on existing variables, qubits or selfdeclared aliases
 * A `@leqo.uncompute` if-block must declare the uncomputed ancillae as reusable qubits by using the corresponding `@leqo.reusable` annotation
 
@@ -187,7 +187,6 @@ The compiler may override this value to `true` if uncomputation of the associate
     Qubits previously annotated with `@leqo.dirty_input` must not be uncomputed
 
 .. note::
-    Uncomputation ensures that any transformations applied to dirty ancilla qubits are reversed, removing entanglement and restoring their initial |0⟩ state.
     Not all operations are reversible; in such cases, the qubit should not be reused.
 
 .. code-block:: openqasm3
