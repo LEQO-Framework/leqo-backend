@@ -1,4 +1,5 @@
-from app.processing import merge_nodes, preprocess, print_program
+from app.openqasm3.printer import leqo_dumps
+from app.processing import merge_nodes, preprocess
 from app.processing.graph import (
     IOConnection,
     ProgramGraph,
@@ -26,7 +27,7 @@ def assert_merge(
             ),
         )
 
-    actual = normalize_qasm_string(print_program(merge_nodes(graph)))
+    actual = normalize_qasm_string(leqo_dumps(merge_nodes(graph)))
 
     for i, node in enumerate(nodes):
         expected = expected.replace(f"leqo_node{i}", f"leqo_{node.info.id.hex}")
@@ -46,9 +47,9 @@ def test_pseudo_merge_single() -> None:
     expected = """
     OPENQASM 3.1;
     qubit[1] leqo_reg;
-    /* Start node 0 */;
+    /* Start node 0 */
     let leqo_node0_declaration0 = leqo_reg[{0}];
-    /* End node 0 */;
+    /* End node 0 */
     """
     assert_merge(codes, connections, expected)
 
@@ -71,15 +72,15 @@ def test_merge_two_nodes() -> None:
     expected = """
     OPENQASM 3.1;
     qubit[1] leqo_reg;
-    /* Start node 0 */;
+    /* Start node 0 */
     let leqo_node0_declaration0 = leqo_reg[{0}];
     @leqo.output 0
     let leqo_node0_declaration1 = leqo_node0_declaration0;
-    /* End node 0 */;
-    /* Start node 1 */;
+    /* End node 0 */
+    /* Start node 1 */
     @leqo.input 0
     let leqo_node1_declaration0 = leqo_reg[{0}];
-    /* End node 1 */;
+    /* End node 1 */
     """
     assert_merge(codes, connections, expected)
 
@@ -117,24 +118,24 @@ def test_complex_merge() -> None:
     expected = """
     OPENQASM 3.1;
     qubit[4] leqo_reg;
-    /* Start node 0 */;
+    /* Start node 0 */
     let leqo_node0_declaration0 = leqo_reg[{0, 1, 2, 3}];
     @leqo.output 0
     let leqo_node0_declaration1 = leqo_node0_declaration0[0:2];
     @leqo.output 1
     let leqo_node0_declaration2 = leqo_node0_declaration0[3];
-    /* End node 0 */;
-    /* Start node 1 */;
+    /* End node 0 */
+    /* Start node 1 */
     @leqo.input 0
     let leqo_node1_declaration0 = leqo_reg[{3}];
     @leqo.output 0
     let leqo_node1_declaration1 = leqo_node1_declaration0;
-    /* End node 1 */;
-    /* Start node 2 */;
+    /* End node 1 */
+    /* Start node 2 */
     @leqo.input 0
     let leqo_node2_declaration0 = leqo_reg[{3}];
     @leqo.input 1
     let leqo_node2_declaration1 = leqo_reg[{0, 1, 2}];
-    /* End node 2 */;
+    /* End node 2 */
     """
     assert_merge(codes, connections, expected)
