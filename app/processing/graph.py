@@ -104,7 +104,7 @@ class ProgramGraph(ProgramGraphBase):
     def get_data_node(self, node: ProgramNode) -> ProcessedProgramNode:
         return self.__node_data[node]
 
-    def get_data_edge(
+    def get_data_edges(
         self,
         source: ProgramNode,
         target: ProgramNode,

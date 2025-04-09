@@ -104,7 +104,7 @@ def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
     """
     equiv_classes = get_equiv_classes(graph)
     for source_node, target_node in graph.edges():
-        edges = graph.get_data_edge(source_node, target_node)
+        edges = graph.get_data_edges(source_node, target_node)
         source_section = graph.get_data_node(source_node).info
         target_section = graph.get_data_node(target_node).info
         source_ids = []
