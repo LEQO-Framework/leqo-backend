@@ -110,7 +110,7 @@ The annotation specifies the index of the corresponding output.
 
 .. note::
     Even if the ouput alias is not used in code, an alias must be defined to mark qubits as outputs.
-    The identifier is insignificant and will be ignored.
+    The identifier is insignificant.
 
 .. _reusable-qubit-annotation:
 
@@ -142,4 +142,4 @@ To do so, one can declare an alias to the reusable qubits.
 
 .. note::
     Even if the reusable alias is not used in code, an alias must be defined to mark qubits as reusable.
-    The identifier is insignificant and will be ignored.
+    The identifier is insignificant.
