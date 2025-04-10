@@ -397,7 +397,7 @@ def test_raise_on_missing_input_index() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: Input with index 0 into 0 modeled, but now such annotation.",
+        match="Unsupported: Input with index 0 into 0 modeled, but no such annotation.",
     ):
         assert_connections(inputs, [], connections)
 
@@ -418,6 +418,6 @@ def test_raise_on_missing_output_index() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: Output with index 0 from 0 modeled, but now such annotation.",
+        match="Unsupported: Output with index 0 from 0 modeled, but no such annotation.",
     ):
         assert_connections(inputs, [], connections)

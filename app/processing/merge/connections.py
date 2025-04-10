@@ -119,10 +119,10 @@ def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
                         edge.target[1],
                     )
                     if edge_source_ids is None:
-                        msg = f"Unsupported: Output with index {edge.source[1]} from {edge.source[0].name} modeled, but now such annotation."
+                        msg = f"Unsupported: Output with index {edge.source[1]} from {edge.source[0].name} modeled, but no such annotation."
                         raise UnsupportedOperation(msg)
                     if edge_target_ids is None:
-                        msg = f"Unsupported: Input with index {edge.target[1]} into {edge.target[0].name} modeled, but now such annotation."
+                        msg = f"Unsupported: Input with index {edge.target[1]} into {edge.target[0].name} modeled, but no such annotation."
                         raise UnsupportedOperation(msg)
                     if len(edge_source_ids) != len(edge_target_ids):
                         msg = f"Mismatched size in model connection between {source_node.name} and {target_node.name}"
