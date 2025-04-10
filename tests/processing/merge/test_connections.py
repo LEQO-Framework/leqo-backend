@@ -8,12 +8,12 @@ from openqasm3.printer import dumps
 from app.processing.graph import (
     AncillaConnection,
     IOConnection,
-    IOInfo,
     ProcessedProgramNode,
     ProgramGraph,
     ProgramNode,
     SectionInfo,
 )
+from app.processing.io_info import CombinedIOInfo
 from app.processing.merge.connections import connect_qubits
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.utils import normalize_qasm_string
@@ -21,7 +21,7 @@ from app.processing.utils import normalize_qasm_string
 
 def str_to_nodes(index: int, code: str) -> tuple[ProgramNode, ProcessedProgramNode]:
     ast = parse(code)
-    io = IOInfo()
+    io = CombinedIOInfo()
     ParseAnnotationsVisitor(io).visit(ast)
     node = ProgramNode(str(index), code, None)
     return (

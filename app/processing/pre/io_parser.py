@@ -1,61 +1,57 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from io import UnsupportedOperation
 from itertools import chain
+from typing import Any, Generic, TypeVar, override
 
 from openqasm3.ast import (
     AliasStatement,
     Annotation,
+    ClassicalDeclaration,
     Concatenation,
     Expression,
     Identifier,
     IndexExpression,
-    Program,
     QASMNode,
     QubitDeclaration,
 )
 
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import (
-    IOInfo,
+from app.processing.io_info import (
+    CombinedIOInfo,
     QubitAnnotationInfo,
-    QubitInputInfo,
-    QubitOutputInfo,
+    QubitIOInfo,
+    RegIOInfo,
+    RegSingleInputInfo,
+    RegSingleOutputInfo,
 )
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
 
+T = TypeVar("T")
+RT = TypeVar("RT", bound=RegIOInfo[Any])
 
-class ParseAnnotationsVisitor(LeqoTransformer[None]):
-    """Parse input/output qubits of a single qasm-snippet.
 
-    Do it the following way:
-    - give every declared qubit (not qubit-reg) and id, based on declaration order
-    - create map that points from declared identifiers to ids, this also parses aliases
-    - store annotation info based on the id of the qubit
-    """
+class IOInfoConstructor(Generic[T], ABC):
+    """Abstract class for io info constructors for various types."""
 
-    qubit_id: int
-    alias_to_ids: dict[str, list[int]]
-    found_input_ids: set[int]
-    found_output_ids: set[int]
-    io: IOInfo
+    @abstractmethod
+    def handle_declaration(
+        self,
+        declaration: QubitDeclaration | ClassicalDeclaration,
+    ) -> None:
+        msg = "'handle_declaration' called on abstract IOInfoConstructor"
+        raise NotImplementedError(msg)
 
-    def __init__(self, io: IOInfo) -> None:
-        """Construct the LeqoTransformer.
+    @abstractmethod
+    def handle_alias(self, alias: AliasStatement) -> None:
+        msg = "'handle_alias' called on abstract IOInfoConstructor"
+        raise NotImplementedError(msg)
 
-        :param io: The IOInfo to be modified in-place.
-        """
-        super().__init__()
-        self.io = io
-        self.qubit_id = 0
-        self.alias_to_ids = {}
-        self.found_input_ids = set()
-        self.found_output_ids = set()
-
-    def identifier_to_ids(self, identifier: str) -> list[int] | None:
-        """Get ids via declaration_to_ids or alias_to_ids."""
-        result = self.io.declaration_to_ids.get(identifier)
-        return self.alias_to_ids.get(identifier) if result is None else result
+    @abstractmethod
+    def finish(self) -> T:
+        msg = "'finish' called on abstract IOInfoConstructor"
+        raise NotImplementedError(msg)
 
     def get_declaration_annotation_info(
         self,
@@ -91,37 +87,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 f"Unsupported: dirty and input annotations over QubitDeclaration {name}"
             )
             raise UnsupportedOperation(msg)
-        return (input_id, dirty)
-
-    def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
-        """Parse qubit-declarations and their corresponding input annotations."""
-        name = node.qubit.name
-        reg_size = expr_to_int(node.size) if node.size is not None else 1
-        input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
-
-        qubit_ids = []
-        for i in range(reg_size):
-            qubit_ids.append(self.qubit_id)
-            input_info = QubitInputInfo(input_id, i) if input_id is not None else None
-            self.io.id_to_info[self.qubit_id] = QubitAnnotationInfo(
-                input=input_info,
-                dirty=dirty,
-            )
-            self.qubit_id += 1
-        self.io.declaration_to_ids[name] = qubit_ids
-
-        if input_id is not None:
-            self.io.input_to_ids[input_id] = qubit_ids
-            if input_id in self.found_input_ids:
-                msg = f"Unsupported: duplicate input id: {input_id}"
-                raise IndexError(msg)
-            self.found_input_ids.add(input_id)
-        elif dirty:
-            self.io.dirty_ancillas.extend(qubit_ids)
-        else:  # non-input and non-dirty
-            self.io.required_ancillas.extend(qubit_ids)
-
-        return self.generic_visit(node)
+        return input_id, dirty
 
     def get_alias_annotation_info(
         self,
@@ -157,6 +123,22 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise UnsupportedOperation(msg)
         return (output_id, reusable)
 
+
+class RegIOInfoConstructor(Generic[RT], IOInfoConstructor[RT], ABC):
+    next_id: int
+    io: RT
+    alias_to_ids: dict[str, list[int]]
+
+    def __init__(self, io: RT) -> None:
+        self.next_id = 0
+        self.io = io
+        self.alias_to_ids = {}
+
+    def identifier_to_ids(self, identifier: str) -> list[int] | None:
+        """Get ids via declaration_to_ids or alias_to_ids."""
+        result = self.io.declaration_to_ids.get(identifier)
+        return self.alias_to_ids.get(identifier) if result is None else result
+
     def alias_expr_to_ids(
         self,
         value: Identifier | IndexExpression | Concatenation | Expression,
@@ -188,19 +170,70 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 msg = f"{type(value)} is not implemented as alias expression"
                 raise NotImplementedError(msg)
 
-    def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
-        """Parse qubit-alias and their corresponding output annotations."""
-        name = node.target.name
 
-        qubit_ids = self.alias_expr_to_ids(node.value)
-        match qubit_ids:
-            case None:  # non-qubit in alias expression (classic)
-                return self.generic_visit(node)
-            case []:
-                msg = f"Failed to parse alias statement {node}"
-                raise RuntimeError(msg)
+class QubitIOInfoConstructor(RegIOInfoConstructor[QubitIOInfo]):
+    found_input_ids: set[int]
+    found_output_ids: set[int]
 
-        output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
+    def __init__(self, io: QubitIOInfo) -> None:
+        super().__init__(io)
+        self.found_input_ids = set()
+        self.found_output_ids = set()
+
+    @override
+    def handle_declaration(
+        self,
+        declaration: QubitDeclaration | ClassicalDeclaration,
+    ) -> None:
+        if not isinstance(declaration, QubitDeclaration):
+            msg = (
+                f"handle_declaration: expected QubitDeclaration got {type(declaration)}"
+            )
+            raise TypeError(msg)
+
+        name = declaration.qubit.name
+        reg_size = expr_to_int(declaration.size) if declaration.size is not None else 1
+        input_id, dirty = self.get_declaration_annotation_info(
+            name,
+            declaration.annotations,
+        )
+
+        qubit_ids = []
+        for i in range(reg_size):
+            qubit_ids.append(self.next_id)
+            input_info = (
+                RegSingleInputInfo(input_id, i) if input_id is not None else None
+            )
+            self.io.id_to_info[self.next_id] = QubitAnnotationInfo(
+                input=input_info,
+                dirty=dirty,
+            )
+            self.next_id += 1
+        self.io.declaration_to_ids[name] = qubit_ids
+
+        if input_id is not None:
+            self.io.input_to_ids[input_id] = qubit_ids
+            if input_id in self.found_input_ids:
+                msg = f"Unsupported: duplicate input id: {input_id}"
+                raise IndexError(msg)
+            self.found_input_ids.add(input_id)
+        elif dirty:
+            self.io.dirty_ancillas.extend(qubit_ids)
+        else:  # non-input and non-dirty
+            self.io.required_ancillas.extend(qubit_ids)
+
+    @override
+    def handle_alias(self, alias: AliasStatement) -> None:
+        name = alias.target.name
+
+        qubit_ids = self.alias_expr_to_ids(alias.value)
+        if qubit_ids is None:
+            return
+        if len(qubit_ids) == 0:
+            msg = f"Unable to resolve IDs of alias {alias}"
+            raise RuntimeError(msg)
+
+        output_id, reusable = self.get_alias_annotation_info(name, alias.annotations)
         if output_id is not None:
             if output_id in self.found_output_ids:
                 msg = f"Unsupported: duplicate output id: {output_id}"
@@ -210,8 +243,6 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self.alias_to_ids[name] = qubit_ids
         if output_id is not None:
             self.io.output_to_ids[output_id] = qubit_ids
-        elif reusable:
-            self.io.reusable_ancillas.extend(qubit_ids)
 
         for i, id in enumerate(qubit_ids):
             current_info = self.io.id_to_info[id]
@@ -220,6 +251,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     msg = f"alias {name} declares output qubit as reusable"
                     raise UnsupportedOperation(msg)
                 current_info.reusable = True
+                self.io.reusable_ancillas.append(id)
             elif output_id is not None:
                 if current_info.output is not None:
                     msg = f"alias {name} tries to overwrite already declared output"
@@ -227,8 +259,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 if current_info.reusable:
                     msg = f"alias {name} declares output for reusable qubit"
                     raise UnsupportedOperation(msg)
-                current_info.output = QubitOutputInfo(output_id, i)
-        return self.generic_visit(node)
+                current_info.output = RegSingleOutputInfo(output_id, i)
 
     @staticmethod
     def raise_on_non_contiguous_range(numbers: set[int], name_of_check: str) -> None:
@@ -239,9 +270,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             msg = f"Unsupported: Missing {name_of_check} index {i}, next index was {j}"
             raise IndexError(msg)
 
-    def visit_Program(self, node: Program) -> QASMNode:
-        """Ensure contiguous input/output indexes."""
-        result = self.generic_visit(node)
+    @override
+    def finish(self) -> QubitIOInfo:
         self.raise_on_non_contiguous_range(self.found_input_ids, "input")
         self.raise_on_non_contiguous_range(self.found_output_ids, "output")
 
@@ -252,5 +282,34 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             set(chain(*self.io.output_to_ids.values())),
         )
         self.io.returned_dirty_ancillas = sorted(returned_dirty)
+        return self.io
 
-        return result
+
+class ParseAnnotationsVisitor(LeqoTransformer[None]):
+    """Parse input/output qubits of a single qasm-snippet."""
+
+    io: CombinedIOInfo
+    qubit_constr: QubitIOInfoConstructor
+
+    def __init__(self, io: CombinedIOInfo) -> None:
+        """Construct the LeqoTransformer."""
+        super().__init__()
+        self.io = io
+        self.qubit_constr = QubitIOInfoConstructor(io.qubit)
+
+    def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
+        self.qubit_constr.handle_declaration(node)
+        return self.generic_visit(node)
+
+    def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
+        return self.generic_visit(node)
+
+    def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
+        """Parse qubit-alias and their corresponding output annotations."""
+        self.qubit_constr.handle_alias(node)
+        return self.generic_visit(node)
+
+    def visit_Program(self, node: QASMNode) -> QASMNode:
+        node = self.generic_visit(node)
+        _ = self.qubit_constr.finish()
+        return node

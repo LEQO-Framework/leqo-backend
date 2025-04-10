@@ -14,6 +14,7 @@ from app.processing.graph import (
     SectionInfo,
 )
 from app.processing.merge import merge_nodes as merge_impl
+from app.processing.optimize import optimize as optimize_impl
 from app.processing.post import postprocess
 from app.processing.pre import preprocess as preprocess_impl
 from app.utils import opt_call
@@ -35,6 +36,15 @@ def preprocess(node: ProgramNode) -> ProcessedProgramNode:
     return ProcessedProgramNode(
         node, implementation, section_info, uncompute_implementation
     )
+
+
+def optimize(graph: ProgramGraph) -> None:
+    """
+    Optimize the given graph in-place based on :class:`app.processing.graph.IOInfo`.
+
+    :param graph: Graph of all nodes representing the program
+    """
+    optimize_impl(graph)
 
 
 def merge_nodes(graph: ProgramGraph) -> Program:

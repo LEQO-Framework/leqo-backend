@@ -11,6 +11,8 @@ from uuid import UUID, uuid4
 from networkx import DiGraph
 from openqasm3.ast import Program
 
+from app.processing.io_info import CombinedIOInfo
+
 
 @dataclass(frozen=True)
 class ProgramNode:
@@ -26,11 +28,11 @@ class SectionInfo:
     """Store information scraped in preprocessing."""
 
     id: UUID
-    io: IOInfo
+    io: CombinedIOInfo
 
     def __init__(self, uuid: UUID | None = None, io_info: IOInfo | None = None) -> None:
         self.id = uuid4() if uuid is None else uuid
-        self.io = IOInfo() if io_info is None else io_info
+        self.io = CombinedIOInfo() if io_info is None else io_info
 
 
 @dataclass(frozen=True)
@@ -107,59 +109,3 @@ class ProgramGraph(ProgramGraphBase):
         target: ProgramNode,
     ) -> list[IOConnection | AncillaConnection]:
         return self.__edge_data[(source, target)]
-
-
-@dataclass()
-class QubitInputInfo:
-    """Store the input id and the corresponding register position."""
-
-    input_index: int
-    reg_position: int
-
-
-@dataclass()
-class QubitOutputInfo:
-    """Store the output id and the corresponding register position."""
-
-    output_index: int
-    reg_position: int
-
-
-@dataclass()
-class QubitAnnotationInfo:
-    """Store input, output and reusable info for a single qubit."""
-
-    input: QubitInputInfo | None = None
-    output: QubitOutputInfo | None = None
-    reusable: bool = False
-    dirty: bool = False
-
-
-@dataclass()
-class IOInfo:
-    """Store input, output, dirty and reusable info for qubits in a qasm-snippet.
-
-    For this purpose, every qubit (not qubit-reg) is given an id, based on declaration order.
-    Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.QubitAnnotationInfo`.
-    Warning: uncompute parse not inplemented yet.
-
-    :param declaration_to_ids: Maps declared qubit names to list of IDs.
-    :param id_to_info: Maps IDs to their corresponding info objects.
-    :param input_to_ids: Maps input indexes to their corresponding IDs.
-    :param output_to_ids: Maps output indexes to their corresponding IDs.
-    :param required_ancillas: Id list of required non-dirty ancillas.
-    :param dirty_ancillas: Id list of required (possible) dirty ancillas.
-    :param reusable_ancillas: Id list of reusable ancillas.
-    :param reusable_after_uncompute: Id list of additional reusable ancillas after uncompute.
-    :param returned_dirty_ancillas: Id list of ancillas that are returned dirty in any case.
-    """
-
-    declaration_to_ids: dict[str, list[int]] = field(default_factory=dict)
-    id_to_info: dict[int, QubitAnnotationInfo] = field(default_factory=dict)
-    input_to_ids: dict[int, list[int]] = field(default_factory=dict)
-    output_to_ids: dict[int, list[int]] = field(default_factory=dict)
-    required_ancillas: list[int] = field(default_factory=list)
-    dirty_ancillas: list[int] = field(default_factory=list)
-    reusable_ancillas: list[int] = field(default_factory=list)
-    reusable_after_uncompute: list[int] = field(default_factory=list)
-    returned_dirty_ancillas: list[int] = field(default_factory=list)

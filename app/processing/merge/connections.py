@@ -16,9 +16,9 @@ from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     AncillaConnection,
     IOConnection,
-    IOInfo,
     ProgramGraph,
 )
+from app.processing.io_info import QubitIOInfo
 
 
 @dataclass(frozen=True)
@@ -37,14 +37,14 @@ class QubitDeclarationToAlias(LeqoTransformer[None]):
 
     section_id: UUID
     qubit_to_index: dict[SingleQubit, int]
-    io_info: IOInfo
+    io_info: QubitIOInfo
     global_reg_name: str
 
     def __init__(
         self,
         section_id: UUID,
         qubit_to_index: dict[SingleQubit, int],
-        io_info: IOInfo,
+        io_info: QubitIOInfo,
         global_reg_name: str,
     ) -> None:
         """Construct QubitDeclarationToAlias.
@@ -85,7 +85,7 @@ def get_equiv_classes(graph: ProgramGraph) -> dict[SingleQubit, set[SingleQubit]
     qubits = {}
     for nd in graph.nodes():
         section = graph.get_data_node(nd).info
-        for qubit_id in section.io.id_to_info:
+        for qubit_id in section.io.qubit.id_to_info:
             qubit = SingleQubit(section.id, qubit_id)
             qubits[qubit] = {qubit}
     return qubits
@@ -112,10 +112,10 @@ def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
         for edge in edges:
             match edge:
                 case IOConnection():
-                    edge_source_ids = source_section.io.output_to_ids.get(
+                    edge_source_ids = source_section.io.qubit.output_to_ids.get(
                         edge.source[1],
                     )
-                    edge_target_ids = target_section.io.input_to_ids.get(
+                    edge_target_ids = target_section.io.qubit.input_to_ids.get(
                         edge.target[1],
                     )
                     if edge_source_ids is None:
@@ -157,7 +157,7 @@ def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
         QubitDeclarationToAlias(
             node.info.id,
             qubit_to_reg_index,
-            node.info.io,
+            node.info.io.qubit,
             global_reg_name,
         ).visit(
             node.implementation,
