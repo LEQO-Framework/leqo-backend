@@ -2,13 +2,11 @@
 Provides the core logic of the backend.
 """
 
-from io import StringIO
 from uuid import uuid4
 
 from openqasm3.ast import Program
 
 from app.openqasm3.parser import leqo_parse
-from app.openqasm3.printer import LeqoPrinter
 from app.processing.graph import (
     ProcessedProgramNode,
     ProgramGraph,
@@ -47,14 +45,3 @@ def merge_nodes(graph: ProgramGraph) -> Program:
     """
     merged_program = merge_impl(graph)
     return postprocess(merged_program)
-
-
-def print_program(program: Program) -> str:
-    """Prints the given program as a string.
-
-    :param program: The program to print
-    :return: The program as a string
-    """
-    result = StringIO()
-    LeqoPrinter(result).visit(program)
-    return result.getvalue()
