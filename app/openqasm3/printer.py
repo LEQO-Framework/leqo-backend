@@ -33,5 +33,5 @@ class LeqoPrinter(Printer):
 
     def visit_CommentStatement(self, node: CommentStatement, ctx: PrinterState) -> None:
         self._start_line(ctx)
-        self.stream.write(f"/* {node.comment.replace('*/', '*\/')} */")
+        self.stream.write(f"/* {node.comment.replace('*/', r'*\/')} */")
         self._end_line(ctx)
