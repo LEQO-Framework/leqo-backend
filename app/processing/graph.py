@@ -4,7 +4,7 @@ Basic program graph used withing the :mod:`app.processing`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -141,48 +141,25 @@ class IOInfo:
 
     For this purpose, every qubit (not qubit-reg) is given an id, based on declaration order.
     Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.QubitAnnotationInfo`.
+    Warning: uncompute parse not inplemented yet.
+
+    :param declaration_to_ids: Maps declared qubit names to list of IDs.
+    :param id_to_info: Maps IDs to their corresponding info objects.
+    :param input_to_ids: Maps input indexes to their corresponding IDs.
+    :param output_to_ids: Maps output indexes to their corresponding IDs.
+    :param required_ancillas: Id list of required non-dirty ancillas.
+    :param dirty_ancillas: Id list of required (possible) dirty ancillas.
+    :param reusable_ancillas: Id list of reusable ancillas.
+    :param reusable_after_uncompute: Id list of additional reusable ancillas after uncompute.
+    :param returned_dirty_ancillas: Id list of ancillas that are returned dirty in any case.
     """
 
-    declaration_to_ids: dict[str, list[int]]
-    id_to_info: dict[int, QubitAnnotationInfo]
-    input_to_ids: dict[int, list[int]]
-    output_to_ids: dict[int, list[int]]
-    required_ancillas: list[int]
-    dirty_ancillas: list[int]
-    reusable_ancillas: list[int]
-    reusable_after_uncompute: list[int]  # TODO: not implemented
-    returned_dirty_ancillas: list[int]
-
-    def __init__(  # noqa: PLR0913
-        self,
-        declaration_to_ids: dict[str, list[int]] | None = None,
-        id_to_info: dict[int, QubitAnnotationInfo] | None = None,
-        input_to_ids: dict[int, list[int]] | None = None,
-        output_to_ids: dict[int, list[int]] | None = None,
-        required_ancillas: list[int] | None = None,
-        dirty_ancillas: list[int] | None = None,
-        reusable_ancillas: list[int] | None = None,
-        reusable_after_uncompute: list[int] | None = None,
-        returned_dirty_ancillas: list[int] | None = None,
-    ) -> None:
-        """Construct IOInfo.
-
-        :param declaration_to_ids: Maps declared qubit names to list of IDs.
-        :param id_to_info: Maps IDs to their corresponding info objects.
-        :param input_to_ids: Maps input indexes to their corresponding IDs.
-        :param output_to_ids: Maps output indexes to their corresponding IDs.
-        :param required_ancillas: Id list of required non-dirty ancillas.
-        :param dirty_ancillas: Id list of required (possible) dirty ancillas.
-        :param reusable_ancillas: Id list of reusable ancillas.
-        :param reusable_after_uncompute: Id list of additional reusable ancillas after uncompute.
-        :param returned_dirty_ancillas: Id list of ancillas that are returned dirty in any case.
-        """
-        self.declaration_to_ids = declaration_to_ids or {}
-        self.id_to_info = id_to_info or {}
-        self.input_to_ids = input_to_ids or {}
-        self.output_to_ids = output_to_ids or {}
-        self.required_ancillas = required_ancillas or []
-        self.dirty_ancillas = dirty_ancillas or []
-        self.reusable_ancillas = reusable_ancillas or []
-        self.reusable_after_uncompute = reusable_after_uncompute or []
-        self.returned_dirty_ancillas = returned_dirty_ancillas or []
+    declaration_to_ids: dict[str, list[int]] = field(default_factory=dict)
+    id_to_info: dict[int, QubitAnnotationInfo] = field(default_factory=dict)
+    input_to_ids: dict[int, list[int]] = field(default_factory=dict)
+    output_to_ids: dict[int, list[int]] = field(default_factory=dict)
+    required_ancillas: list[int] = field(default_factory=list)
+    dirty_ancillas: list[int] = field(default_factory=list)
+    reusable_ancillas: list[int] = field(default_factory=list)
+    reusable_after_uncompute: list[int] = field(default_factory=list)
+    returned_dirty_ancillas: list[int] = field(default_factory=list)
