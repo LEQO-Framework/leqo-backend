@@ -1,10 +1,12 @@
+"""
+Provides the core logic of the backend.
+"""
+
 from io import StringIO
 from uuid import uuid4
 
-from networkx import topological_sort
-from openqasm3.ast import Pragma, Program, Statement
+from openqasm3.ast import Program
 
-from app.openqasm3.ast import CommentStatement
 from app.openqasm3.parser import leqo_parse
 from app.openqasm3.printer import LeqoPrinter
 from app.processing.graph import (
@@ -13,6 +15,7 @@ from app.processing.graph import (
     ProgramNode,
     SectionInfo,
 )
+from app.processing.merge import merge_nodes as merge_impl
 from app.processing.post import postprocess
 from app.processing.pre import preprocess as preprocess_impl
 from app.utils import opt_call
@@ -42,17 +45,7 @@ def merge_nodes(graph: ProgramGraph) -> Program:
     :param graph: Graph of all nodes representing the program
     :return: The unified qasm program
     """
-    all_statements: list[Statement | Pragma] = []
-
-    # TODO: this does not sort the nodes the right way, this will need io-info
-    for node in topological_sort(graph):
-        all_statements.append(CommentStatement(f"Start node {node.name}"))
-
-        all_statements.extend(graph.get_data_node(node).implementation.statements)
-
-        all_statements.append(CommentStatement(f"End node {node.name}"))
-
-    merged_program = Program(all_statements, version="3.1")
+    merged_program = merge_impl(graph)
     return postprocess(merged_program)
 
 

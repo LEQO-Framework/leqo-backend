@@ -1,14 +1,16 @@
+"""
+Extended parsing of abstract syntax trees with support for `OPENQASM 2.x`.
+"""
+
 from openqasm3.ast import Program
-from openqasm3.parser import parse
+
+from app.converter import parse_to_openqasm3
 
 
 def leqo_parse(qasm: str) -> Program:
-    """
-    Parses an openqasm2 or openqasm3 string into an ast (:class:`~openqasm3.ast.Program`)
+    """Parse an openqasm2 or openqasm3 string into an ast (:class:`~openqasm3.ast.Program`).
 
     :param qasm: The qasm string to parse
     :return: The parse ast
     """
-
-    # ToDo: Check for openqasm2 and wire converter
-    return parse(qasm)
+    return parse_to_openqasm3(qasm)
