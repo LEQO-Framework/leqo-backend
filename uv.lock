@@ -335,6 +335,7 @@ dependencies = [
 dev = [
     { name = "mypy" },
     { name = "myst-parser" },
+    { name = "openqasm-pygments" },
     { name = "pytest" },
     { name = "ruff" },
     { name = "sphinx" },
@@ -357,6 +358,7 @@ requires-dist = [
 dev = [
     { name = "mypy", specifier = ">=1.14.1" },
     { name = "myst-parser", specifier = ">=4.0.0" },
+    { name = "openqasm-pygments", specifier = ">=0.1.2" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "ruff", specifier = ">=0.9.4" },
     { name = "sphinx", specifier = ">=8.1.3" },
@@ -518,6 +520,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/dc/4fc7c0283abe0981e3b89f9b332a134e237dd476b0c018e1e21083310c31/numpy-2.2.4-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:ee4d528022f4c5ff67332469e10efe06a267e32f4067dc76bb7e2cddf3cd25ff", size = 17879998 },
     { url = "https://files.pythonhosted.org/packages/e5/2b/878576190c5cfa29ed896b518cc516aecc7c98a919e20706c12480465f43/numpy-2.2.4-cp313-cp313t-win32.whl", hash = "sha256:05c076d531e9998e7e694c36e8b349969c56eadd2cdcd07242958489d79a7286", size = 6366896 },
     { url = "https://files.pythonhosted.org/packages/3e/05/eb7eec66b95cf697f08c754ef26c3549d03ebd682819f794cb039574a0a6/numpy-2.2.4-cp313-cp313t-win_amd64.whl", hash = "sha256:188dcbca89834cc2e14eb2f106c96d6d46f200fe0200310fc29089657379c58d", size = 12739119 },
+]
+
+[[package]]
+name = "openqasm-pygments"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pygments" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/81/4c/c4722f133b5bbef71bc8043dc1610bb72d1d724630373f046fa477aa9e3e/openqasm-pygments-0.1.2.tar.gz", hash = "sha256:9740ce2eb13adbb1de53a1bb447eeaf5cc212aeb4560e4dbed6015c8f50e5bf9", size = 56016 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/61/a69266cbbddd686229947052d672154589bcd5cc3fee1573be8909c657da/openqasm_pygments-0.1.2-py3-none-any.whl", hash = "sha256:b224632f8a535ad81609a991ffd82222330a742c6fbd444ed707f8586653ecc0", size = 18387 },
 ]
 
 [[package]]
