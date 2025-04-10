@@ -16,6 +16,7 @@ class StatusType(StrEnum):
     """
 
     IN_PROGRESS = "in progress"
+    FAILED = "failed"
     COMPLETED = "completed"
     UNKNOWN = "unknown"
 
