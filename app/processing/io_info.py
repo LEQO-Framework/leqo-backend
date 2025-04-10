@@ -84,10 +84,6 @@ class QubitIOInfo(RegIOInfo[QubitAnnotationInfo]):
     Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.QubitAnnotationInfo`.
     Warning: uncompute parse not inplemented yet.
 
-    :param declaration_to_ids: Maps declared qubit names to list of IDs.
-    :param id_to_info: Maps IDs to their corresponding info objects.
-    :param input_to_ids: Maps input indexes to their corresponding IDs.
-    :param output_to_ids: Maps output indexes to their corresponding IDs.
     :param required_ancillas: Id list of required non-dirty ancillas.
     :param dirty_ancillas: Id list of required (possible) dirty ancillas.
     :param reusable_ancillas: Id list of reusable ancillas.

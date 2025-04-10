@@ -9,6 +9,10 @@ from dataclasses import dataclass
 from openqasm3.ast import Statement
 
 
+class QubitType:
+    pass
+
+
 @dataclass
 class CommentStatement(Statement):
     """
