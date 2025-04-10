@@ -1,5 +1,4 @@
-"""
-Basic program graph used withing the :mod:`app.processing`.
+"""Basic program graph used withing the :mod:`app.processing`.
 """
 
 from __future__ import annotations
@@ -92,10 +91,7 @@ class ProgramGraph(ProgramGraphBase):
 
     def append_edge(self, edge: IOConnection | AncillaConnection) -> None:
         super().add_edge(edge.source[0], edge.target[0])
-        try:
-            self.__edge_data[(edge.source[0], edge.target[0])].append(edge)
-        except KeyError:
-            self.__edge_data[(edge.source[0], edge.target[0])] = [edge]
+        self.__edge_data.setdefault((edge.source[0], edge.target[0]), []).append(edge)
 
     def append_edges(self, *edges: IOConnection | AncillaConnection) -> None:
         for edge in edges:
