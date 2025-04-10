@@ -13,7 +13,12 @@ from openqasm3.ast import (
 )
 
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import IOInfo, ProgramGraph
+from app.processing.graph import (
+    AncillaConnection,
+    IOConnection,
+    IOInfo,
+    ProgramGraph,
+)
 
 
 @dataclass(frozen=True)
@@ -99,20 +104,34 @@ def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
     """
     equiv_classes = get_equiv_classes(graph)
     for source_node, target_node in graph.edges():
-        edge = graph.get_data_edge(source_node, target_node)
+        edges = graph.get_data_edges(source_node, target_node)
         source_section = graph.get_data_node(source_node).info
         target_section = graph.get_data_node(target_node).info
-        source_ids = source_section.io.output_to_ids.get(edge.source[1])
-        if source_ids is None:
-            msg = f"Unsupported: Output with index {edge.source[1]} from {edge.source[0].name} modeled, but now such annotation."
-            raise UnsupportedOperation(msg)
-        target_ids = target_section.io.input_to_ids.get(edge.target[1])
-        if target_ids is None:
-            msg = f"Unsupported: Input with index {edge.target[1]} into {edge.target[0].name} modeled, but now such annotation."
-            raise UnsupportedOperation(msg)
-        if len(source_ids) != len(target_ids):
-            msg = f"Mismatched size in model connection between {source_node.name} and {target_node.name}"
-            raise UnsupportedOperation(msg)
+        source_ids = []
+        target_ids = []
+        for edge in edges:
+            match edge:
+                case IOConnection():
+                    edge_source_ids = source_section.io.output_to_ids.get(
+                        edge.source[1],
+                    )
+                    edge_target_ids = target_section.io.input_to_ids.get(
+                        edge.target[1],
+                    )
+                    if edge_source_ids is None:
+                        msg = f"Unsupported: Output with index {edge.source[1]} from {edge.source[0].name} modeled, but no such annotation."
+                        raise UnsupportedOperation(msg)
+                    if edge_target_ids is None:
+                        msg = f"Unsupported: Input with index {edge.target[1]} into {edge.target[0].name} modeled, but no such annotation."
+                        raise UnsupportedOperation(msg)
+                    if len(edge_source_ids) != len(edge_target_ids):
+                        msg = f"Mismatched size in model connection between {source_node.name} and {target_node.name}"
+                        raise UnsupportedOperation(msg)
+                    source_ids.extend(edge_source_ids)
+                    target_ids.extend(edge_target_ids)
+                case AncillaConnection():
+                    source_ids.extend(edge.source[1])
+                    target_ids.extend(edge.target[1])
         for s_id, t_id in zip(source_ids, target_ids, strict=True):
             source_qubit = SingleQubit(source_section.id, s_id)
             target_qubit = SingleQubit(target_section.id, t_id)

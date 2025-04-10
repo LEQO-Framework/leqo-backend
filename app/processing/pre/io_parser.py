@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import UnsupportedOperation
+from itertools import chain
 
 from openqasm3.ast import (
     AliasStatement,
@@ -56,13 +57,15 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         result = self.io.declaration_to_ids.get(identifier)
         return self.alias_to_ids.get(identifier) if result is None else result
 
-    def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
-        """Parse qubit-declarations and their corresponding input annotations."""
-        name = node.qubit.name
-
+    def get_declaration_annotation_info(
+        self,
+        name: str,
+        annotations: list[Annotation],
+    ) -> tuple[int | None, bool]:
+        """Extract annotation info for declaration, throw error on bad usage."""
         input_id: int | None = None
         dirty = False
-        for annotation in node.annotations:
+        for annotation in annotations:
             match annotation.keyword:
                 case "leqo.input":
                     if input_id is not None:
@@ -88,8 +91,14 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 f"Unsupported: dirty and input annotations over QubitDeclaration {name}"
             )
             raise UnsupportedOperation(msg)
+        return (input_id, dirty)
 
+    def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
+        """Parse qubit-declarations and their corresponding input annotations."""
+        name = node.qubit.name
         reg_size = expr_to_int(node.size) if node.size is not None else 1
+        input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
+
         qubit_ids = []
         for i in range(reg_size):
             qubit_ids.append(self.qubit_id)
@@ -107,6 +116,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 msg = f"Unsupported: duplicate input id: {input_id}"
                 raise IndexError(msg)
             self.found_input_ids.add(input_id)
+        elif dirty:
+            self.io.dirty_ancillas.extend(qubit_ids)
+        else:  # non-input and non-dirty
+            self.io.required_ancillas.extend(qubit_ids)
 
         return self.generic_visit(node)
 
@@ -179,8 +192,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         """Parse qubit-alias and their corresponding output annotations."""
         name = node.target.name
 
-        ids = self.alias_expr_to_ids(node.value)
-        match ids:
+        qubit_ids = self.alias_expr_to_ids(node.value)
+        match qubit_ids:
             case None:  # non-qubit in alias expression (classic)
                 return self.generic_visit(node)
             case []:
@@ -194,10 +207,13 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 raise IndexError(msg)
             self.found_output_ids.add(output_id)
 
-        self.alias_to_ids[name] = ids
+        self.alias_to_ids[name] = qubit_ids
         if output_id is not None:
-            self.io.output_to_ids[output_id] = ids
-        for i, id in enumerate(ids):
+            self.io.output_to_ids[output_id] = qubit_ids
+        elif reusable:
+            self.io.reusable_ancillas.extend(qubit_ids)
+
+        for i, id in enumerate(qubit_ids):
             current_info = self.io.id_to_info[id]
             if reusable:
                 if current_info.output is not None:
@@ -224,8 +240,17 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise IndexError(msg)
 
     def visit_Program(self, node: Program) -> QASMNode:
-        """Ensure contiguous input/output indexes"""
+        """Ensure contiguous input/output indexes."""
         result = self.generic_visit(node)
         self.raise_on_non_contiguous_range(self.found_input_ids, "input")
         self.raise_on_non_contiguous_range(self.found_output_ids, "output")
+
+        returned_dirty = set(self.io.id_to_info.keys())
+        returned_dirty.difference_update(
+            self.io.reusable_ancillas,
+            self.io.reusable_after_uncompute,
+            set(chain(*self.io.output_to_ids.values())),
+        )
+        self.io.returned_dirty_ancillas = sorted(returned_dirty)
+
         return result
