@@ -59,8 +59,12 @@ See :ref:`reusable-qubit-annotation` for workarounds.
 The annotated input size must match the input size of the corresponding node from the `visual model <https://github.com/LEQO-Framework/low-code-modeler>`_.
 Inputs are expected to be **Little Endian**.
 
-The backend actively ensures that input memory is initialized.
-All other qubits still have to be assumed to be in an undefined state (See `OpenQasm Specification <https://openqasm.com/language/types.html#qubits#:~:text=Qubits%20are%20initially%20in%20an%20undefined%20state>`_ and :ref:`reusable-qubit-annotation`).
+The backend actively ensures that input qubits are initialized.
+All other qubits can be assumed to be `\|0⟩`.
+
+.. note::
+    The `specification <https://openqasm.com/language/types.html#qubits#:~:text=Qubits%20are%20initially%20in%20an%20undefined%20state>`_ allows implementors of openqasm3 to initialize qubits to an undefined state.
+    However, in practice major implementations (e.g. IBM) initialize qubits to `\|0⟩`.
 
 In the future, it is planned to allow to input less qubits than specified using the annotation.
 In this case the backend would fill the lowest bytes with the actual input and ensure the upper bytes are initialized to zero:
@@ -116,7 +120,7 @@ Ancilla Qubits
 If the programmer manually resets a qubit they can mark it as reusable.
 To do so, one can declare an alias to the reusable qubits.
 
-* Reusable qubits may not contain output qubits
+* Reusable qubits may not be marked as output
 * Reusable annotated aliases may be declared anywhere in code
 * Reusable annotated aliases may be used like any other alias
 * Reusable annotations may only appear above a :class:`~openqasm3.ast.AliasStatement` pointing to qubits
