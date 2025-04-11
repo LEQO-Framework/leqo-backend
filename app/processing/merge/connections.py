@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from io import UnsupportedOperation
+from textwrap import dedent
 from uuid import UUID
 
 from openqasm3.ast import (
@@ -127,11 +128,12 @@ class Connections:
     ) -> None:
         output_size, input_size = len(output.ids), len(input.ids)
         if output_size != input_size:
-            msg = f"""Unsupported: Mismatched sizes in IOConnection of type qubits-register
+            msg = dedent(f"""
+                Unsupported: Mismatched sizes in IOConnection of type qubits-register
 
-            output {output.name} has size {output_size}
-            input {input.name} has size {input_size}
-            """
+                output {output.name} has size {output_size}
+                input {input.name} has size {input_size}
+                """)
             raise UnsupportedOperation(msg)
         for s_id, t_id in zip(output.ids, input.ids, strict=True):
             source_qubit = SingleQubit(src_sec_id, s_id)
@@ -149,18 +151,20 @@ class Connections:
         input: ClassicalIOInstance,
     ) -> None:
         if input.type != output.type:
-            msg = f"""Unsupported: Mismatched types in IOConnection
+            msg = dedent(f"""
+                Unsupported: Mismatched types in IOConnection
 
-            output {output.name} has type {output.type}
-            input {input.name} has type {input.type}
-            """
+                output {output.name} has type {output.type}
+                input {input.name} has type {input.type}
+                """)
             raise UnsupportedOperation(msg)
         if input.size != output.size:
-            msg = f"""Unsupported: Mismatched sizes in IOConnection of type {output.size}
+            msg = dedent(f"""
+                Unsupported: Mismatched sizes in IOConnection of type {output.size}
 
-            output {output.name} has size {output.size}
-            input {input.name} has size {input.size}
-            """
+                output {output.name} has size {output.size}
+                input {input.name} has size {input.size}
+                """)
             raise UnsupportedOperation(msg)
         self.classical_declaration_to_alias[input.name] = output.name
 
@@ -175,18 +179,20 @@ class Connections:
                 output = source_section.io.outputs.get(edge.source[1])
                 input = target_section.io.inputs.get(edge.target[1])
                 if output is None:
-                    msg = f"""Unsupported: Missing output index in connection
+                    msg = dedent(f"""
+                        Unsupported: Missing output index in connection
 
-                    Index {edge.source[1]} from {edge.source[0].name} modeled,
-                    but no such annotation was found.
-                    """
+                        Index {edge.source[1]} from {edge.source[0].name} modeled,
+                        but no such annotation was found.
+                        """)
                     raise UnsupportedOperation(msg)
                 if input is None:
-                    msg = f"""Unsupported: Missing input index in connection
+                    msg = dedent(f"""
+                        Unsupported: Missing input index in connection
 
-                    Index {edge.target[1]} from {edge.target[0].name} modeled,
-                    but no such annotation was found.
-                    """
+                        Index {edge.target[1]} from {edge.target[0].name} modeled,
+                        but no such annotation was found.
+                        """)
                     raise UnsupportedOperation(msg)
                 match output, input:
                     case QubitIOInstance(), QubitIOInstance():
@@ -199,11 +205,12 @@ class Connections:
                     case ClassicalIOInstance(), ClassicalIOInstance():
                         self.handle_classical_connection(output, input)
                     case _:
-                        msg = f"""Unsupported: Try to connect qubit with classical
+                        msg = dedent(f"""
+                            Unsupported: Try to connect qubit with classical
 
-                        Index {edge.target[1]} from {edge.target[0].name} tries to
-                        connect to index {edge.source[1]} from {edge.target[0].name}
-                        """
+                            Index {edge.target[1]} from {edge.target[0].name} tries to
+                            connect to index {edge.source[1]} from {edge.target[0].name}
+                            """)
                         raise UnsupportedOperation(msg)
             case AncillaConnection():
                 self.handle_qubit_connection(
@@ -242,3 +249,7 @@ class Connections:
             )
 
         return reg_index
+
+
+def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
+    return Connections(graph, global_reg_name).apply()

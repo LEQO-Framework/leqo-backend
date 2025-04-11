@@ -274,13 +274,25 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
         returned_dirty = set(chain(*self.io.qubits.declaration_to_ids.values()))
         for qubit_id in self.io.qubits.returned_reusable_ids:
-            returned_dirty.remove(qubit_id)
+            try:
+                returned_dirty.remove(qubit_id)
+            except KeyError:
+                msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable twice"
+                raise UnsupportedOperation(msg) from None
         for qubit_id in self.io.qubits.returned_reusable_after_uncompute_ids:
-            returned_dirty.remove(qubit_id)
+            try:
+                returned_dirty.remove(qubit_id)
+            except KeyError:
+                msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable and as reusable_after_uncompute"
+                raise UnsupportedOperation(msg) from None
         for output in self.io.outputs.values():
             if isinstance(output, QubitIOInstance):
                 for qubit_id in output.ids:
-                    returned_dirty.remove(qubit_id)
+                    try:
+                        returned_dirty.remove(qubit_id)
+                    except KeyError:
+                        msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable and output"
+                        raise UnsupportedOperation(msg) from None
         self.io.qubits.returned_dirty_ids = sorted(returned_dirty)
 
         return result

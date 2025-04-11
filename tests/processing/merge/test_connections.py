@@ -376,7 +376,7 @@ def test_raise_on_mismatched_connection_size() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="Mismatched size in model connection between 0 and 1",
+        match="\nUnsupported: Mismatched sizes in IOConnection of type qubits-register\n\noutput _out has size 1\ninput c1_q0 has size 100\n",
     ):
         assert_connections(inputs, [], connections)
 
@@ -397,7 +397,7 @@ def test_raise_on_missing_input_index() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: Input with index 0 into 0 modeled, but no such annotation.",
+        match="\nUnsupported: Missing input index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.\n",
     ):
         assert_connections(inputs, [], connections)
 
@@ -418,6 +418,6 @@ def test_raise_on_missing_output_index() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: Output with index 0 from 0 modeled, but no such annotation.",
+        match="\nUnsupported: Missing output index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.\n",
     ):
         assert_connections(inputs, [], connections)
