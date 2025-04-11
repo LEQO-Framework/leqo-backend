@@ -4,7 +4,9 @@ import pytest
 from openqasm3.parser import parse
 
 from app.processing.io_info import (
+    BoolIOInfo,
     CombinedIOInfo,
+    FloatIOInfo,
     IntIOInfo,
     SizedAnnotationInfo,
     SizedSingleInputInfo,
@@ -56,7 +58,7 @@ def test_output_simple() -> None:
     assert expected == actual
 
 
-def test_empty_index() -> None:
+def test_int_default() -> None:
     code = """
     @leqo.input 0
     int i;
@@ -66,6 +68,48 @@ def test_empty_index() -> None:
             declaration_to_id={"i": 0},
             id_to_info={
                 0: SizedAnnotationInfo(input=SizedSingleInputInfo(0), size=32),
+            },
+            input_to_id={
+                0: 0,
+            },
+        ),
+    )
+    actual = CombinedIOInfo()
+    ParseAnnotationsVisitor(actual).visit(parse(code))
+    assert expected == actual
+
+
+def test_float_default() -> None:
+    code = """
+    @leqo.input 0
+    float f;
+    """
+    expected = CombinedIOInfo(
+        float=FloatIOInfo(
+            declaration_to_id={"f": 0},
+            id_to_info={
+                0: SizedAnnotationInfo(input=SizedSingleInputInfo(0), size=32),
+            },
+            input_to_id={
+                0: 0,
+            },
+        ),
+    )
+    actual = CombinedIOInfo()
+    ParseAnnotationsVisitor(actual).visit(parse(code))
+    assert expected == actual
+
+
+def test_bool_default() -> None:
+    code = """
+    @leqo.input 0
+    bool b;
+    """
+    expected = CombinedIOInfo(
+        bool=BoolIOInfo(
+            declaration_to_id={"b": 0},
+            id_to_info={
+                0: SizedAnnotationInfo(input=SizedSingleInputInfo(0), size=1),
             },
             input_to_id={
                 0: 0,
@@ -239,7 +283,7 @@ def test_raise_on_reusable() -> None:
     """
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: reusable annotation over alias a referring to int",
+        match="Unsupported: reusable annotation over alias a referring to classical",
     ):
         ParseAnnotationsVisitor(CombinedIOInfo()).visit(parse(code))
 

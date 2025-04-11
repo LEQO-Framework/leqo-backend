@@ -1,26 +1,34 @@
+from __future__ import annotations
+
 from io import UnsupportedOperation
-from typing import override
+from typing import TypeVar, override
 
 from openqasm3.ast import (
     AliasStatement,
+    BoolType,
     ClassicalDeclaration,
+    ClassicalType,
+    FloatType,
     IntType,
     QubitDeclaration,
 )
 
 from app.processing.io_info import (
-    DEFAULT_INT_SIZE,
+    BoolIOInfo,
+    FloatIOInfo,
     IntIOInfo,
     SizedAnnotationInfo,
+    SizedIOInfo,
     SizedSingleInputInfo,
     SizedSingleOutputInfo,
 )
 from app.processing.pre.io_parser.abstracts import SizedIOInfoBuilder
-from app.processing.utils import expr_to_int
+
+IT = TypeVar("IT", bound=SizedIOInfo)
 
 
-class IntIOInfoBuilder(SizedIOInfoBuilder[IntIOInfo]):
-    """Get io info for the int type."""
+class SizedIOInfoBuilderImplementation(SizedIOInfoBuilder[IT]):
+    type: type[ClassicalType]
 
     @override
     def handle_declaration(
@@ -31,15 +39,14 @@ class IntIOInfoBuilder(SizedIOInfoBuilder[IntIOInfo]):
     ) -> None:
         if not isinstance(declaration, ClassicalDeclaration) or not isinstance(
             declaration.type,
-            IntType,
+            self.type,
         ):
-            msg = f"handle_declaration: expected int declaration got {declaration}"
+            msg = f"handle_declaration: got declaration of wrong type {declaration}"
             raise RuntimeError(msg)
 
         name = declaration.identifier.name
         int_id = self.declaration_next_id()
-        size_expr = declaration.type.size
-        size = expr_to_int(size_expr) if size_expr is not None else DEFAULT_INT_SIZE
+        size = self.declaration_to_size(declaration)
 
         self.io.id_to_info[int_id] = SizedAnnotationInfo(
             input=SizedSingleInputInfo(input_id) if input_id is not None else None,
@@ -60,7 +67,7 @@ class IntIOInfoBuilder(SizedIOInfoBuilder[IntIOInfo]):
         name = alias.target.name
 
         if reusable:
-            msg = f"Unsupported: reusable annotation over alias {name} referring to int"
+            msg = f"Unsupported: reusable annotation over alias {name} referring to classical"
             raise UnsupportedOperation(msg)
 
         int_id = self.alias_to_id(alias)
@@ -78,3 +85,15 @@ class IntIOInfoBuilder(SizedIOInfoBuilder[IntIOInfo]):
     @override
     def finish(self) -> None:
         pass
+
+
+class IntIOInfoBuilder(SizedIOInfoBuilderImplementation[IntIOInfo]):
+    type = IntType
+
+
+class FloatIOInfoBuilder(SizedIOInfoBuilderImplementation[FloatIOInfo]):
+    type = FloatType
+
+
+class BoolIOInfoBuilder(SizedIOInfoBuilderImplementation[BoolIOInfo]):
+    type = BoolType

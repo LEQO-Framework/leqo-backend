@@ -6,15 +6,21 @@ from typing import Any, Generic, TypeVar
 
 from openqasm3.ast import (
     AliasStatement,
+    BoolType,
     ClassicalDeclaration,
     Concatenation,
     Expression,
+    FloatType,
     Identifier,
     IndexExpression,
+    IntType,
     QubitDeclaration,
 )
 
 from app.processing.io_info import (
+    BOOL_SIZE,
+    DEFAULT_FLOAT_SIZE,
+    DEFAULT_INT_SIZE,
     RegIOInfo,
     SizedIOInfo,
 )
@@ -128,11 +134,6 @@ class SizedIOInfoBuilder(Generic[ST], IOInfoBuilder[ST], ABC):
         result = self.io.declaration_to_id.get(identifier)
         return self.__stored_alias_id[identifier] if result is None else result
 
-    def declaration_next_id(self) -> int:
-        result = self.__next_id
-        self.__next_id += 1
-        return result
-
     def __alias_expr_to_id(
         self,
         value: Identifier | IndexExpression | Concatenation | Expression,
@@ -152,6 +153,30 @@ class SizedIOInfoBuilder(Generic[ST], IOInfoBuilder[ST], ABC):
             case _:
                 msg = f"{type(value)} is not implemented as alias expression"
                 raise NotImplementedError(msg)
+
+    def declaration_next_id(self) -> int:
+        result = self.__next_id
+        self.__next_id += 1
+        return result
+
+    def declaration_to_size(self, declaration: ClassicalDeclaration) -> int:
+        typ = declaration.type
+        match typ:
+            case IntType():
+                return (
+                    expr_to_int(typ.size) if typ.size is not None else DEFAULT_INT_SIZE
+                )
+            case FloatType():
+                return (
+                    expr_to_int(typ.size)
+                    if typ.size is not None
+                    else DEFAULT_FLOAT_SIZE
+                )
+            case BoolType():
+                return BOOL_SIZE
+            case _:
+                msg = f"'declaration_to_size' unsupported type: {type(typ)}"
+                raise RuntimeError(msg)
 
     def alias_to_id(
         self,

@@ -7,6 +7,8 @@ from typing import ClassVar, Generic, TypeVar
 from openqasm3.ast import BoolType, ClassicalType, FloatType, IntType
 
 DEFAULT_INT_SIZE = 32
+DEFAULT_FLOAT_SIZE = 32
+BOOL_SIZE = 1
 
 
 @dataclass()

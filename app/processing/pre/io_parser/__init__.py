@@ -6,10 +6,12 @@ from openqasm3.ast import (
     AliasStatement,
     Annotation,
     BitType,
+    BoolType,
     ClassicalDeclaration,
     ClassicalType,
     Concatenation,
     Expression,
+    FloatType,
     Identifier,
     IndexExpression,
     IntType,
@@ -24,7 +26,11 @@ from app.processing.io_info import (
 )
 from app.processing.pre.io_parser.bits import BitIOInfoBuilder
 from app.processing.pre.io_parser.qubits import QubitIOInfoBuilder
-from app.processing.pre.io_parser.sized_types import IntIOInfoBuilder
+from app.processing.pre.io_parser.sized_types import (
+    BoolIOInfoBuilder,
+    FloatIOInfoBuilder,
+    IntIOInfoBuilder,
+)
 from app.processing.utils import parse_io_annotation
 
 
@@ -49,6 +55,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self.qubit_builder = QubitIOInfoBuilder(io.qubit)
         self.bit_builder = BitIOInfoBuilder(io.bit)
         self.int_builder = IntIOInfoBuilder(io.int)
+        self.float_builder = FloatIOInfoBuilder(io.float)
+        self.bool_builder = BoolIOInfoBuilder(io.bool)
 
     def get_declaration_annotation_info(
         self,
@@ -178,6 +186,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 self.bit_builder.handle_declaration(node, input_id)
             case IntType():
                 self.int_builder.handle_declaration(node, input_id)
+            case FloatType():
+                self.float_builder.handle_declaration(node, input_id)
+            case BoolType():
+                self.bool_builder.handle_declaration(node, input_id)
 
         return self.generic_visit(node)
 
@@ -206,6 +218,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 self.bit_builder.handle_alias(node, output_id, reusable)
             case IntType():
                 self.int_builder.handle_alias(node, output_id, reusable)
+            case FloatType():
+                self.float_builder.handle_alias(node, output_id, reusable)
+            case BoolType():
+                self.bool_builder.handle_alias(node, output_id, reusable)
         return self.generic_visit(node)
 
     @staticmethod
@@ -224,4 +240,6 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self.qubit_builder.finish()
         self.bit_builder.finish()
         self.int_builder.finish()
+        self.float_builder.finish()
+        self.bool_builder.finish()
         return node
