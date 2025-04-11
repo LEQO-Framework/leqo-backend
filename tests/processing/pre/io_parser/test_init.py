@@ -1,11 +1,19 @@
 from openqasm3.parser import parse
 
 from app.processing.io_info import (
+    BitIOInfo,
+    BoolIOInfo,
     CombinedIOInfo,
+    FloatIOInfo,
+    IntIOInfo,
     QubitAnnotationInfo,
     QubitIOInfo,
+    RegAnnotationInfo,
     RegSingleInputInfo,
     RegSingleOutputInfo,
+    SizedAnnotationInfo,
+    SizedSingleInputInfo,
+    SizedSingleOutputInfo,
 )
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.utils import normalize_qasm_string
@@ -19,13 +27,27 @@ def test_all() -> None:
     qubit[5] q1;
     @leqo.dirty
     qubit q2;
+    @leqo.input 2
+    bit[4] c;
+    @leqo.input 3
+    int i;
+    bool b;
+    float[16] f;
 
     let a = q1[{4, 3, 2, 1, 0}];
+    let c1 = c[{0, 2}];
+    let res_int = i;
 
     @leqo.output 0
     let _out0 = q0[0] ++ q1[0];
     @leqo.output 1
     let _out1 = q0[1] ++ a[1]; // a[1] == q1[3]
+    @leqo.output 2
+    let _out2 = c1[0]; // c1[0] == c[0]
+    @leqo.output 3
+    let _out3 = res_int;
+    @leqo.output 4
+    let _out4 = b;
 
     @leqo.reusable
     let _reuse = q0[2:4];
@@ -67,6 +89,43 @@ def test_all() -> None:
             dirty_ancillas=[10],
             reusable_ancillas=[2, 3, 4],
             returned_dirty_ancillas=[6, 7, 9, 10],
+        ),
+        bit=BitIOInfo(
+            declaration_to_ids={"c": [0, 1, 2, 3]},
+            id_to_info={
+                0: RegAnnotationInfo(
+                    input=RegSingleInputInfo(2, 0),
+                    output=RegSingleOutputInfo(2, 0),
+                ),
+                1: RegAnnotationInfo(input=RegSingleInputInfo(2, 1)),
+                2: RegAnnotationInfo(input=RegSingleInputInfo(2, 2)),
+                3: RegAnnotationInfo(input=RegSingleInputInfo(2, 3)),
+            },
+            input_to_ids={2: [0, 1, 2, 3]},
+            output_to_ids={2: [0]},
+        ),
+        int=IntIOInfo(
+            declaration_to_id={"i": 0},
+            id_to_info={
+                0: SizedAnnotationInfo(
+                    input=SizedSingleInputInfo(3),
+                    output=SizedSingleOutputInfo(3),
+                    size=32,
+                ),
+            },
+            input_to_id={3: 0},
+            output_to_id={3: 0},
+        ),
+        float=FloatIOInfo(
+            declaration_to_id={"f": 0},
+            id_to_info={0: SizedAnnotationInfo(size=16)},
+        ),
+        bool=BoolIOInfo(
+            declaration_to_id={"b": 0},
+            id_to_info={
+                0: SizedAnnotationInfo(output=SizedSingleOutputInfo(4), size=1),
+            },
+            output_to_id={4: 0},
         ),
     )
     actual = CombinedIOInfo()
