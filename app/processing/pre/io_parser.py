@@ -22,9 +22,11 @@ from openqasm3.ast import (
 from app.openqasm3.ast import QubitType
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.io_info import (
+    BitIOInfo,
     CombinedIOInfo,
     QubitAnnotationInfo,
     QubitIOInfo,
+    RegAnnotationInfo,
     RegIOInfo,
     RegSingleInputInfo,
     RegSingleOutputInfo,
@@ -43,10 +45,9 @@ class IOInfoBuilder(Generic[T], ABC):
         self,
         declaration: QubitDeclaration | ClassicalDeclaration,
         input_id: int | None,
-        dirty: bool,
+        dirty: bool = False,
     ) -> None:
-        msg = "'handle_declaration' called on abstract IOInfoConstructor"
-        raise NotImplementedError(msg)
+        pass
 
     @abstractmethod
     def handle_alias(
@@ -55,13 +56,11 @@ class IOInfoBuilder(Generic[T], ABC):
         output_id: int | None,
         reusable: bool,
     ) -> None:
-        msg = "'handle_alias' called on abstract IOInfoConstructor"
-        raise NotImplementedError(msg)
+        pass
 
     @abstractmethod
-    def finish(self) -> T:
-        msg = "'finish' called on abstract IOInfoConstructor"
-        raise NotImplementedError(msg)
+    def finish(self) -> None:
+        pass
 
 
 class RegIOInfoBuilder(Generic[RT], IOInfoBuilder[RT], ABC):
@@ -79,7 +78,7 @@ class RegIOInfoBuilder(Generic[RT], IOInfoBuilder[RT], ABC):
         result = self.io.declaration_to_ids.get(identifier)
         return self.alias_to_ids.get(identifier) if result is None else result
 
-    def declartion_size_to_ids(self, size: Expression | None) -> list[int]:
+    def declaration_size_to_ids(self, size: Expression | None) -> list[int]:
         reg_size = expr_to_int(size) if size is not None else 1
         result = []
         for _ in range(reg_size):
@@ -120,15 +119,12 @@ class RegIOInfoBuilder(Generic[RT], IOInfoBuilder[RT], ABC):
 
 
 class QubitIOInfoBuilder(RegIOInfoBuilder[QubitIOInfo]):
-    def __init__(self, io: QubitIOInfo) -> None:
-        super().__init__(io)
-
     @override
     def handle_declaration(
         self,
         declaration: QubitDeclaration | ClassicalDeclaration,
         input_id: int | None,
-        dirty: bool,
+        dirty: bool = False,
     ) -> None:
         if not isinstance(declaration, QubitDeclaration):
             msg = (
@@ -137,7 +133,7 @@ class QubitIOInfoBuilder(RegIOInfoBuilder[QubitIOInfo]):
             raise TypeError(msg)
 
         name = declaration.qubit.name
-        qubit_ids = self.declartion_size_to_ids(declaration.size)
+        qubit_ids = self.declaration_size_to_ids(declaration.size)
 
         for i, qubit_id in enumerate(qubit_ids):
             self.io.id_to_info[qubit_id] = QubitAnnotationInfo(
@@ -191,7 +187,7 @@ class QubitIOInfoBuilder(RegIOInfoBuilder[QubitIOInfo]):
                 current_info.output = RegSingleOutputInfo(output_id, i)
 
     @override
-    def finish(self) -> QubitIOInfo:
+    def finish(self) -> None:
         returned_dirty = set(self.io.id_to_info.keys())
         returned_dirty.difference_update(
             self.io.reusable_ancillas,
@@ -199,7 +195,72 @@ class QubitIOInfoBuilder(RegIOInfoBuilder[QubitIOInfo]):
             set(chain(*self.io.output_to_ids.values())),
         )
         self.io.returned_dirty_ancillas = sorted(returned_dirty)
-        return self.io
+
+
+class BitIOInfoBuilder(RegIOInfoBuilder[BitIOInfo]):
+    @override
+    def handle_declaration(
+        self,
+        declaration: QubitDeclaration | ClassicalDeclaration,
+        input_id: int | None,
+        dirty: bool = False,
+    ) -> None:
+        if not isinstance(declaration, ClassicalDeclaration) or not isinstance(
+            declaration.type,
+            BitType,
+        ):
+            msg = f"handle_declaration: expected bit declaration got {declaration}"
+            raise RuntimeError(msg)
+
+        name = declaration.identifier.name
+        bit_ids = self.declaration_size_to_ids(declaration.type.size)
+
+        for i, bit_id in enumerate(bit_ids):
+            self.io.id_to_info[bit_id] = RegAnnotationInfo(
+                input=RegSingleInputInfo(input_id, i) if input_id is not None else None,
+            )
+        self.io.declaration_to_ids[name] = bit_ids
+
+        if input_id is not None:
+            self.io.input_to_ids[input_id] = bit_ids
+
+    @override
+    def handle_alias(
+        self,
+        alias: AliasStatement,
+        output_id: int | None,
+        reusable: bool,
+    ) -> None:
+        name = alias.target.name
+
+        if reusable:
+            msg = (
+                f"Unsupported: reusable annotation over alias {name} referring to bits"
+            )
+            raise UnsupportedOperation(msg)
+
+        bit_ids = self.alias_expr_to_ids(alias.value)
+        if bit_ids is None:
+            return
+        if len(bit_ids) == 0:
+            msg = f"Unable to resolve IDs of alias {alias}"
+            raise RuntimeError(msg)
+
+        self.alias_to_ids[name] = bit_ids
+        if output_id is not None:
+            self.io.output_to_ids[output_id] = bit_ids
+
+        for i, bit_id in enumerate(bit_ids):
+            current_info = self.io.id_to_info[bit_id]
+            if output_id is not None:
+                if current_info.output is not None:
+                    msg = f"alias {name} tries to overwrite already declared output"
+                    raise UnsupportedOperation(msg)
+                current_info.output = RegSingleOutputInfo(output_id, i)
+
+    @override
+    def finish(self) -> None:
+        pass
 
 
 class ParseAnnotationsVisitor(LeqoTransformer[None]):
@@ -210,6 +271,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     found_input_ids: set[int]
     found_output_ids: set[int]
     qubit_builder: QubitIOInfoBuilder
+    bit_builder: BitIOInfoBuilder
 
     def __init__(self, io: CombinedIOInfo) -> None:
         """Construct the LeqoTransformer."""
@@ -219,6 +281,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self.found_input_ids = set()
         self.found_output_ids = set()
         self.qubit_builder = QubitIOInfoBuilder(io.qubit)
+        self.bit_builder = BitIOInfoBuilder(io.bit)
 
     def get_declaration_annotation_info(
         self,
@@ -290,7 +353,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise UnsupportedOperation(msg)
         return (output_id, reusable)
 
-    def get_some_indentifier_from_alias(
+    def get_some_identifier_from_alias(
         self,
         value: Identifier | IndexExpression | Concatenation | Expression,
     ) -> Identifier:
@@ -304,7 +367,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             case Identifier():
                 return value
             case Concatenation():
-                return self.get_some_indentifier_from_alias(value.lhs)
+                return self.get_some_identifier_from_alias(value.lhs)
             case Expression():
                 msg = f"Unsupported expression in alias: {type(value)}"
                 raise UnsupportedOperation(msg)
@@ -332,11 +395,21 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
     def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
         name = node.identifier.name
-        input, dirty = self.get_declaration_annotation_info(
+        input_id, dirty = self.get_declaration_annotation_info(
             name,
             node.annotations,
         )
-        self.update_input_id(input)
+        self.update_input_id(input_id)
+        self.identifier_to_type[name] = node.type
+
+        if dirty:
+            msg = f"Unsupported: dirty annotation over non-qubit declaration {name}"
+            raise UnsupportedOperation(msg)
+
+        match node.type:
+            case BitType():
+                self.bit_builder.handle_declaration(node, input_id)
+
         return self.generic_visit(node)
 
     def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
@@ -353,7 +426,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             self.found_output_ids.add(output_id)
 
         found_type = self.identifier_to_type[
-            self.get_some_indentifier_from_alias(node.value).name
+            self.get_some_identifier_from_alias(node.value).name
         ]
         self.identifier_to_type[name] = found_type
 
@@ -361,7 +434,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             case QubitType():
                 self.qubit_builder.handle_alias(node, output_id, reusable)
             case BitType():
-                pass
+                self.bit_builder.handle_alias(node, output_id, reusable)
         return self.generic_visit(node)
 
     @staticmethod

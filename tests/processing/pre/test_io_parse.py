@@ -4,9 +4,11 @@ import pytest
 from openqasm3.parser import parse
 
 from app.processing.io_info import (
+    BitIOInfo,
     CombinedIOInfo,
     QubitAnnotationInfo,
     QubitIOInfo,
+    RegAnnotationInfo,
     RegSingleInputInfo,
     RegSingleOutputInfo,
 )
@@ -134,7 +136,7 @@ def test_dirty() -> None:
     assert expected == actual
 
 
-def test_spaces_tabes_on_dirty_or_reusable() -> None:
+def test_spaces_tabs_on_dirty_or_reusable() -> None:
     code = """
     @leqo.dirty   
     qubit[3] q0;
@@ -169,11 +171,12 @@ def test_empty_index() -> None:
     assert expected == actual
 
 
-def test_classical_ignored() -> None:
+def test_bit_output_simple() -> None:
     code = """
     qubit[2] q;
     bit[2] c;
 
+    @leqo.output 0
     let a = c;
     """
     expected = CombinedIOInfo(
@@ -187,6 +190,16 @@ def test_classical_ignored() -> None:
             },
             required_ancillas=[0, 1],
             returned_dirty_ancillas=[0, 1],
+        ),
+        bit=BitIOInfo(
+            declaration_to_ids={
+                "c": [0, 1],
+            },
+            id_to_info={
+                0: RegAnnotationInfo(output=RegSingleOutputInfo(0, 0)),
+                1: RegAnnotationInfo(output=RegSingleOutputInfo(0, 1)),
+            },
+            output_to_ids={0: [0, 1]},
         ),
     )
     actual = CombinedIOInfo()
