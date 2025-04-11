@@ -1,9 +1,12 @@
 from io import UnsupportedOperation
 
 import pytest
+from openqasm3.ast import BitType, BoolType, IntegerLiteral, IntType
 from openqasm3.parser import parse
 
+from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
+    ClassicalIOInstance,
     IOInfo,
     QubitIOInfo,
     QubitIOInstance,
@@ -251,6 +254,31 @@ def test_input_index_weird_order() -> None:
             1: QubitIOInstance("q1", [0]),
             2: QubitIOInstance("q2", [2]),
         },
+    )
+    actual = IOInfo()
+    ParseAnnotationsVisitor(actual).visit(parse(code))
+    assert expected == actual
+
+
+def test_classical() -> None:
+    code = """
+    @leqo.input 0
+    bit[4] c;
+    @leqo.input 1
+    int i;
+    @leqo.input 2
+    bool b;
+
+    @leqo.output 0
+    let out = c[0:1];
+    """
+    expected = IOInfo(
+        inputs={
+            0: ClassicalIOInstance("c", BitType, 4),
+            1: ClassicalIOInstance("i", IntType, 32),
+            2: ClassicalIOInstance("b", BoolType, 1),
+        },
+        outputs={0: ClassicalIOInstance("out", BitType, 2)},
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))

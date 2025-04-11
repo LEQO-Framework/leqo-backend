@@ -123,7 +123,7 @@ class QubitIOInfo:
 @dataclass()
 class ClassicalIOInstance:
     name: str
-    type: ClassicalType
+    type: type
     size: int
 
 

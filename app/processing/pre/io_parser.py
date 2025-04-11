@@ -207,7 +207,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             case _:
                 return self.generic_visit(node)
 
-        info = ClassicalIOInstance(name, node.type, size)
+        info = ClassicalIOInstance(name, type(node.type), size)
         self.__name_to_info[name] = info
         if input_id is not None:
             self.io.inputs[input_id] = info
