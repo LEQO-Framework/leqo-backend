@@ -132,8 +132,8 @@ class SizedAnnotationInfo:
 
 
 @dataclass()
-class SizedIOInfo(ABC):
-    """Abstract class for IO info of sized types.
+class SizedIOInfo:
+    """Class for IO info of sized types.
 
     These types are currently:
     - Integers
