@@ -154,9 +154,23 @@ Node = (
 )
 
 
-class Edge(BaseModel):
+# region Edges
+class _EdgeBase(BaseModel):
     source: tuple[str, Annotated[int, Field(ge=0)]]
     target: tuple[str, Annotated[int, Field(ge=0)]]
+
+
+class QubitEdge(_EdgeBase):
+    type: Literal["qubit"]
+    size: int = Field(1, ge=1)
+
+
+class ClassicalEdge(_EdgeBase):
+    type: Literal["classical"]
+
+
+Edge = QubitEdge | ClassicalEdge
+# endregion
 
 
 class CompileRequest(BaseModel):
@@ -166,4 +180,4 @@ class CompileRequest(BaseModel):
 
     metadata: MetaData
     nodes: list[Annotated[Node, Field(discriminator="type")]]
-    edges: list[Edge]
+    edges: list[Annotated[Edge, Field(discriminator="type")]]
