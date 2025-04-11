@@ -16,11 +16,13 @@ from openqasm3.ast import (
 
 from app.processing.io_info import (
     RegIOInfo,
+    SizedIOInfo,
 )
 from app.processing.utils import expr_to_int, parse_qasm_index
 
 T = TypeVar("T")
 RT = TypeVar("RT", bound=RegIOInfo[Any])
+ST = TypeVar("ST", bound=SizedIOInfo)
 
 
 class IOInfoBuilder(Generic[T], ABC):
@@ -59,15 +61,15 @@ class RegIOInfoBuilder(Generic[RT], IOInfoBuilder[RT], ABC):
         self.__stored_alias_ids = {}
         self.io = io
 
-    def __identifier_to_ids(self, identifier: str) -> list[int] | None:
+    def __identifier_to_ids(self, identifier: str) -> list[int]:
         """Get ids via declaration_to_ids or alias_to_ids."""
         result = self.io.declaration_to_ids.get(identifier)
-        return self.__stored_alias_ids.get(identifier) if result is None else result
+        return self.__stored_alias_ids[identifier] if result is None else result
 
     def __rec_alias_expr_to_ids(
         self,
         value: Identifier | IndexExpression | Concatenation | Expression,
-    ) -> list[int] | None:
+    ) -> list[int]:
         """Recursively get IDs list for alias expression."""
         match value:
             case IndexExpression():
@@ -76,8 +78,6 @@ class RegIOInfoBuilder(Generic[RT], IOInfoBuilder[RT], ABC):
                     msg = f"Unsupported expression in alias: {type(collection)}"
                     raise TypeError(msg)
                 source = self.__identifier_to_ids(collection.name)
-                if source is None:
-                    return None
                 indices = parse_qasm_index([value.index], len(source))
                 return [source[i] for i in indices]
             case Identifier():
@@ -85,8 +85,6 @@ class RegIOInfoBuilder(Generic[RT], IOInfoBuilder[RT], ABC):
             case Concatenation():
                 lhs = self.__rec_alias_expr_to_ids(value.lhs)
                 rhs = self.__rec_alias_expr_to_ids(value.rhs)
-                if lhs is None or rhs is None:
-                    return None
                 return lhs + rhs
             case Expression():
                 msg = f"Unsupported expression in alias: {type(value)}"
@@ -108,8 +106,57 @@ class RegIOInfoBuilder(Generic[RT], IOInfoBuilder[RT], ABC):
         alias: AliasStatement,
     ) -> list[int]:
         result = self.__rec_alias_expr_to_ids(alias.value)
-        if result is None or len(result) == 0:
+        if len(result) == 0:
             msg = f"Unable to resolve IDs of alias {alias}"
             raise RuntimeError(msg)
         self.__stored_alias_ids[alias.target.name] = result
+        return result
+
+
+class SizedIOInfoBuilder(Generic[ST], IOInfoBuilder[ST], ABC):
+    __next_id: int
+    __stored_alias_id: dict[str, int]
+    io: ST
+
+    def __init__(self, io: ST) -> None:
+        self.__next_id = 0
+        self.__stored_alias_id = {}
+        self.io = io
+
+    def __identifier_to_id(self, identifier: str) -> int:
+        """Get ids via declaration_to_ids or alias_to_ids."""
+        result = self.io.declaration_to_id.get(identifier)
+        return self.__stored_alias_id[identifier] if result is None else result
+
+    def declaration_next_id(self) -> int:
+        result = self.__next_id
+        self.__next_id += 1
+        return result
+
+    def __alias_expr_to_id(
+        self,
+        value: Identifier | IndexExpression | Concatenation | Expression,
+    ) -> int:
+        match value:
+            case IndexExpression():
+                msg = f"Unsupported: indexed alias in sized type: {value}."
+                raise UnsupportedOperation(msg)
+            case Identifier():
+                return self.__identifier_to_id(value.name)
+            case Concatenation():
+                msg = f"Unsupported: concatenated alias in sized type: {value}."
+                raise UnsupportedOperation(msg)
+            case Expression():
+                msg = f"Unsupported expression in alias: {type(value)}"
+                raise UnsupportedOperation(msg)
+            case _:
+                msg = f"{type(value)} is not implemented as alias expression"
+                raise NotImplementedError(msg)
+
+    def alias_to_id(
+        self,
+        alias: AliasStatement,
+    ) -> int:
+        result = self.__alias_expr_to_id(alias.value)
+        self.__stored_alias_id[alias.target.name] = result
         return result

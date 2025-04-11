@@ -6,6 +6,8 @@ from typing import ClassVar, Generic, TypeVar
 
 from openqasm3.ast import BoolType, ClassicalType, FloatType, IntType
 
+DEFAULT_INT_SIZE = 32
+
 
 @dataclass()
 class RegSingleInputInfo:
@@ -103,11 +105,9 @@ class SizedSingleInputInfo:
     """Store a single input info for a sized type.
 
     :param input_index: index of the input
-    :param size: the size of the instance
     """
 
     input_index: int
-    size: int
 
 
 @dataclass()
@@ -115,19 +115,18 @@ class SizedSingleOutputInfo:
     """Store a single output info for a sized type.
 
     :param output: index of the input
-    :param size: the size of the instance
     """
 
     output_index: int
-    size: int
 
 
 @dataclass()
 class SizedAnnotationInfo:
-    """Store input and output for a single sized type."""
+    """Store input, output and size for a single sized type."""
 
     input: SizedSingleInputInfo | None = None
     output: SizedSingleOutputInfo | None = None
+    size: int = DEFAULT_INT_SIZE
 
 
 @dataclass()

@@ -4,11 +4,9 @@ import pytest
 from openqasm3.parser import parse
 
 from app.processing.io_info import (
-    BitIOInfo,
     CombinedIOInfo,
     QubitAnnotationInfo,
     QubitIOInfo,
-    RegAnnotationInfo,
     RegSingleInputInfo,
     RegSingleOutputInfo,
 )

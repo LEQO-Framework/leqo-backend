@@ -12,6 +12,7 @@ from openqasm3.ast import (
     Expression,
     Identifier,
     IndexExpression,
+    IntType,
     QASMNode,
     QubitDeclaration,
 )
@@ -23,6 +24,7 @@ from app.processing.io_info import (
 )
 from app.processing.pre.io_parser.bits import BitIOInfoBuilder
 from app.processing.pre.io_parser.qubits import QubitIOInfoBuilder
+from app.processing.pre.io_parser.sized_types import IntIOInfoBuilder
 from app.processing.utils import parse_io_annotation
 
 
@@ -35,6 +37,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     found_output_ids: set[int]
     qubit_builder: QubitIOInfoBuilder
     bit_builder: BitIOInfoBuilder
+    int_builder: IntIOInfoBuilder
 
     def __init__(self, io: CombinedIOInfo) -> None:
         """Construct the LeqoTransformer."""
@@ -45,6 +48,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self.found_output_ids = set()
         self.qubit_builder = QubitIOInfoBuilder(io.qubit)
         self.bit_builder = BitIOInfoBuilder(io.bit)
+        self.int_builder = IntIOInfoBuilder(io.int)
 
     def get_declaration_annotation_info(
         self,
@@ -172,6 +176,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         match node.type:
             case BitType():
                 self.bit_builder.handle_declaration(node, input_id)
+            case IntType():
+                self.int_builder.handle_declaration(node, input_id)
 
         return self.generic_visit(node)
 
@@ -198,6 +204,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 self.qubit_builder.handle_alias(node, output_id, reusable)
             case BitType():
                 self.bit_builder.handle_alias(node, output_id, reusable)
+            case IntType():
+                self.int_builder.handle_alias(node, output_id, reusable)
         return self.generic_visit(node)
 
     @staticmethod
@@ -215,4 +223,5 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self.raise_on_non_contiguous_range(self.found_output_ids, "output")
         self.qubit_builder.finish()
         self.bit_builder.finish()
+        self.int_builder.finish()
         return node
