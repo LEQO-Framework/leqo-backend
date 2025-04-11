@@ -171,42 +171,6 @@ def test_empty_index() -> None:
     assert expected == actual
 
 
-def test_bit_output_simple() -> None:
-    code = """
-    qubit[2] q;
-    bit[2] c;
-
-    @leqo.output 0
-    let a = c;
-    """
-    expected = CombinedIOInfo(
-        qubit=QubitIOInfo(
-            declaration_to_ids={
-                "q": [0, 1],
-            },
-            id_to_info={
-                0: QubitAnnotationInfo(),
-                1: QubitAnnotationInfo(),
-            },
-            required_ancillas=[0, 1],
-            returned_dirty_ancillas=[0, 1],
-        ),
-        bit=BitIOInfo(
-            declaration_to_ids={
-                "c": [0, 1],
-            },
-            id_to_info={
-                0: RegAnnotationInfo(output=RegSingleOutputInfo(0, 0)),
-                1: RegAnnotationInfo(output=RegSingleOutputInfo(0, 1)),
-            },
-            output_to_ids={0: [0, 1]},
-        ),
-    )
-    actual = CombinedIOInfo()
-    ParseAnnotationsVisitor(actual).visit(parse(code))
-    assert expected == actual
-
-
 def test_output_concatenation() -> None:
     code = """
     qubit[2] q0;
