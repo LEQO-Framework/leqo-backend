@@ -116,6 +116,7 @@ class QubitIOInfo:
     required_reusable_ids: QubitIDs = field(default_factory=list)
     required_dirty_ids: QubitIDs = field(default_factory=list)
     returned_reusable_ids: QubitIDs = field(default_factory=list)
+    returned_reusable_after_uncompute_ids: QubitIDs = field(default_factory=list)
     returned_dirty_ids: QubitIDs = field(default_factory=list)
 
 
