@@ -1,4 +1,27 @@
-"""Dataclasses for various types of io info."""
+"""Dataclasses for various types of io info.
+
+..Note:
+    'id' refers to an integer that an instance has in the code-snippet.
+    These are given based on declaration order.
+
+There are two main type groups:
+- register-bases (Reg) like qubit and bit
+    - one declaration/alias is a list of ids
+    - a single instance has no size
+- size-bases (Sized) like int, float and bool
+    - one declaration/alias has exactly on id
+    - each instance has a size
+- exception: bool has neither a size nor is stored in registers
+    - trait it as a size-bases with size = 1
+
+One type group consists of:
+- SingleInputInfo
+- SingleOutputInfo
+- AnnotationInfo
+- IOInfo
+
+CombinedIOInfo is a container for the others and will be stored in the section.
+"""
 
 from abc import ABC
 from dataclasses import dataclass, field
@@ -13,7 +36,7 @@ BOOL_SIZE = 1
 
 @dataclass()
 class RegSingleInputInfo:
-    """Store a single input info for a reg-stored type.
+    """Store a single input info for a reg-based type.
 
     :param input_index: index of the input
     :param reg_position: position in the register
@@ -25,7 +48,7 @@ class RegSingleInputInfo:
 
 @dataclass()
 class RegSingleOutputInfo:
-    """Store a single output info for a reg-stored type.
+    """Store a single output info for a reg-based type.
 
     :param output_index: index of the output
     :param reg_position: position in the register
@@ -48,14 +71,13 @@ AT = TypeVar("AT", bound=RegAnnotationInfo)
 
 @dataclass()
 class RegIOInfo(Generic[AT], ABC):
-    """Abstract class for IO info of types that are stored in registers.
-
-    For this purpose, every instance (not register) is given an id, based on declaration order.
-    Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.RegAnnotationInfo`.
+    """Abstract class for IOInfo of reg-based types.
 
     These types are currently:
     - Qubits
     - Bits
+
+    For this purpose, every instance (not register) is given an id, based on declaration order.
 
     :param declaration_to_ids: Maps declared instance names to list of IDs.
     :param id_to_info: Maps IDs to their corresponding info objects.
@@ -74,7 +96,7 @@ BitIOInfo = RegIOInfo[RegAnnotationInfo]
 
 @dataclass()
 class QubitAnnotationInfo(RegAnnotationInfo):
-    """Store input, output and reusable info for a single qubit."""
+    """Store input, output, reusable and dirty info for a single qubit."""
 
     reusable: bool = False
     dirty: bool = False
@@ -85,7 +107,6 @@ class QubitIOInfo(RegIOInfo[QubitAnnotationInfo]):
     """Store input, output, dirty and reusable info for qubits in a qasm-snippet.
 
     For this purpose, every qubit (not qubit-reg) is given an id, based on declaration order.
-    Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.QubitAnnotationInfo`.
     Warning: uncompute parse not inplemented yet.
 
     :param required_ancillas: Id list of required non-dirty ancillas.
@@ -128,12 +149,12 @@ class SizedAnnotationInfo:
 
     input: SizedSingleInputInfo | None = None
     output: SizedSingleOutputInfo | None = None
-    size: int = DEFAULT_INT_SIZE
+    size: int = 0
 
 
 @dataclass()
 class SizedIOInfo:
-    """Class for IO info of sized types.
+    """IOInfo of sized types.
 
     These types are currently:
     - Integers
@@ -150,19 +171,27 @@ class SizedIOInfo:
 
 
 class IntIOInfo(SizedIOInfo):
+    """IOInfo for int."""
+
     instance_type = IntType
 
 
 class FloatIOInfo(SizedIOInfo):
+    """IOInfo for float."""
+
     instance_type = FloatType
 
 
 class BoolIOInfo(SizedIOInfo):
+    """IOInfo for float."""
+
     instance_type = BoolType
 
 
 @dataclass()
 class CombinedIOInfo:
+    """Store IOInfo for qubit, bit, int, float and bool."""
+
     qubit: QubitIOInfo = field(default_factory=QubitIOInfo)
     bit: BitIOInfo = field(default_factory=BitIOInfo)
     int: IntIOInfo = field(default_factory=IntIOInfo)

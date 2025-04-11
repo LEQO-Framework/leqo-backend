@@ -1,3 +1,18 @@
+"""Parse CombinedIOInfo for a given code-snippet.
+
+Usage:
+.. code-block:: python
+    :linenos:
+
+    result = CombinedIOInfo()
+    ParseAnnotationsVisitor(result).visit(program)
+
+Idea:
+There is a builder for every type, storing seen ids and there info.
+Now the visitor visits declarations and aliases and calls the builder
+handle methods based on detected type.
+"""
+
 from __future__ import annotations
 
 from io import UnsupportedOperation
@@ -35,28 +50,33 @@ from app.processing.utils import parse_io_annotation
 
 
 class ParseAnnotationsVisitor(LeqoTransformer[None]):
-    """Parse input/output qubits of a single qasm-snippet."""
+    """Parse IOInfo of a single qasm-snippet."""
 
     io: CombinedIOInfo
-    identifier_to_type: dict[str, ClassicalType | QubitType]
-    found_input_ids: set[int]
-    found_output_ids: set[int]
-    qubit_builder: QubitIOInfoBuilder
-    bit_builder: BitIOInfoBuilder
-    int_builder: IntIOInfoBuilder
+    __identifier_to_type: dict[str, ClassicalType | QubitType]
+    __found_input_ids: set[int]
+    __found_output_ids: set[int]
+    __qubit_builder: QubitIOInfoBuilder
+    __bit_builder: BitIOInfoBuilder
+    __int_builder: IntIOInfoBuilder
+    __float_builder: FloatIOInfoBuilder
+    __bool_builder: BoolIOInfoBuilder
 
     def __init__(self, io: CombinedIOInfo) -> None:
-        """Construct the LeqoTransformer."""
+        """Construct the LeqoTransformer.
+
+        :param io: the CombinedIOInfo to be modified in-place.
+        """
         super().__init__()
         self.io = io
-        self.identifier_to_type = {}
-        self.found_input_ids = set()
-        self.found_output_ids = set()
-        self.qubit_builder = QubitIOInfoBuilder(io.qubit)
-        self.bit_builder = BitIOInfoBuilder(io.bit)
-        self.int_builder = IntIOInfoBuilder(io.int)
-        self.float_builder = FloatIOInfoBuilder(io.float)
-        self.bool_builder = BoolIOInfoBuilder(io.bool)
+        self.__identifier_to_type = {}
+        self.__found_input_ids = set()
+        self.__found_output_ids = set()
+        self.__qubit_builder = QubitIOInfoBuilder(io.qubit)
+        self.__bit_builder = BitIOInfoBuilder(io.bit)
+        self.__int_builder = IntIOInfoBuilder(io.int)
+        self.__float_builder = FloatIOInfoBuilder(io.float)
+        self.__bool_builder = BoolIOInfoBuilder(io.bool)
 
     def get_declaration_annotation_info(
         self,
@@ -132,7 +152,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self,
         value: Identifier | IndexExpression | Concatenation | Expression,
     ) -> Identifier:
-        """Recursively get type of alias expression."""
+        """Recursively get some identifier of the alias value.
+
+        Used to get the type of an alias.
+        """
         match value:
             case IndexExpression():
                 if not isinstance(value.collection, Identifier):
@@ -151,31 +174,34 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 raise NotImplementedError(msg)
 
     def update_input_id(self, input_id: int | None) -> None:
+        """Store input id in set, raise on duplicate."""
         if input_id is not None:
-            if input_id in self.found_input_ids:
+            if input_id in self.__found_input_ids:
                 msg = f"Unsupported: duplicate input id: {input_id}"
                 raise IndexError(msg)
-            self.found_input_ids.add(input_id)
+            self.__found_input_ids.add(input_id)
 
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
+        """Visit QubitDeclaration and call the qubit builder."""
         name = node.qubit.name
         input, dirty = self.get_declaration_annotation_info(
             name,
             node.annotations,
         )
         self.update_input_id(input)
-        self.identifier_to_type[name] = QubitType()
-        self.qubit_builder.handle_declaration(node, input, dirty)
+        self.__identifier_to_type[name] = QubitType()
+        self.__qubit_builder.handle_declaration(node, input, dirty)
         return self.generic_visit(node)
 
     def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
+        """Visit ClassicalDeclaration and call classical builder based on type."""
         name = node.identifier.name
         input_id, dirty = self.get_declaration_annotation_info(
             name,
             node.annotations,
         )
         self.update_input_id(input_id)
-        self.identifier_to_type[name] = node.type
+        self.__identifier_to_type[name] = node.type
 
         if dirty:
             msg = f"Unsupported: dirty annotation over non-qubit declaration {name}"
@@ -183,45 +209,45 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
         match node.type:
             case BitType():
-                self.bit_builder.handle_declaration(node, input_id)
+                self.__bit_builder.handle_declaration(node, input_id)
             case IntType():
-                self.int_builder.handle_declaration(node, input_id)
+                self.__int_builder.handle_declaration(node, input_id)
             case FloatType():
-                self.float_builder.handle_declaration(node, input_id)
+                self.__float_builder.handle_declaration(node, input_id)
             case BoolType():
-                self.bool_builder.handle_declaration(node, input_id)
+                self.__bool_builder.handle_declaration(node, input_id)
 
         return self.generic_visit(node)
 
     def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
-        """Parse qubit-alias and their corresponding output annotations."""
+        """Visit AliasStatement and call builder based on type."""
         name = node.target.name
         output_id, reusable = self.get_alias_annotation_info(
             name,
             node.annotations,
         )
         if output_id is not None:
-            if output_id in self.found_output_ids:
+            if output_id in self.__found_output_ids:
                 msg = f"Unsupported: duplicate output id: {output_id}"
                 raise IndexError(msg)
-            self.found_output_ids.add(output_id)
+            self.__found_output_ids.add(output_id)
 
-        found_type = self.identifier_to_type[
+        found_type = self.__identifier_to_type[
             self.get_some_identifier_from_alias(node.value).name
         ]
-        self.identifier_to_type[name] = found_type
+        self.__identifier_to_type[name] = found_type
 
         match found_type:
             case QubitType():
-                self.qubit_builder.handle_alias(node, output_id, reusable)
+                self.__qubit_builder.handle_alias(node, output_id, reusable)
             case BitType():
-                self.bit_builder.handle_alias(node, output_id, reusable)
+                self.__bit_builder.handle_alias(node, output_id, reusable)
             case IntType():
-                self.int_builder.handle_alias(node, output_id, reusable)
+                self.__int_builder.handle_alias(node, output_id, reusable)
             case FloatType():
-                self.float_builder.handle_alias(node, output_id, reusable)
+                self.__float_builder.handle_alias(node, output_id, reusable)
             case BoolType():
-                self.bool_builder.handle_alias(node, output_id, reusable)
+                self.__bool_builder.handle_alias(node, output_id, reusable)
         return self.generic_visit(node)
 
     @staticmethod
@@ -234,12 +260,18 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise IndexError(msg)
 
     def visit_Program(self, node: QASMNode) -> QASMNode:
+        """Process the whole snippet.
+
+        1. Apply the visitor to the whole AST
+        2. Check for missing input/output indexes
+        3. call builder finish methods
+        """
         node = self.generic_visit(node)
-        self.raise_on_non_contiguous_range(self.found_input_ids, "input")
-        self.raise_on_non_contiguous_range(self.found_output_ids, "output")
-        self.qubit_builder.finish()
-        self.bit_builder.finish()
-        self.int_builder.finish()
-        self.float_builder.finish()
-        self.bool_builder.finish()
+        self.raise_on_non_contiguous_range(self.__found_input_ids, "input")
+        self.raise_on_non_contiguous_range(self.__found_output_ids, "output")
+        self.__qubit_builder.finish()
+        self.__bit_builder.finish()
+        self.__int_builder.finish()
+        self.__float_builder.finish()
+        self.__bool_builder.finish()
         return node

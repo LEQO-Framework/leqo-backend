@@ -1,3 +1,9 @@
+"""Builder for the bit type.
+
+Not much happening here, mostly calling helper methods from RegIOInfoBuilder
+to populate the IOInfo with input/output.
+"""
+
 from __future__ import annotations
 
 from io import UnsupportedOperation

@@ -1,3 +1,11 @@
+"""Builder for the qubit type.
+
+Mostly calling helper methods from RegIOInfoBuilder to populate the IOInfo with input/output.
+The interesting part is the management of reusable and dirty:
+- Check for good usage in combination with input/output
+- Get remaining non-dirty + non-output qubits at the end
+"""
+
 from __future__ import annotations
 
 from io import UnsupportedOperation

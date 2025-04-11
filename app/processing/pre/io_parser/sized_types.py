@@ -1,3 +1,8 @@
+"""One generic builder for the sized types and children for the concrete ones.
+
+Almost like the bit builder but without the additional overhead of many ids per declaration/alias.
+"""
+
 from __future__ import annotations
 
 from io import UnsupportedOperation
