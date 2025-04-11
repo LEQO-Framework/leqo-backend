@@ -50,29 +50,21 @@ class IOInfoBuilder(Generic[T], ABC):
 
 
 class RegIOInfoBuilder(Generic[RT], IOInfoBuilder[RT], ABC):
-    next_id: int
+    __next_id: int
+    __stored_alias_ids: dict[str, list[int]]
     io: RT
-    alias_to_ids: dict[str, list[int]]
 
     def __init__(self, io: RT) -> None:
-        self.next_id = 0
+        self.__next_id = 0
+        self.__stored_alias_ids = {}
         self.io = io
-        self.alias_to_ids = {}
 
-    def identifier_to_ids(self, identifier: str) -> list[int] | None:
+    def __identifier_to_ids(self, identifier: str) -> list[int] | None:
         """Get ids via declaration_to_ids or alias_to_ids."""
         result = self.io.declaration_to_ids.get(identifier)
-        return self.alias_to_ids.get(identifier) if result is None else result
+        return self.__stored_alias_ids.get(identifier) if result is None else result
 
-    def declaration_size_to_ids(self, size: Expression | None) -> list[int]:
-        reg_size = expr_to_int(size) if size is not None else 1
-        result = []
-        for _ in range(reg_size):
-            result.append(self.next_id)
-            self.next_id += 1
-        return result
-
-    def alias_expr_to_ids(
+    def __rec_alias_expr_to_ids(
         self,
         value: Identifier | IndexExpression | Concatenation | Expression,
     ) -> list[int] | None:
@@ -83,16 +75,16 @@ class RegIOInfoBuilder(Generic[RT], IOInfoBuilder[RT], ABC):
                 if not isinstance(collection, Identifier):
                     msg = f"Unsupported expression in alias: {type(collection)}"
                     raise TypeError(msg)
-                source = self.identifier_to_ids(collection.name)
+                source = self.__identifier_to_ids(collection.name)
                 if source is None:
                     return None
                 indices = parse_qasm_index([value.index], len(source))
                 return [source[i] for i in indices]
             case Identifier():
-                return self.identifier_to_ids(value.name)
+                return self.__identifier_to_ids(value.name)
             case Concatenation():
-                lhs = self.alias_expr_to_ids(value.lhs)
-                rhs = self.alias_expr_to_ids(value.rhs)
+                lhs = self.__rec_alias_expr_to_ids(value.lhs)
+                rhs = self.__rec_alias_expr_to_ids(value.rhs)
                 if lhs is None or rhs is None:
                     return None
                 return lhs + rhs
@@ -102,3 +94,22 @@ class RegIOInfoBuilder(Generic[RT], IOInfoBuilder[RT], ABC):
             case _:
                 msg = f"{type(value)} is not implemented as alias expression"
                 raise NotImplementedError(msg)
+
+    def declaration_size_to_ids(self, size: Expression | None) -> list[int]:
+        reg_size = expr_to_int(size) if size is not None else 1
+        result = []
+        for _ in range(reg_size):
+            result.append(self.__next_id)
+            self.__next_id += 1
+        return result
+
+    def alias_to_ids(
+        self,
+        alias: AliasStatement,
+    ) -> list[int]:
+        result = self.__rec_alias_expr_to_ids(alias.value)
+        if result is None or len(result) == 0:
+            msg = f"Unable to resolve IDs of alias {alias}"
+            raise RuntimeError(msg)
+        self.__stored_alias_ids[alias.target.name] = result
+        return result

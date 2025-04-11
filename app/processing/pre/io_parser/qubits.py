@@ -58,15 +58,8 @@ class QubitIOInfoBuilder(RegIOInfoBuilder[QubitIOInfo]):
         reusable: bool,
     ) -> None:
         name = alias.target.name
+        qubit_ids = self.alias_to_ids(alias)
 
-        qubit_ids = self.alias_expr_to_ids(alias.value)
-        if qubit_ids is None:
-            return
-        if len(qubit_ids) == 0:
-            msg = f"Unable to resolve IDs of alias {alias}"
-            raise RuntimeError(msg)
-
-        self.alias_to_ids[name] = qubit_ids
         if output_id is not None:
             self.io.output_to_ids[output_id] = qubit_ids
 

@@ -61,14 +61,8 @@ class BitIOInfoBuilder(RegIOInfoBuilder[BitIOInfo]):
             )
             raise UnsupportedOperation(msg)
 
-        bit_ids = self.alias_expr_to_ids(alias.value)
-        if bit_ids is None:
-            return
-        if len(bit_ids) == 0:
-            msg = f"Unable to resolve IDs of alias {alias}"
-            raise RuntimeError(msg)
+        bit_ids = self.alias_to_ids(alias)
 
-        self.alias_to_ids[name] = bit_ids
         if output_id is not None:
             self.io.output_to_ids[output_id] = bit_ids
 
