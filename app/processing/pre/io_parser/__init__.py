@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from io import UnsupportedOperation
 
 from openqasm3.ast import (

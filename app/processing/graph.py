@@ -30,7 +30,7 @@ class SectionInfo:
     id: UUID
     io: CombinedIOInfo
 
-    def __init__(self, uuid: UUID | None = None, io_info: IOInfo | None = None) -> None:
+    def __init__(self, uuid: UUID | None = None, io_info: CombinedIOInfo | None = None) -> None:
         self.id = uuid4() if uuid is None else uuid
         self.io = CombinedIOInfo() if io_info is None else io_info
 
