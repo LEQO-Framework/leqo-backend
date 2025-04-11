@@ -8,6 +8,7 @@ dependencies = [
     "fastapi[standard]>=0.115.8",
     "networkx>=3.4.2",
     "openqasm3[parser]>=1.0.1",
+    "pytest-cov>=6.1.1",
 ]
 
 [dependency-groups]
