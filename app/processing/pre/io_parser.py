@@ -277,6 +277,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             if input_id in self.__found_input_ids:
                 msg = f"Unsupported: duplicate input id: {input_id}"
                 raise IndexError(msg)
+            if self.__in_uncompute:
+                msg = f"Unsupported: input declaration over {info.name} in uncompute block"
+                raise UnsupportedOperation(msg)
             self.__found_input_ids.add(input_id)
             self.io.inputs[input_id] = info
 
