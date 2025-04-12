@@ -540,6 +540,25 @@ def test_raise_on_output_in_uncompute() -> None:
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
 
+def test_raise_on_else_in_uncompute() -> None:
+    code = """
+    qubit[2] q;
+
+    @leqo.uncompute
+    if (false) {
+        @leqo.reusable
+        let a = q;
+    } else {
+        let a = q;
+    }
+    """
+    with pytest.raises(
+        UnsupportedOperation,
+        match="Unsupported: uncompute-annotated if-else-block has else-block",
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
 def test_raise_on_duplicate_declaration_annotation() -> None:
     code = """
     @leqo.input 0

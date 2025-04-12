@@ -314,6 +314,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         return self.generic_visit(node)
 
     def visit_BranchingStatement(self, node: BranchingStatement) -> QASMNode:
+        """Parse if-else-block and their corresponding uncompute annotations."""
         uncompute = self.get_branching_annotation_info(node.annotations)
         if not uncompute:
             return self.generic_visit(node)
@@ -322,6 +323,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise UnsupportedOperation(msg)
         if not isinstance(node.condition, BooleanLiteral) or node.condition.value:
             msg = f"Unsupported: invalid expression in uncompute-annotated if-else-block: {node.condition}"
+            raise UnsupportedOperation(msg)
+        if len(node.else_block) > 0:
+            msg = "Unsupported: uncompute-annotated if-else-block has else-block"
             raise UnsupportedOperation(msg)
         self.__in_uncompute = True
         result = self.generic_visit(node)
