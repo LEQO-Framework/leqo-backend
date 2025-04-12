@@ -1,6 +1,7 @@
 services:
   leqo-backend:
     image: ghcr.io/leqo-framework/leqo-backend:main
+    env_file: ".env"
     ports:
       - "8000:80"
   postgres:
