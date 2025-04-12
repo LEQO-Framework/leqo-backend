@@ -100,16 +100,104 @@ class DummyAlgo(AlgoPerf):
         return super().compute()
 
 
-class NoPredWithSimpleHeuristik(AlgoPerf):
+class NoPredDummy(AlgoPerf):
+    reusable: list[ProcessedProgramNode]
+    dirty: list[ProcessedProgramNode]
+    nopred: list[ProcessedProgramNode]
+
+    def __init__(self, graph: ProgramGraph) -> None:
+        super().__init__(graph)
+        self.reusable = []
+        self.dirty = []
+        self.nopred = [
+            self.graph.get_data_node(n)
+            for n, pred in self.graph.pred.items()
+            if not pred
+        ]
+
+    def remove_node(self, node: ProcessedProgramNode) -> list[ProcessedProgramNode]:
+        result: list[ProcessedProgramNode] = []
+        succs = list(self.graph.successors(node.raw))
+        for succ in succs:
+            self.graph.remove_edge(node.raw, succ)
+            if not self.graph.pred[succ]:
+                result.append(self.graph.get_data_node(succ))
+        return result
+
+    def get_and_remove_next_nopred(self) -> ProcessedProgramNode:
+        return self.nopred.pop()
+
     @override
     def compute(self) -> int:
+        while len(self.nopred) > 0:
+            node = self.get_and_remove_next_nopred()
+            self.nopred.extend(self.remove_node(node))
+
+            need_dirty = node.info.io.qubits.required_dirty_ids
+            while len(need_dirty) > 0 and len(self.dirty) > 0:
+                source = self.dirty[0]
+                possible_source_ids = source.info.io.qubits.returned_dirty_ids
+                size = min(len(need_dirty), len(possible_source_ids))
+                target_ids = need_dirty[:size]
+                need_dirty = need_dirty[size:]
+                source_ids = possible_source_ids[:size]
+                possible_source_ids = possible_source_ids[size:]
+                self.add_edge(
+                    AncillaConnection(
+                        (source.raw, source_ids),
+                        (node.raw, target_ids),
+                    ),
+                )
+                if len(possible_source_ids) == 0:
+                    self.dirty.remove(source)
+
+            need_reusable = node.info.io.qubits.required_reusable_ids
+            while len(need_reusable) > 0 and len(self.reusable) > 0:
+                source = self.reusable[0]
+                possible_source_ids = source.info.io.qubits.returned_reusable_ids
+                size = min(len(need_reusable), len(possible_source_ids))
+                target_ids = need_reusable[:size]
+                need_reusable = need_reusable[size:]
+                source_ids = possible_source_ids[:size]
+                possible_source_ids = possible_source_ids[size:]
+                self.add_edge(
+                    AncillaConnection(
+                        (source.raw, source_ids),
+                        (node.raw, target_ids),
+                    ),
+                )
+                if len(possible_source_ids) == 0:
+                    self.reusable.remove(source)
+
+            returned_dirty = node.info.io.qubits.returned_dirty_ids
+            returned_reusable = node.info.io.qubits.returned_reusable_ids
+            returned_uncompute = (
+                node.info.io.qubits.returned_reusable_after_uncompute_ids
+            )
+            if len(returned_dirty) > 0:
+                self.dirty.append(node)
+            if len(returned_reusable) > 0:
+                self.reusable.append(node)
+
         return super().compute()
+
+
+class NoPredSimple(NoPredDummy):
+    @override
+    def get_and_remove_next_nopred(self) -> ProcessedProgramNode:
+        self.nopred.sort(
+            key=lambda x: len(x.info.io.qubits.returned_reusable_ids),
+            reverse=True,
+        )
+        result, self.nopred = self.nopred[0], self.nopred[1:]
+        return result
 
 
 def main() -> None:
     contenders: dict[type[AlgoPerf], int] = {
         DummyAlgo: 0,
-        NoPredWithSimpleHeuristik: 0,
+        NoPredDummy: 0,
+        NoPredSimple: 0,
     }
     for _ in range(100):
         graph = random_graph(50)
