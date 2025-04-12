@@ -243,12 +243,130 @@ class NoPredRequiredReusable(NoPredDummy):
         return result
 
 
+class NoSuccDummy(AlgoPerf):
+    reusable: list[ProcessedProgramNode]
+    dirty: list[ProcessedProgramNode]
+    nosucc: list[ProcessedProgramNode]
+
+    def __init__(self, graph: ProgramGraph) -> None:
+        super().__init__(graph)
+        self.reusable = []
+        self.dirty = []
+        self.nosucc = [
+            self.graph.get_data_node(n)
+            for n, succ in self.graph.succ.items()
+            if not succ
+        ]
+
+    def remove_node(self, node: ProcessedProgramNode) -> list[ProcessedProgramNode]:
+        result: list[ProcessedProgramNode] = []
+        preds = list(self.graph.predecessors(node.raw))
+        for pred in preds:
+            self.graph.remove_edge(pred, node.raw)
+            if not self.graph.succ[pred]:
+                result.append(self.graph.get_data_node(pred))
+        return result
+
+    def get_and_remove_next_nosucc(self) -> ProcessedProgramNode:
+        return self.nosucc.pop()
+
+    @override
+    def compute(self) -> tuple[int, int]:
+        while len(self.nosucc) > 0:
+            node = self.get_and_remove_next_nosucc()
+            self.nosucc.extend(self.remove_node(node))
+
+            got_dirty = node.info.io.qubits.returned_dirty_ids
+            while len(got_dirty) > 0 and len(self.dirty) > 0:
+                target = self.dirty[0]
+                possible_target_ids = target.info.io.qubits.required_dirty_ids
+                size = min(len(got_dirty), len(possible_target_ids))
+                source_ids = got_dirty[:size]
+                got_dirty = got_dirty[size:]
+                target_ids = possible_target_ids[:size]
+                possible_target_ids = possible_target_ids[size:]
+                self.add_edge(
+                    AncillaConnection(
+                        (node.raw, source_ids),
+                        (target.raw, target_ids),
+                    ),
+                )
+                if len(possible_target_ids) == 0:
+                    self.dirty.remove(target)
+
+            got_uncomputable = node.info.io.qubits.returned_reusable_after_uncompute_ids
+            while len(got_uncomputable) > 0 and len(self.dirty) > 0:
+                target = self.dirty[0]
+                possible_target_ids = target.info.io.qubits.required_dirty_ids
+                size = min(len(got_uncomputable), len(possible_target_ids))
+                source_ids = got_uncomputable[:size]
+                got_uncomputable = got_uncomputable[size:]
+                target_ids = possible_target_ids[:size]
+                possible_target_ids = possible_target_ids[size:]
+                self.add_edge(
+                    AncillaConnection(
+                        (node.raw, source_ids),
+                        (target.raw, target_ids),
+                    ),
+                )
+                if len(possible_target_ids) == 0:
+                    self.dirty.remove(target)
+
+            got_reusable = node.info.io.qubits.returned_reusable_ids
+            while len(self.reusable) > 0 and (
+                len(got_reusable) > 0 or len(got_uncomputable)
+            ):
+                while len(got_reusable) > 0 and len(self.reusable) > 0:
+                    target = self.reusable[0]
+                    possible_target_ids = target.info.io.qubits.required_reusable_ids
+                    size = min(len(got_reusable), len(possible_target_ids))
+                    source_ids = got_reusable[:size]
+                    got_reusable = got_reusable[size:]
+                    target_ids = possible_target_ids[:size]
+                    possible_target_ids = possible_target_ids[size:]
+                    self.add_edge(
+                        AncillaConnection(
+                            (node.raw, source_ids),
+                            (target.raw, target_ids),
+                        ),
+                    )
+                    if len(possible_target_ids) == 0:
+                        self.reusable.remove(target)
+
+                if len(got_uncomputable) > 0 and len(self.reusable) > 0:
+                    self.uncompute_node(node)
+                    got_reusable = got_uncomputable
+                    got_uncomputable = []
+
+            required_dirty = node.info.io.qubits.required_dirty_ids
+            required_reusable = node.info.io.qubits.required_reusable_ids
+            if len(required_dirty) > 0:
+                self.dirty.append(node)
+            if len(required_reusable) > 0:
+                self.reusable.append(node)
+
+        return super().compute()
+
+
+class NoSuccRequiredReusable(NoSuccDummy):
+    @override
+    def get_and_remove_next_nosucc(self) -> ProcessedProgramNode:
+        self.nosucc.sort(
+            key=lambda x: len(x.info.io.qubits.required_reusable_ids),
+            reverse=True,
+        )
+        result, self.nosucc = self.nosucc[0], self.nosucc[1:]
+        return result
+
+
 def main() -> None:
     contenders: dict[type[AlgoPerf], tuple[int, int]] = {
         DummyAlgo: (0, 0),
         NoPredDummy: (0, 0),
         NoPredReturnedReusable: (0, 0),
         NoPredRequiredReusable: (0, 0),
+        NoSuccDummy: (0, 0),
+        NoSuccRequiredReusable: (0, 0),
     }
     for _ in range(100):
         graph = random_graph(50)
