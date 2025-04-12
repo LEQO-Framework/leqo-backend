@@ -236,6 +236,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         """Parse qubit-alias and their corresponding output annotations."""
         name = node.target.name
         info = self.__alias_expr_to_new_info(name, node.value)
+        if info is None:
+            return self.generic_visit(node)
 
         output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
         if output_id is not None:

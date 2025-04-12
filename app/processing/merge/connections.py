@@ -89,10 +89,15 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         return result
 
     def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
-        return AliasStatement(
+        name = node.identifier.name
+        if name not in self.classical_declaration_to_alias:
+            return self.generic_visit(node)
+        result = AliasStatement(
             node.identifier,
-            Identifier(self.classical_declaration_to_alias[node.identifier.name]),
+            Identifier(self.classical_declaration_to_alias[name]),
         )
+        result.annotations = node.annotations
+        return result
 
 
 class Connections:
@@ -164,6 +169,14 @@ class Connections:
 
                 output {output.name} has size {output.size}
                 input {input.name} has size {input.size}
+                """)
+            raise UnsupportedOperation(msg)
+        if input.name in self.classical_declaration_to_alias:
+            msg = dedent(f"""
+                Unsupported: Multiply inputs into classical
+
+                Both {self.classical_declaration_to_alias[input.name]} and {output.name}
+                are input to {input.name} but only one is allowed.
                 """)
             raise UnsupportedOperation(msg)
         self.classical_declaration_to_alias[input.name] = output.name

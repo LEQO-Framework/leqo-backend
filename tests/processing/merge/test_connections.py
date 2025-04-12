@@ -180,6 +180,75 @@ def test_io_ancilla_connection_mix() -> None:
     assert_connections(inputs, expected, io_connections, ancilla_connections)
 
 
+def test_classical_simple() -> None:
+    inputs = [
+        """
+        int c0_i0;
+        @leqo.output 0
+        let _out = c0_i0;
+        """,
+        """
+        @leqo.input 0
+        int c1_i0;
+        """,
+    ]
+    io_connections = [((0, 0), (1, 0))]
+    expected = [
+        """
+        int c0_i0;
+        @leqo.output 0
+        let _out = c0_i0;
+        """,
+        """
+        @leqo.input 0
+        let c1_i0 = _out;
+        """,
+    ]
+    assert_connections(inputs, expected, io_connections)
+
+
+def test_classical_one_output_to_two_inputs() -> None:
+    inputs = [
+        """
+        bit[16] c0_c0;
+        @leqo.output 0
+        let _out0 = c0_c0[0:3];
+        @leqo.output 1
+        let _out1 = c0_c0[4:7];
+        """,
+        """
+        @leqo.input 0
+        bit[4] c1_c0;
+        """,
+        """
+        @leqo.input 0
+        bit[4] c2_c0;
+        """,
+    ]
+    io_connections = [
+        ((0, 0), (1, 0)),
+        ((0, 1), (2, 0)),
+    ]
+    expected = [
+        """
+        bit[16] c0_c0;
+        @leqo.output 0
+        let _out0 = c0_c0[0:3];
+        @leqo.output 1
+        let _out1 = c0_c0[4:7];
+        """,
+        """
+        @leqo.input 0
+        let c1_c0 = _out0;
+        """,
+        """
+        @leqo.input 0
+        let c2_c0 = _out1;
+        """,
+    ]
+    assert_connections(inputs, expected, io_connections)
+
+
 def test_one_output_to_two_inputs() -> None:
     inputs = [
         """
@@ -304,10 +373,13 @@ def test_complex() -> None:
     inputs = [
         """
         qubit[6] c0_q0;
+        int c0_i0;
         @leqo.output 0
         let _out_c0_0 = c0_q0[0:1];
         @leqo.output 1
         let _out_c0_1 = c0_q0[2:3];
+        @leqo.output 2
+        let _out_c0_2 = c0_i0;
         """,
         """
         @leqo.input 0
@@ -321,12 +393,15 @@ def test_complex() -> None:
         qubit[2] c2_q0;
         @leqo.input 1
         qubit[2] c2_q1;
+        @leqo.input 2
+        int c2_i0;
         qubit c2_q2;
         """,
     ]
     io_connections = [
         ((0, 0), (1, 0)),
         ((0, 1), (2, 0)),
+        ((0, 2), (2, 2)),
         ((1, 0), (2, 1)),
     ]
     ancilla_connections = [
@@ -336,10 +411,13 @@ def test_complex() -> None:
     expected = [
         """
         let c0_q0 = leqo_reg[{0, 1, 2, 3, 4, 5}];
+        int c0_i0;
         @leqo.output 0
         let _out_c0_0 = c0_q0[0:1];
         @leqo.output 1
         let _out_c0_1 = c0_q0[2:3];
+        @leqo.output 2
+        let _out_c0_2 = c0_i0;
         """,
         """
         @leqo.input 0
@@ -353,13 +431,15 @@ def test_complex() -> None:
         let c2_q0 = leqo_reg[{2, 3}];
         @leqo.input 1
         let c2_q1 = leqo_reg[{0, 4}];
+        @leqo.input 2
+        let c2_i0 = _out_c0_2;
         let c2_q2 = leqo_reg[{5}];
         """,
     ]
     assert_connections(inputs, expected, io_connections, ancilla_connections)
 
 
-def test_raise_on_mismatched_connection_size() -> None:
+def test_raise_on_mismatched_qubit_size() -> None:
     inputs = [
         """
         qubit[1] c0_q0;
@@ -377,6 +457,72 @@ def test_raise_on_mismatched_connection_size() -> None:
     with pytest.raises(
         UnsupportedOperation,
         match="\nUnsupported: Mismatched sizes in IOConnection of type qubits-register\n\noutput _out has size 1\ninput c1_q0 has size 100\n",
+    ):
+        assert_connections(inputs, [], connections)
+
+
+def test_raise_on_classical_to_qubit() -> None:
+    inputs = [
+        """
+        qubit[8] c0_q0;
+        @leqo.output 0
+        let _out = c0_q0;
+        """,
+        """
+        @leqo.input 0
+        bit[8] c1_c0;
+        """,
+    ]
+    connections: list[tuple[tuple[int, int], tuple[int, int]]] = [
+        ((0, 0), (1, 0)),
+    ]
+    with pytest.raises(
+        UnsupportedOperation,
+        match="\nUnsupported: Try to connect qubit with classical\n\nIndex 0 from 1 tries to\nconnect to index 0 from 1\n",
+    ):
+        assert_connections(inputs, [], connections)
+
+
+def test_raise_on_mismatched_classic_type() -> None:
+    inputs = [
+        """
+        int c0_i0;
+        @leqo.output 0
+        let _out = c0_i0;
+        """,
+        """
+        @leqo.input 0
+        bool c1_b0;
+        """,
+    ]
+    connections: list[tuple[tuple[int, int], tuple[int, int]]] = [
+        ((0, 0), (1, 0)),
+    ]
+    with pytest.raises(
+        UnsupportedOperation,
+        match="\nUnsupported: Mismatched types in IOConnection\n\noutput _out has type <class 'openqasm3.ast.IntType'>\ninput c1_b0 has type <class 'openqasm3.ast.BoolType'>\n",
+    ):
+        assert_connections(inputs, [], connections)
+
+
+def test_raise_on_mismatched_classic_size() -> None:
+    inputs = [
+        """
+        int[16] c0_i0;
+        @leqo.output 0
+        let _out = c0_i0;
+        """,
+        """
+        @leqo.input 0
+        int[32] c1_i0;
+        """,
+    ]
+    connections: list[tuple[tuple[int, int], tuple[int, int]]] = [
+        ((0, 0), (1, 0)),
+    ]
+    with pytest.raises(
+        UnsupportedOperation,
+        match="\nUnsupported: Mismatched sizes in IOConnection of type 16\n\noutput _out has size 16\ninput c1_i0 has size 32\n",
     ):
         assert_connections(inputs, [], connections)
 
