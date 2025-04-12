@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from networkx import DiGraph
-from openqasm3.ast import ClassicalType, Program
+from openqasm3.ast import Program
 
 
 @dataclass(frozen=True)

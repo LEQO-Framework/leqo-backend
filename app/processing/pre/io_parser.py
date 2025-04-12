@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import copy
 from io import UnsupportedOperation
 from itertools import chain
 
@@ -118,10 +119,11 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise UnsupportedOperation(msg)
         return (output_id, reusable)
 
-    def alias_expr_to_name_or_ids(
+    def __alias_expr_to_new_info(
         self,
+        name: str,
         value: Identifier | IndexExpression | Concatenation | Expression,
-    ) -> str | list[int] | None:
+    ) -> QubitIOInstance | ClassicalIOInstance | None:
         match value:
             case IndexExpression():
                 collection = value.collection
@@ -135,23 +137,35 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     case QubitIOInstance():
                         qubit_ids = source.ids
                         indices = parse_qasm_index([value.index], len(qubit_ids))
-                        return [source.ids[i] for i in indices]
+                        return QubitIOInstance(name, [source.ids[i] for i in indices])
                     case ClassicalIOInstance():
-                        return source.name
+                        if source.type == BitType:
+                            return ClassicalIOInstance(
+                                name,
+                                BitType,
+                                len(
+                                    parse_qasm_index([value.index], source.size),
+                                ),
+                            )
+                        return copy(source)
             case Identifier():
-                source = self.__name_to_info.get(value.name)
-                match source:
-                    case None:
-                        return None
-                    case QubitIOInstance():
-                        return source.ids
-                    case ClassicalIOInstance():
-                        return source.name
+                info = copy(self.__name_to_info.get(value.name))
+                if info is not None:
+                    info.name = name
+                return info
             case Concatenation():
-                lhs = self.alias_expr_to_name_or_ids(value.lhs)
-                rhs = self.alias_expr_to_name_or_ids(value.rhs)
-                if isinstance(lhs, list) and isinstance(rhs, list):
-                    return lhs + rhs
+                lhs = self.__alias_expr_to_new_info(name, value.lhs)
+                rhs = self.__alias_expr_to_new_info(name, value.rhs)
+                match lhs, rhs:
+                    case QubitIOInstance(ids=li), QubitIOInstance(ids=ri):
+                        return QubitIOInstance(name, li + ri)
+                    case ClassicalIOInstance(), ClassicalIOInstance():
+                        if lhs.type == rhs.type == BitType:
+                            return ClassicalIOInstance(
+                                name,
+                                BitType,
+                                lhs.size + rhs.size,
+                            )
                 return None
             case Expression():
                 msg = f"Unsupported expression in alias: {type(value)}"
@@ -221,23 +235,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
         """Parse qubit-alias and their corresponding output annotations."""
         name = node.target.name
-
-        source = self.alias_expr_to_name_or_ids(node.value)
-        info: QubitIOInstance | ClassicalIOInstance
-        match source:
-            case None:  # non-qubit in alias expression (classic)
-                return self.generic_visit(node)
-            case []:
-                msg = f"Failed to parse alias statement {node}"
-                raise RuntimeError(msg)
-            case str():
-                source_info = self.__name_to_info[source]
-                if not isinstance(source_info, ClassicalIOInstance):
-                    msg = f"Should not be possible: {source} is not classical."
-                    raise RuntimeError(msg)
-                info = ClassicalIOInstance(name, source_info.type, source_info.size)
-            case list():
-                info = QubitIOInstance(name, source)
+        info = self.__alias_expr_to_new_info(name, node.value)
 
         output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
         if output_id is not None:

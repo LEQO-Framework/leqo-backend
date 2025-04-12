@@ -1,10 +1,9 @@
 from io import UnsupportedOperation
 
 import pytest
-from openqasm3.ast import BitType, BoolType, IntegerLiteral, IntType
+from openqasm3.ast import BitType, BoolType, IntType
 from openqasm3.parser import parse
 
-from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     ClassicalIOInstance,
     IOInfo,
@@ -263,22 +262,23 @@ def test_input_index_weird_order() -> None:
 def test_classical() -> None:
     code = """
     @leqo.input 0
-    bit[4] c;
+    bit[4] c0;
     @leqo.input 1
     int i;
     @leqo.input 2
     bool b;
+    bit[8] c1;
 
     @leqo.output 0
-    let out = c[0:1];
+    let out = c0[0:1] ++ c1[7:-2:0];
     """
     expected = IOInfo(
         inputs={
-            0: ClassicalIOInstance("c", BitType, 4),
+            0: ClassicalIOInstance("c0", BitType, 4),
             1: ClassicalIOInstance("i", IntType, 32),
             2: ClassicalIOInstance("b", BoolType, 1),
         },
-        outputs={0: ClassicalIOInstance("out", BitType, 2)},
+        outputs={0: ClassicalIOInstance("out", BitType, 6)},
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -291,6 +291,8 @@ def test_all() -> None:
     qubit[5] q0;
     @leqo.input 1
     qubit[5] q1;
+    @leqo.input 2
+    int i;
     @leqo.dirty
     qubit q2;
 
@@ -300,6 +302,8 @@ def test_all() -> None:
     let _out0 = q0[0] ++ q1[0];
     @leqo.output 1
     let _out1 = q0[1] ++ a[1]; // a[1] == q1[3]
+    @leqo.output 2
+    let _out2 = i;
 
     @leqo.reusable
     let _reuse = q0[2:4];
@@ -318,10 +322,12 @@ def test_all() -> None:
         inputs={
             0: QubitIOInstance("q0", [0, 1, 2, 3, 4]),
             1: QubitIOInstance("q1", [5, 6, 7, 8, 9]),
+            2: ClassicalIOInstance("i", IntType, 32),
         },
         outputs={
             0: QubitIOInstance("_out0", [0, 5]),
             1: QubitIOInstance("_out1", [1, 8]),
+            2: ClassicalIOInstance("_out2", IntType, 32),
         },
     )
     actual = IOInfo()
