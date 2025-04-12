@@ -119,7 +119,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise UnsupportedOperation(msg)
         return (output_id, reusable)
 
-    def __alias_expr_to_new_info(
+    def __alias_expr_to_new_info(  # noqa: PLR0911, PLR0912
         self,
         name: str,
         value: Identifier | IndexExpression | Concatenation | Expression,

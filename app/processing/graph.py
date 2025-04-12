@@ -1,4 +1,6 @@
-"""Basic program graph used withing the :mod:`app.processing`."""
+"""
+Basic program graph used withing the :mod:`app.processing`.
+"""
 
 from __future__ import annotations
 
