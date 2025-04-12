@@ -214,7 +214,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
         return self.generic_visit(node)
 
-    def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
+    def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:  # noqa: PLR0912
         """Parse classical-declarations and their corresponding input annotations."""
         name = node.identifier.name
         input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
