@@ -126,25 +126,24 @@ class AlgoPerf(ABC):
     graph: ProgramGraph
     added_edges: list[AncillaConnection]
     uncomputed: dict[ProgramNode, bool]
-    performance: int
 
     def __init__(self, graph: ProgramGraph) -> None:
         self.graph = graph
         self.added_edges = []
         self.uncomputed = {n: False for n in self.graph.nodes()}
-        self.performance = 0
 
     def add_edge(self, edge: AncillaConnection) -> None:
         self.graph.append_edge(edge)
         self.added_edges.append(edge)
-        self.performance += len(edge.source)
 
     def uncompute_node(self, node: ProcessedProgramNode) -> None:
         self.uncomputed[node.raw] = True
 
     @abstractmethod
     def compute(self) -> tuple[int, int]:
-        return self.performance, len([k for k, v in self.uncomputed.items() if v])
+        return sum([len(ac.source[1]) for ac in self.added_edges]), len(
+            [k for k, v in self.uncomputed.items() if v],
+        )
 
 
 class DummyAlgo(AlgoPerf):
@@ -429,17 +428,17 @@ def main() -> None:
         NoSuccRequiredReusable: (0, 0),
     }
     for _ in range(100):
-        graph = random_graph(2)
-        # for algo, cur in contenders.items():
-        #     instance = algo(deepcopy(graph))
-        #     perf, uncomputed = instance.compute()
-        #     contenders[algo] = cur[0] + perf, cur[1] + uncomputed
-        nopred = NoPredRequiredReusable(deepcopy(graph))
-        nosucc = NoSuccRequiredReusable(deepcopy(graph))
-        pc, pu = nopred.compute()
-        sc, su = nosucc.compute()
-        if pc > sc:
-            breakpoint()
+        graph = random_graph(3)
+        for algo, cur in contenders.items():
+            instance = algo(deepcopy(graph))
+            perf, uncomputed = instance.compute()
+            contenders[algo] = cur[0] + perf, cur[1] + uncomputed
+        # nopred = NoPredRequiredReusable(deepcopy(graph))
+        # nosucc = NoSuccRequiredReusable(deepcopy(graph))
+        # pc, pu = nopred.compute()
+        # sc, su = nosucc.compute()
+        # if pc > sc:
+        #     breakpoint()
 
     for algo, perf_uncomp in sorted(
         contenders.items(),
