@@ -1,3 +1,4 @@
+import re
 from io import UnsupportedOperation
 
 import pytest
@@ -82,6 +83,29 @@ def test_reusable() -> None:
             declaration_to_ids={"q": [0, 1, 2]},
             required_reusable_ids=[0, 1, 2],
             returned_reusable_ids=[0, 1],
+            returned_dirty_ids=[2],
+        ),
+    )
+    actual = IOInfo()
+    ParseAnnotationsVisitor(actual).visit(parse(code))
+    assert expected == actual
+
+
+def test_reusable_in_uncompute() -> None:
+    code = """
+    qubit[3] q;
+
+    @leqo.uncompute
+    if (false) {
+        @leqo.reusable
+        let a = q[0:1];
+    }
+    """
+    expected = IOInfo(
+        qubits=QubitIOInfo(
+            declaration_to_ids={"q": [0, 1, 2]},
+            required_reusable_ids=[0, 1, 2],
+            returned_reusable_after_uncompute_ids=[0, 1],
             returned_dirty_ids=[2],
         ),
     )
@@ -307,6 +331,11 @@ def test_all() -> None:
 
     @leqo.reusable
     let _reuse = q0[2:4];
+    @leqo.uncompute
+    if (false) {
+        @leqo.reusable
+        let _uncomputed = q1[4];
+    }
     """)
     expected = IOInfo(
         qubits=QubitIOInfo(
@@ -317,7 +346,8 @@ def test_all() -> None:
             },
             required_dirty_ids=[10],
             returned_reusable_ids=[2, 3, 4],
-            returned_dirty_ids=[6, 7, 9, 10],
+            returned_reusable_after_uncompute_ids=[9],
+            returned_dirty_ids=[6, 7, 10],
         ),
         inputs={
             0: QubitIOInstance("q0", [0, 1, 2, 3, 4]),
@@ -450,6 +480,81 @@ def test_raise_on_index_on_dirty() -> None:
     with pytest.raises(
         UnsupportedOperation,
         match="Unsupported: found 3 over dirty annotations q1",
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_uncompute_in_uncompute() -> None:
+    code = """
+    qubit[2] q;
+
+    @leqo.uncompute
+    if (false) {
+        @leqo.uncompute
+        if (false) {
+            @leqo.reusable
+            let a = q;
+        }
+    }
+    """
+    with pytest.raises(
+        UnsupportedOperation,
+        match="Unsupported: nested uncompute blocks",
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_invalid_uncompute_expr() -> None:
+    code = """
+    qubit[2] q;
+
+    @leqo.uncompute
+    if (true) {
+        @leqo.reusable
+        let a = q;
+    }
+    """
+    with pytest.raises(
+        UnsupportedOperation,
+        match=re.escape(
+            "Unsupported: invalid expression in uncompute-annotated if-else-block: BooleanLiteral(span=Span(start_line=5, start_column=8, end_line=5, end_column=8), value=True)",
+        ),
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_output_in_uncompute() -> None:
+    code = """
+    qubit[2] q;
+
+    @leqo.uncompute
+    if (false) {
+        @leqo.output 0
+        let a = q;
+    }
+    """
+    with pytest.raises(
+        UnsupportedOperation,
+        match="Unsupported: output declaration over a in uncompute block",
+    ):
+        ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
+
+
+def test_raise_on_else_in_uncompute() -> None:
+    code = """
+    qubit[2] q;
+
+    @leqo.uncompute
+    if (false) {
+        @leqo.reusable
+        let a = q;
+    } else {
+        let a = q;
+    }
+    """
+    with pytest.raises(
+        UnsupportedOperation,
+        match="Unsupported: uncompute-annotated if-else-block has else-block",
     ):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
