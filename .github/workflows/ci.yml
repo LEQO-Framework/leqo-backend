@@ -26,7 +26,23 @@ jobs:
         run: uv run --no-sync mypy . --strict
 
       - name: Run tests
-        run: uv run --no-sync pytest tests
+        run: uv run --no-sync pytest --cov=app --cov-report=html:.coverage-report tests
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .coverage
+          include-hidden-files: true
+          overwrite: true
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: .coverage-report
+          include-hidden-files: true
+          overwrite: true
 
   linting:
     runs-on: ubuntu-latest
