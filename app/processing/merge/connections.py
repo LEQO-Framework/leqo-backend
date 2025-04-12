@@ -239,6 +239,7 @@ class Connections:
                         raise UnsupportedOperation(msg)
             case AncillaConnection():
                 self.handle_qubit_connection(
+                    # the name __ancilla__ is only used in errors
                     QubitIOInstance("__ancilla__", edge.source[1]),
                     QubitIOInstance("__ancilla__", edge.target[1]),
                     source_section.id,
