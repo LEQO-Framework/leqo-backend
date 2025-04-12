@@ -205,25 +205,6 @@ class NoPredDummy(AlgoPerf):
                     new_reusable.info.io.qubits.returned_reusable_ids = new_reusable.info.io.qubits.returned_reusable_after_uncompute_ids
                     self.uncompute_node(new_reusable)
 
-            while len(need_reusable) > 0 and len(self.uncomputable) > 0:
-                source = self.uncomputable[0]
-                possible_source_ids = (
-                    source.info.io.qubits.returned_reusable_after_uncompute_ids
-                )
-                size = min(len(need_reusable), len(possible_source_ids))
-                target_ids = need_reusable[:size]
-                need_reusable = need_reusable[size:]
-                source_ids = possible_source_ids[:size]
-                possible_source_ids = possible_source_ids[size:]
-                self.add_edge(
-                    AncillaConnection(
-                        (source.raw, source_ids),
-                        (node.raw, target_ids),
-                    ),
-                )
-                if len(possible_source_ids) == 0:
-                    self.reusable.remove(source)
-
             returned_dirty = node.info.io.qubits.returned_dirty_ids
             returned_reusable = node.info.io.qubits.returned_reusable_ids
             returned_uncomputable = (
@@ -278,7 +259,7 @@ def main() -> None:
 
     for algo, perf_uncomp in sorted(
         contenders.items(),
-        key=lambda x: x[1][1],
+        key=lambda x: x[1][0],
         reverse=True,
     ):
         print(f"{algo.__name__} -> {perf_uncomp}")
