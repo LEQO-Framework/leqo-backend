@@ -527,6 +527,34 @@ def test_raise_on_mismatched_classic_size() -> None:
         assert_connections(inputs, [], connections)
 
 
+def test_raise_two_classical_outputs_into_one_input() -> None:
+    inputs = [
+        """
+        int[16] c0_i0;
+        @leqo.output 0
+        let _out0 = c0_i0;
+        """,
+        """
+        int[16] c1_i0;
+        @leqo.output 0
+        let _out1 = c1_i0;
+        """,
+        """
+        @leqo.input 0
+        int[16] c2_i0;
+        """,
+    ]
+    connections: list[tuple[tuple[int, int], tuple[int, int]]] = [
+        ((0, 0), (2, 0)),
+        ((1, 0), (2, 0)),
+    ]
+    with pytest.raises(
+        UnsupportedOperation,
+        match="\nUnsupported: Multiply inputs into classical\n\nBoth _out0 and _out1\nare input to c2_i0 but only one is allowed.\n",
+    ):
+        assert_connections(inputs, [], connections)
+
+
 def test_raise_on_missing_input_index() -> None:
     inputs = [
         """
