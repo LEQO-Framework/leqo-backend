@@ -1,3 +1,5 @@
+"""Connect input/output by modifying the AST based on IOInfo."""
+
 from dataclasses import dataclass
 from io import UnsupportedOperation
 from textwrap import dedent
@@ -29,7 +31,8 @@ from app.processing.graph import (
 class SingleQubit:
     """Give an qubit a unique ID in the whole program.
 
-    Combines section_id and qubit id (of that single section).
+    :param section_id: UUID of the section qubit occured in.
+    :param id_in_section: Qubit id based on declaration order in section.
     """
 
     section_id: UUID
@@ -37,7 +40,7 @@ class SingleQubit:
 
 
 class ApplyConnectionsTransformer(LeqoTransformer[None]):
-    """Replace all qubit declarations with alias to global qubit-reg."""
+    """Replace qubit declaration and classical inputs with alias."""
 
     section_id: UUID
     io_info: IOInfo
@@ -59,7 +62,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         :param io_info: The IOInfo for the current section.
         :param global_reg_name: The name to use for global qubit register.
         :param qubit_to_index: Map qubits to the indexes in the global reg.
-        :param classical_declaration_to_alias: Map declaration names to alias to use.
+        :param classical_declaration_to_alias: Map classical declaration names to alias to use.
         """
         self.section_id = section_id
         self.io_info = io_info
@@ -89,6 +92,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         return result
 
     def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
+        """Replace classical declaration with alias to output if it is an input."""
         name = node.identifier.name
         if name not in self.classical_declaration_to_alias:
             return self.generic_visit(node)
@@ -108,7 +112,7 @@ class Connections:
 
     @staticmethod
     def get_equiv_classes(graph: ProgramGraph) -> dict[SingleQubit, set[SingleQubit]]:
-        """Iterate all nodes to get all existing qubits."""
+        """Get dict of all qubits pointing to set containing themselves."""
         qubits = {}
         for nd in graph.nodes():
             section = graph.get_data_node(nd).info
@@ -119,6 +123,11 @@ class Connections:
         return qubits
 
     def __init__(self, graph: ProgramGraph, global_reg_name: str) -> None:
+        """Construct Connections.
+
+        :param graph: The graph to modify in-place.
+        :param global_reg_name: The name of the qubit reg to use in aliases.
+        """
         self.graph = graph
         self.global_reg_name = global_reg_name
         self.equiv_classes = self.get_equiv_classes(graph)
@@ -131,6 +140,7 @@ class Connections:
         src_sec_id: UUID,
         target_sec_id: UUID,
     ) -> None:
+        """Merge qubit equivalance classes of connected qubits."""
         output_size, input_size = len(output.ids), len(input.ids)
         if output_size != input_size:
             msg = dedent(f"""
@@ -155,6 +165,7 @@ class Connections:
         output: ClassicalIOInstance,
         input: ClassicalIOInstance,
     ) -> None:
+        """Let input point to output in classical connection."""
         if input.type != output.type:
             msg = dedent(f"""
                 Unsupported: Mismatched types in IOConnection
@@ -185,6 +196,7 @@ class Connections:
         self,
         edge: IOConnection | AncillaConnection,
     ) -> None:
+        """Handle connection based on type."""
         source_section = self.graph.get_data_node(edge.source[0]).info
         target_section = self.graph.get_data_node(edge.target[0]).info
         match edge:
@@ -234,6 +246,10 @@ class Connections:
                 )
 
     def apply(self) -> int:
+        """Apply the connections to the graph.
+
+        :return: Size of the global qubit register.
+        """
         for source_node, target_node in self.graph.edges():
             edges = self.graph.get_data_edges(source_node, target_node)
             for edge in edges:
@@ -265,4 +281,8 @@ class Connections:
 
 
 def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
+    """Apply connections to graph.
+
+    :return: Size of the global qubit register.
+    """
     return Connections(graph, global_reg_name).apply()

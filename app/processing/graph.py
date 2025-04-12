@@ -114,6 +114,16 @@ QubitIDs = list[int]
 
 @dataclass()
 class QubitIOInfo:
+    """Store QubitIDs of declarations, reusable and dirty.
+
+    :param declaration_to_ids: Maps declared names to corresponding qubits ids.
+    :param required_reusable_ids: List of required reusable/fresh/uncomputed qubit ids.
+    :param required_dirty_ids: List of required (possible) dirty qubits.
+    :param returned_reusable_ids: List of returned reusable qubits.
+    :param returned_reusable_after_uncompute_ids: List of qubits that are reusable after uncompute.
+    :param returned_dirty_ids: List of qubits that are always returned dirty.
+    """
+
     declaration_to_ids: dict[str, QubitIDs] = field(default_factory=dict)
     required_reusable_ids: QubitIDs = field(default_factory=list)
     required_dirty_ids: QubitIDs = field(default_factory=list)
@@ -124,6 +134,13 @@ class QubitIOInfo:
 
 @dataclass()
 class ClassicalIOInstance:
+    """Single input/output from a snippet of type classical.
+
+    :param name: Name of the annotated variable.
+    :param type: Type of the annotated variable.
+    :param size: Size of the annotated variable.
+    """
+
     name: str
     type: type
     size: int
@@ -131,12 +148,25 @@ class ClassicalIOInstance:
 
 @dataclass()
 class QubitIOInstance:
+    """Single input/output from a snippet of type qubits.
+
+    :param name: Name of the annotated variable.
+    :param ids: List of annotated qubit ids.
+    """
+
     name: str
     ids: QubitIDs
 
 
 @dataclass()
 class IOInfo:
+    """Input/output info for a single snippet.
+
+    :param inputs: Maps input-index to (Qubit/Classical)IOInstance.
+    :param outputs: Maps output-index to (Qubit/Classical)IOInstance.
+    :param qubits: Store qubit info via QubitIOInfo.
+    """
+
     inputs: dict[int, QubitIOInstance | ClassicalIOInstance] = field(
         default_factory=dict,
     )

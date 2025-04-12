@@ -1,3 +1,5 @@
+"""Parse input/output info for single code snippet over leqo-annotations."""
+
 from __future__ import annotations
 
 from copy import copy
@@ -31,6 +33,8 @@ from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_in
 
 
 class ParseAnnotationsVisitor(LeqoTransformer[None]):
+    """Non-modifying visitor to parse io info."""
+
     __next_qubit_id: int
     __name_to_info: dict[str, QubitIOInstance | ClassicalIOInstance]
     __found_input_ids: set[int]
@@ -38,7 +42,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     io: IOInfo
 
     def __init__(self, io: IOInfo) -> None:
-        """Construct the LeqoTransformer.
+        """Construct the ParseAnnotationsVisitor.
 
         :param io: The IOInfo to be modified in-place.
         """
@@ -124,6 +128,11 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         name: str,
         value: Identifier | IndexExpression | Concatenation | Expression,
     ) -> QubitIOInstance | ClassicalIOInstance | None:
+        """Recursivly get new (Qubit/Classical)IOInstance from alias expression.
+
+        :param name: New name to use in the info.
+        :param value: The alias expression to parse.
+        """
         match value:
             case IndexExpression():
                 collection = value.collection
@@ -175,7 +184,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 raise NotImplementedError(msg)
 
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
-        """Parse qubit-declarations and their corresponding input annotations."""
+        """Parse qubit-declarations and their corresponding input/dirty annotations."""
         name = node.qubit.name
         reg_size = expr_to_int(node.size) if node.size is not None else 1
         input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
@@ -202,6 +211,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         return self.generic_visit(node)
 
     def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
+        """Parse classical-declarations and their corresponding input annotations."""
         name = node.identifier.name
         input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
 
@@ -233,7 +243,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         return self.generic_visit(node)
 
     def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
-        """Parse qubit-alias and their corresponding output annotations."""
+        """Parse alias and their corresponding output/reusalbe annotations."""
         name = node.target.name
         info = self.__alias_expr_to_new_info(name, node.value)
         if info is None:
@@ -259,7 +269,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
     @staticmethod
     def raise_on_non_contiguous_range(numbers: set[int], name_of_check: str) -> None:
-        """Check if int set is contiguous."""
+        """Check if int-set is contiguous and starting from 0."""
         for i, j in enumerate(sorted(numbers)):
             if i == j:
                 continue
@@ -267,8 +277,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise IndexError(msg)
 
     def visit_Program(self, node: Program) -> QASMNode:
-        """Ensure contiguous input/output indexes."""
+        """Ensure contiguous input/output indexes and compute returned-dirty qubits."""
         result = self.generic_visit(node)
+
         self.raise_on_non_contiguous_range(self.__found_input_ids, "input")
         self.raise_on_non_contiguous_range(self.__found_output_ids, "output")
 
