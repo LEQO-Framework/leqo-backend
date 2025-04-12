@@ -10,7 +10,9 @@ from openqasm3.ast import (
     AliasStatement,
     Annotation,
     BitType,
+    BooleanLiteral,
     BoolType,
+    BranchingStatement,
     ClassicalDeclaration,
     Concatenation,
     Expression,
@@ -44,6 +46,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     __name_to_info: dict[str, QubitIOInstance | ClassicalIOInstance]
     __found_input_ids: set[int]
     __found_output_ids: set[int]
+    __in_uncompute: bool
     io: IOInfo
 
     def __init__(self, io: IOInfo) -> None:
@@ -57,6 +60,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self.__name_to_info = {}
         self.__found_input_ids = set()
         self.__found_output_ids = set()
+        self.__in_uncompute = False
 
     def get_declaration_annotation_info(
         self,
@@ -84,7 +88,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                         msg = f"Unsupported: found {annotation.command} over dirty annotations {name}"
                         raise UnsupportedOperation(msg)
                     dirty = True
-                case "leqo.output" | "leqo.reusable":
+                case "leqo.output" | "leqo.reusable" | "leqo.uncompute":
                     msg = f"Unsupported: {annotation.keyword} annotations over QubitDeclaration {name}"
                     raise UnsupportedOperation(msg)
         if input_id is not None and dirty:
@@ -120,13 +124,36 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                         msg = f"Unsupported: found {annotation.command} over reusable annotations {name}"
                         raise UnsupportedOperation(msg)
                     reusable = True
-                case "leqo.input" | "leqo.dirty":
+                case "leqo.input" | "leqo.dirty" | "leqo.uncompute":
                     msg = f"Unsupported: {annotation.keyword} annotations over AliasStatement {name}"
                     raise UnsupportedOperation(msg)
         if output_id is not None and reusable:
             msg = f"Unsupported: input and dirty annotations over AliasStatement {name}"
             raise UnsupportedOperation(msg)
         return (output_id, reusable)
+
+    def get_branching_annotation_info(self, annotations: list[Annotation]) -> bool:
+        """Extract annotation info for branching statement, throw error on bad usage."""
+        uncompute = False
+        for annotation in annotations:
+            match annotation.keyword:
+                case "leqo.uncompute":
+                    if uncompute:
+                        msg = (
+                            "Unsupported: two uncompute annotations over if-else-block"
+                        )
+                        raise UnsupportedOperation(msg)
+                    if (
+                        annotation.command is not None
+                        and annotation.command.strip() != ""
+                    ):
+                        msg = f"Unsupported: found {annotation.command} over uncompute annotation over if-else-block"
+                        raise UnsupportedOperation(msg)
+                    uncompute = True
+                case "leqo.input" | "leqo.dirty" | "leqo.output" | "leqo.reusable":
+                    msg = f"Unsupported: {annotation.keyword} annotations over BranchingStatement if-else-block"
+                    raise UnsupportedOperation(msg)
+        return uncompute
 
     def __alias_expr_to_new_info(  # noqa: PLR0911, PLR0912
         self,
@@ -271,14 +298,35 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
         self.__name_to_info[name] = info
         if output_id is not None:
+            if self.__in_uncompute:
+                msg = f"Unsupported: output declaration over {info.name} in uncompute block"
+                raise UnsupportedOperation(msg)
             self.io.outputs[output_id] = info
         elif reusable:
             if isinstance(info, ClassicalIOInstance):
                 msg = f"Unsupported: reusable annotation over classical {info.name}"
                 raise UnsupportedOperation(msg)
-            self.io.qubits.returned_reusable_ids.extend(info.ids)
+            if self.__in_uncompute:
+                self.io.qubits.returned_reusable_after_uncompute_ids.extend(info.ids)
+            else:
+                self.io.qubits.returned_reusable_ids.extend(info.ids)
 
         return self.generic_visit(node)
+
+    def visit_BranchingStatement(self, node: BranchingStatement) -> QASMNode:
+        uncompute = self.get_branching_annotation_info(node.annotations)
+        if not uncompute:
+            return self.generic_visit(node)
+        if self.__in_uncompute:
+            msg = "Unsupported: nested uncompute blocks"
+            raise UnsupportedOperation(msg)
+        if not isinstance(node.condition, BooleanLiteral) or node.condition.value:
+            msg = f"Unsupported: invalid expression in uncompute-annotated if-else-block: {node.condition}"
+            raise UnsupportedOperation(msg)
+        self.__in_uncompute = True
+        result = self.generic_visit(node)
+        self.__in_uncompute = False
+        return result
 
     @staticmethod
     def raise_on_non_contiguous_range(numbers: set[int], name_of_check: str) -> None:
