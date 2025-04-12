@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from random import randint, random, shuffle
 from typing import override
 from uuid import uuid4
@@ -99,12 +100,21 @@ class DummyAlgo(AlgoPerf):
         return super().compute()
 
 
+class NoPredWithSimpleHeuristik(AlgoPerf):
+    @override
+    def compute(self) -> int:
+        return super().compute()
+
+
 def main() -> None:
-    contenders: dict[type[AlgoPerf], int] = {DummyAlgo: 0}
+    contenders: dict[type[AlgoPerf], int] = {
+        DummyAlgo: 0,
+        NoPredWithSimpleHeuristik: 0,
+    }
     for _ in range(100):
         graph = random_graph(50)
         for algo in contenders:
-            instance = algo(graph)
+            instance = algo(deepcopy(graph))
             contenders[algo] += instance.compute()
 
     for algo, perf in sorted(contenders.items(), key=lambda x: x[1], reverse=True):
