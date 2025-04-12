@@ -1,9 +1,12 @@
+from abc import ABC, abstractmethod
 from random import randint, random, shuffle
+from typing import override
 from uuid import uuid4
 
 from openqasm3.ast import Program
 
 from app.processing.graph import (
+    AncillaConnection,
     IOConnection,
     IOInfo,
     ProcessedProgramNode,
@@ -69,3 +72,44 @@ def random_graph(size: int) -> ProgramGraph:
                 break
             result.append_edge(IOConnection((prev.raw, 0), (new.raw, 0)))
     return result
+
+
+class AlgoPerf(ABC):
+    graph: ProgramGraph
+    added_edges: list[AncillaConnection]
+    performance: int
+
+    def __init__(self, graph: ProgramGraph) -> None:
+        self.graph = graph
+        self.added_edges = []
+        self.performance = 0
+
+    def add_edge(self, edge: AncillaConnection) -> None:
+        self.graph.append_edge(edge)
+        self.performance += len(edge.source)
+
+    @abstractmethod
+    def compute(self) -> int:
+        return self.performance
+
+
+class DummyAlgo(AlgoPerf):
+    @override
+    def compute(self) -> int:
+        return super().compute()
+
+
+def main() -> None:
+    contenders: dict[type[AlgoPerf], int] = {DummyAlgo: 0}
+    for _ in range(100):
+        graph = random_graph(50)
+        for algo in contenders:
+            instance = algo(graph)
+            contenders[algo] += instance.compute()
+
+    for algo, perf in sorted(contenders.items(), key=lambda x: x[1], reverse=True):
+        print(f"{algo.__name__} -> {perf}")
+
+
+if __name__ == "__main__":
+    main()
