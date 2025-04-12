@@ -1,13 +1,14 @@
 from io import UnsupportedOperation
 
 import pytest
+from openqasm3.ast import BitType, BoolType, IntType
 from openqasm3.parser import parse
 
 from app.processing.graph import (
+    ClassicalIOInstance,
     IOInfo,
-    QubitAnnotationInfo,
-    QubitInputInfo,
-    QubitOutputInfo,
+    QubitIOInfo,
+    QubitIOInstance,
 )
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.utils import normalize_qasm_string
@@ -19,16 +20,11 @@ def test_simple_input() -> None:
     qubit[3] q;
     """
     expected = IOInfo(
-        declaration_to_ids={"q": [0, 1, 2]},
-        id_to_info={
-            0: QubitAnnotationInfo(input=QubitInputInfo(0, 0)),
-            1: QubitAnnotationInfo(input=QubitInputInfo(0, 1)),
-            2: QubitAnnotationInfo(input=QubitInputInfo(0, 2)),
-        },
-        input_to_ids={
-            0: [0, 1, 2],
-        },
-        returned_dirty_ancillas=[0, 1, 2],
+        qubits=QubitIOInfo(
+            declaration_to_ids={"q": [0, 1, 2]},
+            returned_dirty_ids=[0, 1, 2],
+        ),
+        inputs={0: QubitIOInstance("q", [0, 1, 2])},
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -43,14 +39,11 @@ def test_output_simple() -> None:
     let a = q;
     """
     expected = IOInfo(
-        declaration_to_ids={"q": [0, 1, 2]},
-        id_to_info={
-            0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
-            1: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
-            2: QubitAnnotationInfo(output=QubitOutputInfo(0, 2)),
-        },
-        output_to_ids={0: [0, 1, 2]},
-        required_ancillas=[0, 1, 2],
+        qubits=QubitIOInfo(
+            declaration_to_ids={"q": [0, 1, 2]},
+            required_reusable_ids=[0, 1, 2],
+        ),
+        outputs={0: QubitIOInstance("a", [0, 1, 2])},
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -65,15 +58,12 @@ def test_output_indexed() -> None:
     let a = q[0:1];
     """
     expected = IOInfo(
-        declaration_to_ids={"q": [0, 1, 2]},
-        id_to_info={
-            0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
-            1: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
-            2: QubitAnnotationInfo(),
-        },
-        output_to_ids={0: [0, 1]},
-        required_ancillas=[0, 1, 2],
-        returned_dirty_ancillas=[2],
+        qubits=QubitIOInfo(
+            declaration_to_ids={"q": [0, 1, 2]},
+            required_reusable_ids=[0, 1, 2],
+            returned_dirty_ids=[2],
+        ),
+        outputs={0: QubitIOInstance("a", [0, 1])},
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -88,15 +78,12 @@ def test_reusable() -> None:
     let a = q[0:1];
     """
     expected = IOInfo(
-        declaration_to_ids={"q": [0, 1, 2]},
-        id_to_info={
-            0: QubitAnnotationInfo(reusable=True),
-            1: QubitAnnotationInfo(reusable=True),
-            2: QubitAnnotationInfo(),
-        },
-        required_ancillas=[0, 1, 2],
-        reusable_ancillas=[0, 1],
-        returned_dirty_ancillas=[2],
+        qubits=QubitIOInfo(
+            declaration_to_ids={"q": [0, 1, 2]},
+            required_reusable_ids=[0, 1, 2],
+            returned_reusable_ids=[0, 1],
+            returned_dirty_ids=[2],
+        ),
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -109,21 +96,18 @@ def test_dirty() -> None:
     qubit[3] q;
     """
     expected = IOInfo(
-        declaration_to_ids={"q": [0, 1, 2]},
-        id_to_info={
-            0: QubitAnnotationInfo(dirty=True),
-            1: QubitAnnotationInfo(dirty=True),
-            2: QubitAnnotationInfo(dirty=True),
-        },
-        dirty_ancillas=[0, 1, 2],
-        returned_dirty_ancillas=[0, 1, 2],
+        qubits=QubitIOInfo(
+            declaration_to_ids={"q": [0, 1, 2]},
+            required_dirty_ids=[0, 1, 2],
+            returned_dirty_ids=[0, 1, 2],
+        ),
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
     assert expected == actual
 
 
-def test_spaces_tabes_on_dirty_or_reusable() -> None:
+def test_spaces_tabs_on_dirty_or_reusable() -> None:
     code = """
     @leqo.dirty   
     qubit[3] q0;
@@ -144,12 +128,11 @@ def test_empty_index() -> None:
     qubit q;
     """
     expected = IOInfo(
-        declaration_to_ids={"q": [0]},
-        id_to_info={
-            0: QubitAnnotationInfo(input=QubitInputInfo(0, 0)),
-        },
-        input_to_ids={0: [0]},
-        returned_dirty_ancillas=[0],
+        qubits=QubitIOInfo(
+            declaration_to_ids={"q": [0]},
+            returned_dirty_ids=[0],
+        ),
+        inputs={0: QubitIOInstance("q", [0])},
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -164,15 +147,11 @@ def test_classical_ignored() -> None:
     let a = c;
     """
     expected = IOInfo(
-        declaration_to_ids={
-            "q": [0, 1],
-        },
-        id_to_info={
-            0: QubitAnnotationInfo(),
-            1: QubitAnnotationInfo(),
-        },
-        required_ancillas=[0, 1],
-        returned_dirty_ancillas=[0, 1],
+        qubits=QubitIOInfo(
+            declaration_to_ids={"q": [0, 1]},
+            required_reusable_ids=[0, 1],
+            returned_dirty_ids=[0, 1],
+        ),
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -188,19 +167,15 @@ def test_output_concatenation() -> None:
     let a = q0[0] ++ q1[0];
     """
     expected = IOInfo(
-        declaration_to_ids={
-            "q0": [0, 1],
-            "q1": [2, 3],
-        },
-        id_to_info={
-            0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
-            1: QubitAnnotationInfo(),
-            2: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
-            3: QubitAnnotationInfo(),
-        },
-        output_to_ids={0: [0, 2]},
-        required_ancillas=[0, 1, 2, 3],
-        returned_dirty_ancillas=[1, 3],
+        qubits=QubitIOInfo(
+            declaration_to_ids={
+                "q0": [0, 1],
+                "q1": [2, 3],
+            },
+            required_reusable_ids=[0, 1, 2, 3],
+            returned_dirty_ids=[1, 3],
+        ),
+        outputs={0: QubitIOInstance("a", [0, 2])},
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -216,19 +191,15 @@ def test_output_big_concatenation() -> None:
     let a = q0[0] ++ q1[0] ++ q0[1];
     """
     expected = IOInfo(
-        declaration_to_ids={
-            "q0": [0, 1],
-            "q1": [2, 3],
-        },
-        id_to_info={
-            0: QubitAnnotationInfo(output=QubitOutputInfo(0, 0)),
-            1: QubitAnnotationInfo(output=QubitOutputInfo(0, 2)),
-            2: QubitAnnotationInfo(output=QubitOutputInfo(0, 1)),
-            3: QubitAnnotationInfo(),
-        },
-        output_to_ids={0: [0, 2, 1]},
-        required_ancillas=[0, 1, 2, 3],
-        returned_dirty_ancillas=[3],
+        qubits=QubitIOInfo(
+            declaration_to_ids={
+                "q0": [0, 1],
+                "q1": [2, 3],
+            },
+            required_reusable_ids=[0, 1, 2, 3],
+            returned_dirty_ids=[3],
+        ),
+        outputs={0: QubitIOInstance("a", [0, 2, 1])},
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -247,19 +218,12 @@ def test_alias_chain() -> None:
     let e = d[0]; // get id 3
     """)
     expected = IOInfo(
-        declaration_to_ids={
-            "q": [0, 1, 2, 3, 4],
-        },
-        id_to_info={
-            0: QubitAnnotationInfo(),
-            1: QubitAnnotationInfo(),
-            2: QubitAnnotationInfo(),
-            3: QubitAnnotationInfo(reusable=True),
-            4: QubitAnnotationInfo(),
-        },
-        required_ancillas=[0, 1, 2, 3, 4],
-        reusable_ancillas=[3],
-        returned_dirty_ancillas=[0, 1, 2, 4],
+        qubits=QubitIOInfo(
+            declaration_to_ids={"q": [0, 1, 2, 3, 4]},
+            required_reusable_ids=[0, 1, 2, 3, 4],
+            returned_reusable_ids=[3],
+            returned_dirty_ids=[0, 1, 2, 4],
+        ),
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -276,22 +240,45 @@ def test_input_index_weird_order() -> None:
     qubit q2;
     """
     expected = IOInfo(
-        declaration_to_ids={
-            "q1": [0],
-            "q0": [1],
-            "q2": [2],
+        qubits=QubitIOInfo(
+            declaration_to_ids={
+                "q1": [0],
+                "q0": [1],
+                "q2": [2],
+            },
+            returned_dirty_ids=[0, 1, 2],
+        ),
+        inputs={
+            0: QubitIOInstance("q0", [1]),
+            1: QubitIOInstance("q1", [0]),
+            2: QubitIOInstance("q2", [2]),
         },
-        id_to_info={
-            0: QubitAnnotationInfo(input=QubitInputInfo(1, 0)),
-            1: QubitAnnotationInfo(input=QubitInputInfo(0, 0)),
-            2: QubitAnnotationInfo(input=QubitInputInfo(2, 0)),
+    )
+    actual = IOInfo()
+    ParseAnnotationsVisitor(actual).visit(parse(code))
+    assert expected == actual
+
+
+def test_classical() -> None:
+    code = """
+    @leqo.input 0
+    bit[4] c0;
+    @leqo.input 1
+    int i;
+    @leqo.input 2
+    bool b;
+    bit[8] c1;
+
+    @leqo.output 0
+    let out = c0[0:1] ++ c1[7:-2:0];
+    """
+    expected = IOInfo(
+        inputs={
+            0: ClassicalIOInstance("c0", BitType, 4),
+            1: ClassicalIOInstance("i", IntType, 32),
+            2: ClassicalIOInstance("b", BoolType, 1),
         },
-        input_to_ids={
-            0: [1],
-            1: [0],
-            2: [2],
-        },
-        returned_dirty_ancillas=[0, 1, 2],
+        outputs={0: ClassicalIOInstance("out", BitType, 6)},
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -304,6 +291,8 @@ def test_all() -> None:
     qubit[5] q0;
     @leqo.input 1
     qubit[5] q1;
+    @leqo.input 2
+    int i;
     @leqo.dirty
     qubit q2;
 
@@ -313,46 +302,33 @@ def test_all() -> None:
     let _out0 = q0[0] ++ q1[0];
     @leqo.output 1
     let _out1 = q0[1] ++ a[1]; // a[1] == q1[3]
+    @leqo.output 2
+    let _out2 = i;
 
     @leqo.reusable
     let _reuse = q0[2:4];
     """)
     expected = IOInfo(
-        declaration_to_ids={
-            "q0": [0, 1, 2, 3, 4],
-            "q1": [5, 6, 7, 8, 9],
-            "q2": [10],
+        qubits=QubitIOInfo(
+            declaration_to_ids={
+                "q0": [0, 1, 2, 3, 4],
+                "q1": [5, 6, 7, 8, 9],
+                "q2": [10],
+            },
+            required_dirty_ids=[10],
+            returned_reusable_ids=[2, 3, 4],
+            returned_dirty_ids=[6, 7, 9, 10],
+        ),
+        inputs={
+            0: QubitIOInstance("q0", [0, 1, 2, 3, 4]),
+            1: QubitIOInstance("q1", [5, 6, 7, 8, 9]),
+            2: ClassicalIOInstance("i", IntType, 32),
         },
-        id_to_info={
-            0: QubitAnnotationInfo(
-                input=QubitInputInfo(0, 0),
-                output=QubitOutputInfo(0, 0),
-            ),
-            1: QubitAnnotationInfo(
-                input=QubitInputInfo(0, 1),
-                output=QubitOutputInfo(1, 0),
-            ),
-            2: QubitAnnotationInfo(input=QubitInputInfo(0, 2), reusable=True),
-            3: QubitAnnotationInfo(input=QubitInputInfo(0, 3), reusable=True),
-            4: QubitAnnotationInfo(input=QubitInputInfo(0, 4), reusable=True),
-            5: QubitAnnotationInfo(
-                input=QubitInputInfo(1, 0),
-                output=QubitOutputInfo(0, 1),
-            ),
-            6: QubitAnnotationInfo(input=QubitInputInfo(1, 1)),
-            7: QubitAnnotationInfo(input=QubitInputInfo(1, 2)),
-            8: QubitAnnotationInfo(
-                input=QubitInputInfo(1, 3),
-                output=QubitOutputInfo(1, 1),
-            ),
-            9: QubitAnnotationInfo(input=QubitInputInfo(1, 4)),
-            10: QubitAnnotationInfo(dirty=True),
+        outputs={
+            0: QubitIOInstance("_out0", [0, 5]),
+            1: QubitIOInstance("_out1", [1, 8]),
+            2: ClassicalIOInstance("_out2", IntType, 32),
         },
-        input_to_ids={0: [0, 1, 2, 3, 4], 1: [5, 6, 7, 8, 9]},
-        output_to_ids={0: [0, 5], 1: [1, 8]},
-        dirty_ancillas=[10],
-        reusable_ancillas=[2, 3, 4],
-        returned_dirty_ancillas=[6, 7, 9, 10],
     )
     actual = IOInfo()
     ParseAnnotationsVisitor(actual).visit(parse(code))
@@ -543,7 +519,7 @@ def test_raise_on_reusable_and_output() -> None:
     """
     with pytest.raises(
         UnsupportedOperation,
-        match="alias b declares output qubit as reusable",
+        match="Unsupported: qubit with 2 was parsed as reusable and output",
     ):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
@@ -559,6 +535,6 @@ def test_raise_on_double_output_declaration_on_single_qubit() -> None:
     """
     with pytest.raises(
         UnsupportedOperation,
-        match="alias b tries to overwrite already declared output",
+        match="Unsupported: qubit with 1 was parsed as reusable and output",
     ):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
