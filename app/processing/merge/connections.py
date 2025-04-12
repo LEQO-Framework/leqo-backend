@@ -31,7 +31,7 @@ from app.processing.graph import (
 class SingleQubit:
     """Give an qubit a unique ID in the whole program.
 
-    :param section_id: UUID of the section qubit occured in.
+    :param section_id: UUID of the section qubit occurred in.
     :param id_in_section: Qubit id based on declaration order in section.
     """
 
@@ -46,7 +46,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
     io_info: IOInfo
     global_reg_name: str
     qubit_to_index: dict[SingleQubit, int]
-    classical_declaration_to_alias: dict[str, str]
+    classical_input_to_output: dict[str, str]
 
     def __init__(
         self,
@@ -54,7 +54,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         io_info: IOInfo,
         global_reg_name: str,
         qubit_to_index: dict[SingleQubit, int],
-        classical_declaration_to_alias: dict[str, str],
+        classical_input_to_output: dict[str, str],
     ) -> None:
         """Construct QubitDeclarationToAlias.
 
@@ -62,13 +62,13 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         :param io_info: The IOInfo for the current section.
         :param global_reg_name: The name to use for global qubit register.
         :param qubit_to_index: Map qubits to the indexes in the global reg.
-        :param classical_declaration_to_alias: Map classical declaration names to alias to use.
+        :param classical_input_to_output: Map classical declaration names to alias to use.
         """
         self.section_id = section_id
         self.io_info = io_info
         self.global_reg_name = global_reg_name
         self.qubit_to_index = qubit_to_index
-        self.classical_declaration_to_alias = classical_declaration_to_alias
+        self.classical_input_to_output = classical_input_to_output
 
     def id_to_qubit(self, id: int) -> SingleQubit:
         """Create :class:`app.processing.merging.connections.SingleQubit` for encountered id."""
@@ -94,11 +94,11 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
     def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
         """Replace classical declaration with alias to output if it is an input."""
         name = node.identifier.name
-        if name not in self.classical_declaration_to_alias:
+        if name not in self.classical_input_to_output:
             return self.generic_visit(node)
         result = AliasStatement(
             node.identifier,
-            Identifier(self.classical_declaration_to_alias[name]),
+            Identifier(self.classical_input_to_output[name]),
         )
         result.annotations = node.annotations
         return result
@@ -108,19 +108,19 @@ class Connections:
     graph: ProgramGraph
     global_reg_name: str
     equiv_classes: dict[SingleQubit, set[SingleQubit]]
-    classical_declaration_to_alias: dict[str, str]
+    classical_input_to_output: dict[str, str]
 
     @staticmethod
     def get_equiv_classes(graph: ProgramGraph) -> dict[SingleQubit, set[SingleQubit]]:
         """Get dict of all qubits pointing to set containing themselves."""
-        qubits = {}
-        for nd in graph.nodes():
-            section = graph.get_data_node(nd).info
+        equiv_classes = {}
+        for node in graph.nodes():
+            section = graph.get_data_node(node).info
             for qubit_ids in section.io.qubits.declaration_to_ids.values():
                 for qubit_id in qubit_ids:
                     qubit = SingleQubit(section.id, qubit_id)
-                    qubits[qubit] = {qubit}
-        return qubits
+                    equiv_classes[qubit] = {qubit}
+        return equiv_classes
 
     def __init__(self, graph: ProgramGraph, global_reg_name: str) -> None:
         """Construct Connections.
@@ -131,7 +131,7 @@ class Connections:
         self.graph = graph
         self.global_reg_name = global_reg_name
         self.equiv_classes = self.get_equiv_classes(graph)
-        self.classical_declaration_to_alias = {}
+        self.classical_input_to_output = {}
 
     def handle_qubit_connection(
         self,
@@ -182,15 +182,15 @@ class Connections:
                 input {input.name} has size {input.size}
                 """)
             raise UnsupportedOperation(msg)
-        if input.name in self.classical_declaration_to_alias:
+        if input.name in self.classical_input_to_output:
             msg = dedent(f"""
                 Unsupported: Multiply inputs into classical
 
-                Both {self.classical_declaration_to_alias[input.name]} and {output.name}
+                Both {self.classical_input_to_output[input.name]} and {output.name}
                 are input to {input.name} but only one is allowed.
                 """)
             raise UnsupportedOperation(msg)
-        self.classical_declaration_to_alias[input.name] = output.name
+        self.classical_input_to_output[input.name] = output.name
 
     def handle_connection(
         self,
@@ -239,6 +239,7 @@ class Connections:
                         raise UnsupportedOperation(msg)
             case AncillaConnection():
                 self.handle_qubit_connection(
+                    # the name __ancilla__ is only used in errors
                     QubitIOInstance("__ancilla__", edge.source[1]),
                     QubitIOInstance("__ancilla__", edge.target[1]),
                     source_section.id,
@@ -272,7 +273,7 @@ class Connections:
                 node.info.io,
                 self.global_reg_name,
                 qubit_to_reg_index,
-                self.classical_declaration_to_alias,
+                self.classical_input_to_output,
             ).visit(
                 node.implementation,
             )
@@ -283,6 +284,8 @@ class Connections:
 def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
     """Apply connections to graph.
 
+    :param graph: The graph to modify in-place.
+    :param global_reg_name: The name of the qubit reg to use in aliases.
     :return: Size of the global qubit register.
     """
     return Connections(graph, global_reg_name).apply()

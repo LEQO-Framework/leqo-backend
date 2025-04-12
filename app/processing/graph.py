@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from networkx import DiGraph
-from openqasm3.ast import Program
+from openqasm3.ast import ClassicalType, Program
 
 
 @dataclass(frozen=True)
@@ -142,7 +142,7 @@ class ClassicalIOInstance:
     """
 
     name: str
-    type: type
+    type: type[ClassicalType]
     size: int
 
 
