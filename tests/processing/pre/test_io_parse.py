@@ -519,7 +519,7 @@ def test_raise_on_reusable_and_output() -> None:
     """
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: qubit with 2 was parsed as reusable and output",
+        match="Unsupported: qubit with 2 was parsed as reusable or output twice",
     ):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))
 
@@ -535,6 +535,6 @@ def test_raise_on_double_output_declaration_on_single_qubit() -> None:
     """
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: qubit with 1 was parsed as reusable and output",
+        match="Unsupported: qubit with 1 was parsed as reusable or output twice",
     ):
         ParseAnnotationsVisitor(IOInfo()).visit(parse(code))

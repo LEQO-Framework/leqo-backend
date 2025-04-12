@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from copy import copy
+from copy import deepcopy
 from io import UnsupportedOperation
 from itertools import chain
 
@@ -30,6 +30,11 @@ from app.processing.graph import (
     QubitIOInstance,
 )
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
+
+DEFAULT_BIT_SIZE = 32
+DEFAULT_INT_SIZE = 32
+DEFAULT_FLOAT_SIZE = 32
+BOOL_SIZE = 1
 
 
 class ParseAnnotationsVisitor(LeqoTransformer[None]):
@@ -137,8 +142,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             case IndexExpression():
                 collection = value.collection
                 if not isinstance(collection, Identifier):
-                    msg = f"Unsupported expression in alias: {type(collection)}"
-                    raise TypeError(msg)
+                    return None
                 source = self.__name_to_info.get(collection.name)
                 match source:
                     case None:
@@ -156,9 +160,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                                     parse_qasm_index([value.index], source.size),
                                 ),
                             )
-                        return copy(source)
+                        msg = f"Unsupported: Can't handle indexed {source.type}"
+                        raise UnsupportedOperation(msg)
             case Identifier():
-                info = copy(self.__name_to_info.get(value.name))
+                info = deepcopy(self.__name_to_info.get(value.name))
                 if info is not None:
                     info.name = name
                 return info
@@ -175,13 +180,12 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                                 BitType,
                                 lhs.size + rhs.size,
                             )
+                        msg = f"Unsupported: Can't handle concatenation of non-bit types: {lhs.type} {rhs.type}"
+                        raise UnsupportedOperation(msg)
                 return None
-            case Expression():
-                msg = f"Unsupported expression in alias: {type(value)}"
-                raise UnsupportedOperation(msg)
             case _:
                 msg = f"{type(value)} is not implemented as alias expression"
-                raise NotImplementedError(msg)
+                raise RuntimeError(msg)
 
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
         """Parse qubit-declarations and their corresponding input/dirty annotations."""
@@ -198,11 +202,11 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         info = QubitIOInstance(name, qubit_ids)
         self.__name_to_info[name] = info
         if input_id is not None:
-            self.io.inputs[input_id] = info
             if input_id in self.__found_input_ids:
                 msg = f"Unsupported: duplicate input id: {input_id}"
                 raise IndexError(msg)
             self.__found_input_ids.add(input_id)
+            self.io.inputs[input_id] = info
         elif dirty:
             self.io.qubits.required_dirty_ids.extend(qubit_ids)
         else:  # non-input and non-dirty
@@ -221,24 +225,33 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
         match node.type:
             case BitType():
-                size = 1 if node.type.size is None else expr_to_int(node.type.size)
+                if node.type.size is None:
+                    size = DEFAULT_BIT_SIZE
+                else:
+                    size = expr_to_int(node.type.size)
             case IntType():
-                size = 32 if node.type.size is None else expr_to_int(node.type.size)
+                if node.type.size is None:
+                    size = DEFAULT_INT_SIZE
+                else:
+                    size = expr_to_int(node.type.size)
             case FloatType():
-                size = 32 if node.type.size is None else expr_to_int(node.type.size)
+                if node.type.size is None:
+                    size = DEFAULT_FLOAT_SIZE
+                else:
+                    size = expr_to_int(node.type.size)
             case BoolType():
-                size = 1
+                size = BOOL_SIZE
             case _:
                 return self.generic_visit(node)
 
         info = ClassicalIOInstance(name, type(node.type), size)
         self.__name_to_info[name] = info
         if input_id is not None:
-            self.io.inputs[input_id] = info
             if input_id in self.__found_input_ids:
                 msg = f"Unsupported: duplicate input id: {input_id}"
                 raise IndexError(msg)
             self.__found_input_ids.add(input_id)
+            self.io.inputs[input_id] = info
 
         return self.generic_visit(node)
 
@@ -294,7 +307,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             try:
                 returned_dirty.remove(qubit_id)
             except KeyError:
-                msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable and as reusable_after_uncompute"
+                msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable (in uncompute) twice"
                 raise UnsupportedOperation(msg) from None
         for output in self.io.outputs.values():
             if isinstance(output, QubitIOInstance):
@@ -302,7 +315,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     try:
                         returned_dirty.remove(qubit_id)
                     except KeyError:
-                        msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable and output"
+                        msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable or output twice"
                         raise UnsupportedOperation(msg) from None
         self.io.qubits.returned_dirty_ids = sorted(returned_dirty)
 
