@@ -300,6 +300,18 @@ class NoPredRequiredReusable(NoPredDummy):
         return result
 
 
+class NoPredReturnedRequiredDifference(NoPredDummy):
+    @override
+    def get_and_remove_next_nopred(self) -> ProcessedProgramNode:
+        self.nopred.sort(
+            key=lambda x: len(x.info.io.qubits.returned_reusable_ids)
+            - len(x.info.io.qubits.required_reusable_ids),
+            reverse=True,
+        )
+        result, self.nopred = self.nopred[0], self.nopred[1:]
+        return result
+
+
 class NoSuccDummy(AlgoPerf):
     reusable: list[ProcessedProgramNode]
     dirty: list[ProcessedProgramNode]
@@ -418,17 +430,31 @@ class NoSuccRequiredReusable(NoSuccDummy):
         return result
 
 
+class NoSuccReturnedRequiredDifference(NoSuccDummy):
+    @override
+    def get_and_remove_next_nosucc(self) -> ProcessedProgramNode:
+        self.nosucc.sort(
+            key=lambda x: len(x.info.io.qubits.returned_reusable_ids)
+            - len(x.info.io.qubits.required_reusable_ids),
+            reverse=False,
+        )
+        result, self.nosucc = self.nosucc[0], self.nosucc[1:]
+        return result
+
+
 def main() -> None:
     contenders: dict[type[AlgoPerf], tuple[int, int]] = {
         DummyAlgo: (0, 0),
         NoPredDummy: (0, 0),
         NoPredReturnedReusable: (0, 0),
         NoPredRequiredReusable: (0, 0),
+        NoPredReturnedRequiredDifference: (0, 0),
         NoSuccDummy: (0, 0),
         NoSuccRequiredReusable: (0, 0),
+        NoSuccReturnedRequiredDifference: (0, 0),
     }
-    for _ in range(100):
-        graph = random_graph(3)
+    for _ in range(50):
+        graph = random_graph(100)
         for algo, cur in contenders.items():
             instance = algo(deepcopy(graph))
             perf, uncomputed = instance.compute()
