@@ -20,6 +20,7 @@ author = "Arne Gabriel, Johannes Heugel, Lukas Kurz, Len Lazarus, Louis Radek"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    "openqasm3_lexer",
     "myst_parser",
     "sphinx.ext.duration",
     "sphinx.ext.doctest",

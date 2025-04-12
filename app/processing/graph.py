@@ -4,7 +4,7 @@ Basic program graph used withing the :mod:`app.processing`.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
@@ -51,6 +51,17 @@ class IOConnection:
     target: tuple[ProgramNode, int]
 
 
+@dataclass()
+class AncillaConnection:
+    """Map output qubits from source to target input qubits.
+
+    The qubits are identified via the id specified in :class:`app.processing.graph.IOInfo`.
+    """
+
+    source: tuple[ProgramNode, list[int]]
+    target: tuple[ProgramNode, list[int]]
+
+
 if TYPE_CHECKING:
     ProgramGraphBase = DiGraph[ProgramNode]
 else:
@@ -61,7 +72,10 @@ class ProgramGraph(ProgramGraphBase):
     """Internal representation of the program graph."""
 
     __node_data: dict[ProgramNode, ProcessedProgramNode]
-    __edge_data: dict[tuple[ProgramNode, ProgramNode], IOConnection]
+    __edge_data: dict[
+        tuple[ProgramNode, ProgramNode],
+        list[IOConnection | AncillaConnection],
+    ]
 
     def __init__(self) -> None:
         super().__init__()
@@ -76,18 +90,22 @@ class ProgramGraph(ProgramGraphBase):
         for node in nodes:
             self.append_node(node)
 
-    def append_edge(self, edge: IOConnection) -> None:
+    def append_edge(self, edge: IOConnection | AncillaConnection) -> None:
         super().add_edge(edge.source[0], edge.target[0])
-        self.__edge_data[(edge.source[0], edge.target[0])] = edge
+        self.__edge_data.setdefault((edge.source[0], edge.target[0]), []).append(edge)
 
-    def append_edges(self, *edges: IOConnection) -> None:
+    def append_edges(self, *edges: IOConnection | AncillaConnection) -> None:
         for edge in edges:
             self.append_edge(edge)
 
     def get_data_node(self, node: ProgramNode) -> ProcessedProgramNode:
         return self.__node_data[node]
 
-    def get_data_edge(self, source: ProgramNode, target: ProgramNode) -> IOConnection:
+    def get_data_edges(
+        self,
+        source: ProgramNode,
+        target: ProgramNode,
+    ) -> list[IOConnection | AncillaConnection]:
         return self.__edge_data[(source, target)]
 
 
@@ -123,28 +141,25 @@ class IOInfo:
 
     For this purpose, every qubit (not qubit-reg) is given an id, based on declaration order.
     Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.QubitAnnotationInfo`.
+    Warning: uncompute parse not inplemented yet.
+
+    :param declaration_to_ids: Maps declared qubit names to list of IDs.
+    :param id_to_info: Maps IDs to their corresponding info objects.
+    :param input_to_ids: Maps input indexes to their corresponding IDs.
+    :param output_to_ids: Maps output indexes to their corresponding IDs.
+    :param required_ancillas: Id list of required non-dirty ancillas.
+    :param dirty_ancillas: Id list of required (possible) dirty ancillas.
+    :param reusable_ancillas: Id list of reusable ancillas.
+    :param reusable_after_uncompute: Id list of additional reusable ancillas after uncompute.
+    :param returned_dirty_ancillas: Id list of ancillas that are returned dirty in any case.
     """
 
-    declaration_to_ids: dict[str, list[int]]
-    id_to_info: dict[int, QubitAnnotationInfo]
-    input_to_ids: dict[int, list[int]]
-    output_to_ids: dict[int, list[int]]
-
-    def __init__(
-        self,
-        declaration_to_ids: dict[str, list[int]] | None = None,
-        id_to_info: dict[int, QubitAnnotationInfo] | None = None,
-        input_to_ids: dict[int, list[int]] | None = None,
-        output_to_ids: dict[int, list[int]] | None = None,
-    ) -> None:
-        """Construct IOInfo.
-
-        :param declaration_to_ids: Maps declared qubit names to list of IDs.
-        :param id_to_info: Maps IDs to their corresponding info objects.
-        :param input_to_ids: Maps input indexes to their corresponding IDs.
-        :param output_to_ids: Maps output indexes to their corresponding IDs.
-        """
-        self.declaration_to_ids = declaration_to_ids or {}
-        self.id_to_info = id_to_info or {}
-        self.input_to_ids = input_to_ids or {}
-        self.output_to_ids = output_to_ids or {}
+    declaration_to_ids: dict[str, list[int]] = field(default_factory=dict)
+    id_to_info: dict[int, QubitAnnotationInfo] = field(default_factory=dict)
+    input_to_ids: dict[int, list[int]] = field(default_factory=dict)
+    output_to_ids: dict[int, list[int]] = field(default_factory=dict)
+    required_ancillas: list[int] = field(default_factory=list)
+    dirty_ancillas: list[int] = field(default_factory=list)
+    reusable_ancillas: list[int] = field(default_factory=list)
+    reusable_after_uncompute: list[int] = field(default_factory=list)
+    returned_dirty_ancillas: list[int] = field(default_factory=list)

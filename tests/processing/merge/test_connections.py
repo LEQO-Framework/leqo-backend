@@ -6,6 +6,7 @@ from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
 from app.processing.graph import (
+    AncillaConnection,
     IOConnection,
     IOInfo,
     ProcessedProgramNode,
@@ -37,7 +38,9 @@ def str_to_nodes(index: int, code: str) -> tuple[ProgramNode, ProcessedProgramNo
 def assert_connections(
     inputs: list[str],
     expected: list[str],
-    connections: list[tuple[tuple[int, int], tuple[int, int]]],
+    io_connections: list[tuple[tuple[int, int], tuple[int, int]]] | None = None,
+    ancilla_connections: list[tuple[tuple[int, list[int]], tuple[int, list[int]]]]
+    | None = None,
 ) -> None:
     graph = ProgramGraph()
     nodes = [str_to_nodes(i, code) for i, code in enumerate(inputs)]
@@ -45,16 +48,27 @@ def assert_connections(
     for node, processed in nodes:
         raw_nodes.append(node)
         graph.append_node(processed)
-    graph.append_edges(
-        *[
-            IOConnection(
-                (raw_nodes[con[0][0]], con[0][1]),
-                (raw_nodes[con[1][0]], con[1][1]),
-            )
-            for con in connections
-        ],
-    )
-    connect_qubits(graph)
+    if io_connections is not None:
+        graph.append_edges(
+            *[
+                IOConnection(
+                    (raw_nodes[con[0][0]], con[0][1]),
+                    (raw_nodes[con[1][0]], con[1][1]),
+                )
+                for con in io_connections
+            ],
+        )
+    if ancilla_connections is not None:
+        graph.append_edges(
+            *[
+                AncillaConnection(
+                    (raw_nodes[con[0][0]], con[0][1]),
+                    (raw_nodes[con[1][0]], con[1][1]),
+                )
+                for con in ancilla_connections
+            ],
+        )
+    connect_qubits(graph, "leqo_reg")
     actual = [
         normalize_qasm_string(dumps(graph.get_data_node(node).implementation))
         for node in graph.nodes()
@@ -109,6 +123,61 @@ def test_single_connections() -> None:
         """,
     ]
     assert_connections(inputs, expected, connections)
+
+
+def test_single_ancilla_connection() -> None:
+    inputs = [
+        """
+        qubit[3] c0_q0;
+        """,
+        """
+        qubit[3] c1_q0;
+        """,
+    ]
+    connections = [((0, [0, 1]), (1, [0, 1]))]
+    expected = [
+        """
+        let c0_q0 = leqo_reg[{0, 1, 2}];
+        """,
+        """
+        let c1_q0 = leqo_reg[{0, 1, 3}];
+        """,
+    ]
+    assert_connections(inputs, expected, ancilla_connections=connections)
+
+
+def test_io_ancilla_connection_mix() -> None:
+    inputs = [
+        """
+        qubit[3] c0_q0;
+        qubit[2] c0_q1;
+        @leqo.output 0
+        let _out = c0_q0;
+        """,
+        """
+        @leqo.input 0
+        qubit[3] c1_q0;
+        qubit[3] c1_q1;
+        """,
+    ]
+    io_connections = [((0, 0), (1, 0))]
+    ancilla_connections = [
+        ((0, [3, 4]), (1, [3, 4])),
+    ]
+    expected = [
+        """
+        let c0_q0 = leqo_reg[{0, 1, 2}];
+        let c0_q1 = leqo_reg[{3, 4}];
+        @leqo.output 0
+        let _out = c0_q0;
+        """,
+        """
+        @leqo.input 0
+        let c1_q0 = leqo_reg[{0, 1, 2}];
+        let c1_q1 = leqo_reg[{3, 4, 5}];
+        """,
+    ]
+    assert_connections(inputs, expected, io_connections, ancilla_connections)
 
 
 def test_one_output_to_two_inputs() -> None:
@@ -231,10 +300,10 @@ def test_connection_chain() -> None:
     assert_connections(inputs, expected, connections)
 
 
-def test_complexer() -> None:
+def test_complex() -> None:
     inputs = [
         """
-        qubit[4] c0_q0;
+        qubit[6] c0_q0;
         @leqo.output 0
         let _out_c0_0 = c0_q0[0:1];
         @leqo.output 1
@@ -243,24 +312,30 @@ def test_complexer() -> None:
         """
         @leqo.input 0
         qubit[2] c1_q0;
+        qubit c1_q1;
         @leqo.output 0
-        let _out_c1_0 = c1_q0[0];
+        let _out_c1_0 = c1_q0[0] ++ c1_q1;
         """,
         """
         @leqo.input 0
         qubit[2] c2_q0;
         @leqo.input 1
-        qubit c2_q1;
+        qubit[2] c2_q1;
+        qubit c2_q2;
         """,
     ]
-    connections = [
+    io_connections = [
         ((0, 0), (1, 0)),
         ((0, 1), (2, 0)),
         ((1, 0), (2, 1)),
     ]
+    ancilla_connections = [
+        ((0, [4]), (1, [2])),
+        ((0, [5]), (2, [4])),
+    ]
     expected = [
         """
-        let c0_q0 = leqo_reg[{0, 1, 2, 3}];
+        let c0_q0 = leqo_reg[{0, 1, 2, 3, 4, 5}];
         @leqo.output 0
         let _out_c0_0 = c0_q0[0:1];
         @leqo.output 1
@@ -269,17 +344,19 @@ def test_complexer() -> None:
         """
         @leqo.input 0
         let c1_q0 = leqo_reg[{0, 1}];
+        let c1_q1 = leqo_reg[{4}];
         @leqo.output 0
-        let _out_c1_0 = c1_q0[0];
+        let _out_c1_0 = c1_q0[0] ++ c1_q1;
         """,
         """
         @leqo.input 0
         let c2_q0 = leqo_reg[{2, 3}];
         @leqo.input 1
-        let c2_q1 = leqo_reg[{0}];
+        let c2_q1 = leqo_reg[{0, 4}];
+        let c2_q2 = leqo_reg[{5}];
         """,
     ]
-    assert_connections(inputs, expected, connections)
+    assert_connections(inputs, expected, io_connections, ancilla_connections)
 
 
 def test_raise_on_mismatched_connection_size() -> None:
@@ -320,7 +397,7 @@ def test_raise_on_missing_input_index() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: Input with index 0 into 0 modeled, but now such annotation.",
+        match="Unsupported: Input with index 0 into 0 modeled, but no such annotation.",
     ):
         assert_connections(inputs, [], connections)
 
@@ -341,6 +418,6 @@ def test_raise_on_missing_output_index() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: Output with index 0 from 0 modeled, but now such annotation.",
+        match="Unsupported: Output with index 0 from 0 modeled, but no such annotation.",
     ):
         assert_connections(inputs, [], connections)

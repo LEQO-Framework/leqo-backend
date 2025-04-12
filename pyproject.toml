@@ -14,6 +14,7 @@ dependencies = [
 dev = [
     "mypy>=1.14.1",
     "myst-parser>=4.0.0",
+    "openqasm-pygments>=0.1.2",
     "pytest>=8.3.4",
     "ruff>=0.9.4",
     "types-networkx>=3.4.2",
@@ -23,6 +24,7 @@ dev = [
     "sphinxcontrib-openapi>=0.8.4",
     "sphobjinv>=2.3.1.2",
     "sphinx-autoapi>=3.6.0",
+    "pytest-cov>=6.1.1",
 ]
 
 # https://github.com/DSD-DBS/py-capellambse/blob/b0d63fac33c90d15f0d2d4c6c111184a5801ce6c/pyproject.toml#L174-L204
