@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from random import randint, random, shuffle
+from textwrap import dedent
 from typing import override
 from uuid import uuid4
 
@@ -19,25 +20,25 @@ from app.processing.graph import (
 
 
 def random_program(id: int) -> ProcessedProgramNode:
-    amount_required_dirty = randint(0, 2)
     amount_required_reusable = randint(0, 8)
-    amount_returned_dirty = randint(0, 2)
+    amount_required_dirty = randint(0, 2)
     amount_returned_reusable = randint(0, 4)
     amount_returned_reusable_after_uncompute = randint(0, 4)
+    amount_returned_dirty = randint(0, 2)
 
     qubit_id = 0
-    required_dirty = [qubit_id + i for i in range(amount_required_dirty)]
-    qubit_id += amount_required_dirty
     required_reusable = [qubit_id + i for i in range(amount_required_reusable)]
+    qubit_id += amount_required_reusable
+    required_dirty = [qubit_id + i for i in range(amount_required_dirty)]
 
     qubit_id = 0
-    returned_dirty = [qubit_id + i for i in range(amount_returned_dirty)]
-    qubit_id += amount_returned_dirty
     returned_reusable = [qubit_id + i for i in range(amount_returned_reusable)]
     qubit_id += amount_returned_reusable
     returned_reusable_after_uncompute = [
         qubit_id + i for i in range(amount_returned_reusable_after_uncompute)
     ]
+    qubit_id += amount_returned_reusable_after_uncompute
+    returned_dirty = [qubit_id + i for i in range(amount_returned_dirty)]
 
     return ProcessedProgramNode(
         ProgramNode(str(id), ""),
@@ -46,11 +47,11 @@ def random_program(id: int) -> ProcessedProgramNode:
             uuid4(),
             IOInfo(
                 qubits=QubitIOInfo(
-                    required_dirty_ids=required_dirty,
                     required_reusable_ids=required_reusable,
-                    returned_dirty_ids=returned_dirty,
-                    returned_reusable_ids=returned_reusable,
+                    required_dirty_ids=required_dirty,
                     returned_reusable_after_uncompute_ids=returned_reusable_after_uncompute,
+                    returned_reusable_ids=returned_reusable,
+                    returned_dirty_ids=returned_dirty,
                 ),
             ),
         ),
@@ -75,6 +76,52 @@ def random_graph(size: int) -> ProgramGraph:
     return result
 
 
+def print_ancilla_edges(edges: list[AncillaConnection]) -> None:
+    print("\n=== Ancilla Edges ===")
+    for edge in edges:
+        print(
+            dedent(f"""
+                   == {edge.source[0].name} -> {edge.target[0].name} ==
+                   {edge.source[1]} -> {edge.target[1]}
+                   """).strip(),
+        )
+
+
+def print_graph(graph: ProgramGraph) -> None:
+    print("=== Nodes ===")
+    for nd in graph.nodes():
+        node = graph.get_data_node(nd)
+        name = node.raw.name
+        io = node.info.io.qubits
+        print(
+            dedent(f"""
+                   == Node {name} ==
+                   = Input =
+                   Clean: {len(io.required_reusable_ids)} {io.required_reusable_ids}
+                   Dirty: {len(io.required_dirty_ids)} {io.required_dirty_ids}
+                   == Output ==
+                   Clean:  {len(io.returned_reusable_ids)} {io.returned_reusable_ids}
+                   Uncom:  {len(io.returned_reusable_after_uncompute_ids)} {io.returned_reusable_after_uncompute_ids}
+                   Dirty:  {len(io.returned_dirty_ids)} {io.returned_dirty_ids}
+                   """).strip(),
+        )
+    io_edges: list[IOConnection] = []
+    ancilla_edges: list[AncillaConnection] = []
+    for edge in graph.edges():
+        data = graph.get_data_edges(*edge)
+        for subedge in data:
+            match subedge:
+                case IOConnection():
+                    io_edges.append(subedge)
+                case AncillaConnection():
+                    ancilla_edges.append(subedge)
+
+    print("\n=== IO Edges ===")
+    for subedge in io_edges:
+        print(f"""== {subedge.source[0].name} -> {subedge.target[0].name} ==""")
+    print_ancilla_edges(ancilla_edges)
+
+
 class AlgoPerf(ABC):
     graph: ProgramGraph
     added_edges: list[AncillaConnection]
@@ -89,6 +136,7 @@ class AlgoPerf(ABC):
 
     def add_edge(self, edge: AncillaConnection) -> None:
         self.graph.append_edge(edge)
+        self.added_edges.append(edge)
         self.performance += len(edge.source)
 
     def uncompute_node(self, node: ProcessedProgramNode) -> None:
@@ -134,6 +182,9 @@ class NoPredDummy(AlgoPerf):
     def get_and_remove_next_nopred(self) -> ProcessedProgramNode:
         return self.nopred.pop()
 
+    def get_and_remove_next_uncompute(self) -> ProcessedProgramNode:
+        return self.uncomputable.pop()
+
     @override
     def compute(self) -> tuple[int, int]:
         while len(self.nopred) > 0:
@@ -148,14 +199,14 @@ class NoPredDummy(AlgoPerf):
                 target_ids = need_dirty[:size]
                 need_dirty = need_dirty[size:]
                 source_ids = possible_source_ids[:size]
-                possible_source_ids = possible_source_ids[size:]
+                source.info.io.qubits.returned_dirty_ids = possible_source_ids[size:]
                 self.add_edge(
                     AncillaConnection(
                         (source.raw, source_ids),
                         (node.raw, target_ids),
                     ),
                 )
-                if len(possible_source_ids) == 0:
+                if len(source.info.io.qubits.returned_dirty_ids) == 0:
                     self.dirty.remove(source)
             while len(need_dirty) > 0 and len(self.uncomputable) > 0:
                 source = self.uncomputable[0]
@@ -166,14 +217,19 @@ class NoPredDummy(AlgoPerf):
                 target_ids = need_dirty[:size]
                 need_dirty = need_dirty[size:]
                 source_ids = possible_source_ids[:size]
-                possible_source_ids = possible_source_ids[size:]
+                source.info.io.qubits.returned_reusable_after_uncompute_ids = (
+                    possible_source_ids[size:]
+                )
                 self.add_edge(
                     AncillaConnection(
                         (source.raw, source_ids),
                         (node.raw, target_ids),
                     ),
                 )
-                if len(possible_source_ids) == 0:
+                if (
+                    len(source.info.io.qubits.returned_reusable_after_uncompute_ids)
+                    == 0
+                ):
                     self.uncomputable.remove(source)
 
             need_reusable = node.info.io.qubits.required_reusable_ids
@@ -187,20 +243,22 @@ class NoPredDummy(AlgoPerf):
                     target_ids = need_reusable[:size]
                     need_reusable = need_reusable[size:]
                     source_ids = possible_source_ids[:size]
-                    possible_source_ids = possible_source_ids[size:]
+                    source.info.io.qubits.returned_reusable_ids = possible_source_ids[
+                        size:
+                    ]
                     self.add_edge(
                         AncillaConnection(
                             (source.raw, source_ids),
                             (node.raw, target_ids),
                         ),
                     )
-                    if len(possible_source_ids) == 0:
+                    if len(source.info.io.qubits.returned_reusable_ids) == 0:
                         self.reusable.remove(source)
 
                 if (
                     len(need_reusable) > 0 and len(self.uncomputable) > 0
                 ):  # means that len(self.reusable) is empty
-                    new_reusable = self.uncomputable.pop()  # TODO: better heuristik?
+                    new_reusable = self.get_and_remove_next_uncompute()
                     self.reusable.append(new_reusable)
                     new_reusable.info.io.qubits.returned_reusable_ids = new_reusable.info.io.qubits.returned_reusable_after_uncompute_ids
                     self.uncompute_node(new_reusable)
@@ -284,14 +342,14 @@ class NoSuccDummy(AlgoPerf):
                 source_ids = got_dirty[:size]
                 got_dirty = got_dirty[size:]
                 target_ids = possible_target_ids[:size]
-                possible_target_ids = possible_target_ids[size:]
+                target.info.io.qubits.required_dirty_ids = possible_target_ids[size:]
                 self.add_edge(
                     AncillaConnection(
                         (node.raw, source_ids),
                         (target.raw, target_ids),
                     ),
                 )
-                if len(possible_target_ids) == 0:
+                if len(target.info.io.qubits.required_dirty_ids) == 0:
                     self.dirty.remove(target)
 
             got_uncomputable = node.info.io.qubits.returned_reusable_after_uncompute_ids
@@ -302,14 +360,14 @@ class NoSuccDummy(AlgoPerf):
                 source_ids = got_uncomputable[:size]
                 got_uncomputable = got_uncomputable[size:]
                 target_ids = possible_target_ids[:size]
-                possible_target_ids = possible_target_ids[size:]
+                target.info.io.qubits.required_dirty_ids = possible_target_ids[size:]
                 self.add_edge(
                     AncillaConnection(
                         (node.raw, source_ids),
                         (target.raw, target_ids),
                     ),
                 )
-                if len(possible_target_ids) == 0:
+                if len(target.info.io.qubits.required_dirty_ids) == 0:
                     self.dirty.remove(target)
 
             got_reusable = node.info.io.qubits.returned_reusable_ids
@@ -323,14 +381,16 @@ class NoSuccDummy(AlgoPerf):
                     source_ids = got_reusable[:size]
                     got_reusable = got_reusable[size:]
                     target_ids = possible_target_ids[:size]
-                    possible_target_ids = possible_target_ids[size:]
+                    target.info.io.qubits.required_reusable_ids = possible_target_ids[
+                        size:
+                    ]
                     self.add_edge(
                         AncillaConnection(
                             (node.raw, source_ids),
                             (target.raw, target_ids),
                         ),
                     )
-                    if len(possible_target_ids) == 0:
+                    if len(target.info.io.qubits.required_reusable_ids) == 0:
                         self.reusable.remove(target)
 
                 if len(got_uncomputable) > 0 and len(self.reusable) > 0:
@@ -369,11 +429,17 @@ def main() -> None:
         NoSuccRequiredReusable: (0, 0),
     }
     for _ in range(100):
-        graph = random_graph(50)
-        for algo, cur in contenders.items():
-            instance = algo(deepcopy(graph))
-            perf, uncomputed = instance.compute()
-            contenders[algo] = cur[0] + perf, cur[1] + uncomputed
+        graph = random_graph(2)
+        # for algo, cur in contenders.items():
+        #     instance = algo(deepcopy(graph))
+        #     perf, uncomputed = instance.compute()
+        #     contenders[algo] = cur[0] + perf, cur[1] + uncomputed
+        nopred = NoPredRequiredReusable(deepcopy(graph))
+        nosucc = NoSuccRequiredReusable(deepcopy(graph))
+        pc, pu = nopred.compute()
+        sc, su = nosucc.compute()
+        if pc > sc:
+            breakpoint()
 
     for algo, perf_uncomp in sorted(
         contenders.items(),
