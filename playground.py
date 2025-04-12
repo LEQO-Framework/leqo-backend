@@ -22,7 +22,7 @@ from app.processing.graph import (
 def random_program(id: int) -> ProcessedProgramNode:
     amount_required_reusable = randint(0, 8)
     amount_required_dirty = randint(0, 2)
-    amount_returned_reusable = randint(0, 4)
+    amount_returned_reusable = randint(0, 2)
     amount_returned_reusable_after_uncompute = randint(0, 4)
     amount_returned_dirty = randint(0, 2)
 
@@ -312,6 +312,22 @@ class NoPredReturnedRequiredDifference(NoPredDummy):
         return result
 
 
+class NoPredReturnedRequiredQuotient(NoPredDummy):
+    @override
+    def get_and_remove_next_nopred(self) -> ProcessedProgramNode:
+        self.nopred.sort(
+            key=lambda x: (
+                len(x.info.io.qubits.returned_reusable_ids)
+                + len(x.info.io.qubits.returned_reusable_after_uncompute_ids)
+                + 1
+            )
+            / (len(x.info.io.qubits.required_reusable_ids) + 1),
+            reverse=True,
+        )
+        result, self.nopred = self.nopred[0], self.nopred[1:]
+        return result
+
+
 class NoSuccDummy(AlgoPerf):
     reusable: list[ProcessedProgramNode]
     dirty: list[ProcessedProgramNode]
@@ -442,6 +458,22 @@ class NoSuccReturnedRequiredDifference(NoSuccDummy):
         return result
 
 
+class NoSuccReturnedRequiredQuotient(NoSuccDummy):
+    @override
+    def get_and_remove_next_nosucc(self) -> ProcessedProgramNode:
+        self.nosucc.sort(
+            key=lambda x: (
+                len(x.info.io.qubits.returned_reusable_ids)
+                + len(x.info.io.qubits.returned_reusable_after_uncompute_ids)
+                + 1
+            )
+            / (len(x.info.io.qubits.required_reusable_ids) + 1),
+            reverse=False,
+        )
+        result, self.nosucc = self.nosucc[0], self.nosucc[1:]
+        return result
+
+
 def main() -> None:
     contenders: dict[type[AlgoPerf], tuple[int, int]] = {
         DummyAlgo: (0, 0),
@@ -449,9 +481,11 @@ def main() -> None:
         NoPredReturnedReusable: (0, 0),
         NoPredRequiredReusable: (0, 0),
         NoPredReturnedRequiredDifference: (0, 0),
+        NoPredReturnedRequiredQuotient: (0, 0),
         NoSuccDummy: (0, 0),
         NoSuccRequiredReusable: (0, 0),
         NoSuccReturnedRequiredDifference: (0, 0),
+        NoSuccReturnedRequiredQuotient: (0, 0),
     }
     for _ in range(50):
         graph = random_graph(100)
