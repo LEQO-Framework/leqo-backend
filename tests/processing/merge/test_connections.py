@@ -522,7 +522,7 @@ def test_raise_on_mismatched_classic_size() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Mismatched sizes in IOConnection of type 16\n\noutput _out has size 16\ninput c1_i0 has size 32\n",
+        match="\nUnsupported: Mismatched sizes in IOConnection of type <class 'openqasm3.ast.IntType'>\n\noutput _out has size 16\ninput c1_i0 has size 32\n",
     ):
         assert_connections(inputs, [], connections)
 

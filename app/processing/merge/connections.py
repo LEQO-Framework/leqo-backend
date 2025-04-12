@@ -176,7 +176,7 @@ class Connections:
             raise UnsupportedOperation(msg)
         if input.size != output.size:
             msg = dedent(f"""
-                Unsupported: Mismatched sizes in IOConnection of type {output.size}
+                Unsupported: Mismatched sizes in IOConnection of type {output.type}
 
                 output {output.name} has size {output.size}
                 input {input.name} has size {input.size}
