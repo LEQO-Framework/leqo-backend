@@ -22,7 +22,8 @@ jobs:
 
       - name: Extract OpenAPI spec
         run: uv run --no-sync extract-openapi.py
-
+        env:
+          ENV_FILE: .env
       - name: Build static files
         run: uv run --no-sync sphinx-build docs/ docs/_build
         env:
