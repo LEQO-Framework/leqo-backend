@@ -15,5 +15,3 @@ services:
       - ${POSTGRES_PORT}
     ports:
       - "${POSTGRES_PORT}:5432"
-    volumes:
-      - ./database-backup:/home/backups
