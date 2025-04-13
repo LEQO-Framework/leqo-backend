@@ -9,6 +9,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
 
+from app.enricher.delete_after_review import demo
 from app.model.CompileRequest import CompileRequest
 from app.model.StatusBody import Progress, StatusBody, StatusType
 
@@ -30,7 +31,6 @@ results: dict[UUID, str] = {}
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # This is only for testing delete after review
-from app.enricher.delete_after_review import demo
 
 
 @app.get("/enricher")
