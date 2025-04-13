@@ -28,13 +28,13 @@ http://localhost:8000/docs
 Run the following command:
 
 ```bash
+docker compose up postgres
 uv run fastapi dev
 ```
 
-To access the database you either need a postgres database on your
-local maschine or an docker container. 
-In either case you have to change the host in your `.env` to the
-ip address of the postgres database. For docker you get the ip with:
+Now you have to change the host in your `.env` to the
+IP address of the postgres database docker container. 
+For docker you get the IP with:
 
 Unix:
 ```bash
