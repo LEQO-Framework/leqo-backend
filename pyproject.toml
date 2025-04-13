@@ -11,7 +11,7 @@ dependencies = [
     "psycopg>=3.2.6",
     "psycopg-binary>=3.2.6",
     "python-dotenv>=1.0.1",
-    "sqlalchemy>=2.0.38"
+    "sqlalchemy[mypy]>=2.0.38"
 ]
 
 [dependency-groups]
@@ -62,6 +62,7 @@ extend-select = [
 
 [tool.mypy]
 ignore_missing_imports = true
+plugins = "sqlalchemy.ext.mypy.plugin"
 
 [[tool.mypy.overrides]]
 module = "qiskit.qasm3"
