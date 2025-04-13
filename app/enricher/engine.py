@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
 
-from app.enricher.utils import create_database
+from app.enricher.models import Base
 
 load_dotenv()
 
@@ -18,7 +18,7 @@ try:
         database=os.environ["POSTGRES_DB"],
     )
     engine = create_engine(url)
-    create_database(engine)
+    Base.metadata.create_all(engine)
 except KeyError as e:
     raise RuntimeError(f"Missing required environment variable: {e}") from e
 except Exception as e:

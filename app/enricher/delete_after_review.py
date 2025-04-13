@@ -8,7 +8,6 @@ from sqlalchemy.orm import sessionmaker
 
 from app.enricher.engine import engine
 from app.enricher.models import Base
-from app.enricher.utils import reset_database
 
 
 class QuasmImplementation(Base):
@@ -29,7 +28,7 @@ def createQuasmImplementation(quasm: str) -> None:
         session.commit()
 
 
-def findQuasmImplementation(searchTerm: str) -> None:
+def findQuasmImplementation(searchTerm: str) -> list[tuple[int, str]]:
     with Session() as session:
         query = select(QuasmImplementation).where(
             QuasmImplementation.quasm == searchTerm
@@ -38,8 +37,7 @@ def findQuasmImplementation(searchTerm: str) -> None:
         return [(row[0].id, row[0].quasm) for row in result.all()]
 
 
-def demo() -> list[tuple]:
-    reset_database(engine)
+def demo() -> list[tuple[int, str]]:
     createQuasmImplementation("x q[0]")
     createQuasmImplementation("cx q[1], q[2]")
     createQuasmImplementation("c[0] = measure q[2]")
