@@ -13,10 +13,12 @@ from app.enricher.models import Base
 class QuasmImplementation(Base):
     """Used as a definition to create a table in the DB
     Normally in ./models but moved here for simplicity."""
+
     __tablename__ = "qasm_impl"
 
     id = Column(Integer(), primary_key=True)
     quasm = Column(Text, nullable=False)
+
 
 # Used to connect to the DB through the engine
 Session = sessionmaker(bind=engine)
