@@ -16,7 +16,6 @@ wheels/
 # Other
 .run.sh
 .env
-database-backup
 
 # Coverage
 .coverage-report/

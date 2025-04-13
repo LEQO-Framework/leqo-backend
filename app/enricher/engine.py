@@ -8,6 +8,8 @@ from app.enricher.models import Base
 
 load_dotenv()
 
+"""Creation of an engine to connect to the DB
+and all the tables defined by extending the Base class."""
 try:
     url = URL.create(
         drivername=os.environ["SQLALCHEMY_DRIVER"],
