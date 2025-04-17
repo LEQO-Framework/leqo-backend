@@ -5,6 +5,7 @@ from textwrap import dedent
 from typing import override
 from uuid import uuid4
 
+from networkx import topological_sort
 from openqasm3.ast import Program
 
 from app.processing.graph import (
@@ -157,6 +158,8 @@ class NoPredDummy(AlgoPerf):
     dirty: list[ProcessedProgramNode]
     uncomputable: list[ProcessedProgramNode]
     nopred: list[ProcessedProgramNode]
+    need_dirty: list[int]
+    need_reusable: list[int]
 
     def __init__(self, graph: ProgramGraph) -> None:
         super().__init__(graph)
@@ -168,6 +171,8 @@ class NoPredDummy(AlgoPerf):
             for n, pred in self.graph.pred.items()
             if not pred
         ]
+        self.need_dirty = []
+        self.need_reusable = []
 
     def remove_node(self, node: ProcessedProgramNode) -> list[ProcessedProgramNode]:
         result: list[ProcessedProgramNode] = []
@@ -190,13 +195,13 @@ class NoPredDummy(AlgoPerf):
             node = self.get_and_remove_next_nopred()
             self.nopred.extend(self.remove_node(node))
 
-            need_dirty = node.info.io.qubits.required_dirty_ids
-            while len(need_dirty) > 0 and len(self.dirty) > 0:
+            self.need_dirty = node.info.io.qubits.required_dirty_ids
+            while len(self.need_dirty) > 0 and len(self.dirty) > 0:
                 source = self.dirty[0]
                 possible_source_ids = source.info.io.qubits.returned_dirty_ids
-                size = min(len(need_dirty), len(possible_source_ids))
-                target_ids = need_dirty[:size]
-                need_dirty = need_dirty[size:]
+                size = min(len(self.need_dirty), len(possible_source_ids))
+                target_ids = self.need_dirty[:size]
+                self.need_dirty = self.need_dirty[size:]
                 source_ids = possible_source_ids[:size]
                 source.info.io.qubits.returned_dirty_ids = possible_source_ids[size:]
                 self.add_edge(
@@ -207,14 +212,14 @@ class NoPredDummy(AlgoPerf):
                 )
                 if len(source.info.io.qubits.returned_dirty_ids) == 0:
                     self.dirty.remove(source)
-            while len(need_dirty) > 0 and len(self.uncomputable) > 0:
+            while len(self.need_dirty) > 0 and len(self.uncomputable) > 0:
                 source = self.uncomputable[0]
                 possible_source_ids = (
                     source.info.io.qubits.returned_reusable_after_uncompute_ids
                 )
-                size = min(len(need_dirty), len(possible_source_ids))
-                target_ids = need_dirty[:size]
-                need_dirty = need_dirty[size:]
+                size = min(len(self.need_dirty), len(possible_source_ids))
+                target_ids = self.need_dirty[:size]
+                self.need_dirty = self.need_dirty[size:]
                 source_ids = possible_source_ids[:size]
                 source.info.io.qubits.returned_reusable_after_uncompute_ids = (
                     possible_source_ids[size:]
@@ -319,13 +324,94 @@ class NoPredReturnedRequiredQuotient(NoPredDummy):
             key=lambda x: (
                 len(x.info.io.qubits.returned_reusable_ids)
                 + len(x.info.io.qubits.returned_reusable_after_uncompute_ids)
-                + 1
             )
             / (len(x.info.io.qubits.required_reusable_ids) + 1),
             reverse=True,
         )
         result, self.nopred = self.nopred[0], self.nopred[1:]
         return result
+
+
+class NoPredCheckNeed(NoPredDummy):
+    score_reusable = 1
+    score_uncomp = 1
+    score_dirty = 1
+
+    @override
+    def get_and_remove_next_nopred(self) -> ProcessedProgramNode:
+        total_resuable = 0
+        total_dirty = 0
+        total_qubits = 0
+        for node in self.reusable:
+            tmp = len(node.info.io.qubits.returned_reusable_ids)
+            total_resuable += tmp
+            total_qubits += tmp
+        for node in self.dirty:
+            tmp = len(node.info.io.qubits.returned_dirty_ids)
+            total_dirty += tmp
+            total_qubits += tmp
+        for node in self.uncomputable:
+            tmp = len(node.info.io.qubits.returned_reusable_ids)
+            tmp = len(node.info.io.qubits.returned_dirty_ids)
+            total_dirty += tmp
+            total_qubits += tmp
+        current_best: tuple[bool, int, None | ProcessedProgramNode] = False, -1, None
+        for node in self.nopred:
+            required_dirty = len(node.info.io.qubits.required_dirty_ids)
+            required_reusable = len(node.info.io.qubits.returned_reusable_ids)
+            satisfied = (
+                required_dirty < total_dirty
+                and required_reusable < total_resuable
+                and required_dirty + required_reusable < total_qubits
+            )
+            if not satisfied and current_best[0]:
+                continue
+            score = (
+                len(node.info.io.qubits.returned_reusable_ids) * self.score_reusable
+                + len(node.info.io.qubits.returned_reusable_after_uncompute_ids)
+                * self.score_uncomp
+                + len(node.info.io.qubits.returned_dirty_ids) * self.score_dirty
+            )
+            if score < current_best[1]:
+                continue
+            current_best = (satisfied, score, node)
+        choice = current_best[2]
+        if choice is None:
+            raise RuntimeError
+        self.nopred.remove(choice)
+        return choice
+
+    @override
+    def get_and_remove_next_uncompute(self) -> ProcessedProgramNode:
+        current_best: tuple[int, ProcessedProgramNode | None] = (100000000, None)
+        for node in self.uncomputable:
+            score = len(node.info.io.qubits.returned_reusable_after_uncompute_ids)
+            if score > current_best[0]:
+                continue
+            current_best = (score, node)
+        choice = current_best[1]
+        if choice is None:
+            raise RuntimeError
+        self.uncomputable.remove(choice)
+        return choice
+
+
+class NoPredCheckNeed551(NoPredCheckNeed):
+    score_reusable = 5
+    score_uncomp = 5
+    score_dirty = 1
+
+
+class NoPredCheckNeed521(NoPredCheckNeed):
+    score_reusable = 5
+    score_uncomp = 5
+    score_dirty = 1
+
+
+class NoPredCheckNeed951(NoPredCheckNeed):
+    score_reusable = 9
+    score_uncomp = 5
+    score_dirty = 1
 
 
 class NoSuccDummy(AlgoPerf):
@@ -482,6 +568,10 @@ def main() -> None:
         NoPredRequiredReusable: (0, 0),
         NoPredReturnedRequiredDifference: (0, 0),
         NoPredReturnedRequiredQuotient: (0, 0),
+        NoPredCheckNeed: (0, 0),
+        NoPredCheckNeed551: (0, 0),
+        NoPredCheckNeed521: (0, 0),
+        NoPredCheckNeed951: (0, 0),
         NoSuccDummy: (0, 0),
         NoSuccRequiredReusable: (0, 0),
         NoSuccReturnedRequiredDifference: (0, 0),
@@ -493,6 +583,8 @@ def main() -> None:
             instance = algo(deepcopy(graph))
             perf, uncomputed = instance.compute()
             contenders[algo] = cur[0] + perf, cur[1] + uncomputed
+            for _ in topological_sort(instance.graph):
+                pass
         # nopred = NoPredRequiredReusable(deepcopy(graph))
         # nosucc = NoSuccRequiredReusable(deepcopy(graph))
         # pc, pu = nopred.compute()
