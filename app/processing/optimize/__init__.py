@@ -1,6 +1,23 @@
 """Optimize the modelled graph be adding additional ancilla connections and decide whether to uncompute."""
 
-from app.processing.graph import ProgramGraph
+from abc import ABC, abstractmethod
+from copy import deepcopy
+
+from app.processing.graph import AncillaConnection, ProgramGraph, ProgramNode
+from app.processing.optimize.no_pred import NoPredCheckNeed
+
+
+class OptimizationAlgo(ABC):
+    """Interface for optimization algorithms."""
+
+    graph: ProgramGraph
+
+    def __init__(self, graph: ProgramGraph) -> None:
+        self.graph = graph
+
+    @abstractmethod
+    def compute(self) -> tuple[list[AncillaConnection], dict[ProgramNode, bool]]:
+        pass
 
 
 def optimize(graph: ProgramGraph) -> None:
@@ -8,4 +25,5 @@ def optimize(graph: ProgramGraph) -> None:
 
     :param graph: Graph of all nodes representing the program
     """
-    # not implemented yet
+    ancilla_edges, uncomputes = NoPredCheckNeed(deepcopy(graph)).compute()
+    # TODO: apply this
