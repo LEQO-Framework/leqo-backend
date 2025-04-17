@@ -185,7 +185,17 @@ class NoPredDummy(AlgoPerf):
         return self.nopred.pop()
 
     def pop_uncomputable(self) -> ProcessedProgramNode:
-        return self.uncomputable.pop()
+        current_best: tuple[int, ProcessedProgramNode | None] = (100000000, None)
+        for node in self.uncomputable:
+            score = len(node.info.io.qubits.returned_reusable_after_uncompute_ids)
+            if score > current_best[0]:
+                continue
+            current_best = (score, node)
+        choice = current_best[1]
+        if choice is None:
+            raise RuntimeError
+        self.uncomputable.remove(choice)
+        return choice
 
     def satisfy_dirty_qubit_requirement(self) -> None:
         if self.current_node is None:
@@ -402,20 +412,6 @@ class NoPredCheckNeed(NoPredDummy):
         if choice is None:
             raise RuntimeError
         self.nopred.remove(choice)
-        return choice
-
-    @override
-    def pop_uncomputable(self) -> ProcessedProgramNode:
-        current_best: tuple[int, ProcessedProgramNode | None] = (100000000, None)
-        for node in self.uncomputable:
-            score = len(node.info.io.qubits.returned_reusable_after_uncompute_ids)
-            if score > current_best[0]:
-                continue
-            current_best = (score, node)
-        choice = current_best[1]
-        if choice is None:
-            raise RuntimeError
-        self.uncomputable.remove(choice)
         return choice
 
 
