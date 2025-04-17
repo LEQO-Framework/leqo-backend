@@ -358,7 +358,7 @@ class NoPredCheckNeed(NoPredDummy):
         current_best: tuple[bool, int, None | ProcessedProgramNode] = False, -1, None
         for node in self.nopred:
             required_dirty = len(node.info.io.qubits.required_dirty_ids)
-            required_reusable = len(node.info.io.qubits.returned_reusable_ids)
+            required_reusable = len(node.info.io.qubits.required_reusable_ids)
             satisfied = (
                 required_dirty < total_dirty
                 and required_reusable < total_resuable
