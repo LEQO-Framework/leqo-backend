@@ -181,6 +181,7 @@ class ClassicalEdge(_EdgeBase):
 
 class AncillaEdge(_EdgeBase):
     type: Literal["ancilla"]
+    size: int = Field(1, ge=1)
 
 
 Edge = QubitEdge | ClassicalEdge | AncillaEdge
