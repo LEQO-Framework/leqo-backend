@@ -43,9 +43,6 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
         :return: A new globally unique identifier.
         """
 
-        if self.renames.get(old_identifier.name) is not None:
-            raise Exception("Variable already defined")
-
         new_identifier = Identifier(f"leqo_{context.id.hex}_{old_identifier.name}")
         self.renames[old_identifier.name] = new_identifier
 
