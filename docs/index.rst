@@ -21,12 +21,4 @@ documentation for details.
 
     testing
     example-cross-references
-    code/app
-
-.. toctree::
-    :caption: OpenQasm3
-    :hidden:
-    :titlesonly:
-
-    openqasm3/ast
-    openqasm3/visitor
+    openqasm3

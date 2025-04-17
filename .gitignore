@@ -11,6 +11,11 @@ wheels/
 
 # PyCharm
 .idea/
+.vs/
 
 # Other
 .run.sh
+
+# Coverage
+.coverage-report/
+.coverage

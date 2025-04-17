@@ -1,9 +1,18 @@
+"""
+This module defines the data models for compile requests.
+It provides classes to model metadata, node data, and the complete compile request.
+"""
+
 from enum import StrEnum
 
 from pydantic import BaseModel
 
 
 class MetaData(BaseModel):
+    """
+    Models the metadata of a compile request.
+    """
+
     version: str
     name: str
     description: str
@@ -14,10 +23,18 @@ class MetaData(BaseModel):
 class NodeIdRef(
     BaseModel
 ):  # ToDo: remove after frontend changed inputs to type list[str]
+    """
+    Models a reference object containing the node ID.
+    """
+
     id: str
 
 
 class NodeType(StrEnum):
+    """
+    Enumeration of the various node types.
+    """
+
     POSITION_NODE = "positionNode"
     STATE_PREPARATION_NODE = "statePreparationNode"
     GATE_NODE = "gateNode"
@@ -29,6 +46,10 @@ class NodeType(StrEnum):
 
 
 class NodeData(BaseModel):
+    """
+    Contains specific data for a node.
+    """
+
     label: str
     inputs: list[NodeIdRef]  # ToDo: change to list[str]
     implementation: str
@@ -40,11 +61,19 @@ class NodeData(BaseModel):
 
 
 class Node(BaseModel):
+    """
+    Models a node within a compile request.
+    """
+
     id: str
     type: NodeType
     data: NodeData
 
 
 class CompileRequest(BaseModel):
+    """
+    Models a complete compile request.
+    """
+
     metadata: MetaData
     nodes: list[Node]

@@ -1,4 +1,4 @@
-from openqasm_pygments import OpenQASM2Lexer, OpenQASM3Lexer  # type: ignore
+from openqasm_pygments import OpenQASM2Lexer, OpenQASM3Lexer
 from sphinx.application import Sphinx
 from sphinx.highlighting import lexers
 

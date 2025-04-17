@@ -1,11 +1,15 @@
+"""
+Basic program graph used withing the :mod:`app.processing`.
+"""
+
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from networkx import DiGraph
-from openqasm3.ast import Program
+from openqasm3.ast import ClassicalType, Program
 
 
 @dataclass(frozen=True)
@@ -22,6 +26,11 @@ class SectionInfo:
     """Store information scraped in preprocessing."""
 
     id: UUID
+    io: IOInfo
+
+    def __init__(self, uuid: UUID | None = None, io_info: IOInfo | None = None) -> None:
+        self.id = uuid4() if uuid is None else uuid
+        self.io = IOInfo() if io_info is None else io_info
 
 
 @dataclass(frozen=True)
@@ -42,6 +51,17 @@ class IOConnection:
     target: tuple[ProgramNode, int]
 
 
+@dataclass()
+class AncillaConnection:
+    """Map output qubits from source to target input qubits.
+
+    The qubits are identified via the id specified in :class:`app.processing.graph.IOInfo`.
+    """
+
+    source: tuple[ProgramNode, list[int]]
+    target: tuple[ProgramNode, list[int]]
+
+
 if TYPE_CHECKING:
     ProgramGraphBase = DiGraph[ProgramNode]
 else:
@@ -52,7 +72,10 @@ class ProgramGraph(ProgramGraphBase):
     """Internal representation of the program graph."""
 
     __node_data: dict[ProgramNode, ProcessedProgramNode]
-    __edge_data: dict[tuple[ProgramNode, ProgramNode], IOConnection]
+    __edge_data: dict[
+        tuple[ProgramNode, ProgramNode],
+        list[IOConnection | AncillaConnection],
+    ]
 
     def __init__(self) -> None:
         super().__init__()
@@ -67,16 +90,87 @@ class ProgramGraph(ProgramGraphBase):
         for node in nodes:
             self.append_node(node)
 
-    def append_edge(self, edge: IOConnection) -> None:
+    def append_edge(self, edge: IOConnection | AncillaConnection) -> None:
         super().add_edge(edge.source[0], edge.target[0])
-        self.__edge_data[(edge.source[0], edge.source[0])] = edge
+        self.__edge_data.setdefault((edge.source[0], edge.target[0]), []).append(edge)
 
-    def append_edges(self, *edges: IOConnection) -> None:
+    def append_edges(self, *edges: IOConnection | AncillaConnection) -> None:
         for edge in edges:
             self.append_edge(edge)
 
     def get_data_node(self, node: ProgramNode) -> ProcessedProgramNode:
         return self.__node_data[node]
 
-    def get_data_edge(self, source: ProgramNode, target: ProgramNode) -> IOConnection:
+    def get_data_edges(
+        self,
+        source: ProgramNode,
+        target: ProgramNode,
+    ) -> list[IOConnection | AncillaConnection]:
         return self.__edge_data[(source, target)]
+
+
+QubitIDs = list[int]
+
+
+@dataclass()
+class QubitIOInfo:
+    """Store QubitIDs of declarations, reusable and dirty.
+
+    :param declaration_to_ids: Maps declared names to corresponding qubits ids.
+    :param required_reusable_ids: List of required reusable/fresh/uncomputed qubit ids.
+    :param required_dirty_ids: List of required (possible) dirty qubits.
+    :param returned_reusable_ids: List of returned reusable qubits.
+    :param returned_reusable_after_uncompute_ids: List of qubits that are reusable after uncompute.
+    :param returned_dirty_ids: List of qubits that are always returned dirty.
+    """
+
+    declaration_to_ids: dict[str, QubitIDs] = field(default_factory=dict)
+    required_reusable_ids: QubitIDs = field(default_factory=list)
+    required_dirty_ids: QubitIDs = field(default_factory=list)
+    returned_reusable_ids: QubitIDs = field(default_factory=list)
+    returned_reusable_after_uncompute_ids: QubitIDs = field(default_factory=list)
+    returned_dirty_ids: QubitIDs = field(default_factory=list)
+
+
+@dataclass()
+class ClassicalIOInstance:
+    """Single input/output from a snippet of type classical.
+
+    :param name: Name of the annotated variable.
+    :param type: Type of the annotated variable.
+    :param size: Size of the annotated variable.
+    """
+
+    name: str
+    type: type[ClassicalType]
+    size: int
+
+
+@dataclass()
+class QubitIOInstance:
+    """Single input/output from a snippet of type qubits.
+
+    :param name: Name of the annotated variable.
+    :param ids: List of annotated qubit ids.
+    """
+
+    name: str
+    ids: QubitIDs
+
+
+@dataclass()
+class IOInfo:
+    """Input/output info for a single snippet.
+
+    :param inputs: Maps input-index to (Qubit/Classical)IOInstance.
+    :param outputs: Maps output-index to (Qubit/Classical)IOInstance.
+    :param qubits: Store qubit info via QubitIOInfo.
+    """
+
+    inputs: dict[int, QubitIOInstance | ClassicalIOInstance] = field(
+        default_factory=dict,
+    )
+    outputs: dict[int, QubitIOInstance | ClassicalIOInstance] = field(
+        default_factory=dict,
+    )
+    qubits: QubitIOInfo = field(default_factory=QubitIOInfo)

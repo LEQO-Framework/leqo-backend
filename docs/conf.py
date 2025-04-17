@@ -12,7 +12,6 @@ import sys
 # set system path to /leqo-backend/
 sys.path.insert(0, os.path.abspath("../"))
 
-
 project = "LEQO-Backend"
 copyright = "2025, LEQO Backend Team"
 author = "Arne Gabriel, Johannes Heugel, Lukas Kurz, Len Lazarus, Louis Radek"
@@ -29,7 +28,15 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinxcontrib.openapi",
+    "autoapi.extension",
 ]
+
+# https://sphinx-autoapi.readthedocs.io/en/latest/reference/config.html
+autoapi_options = [
+    "members",
+]
+autoapi_dirs = ["../app"]
+autodoc_typehints = "both"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
