@@ -73,7 +73,6 @@ CircuitNode = QubitNode | GateNode
 
 
 # region Literals
-# ToDo: Array support?
 
 
 class BitLiteralNode(_BaseNode):
@@ -98,7 +97,18 @@ class FloatLiteralNode(_BaseNode):
     value: float
 
 
-LiteralNode = BitLiteralNode | BoolLiteralNode | IntLiteralNode | FloatLiteralNode
+class AncillaLiteralNode(_BaseNode):
+    type: Literal["ancilla"] = "ancilla"
+    size: int = Field(default=1, ge=1)
+
+
+LiteralNode = (
+    BitLiteralNode
+    | BoolLiteralNode
+    | IntLiteralNode
+    | FloatLiteralNode
+    | AncillaLiteralNode
+)
 # endregion
 
 
@@ -169,7 +179,11 @@ class ClassicalEdge(_EdgeBase):
     type: Literal["classical"]
 
 
-Edge = QubitEdge | ClassicalEdge
+class AncillaEdge(_EdgeBase):
+    type: Literal["ancilla"]
+
+
+Edge = QubitEdge | ClassicalEdge | AncillaEdge
 # endregion
 
 
