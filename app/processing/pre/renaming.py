@@ -46,8 +46,7 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
         if self.renames.get(old_identifier.name) is not None:
             raise Exception("Variable already defined")
 
-        index = len(self.renames)
-        new_identifier = Identifier(f"leqo_{context.id.hex}_declaration{index}")
+        new_identifier = Identifier(f"leqo_{context.id.hex}_{old_identifier.name}")
         self.renames[old_identifier.name] = new_identifier
 
         return new_identifier
@@ -156,7 +155,6 @@ class RenameRegisterTransformer(QASMTransformer[SectionInfo]):
     def visit_Identifier(self, node: Identifier, _context: SectionInfo) -> Identifier:
         """
         Renames identifiers using the old declaration names.
-        ToDo: We currently ignore scope!!
 
         :param node: Identifier to rename
         :return: Modified identifier
