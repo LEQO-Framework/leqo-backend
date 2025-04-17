@@ -275,9 +275,10 @@ class NoPredDummy(AlgoPerf):
             if len(need_reusable) > 0 and len(self.uncomputable) > 0:
                 new_reusable = self.pop_uncomputable()
                 self.reusable.append(new_reusable)
-                new_reusable.info.io.qubits.returned_reusable_ids = (
-                    new_reusable.info.io.qubits.returned_reusable_after_uncompute_ids
+                new_reusable.info.io.qubits.returned_reusable_ids.extend(
+                    new_reusable.info.io.qubits.returned_reusable_after_uncompute_ids,
                 )
+                new_reusable.info.io.qubits.returned_reusable_after_uncompute_ids = []
                 self.uncompute_node(new_reusable)
 
     @override
