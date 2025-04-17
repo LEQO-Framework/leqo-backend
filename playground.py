@@ -339,12 +339,12 @@ class NoPredCheckNeed(NoPredDummy):
 
     @override
     def get_and_remove_next_nopred(self) -> ProcessedProgramNode:
-        total_resuable = 0
+        total_reusable = 0
         total_dirty = 0
         total_qubits = 0
         for node in self.reusable:
             tmp = len(node.info.io.qubits.returned_reusable_ids)
-            total_resuable += tmp
+            total_reusable += tmp
             total_qubits += tmp
         for node in self.dirty:
             tmp = len(node.info.io.qubits.returned_dirty_ids)
@@ -361,7 +361,7 @@ class NoPredCheckNeed(NoPredDummy):
             required_reusable = len(node.info.io.qubits.required_reusable_ids)
             satisfied = (
                 required_dirty < total_dirty
-                and required_reusable < total_resuable
+                and required_reusable < total_reusable
                 and required_dirty + required_reusable < total_qubits
             )
             if not satisfied and current_best[0]:
@@ -418,6 +418,9 @@ class NoSuccDummy(AlgoPerf):
     reusable: list[ProcessedProgramNode]
     dirty: list[ProcessedProgramNode]
     nosucc: list[ProcessedProgramNode]
+    got_reusable: list[int]
+    got_uncomputable: list[int]
+    got_dirty: list[int]
 
     def __init__(self, graph: ProgramGraph) -> None:
         super().__init__(graph)
@@ -428,6 +431,9 @@ class NoSuccDummy(AlgoPerf):
             for n, succ in self.graph.succ.items()
             if not succ
         ]
+        self.got_reusable = []
+        self.got_uncomputable = []
+        self.got_dirty = []
 
     def remove_node(self, node: ProcessedProgramNode) -> list[ProcessedProgramNode]:
         result: list[ProcessedProgramNode] = []
@@ -447,13 +453,13 @@ class NoSuccDummy(AlgoPerf):
             node = self.get_and_remove_next_nosucc()
             self.nosucc.extend(self.remove_node(node))
 
-            got_dirty = node.info.io.qubits.returned_dirty_ids
-            while len(got_dirty) > 0 and len(self.dirty) > 0:
+            self.got_dirty = node.info.io.qubits.returned_dirty_ids
+            while len(self.got_dirty) > 0 and len(self.dirty) > 0:
                 target = self.dirty[0]
                 possible_target_ids = target.info.io.qubits.required_dirty_ids
-                size = min(len(got_dirty), len(possible_target_ids))
-                source_ids = got_dirty[:size]
-                got_dirty = got_dirty[size:]
+                size = min(len(self.got_dirty), len(possible_target_ids))
+                source_ids = self.got_dirty[:size]
+                self.got_dirty = self.got_dirty[size:]
                 target_ids = possible_target_ids[:size]
                 target.info.io.qubits.required_dirty_ids = possible_target_ids[size:]
                 self.add_edge(
@@ -465,13 +471,15 @@ class NoSuccDummy(AlgoPerf):
                 if len(target.info.io.qubits.required_dirty_ids) == 0:
                     self.dirty.remove(target)
 
-            got_uncomputable = node.info.io.qubits.returned_reusable_after_uncompute_ids
-            while len(got_uncomputable) > 0 and len(self.dirty) > 0:
+            self.got_uncomputable = (
+                node.info.io.qubits.returned_reusable_after_uncompute_ids
+            )
+            while len(self.got_uncomputable) > 0 and len(self.dirty) > 0:
                 target = self.dirty[0]
                 possible_target_ids = target.info.io.qubits.required_dirty_ids
-                size = min(len(got_uncomputable), len(possible_target_ids))
-                source_ids = got_uncomputable[:size]
-                got_uncomputable = got_uncomputable[size:]
+                size = min(len(self.got_uncomputable), len(possible_target_ids))
+                source_ids = self.got_uncomputable[:size]
+                self.got_uncomputable = self.got_uncomputable[size:]
                 target_ids = possible_target_ids[:size]
                 target.info.io.qubits.required_dirty_ids = possible_target_ids[size:]
                 self.add_edge(
@@ -483,16 +491,16 @@ class NoSuccDummy(AlgoPerf):
                 if len(target.info.io.qubits.required_dirty_ids) == 0:
                     self.dirty.remove(target)
 
-            got_reusable = node.info.io.qubits.returned_reusable_ids
+            self.got_reusable = node.info.io.qubits.returned_reusable_ids
             while len(self.reusable) > 0 and (
-                len(got_reusable) > 0 or len(got_uncomputable)
+                len(self.got_reusable) > 0 or len(self.got_uncomputable)
             ):
-                while len(got_reusable) > 0 and len(self.reusable) > 0:
+                while len(self.got_reusable) > 0 and len(self.reusable) > 0:
                     target = self.reusable[0]
                     possible_target_ids = target.info.io.qubits.required_reusable_ids
-                    size = min(len(got_reusable), len(possible_target_ids))
-                    source_ids = got_reusable[:size]
-                    got_reusable = got_reusable[size:]
+                    size = min(len(self.got_reusable), len(possible_target_ids))
+                    source_ids = self.got_reusable[:size]
+                    self.got_reusable = self.got_reusable[size:]
                     target_ids = possible_target_ids[:size]
                     target.info.io.qubits.required_reusable_ids = possible_target_ids[
                         size:
@@ -506,10 +514,10 @@ class NoSuccDummy(AlgoPerf):
                     if len(target.info.io.qubits.required_reusable_ids) == 0:
                         self.reusable.remove(target)
 
-                if len(got_uncomputable) > 0 and len(self.reusable) > 0:
+                if len(self.got_uncomputable) > 0 and len(self.reusable) > 0:
                     self.uncompute_node(node)
-                    got_reusable = got_uncomputable
-                    got_uncomputable = []
+                    self.got_reusable = self.got_uncomputable
+                    self.got_uncomputable = []
 
             required_dirty = node.info.io.qubits.required_dirty_ids
             required_reusable = node.info.io.qubits.required_reusable_ids
@@ -560,6 +568,58 @@ class NoSuccReturnedRequiredQuotient(NoSuccDummy):
         return result
 
 
+class NoSuccCheckNeed(NoSuccDummy):
+    score_reusable = 1
+    score_dirty = 1
+
+    @override
+    def get_and_remove_next_nosucc(self) -> ProcessedProgramNode:
+        total_reusable = sum(
+            [len(n.info.io.qubits.required_reusable_ids) for n in self.reusable],
+        )
+        total_dirty = sum(
+            [len(n.info.io.qubits.required_dirty_ids) for n in self.dirty],
+        )
+        current_best: tuple[bool, int, None | ProcessedProgramNode] = False, -1, None
+        for node in self.nosucc:
+            returned_dirty = len(node.info.io.qubits.returned_dirty_ids)
+            returned_reusable = len(node.info.io.qubits.returned_reusable_ids)
+            returned_uncomputable = len(
+                node.info.io.qubits.returned_reusable_after_uncompute_ids,
+            )
+            remaining_dirty = total_dirty - returned_dirty
+            remaining_reusable = total_reusable - returned_reusable
+            satisfied = (
+                remaining_dirty > 0  # removing this line makes the algo much better
+                and remaining_reusable > 0
+                and remaining_reusable + remaining_dirty > returned_uncomputable
+            )
+            if not satisfied and current_best[0]:
+                continue
+            score = (
+                len(node.info.io.qubits.required_reusable_ids) * self.score_reusable
+                + len(node.info.io.qubits.required_dirty_ids) * self.score_dirty
+            )
+            if score < current_best[1]:
+                continue
+            current_best = (satisfied, score, node)
+        choice = current_best[2]
+        if choice is None:
+            raise RuntimeError
+        self.nosucc.remove(choice)
+        return choice
+
+
+class NoSuccCheckNeed21(NoSuccCheckNeed):
+    score_reusable = 2
+    score_dirty = 1
+
+
+class NoSuccCheckNeed51(NoSuccCheckNeed):
+    score_reusable = 5
+    score_dirty = 1
+
+
 def main() -> None:
     contenders: dict[type[AlgoPerf], tuple[int, int]] = {
         DummyAlgo: (0, 0),
@@ -576,6 +636,9 @@ def main() -> None:
         NoSuccRequiredReusable: (0, 0),
         NoSuccReturnedRequiredDifference: (0, 0),
         NoSuccReturnedRequiredQuotient: (0, 0),
+        NoSuccCheckNeed: (0, 0),
+        NoSuccCheckNeed21: (0, 0),
+        NoSuccCheckNeed51: (0, 0),
     }
     for _ in range(50):
         graph = random_graph(100)
