@@ -18,12 +18,10 @@ class ProgramNode:
 
     :param name: The name given from the front-end.
     :param implementation: Implementation string from front-end or enricher.
-    :param fresh_ancillas: Ancillas required from that node that are not allowed to be reused.
     """
 
     name: str
     implementation: str
-    fresh_ancillas: int
 
 
 @dataclass(frozen=True)
