@@ -1,6 +1,4 @@
-"""
-Basic program graph used withing the :mod:`app.processing`.
-"""
+"""Basic program graph used withing the :mod:`app.processing`."""
 
 from __future__ import annotations
 
@@ -11,36 +9,21 @@ from uuid import UUID, uuid4
 from networkx import DiGraph
 from openqasm3.ast import ClassicalType, Program
 
+QubitIDs = list[int]
+
 
 @dataclass(frozen=True)
 class ProgramNode:
-    """Represents a node in a visual model of an openqasm3 program."""
+    """Represents a node in a visual model of an openqasm3 program.
+
+    :param name: The name given from the front-end.
+    :param implementation: Implementation string from front-end or enricher.
+    :param fresh_ancillas: Ancillas required from that node that are not allowed to be reused.
+    """
 
     name: str
     implementation: str
-    uncompute_implementation: str | None = None
-
-
-@dataclass
-class SectionInfo:
-    """Store information scraped in preprocessing."""
-
-    id: UUID
-    io: IOInfo
-
-    def __init__(self, uuid: UUID | None = None, io_info: IOInfo | None = None) -> None:
-        self.id = uuid4() if uuid is None else uuid
-        self.io = IOInfo() if io_info is None else io_info
-
-
-@dataclass(frozen=True)
-class ProcessedProgramNode:
-    """Store a qasm snippet as string and AST."""
-
-    raw: ProgramNode
-    implementation: Program
-    info: SectionInfo
-    uncompute_implementation: Program | None
+    fresh_ancillas: int
 
 
 @dataclass(frozen=True)
@@ -58,8 +41,8 @@ class AncillaConnection:
     The qubits are identified via the id specified in :class:`app.processing.graph.IOInfo`.
     """
 
-    source: tuple[ProgramNode, list[int]]
-    target: tuple[ProgramNode, list[int]]
+    source: tuple[ProgramNode, QubitIDs]
+    target: tuple[ProgramNode, QubitIDs]
 
 
 if TYPE_CHECKING:
@@ -109,11 +92,8 @@ class ProgramGraph(ProgramGraphBase):
         return self.__edge_data[(source, target)]
 
 
-QubitIDs = list[int]
-
-
 @dataclass()
-class QubitIOInfo:
+class QubitInfo:
     """Store QubitIDs of declarations, reusable and dirty.
 
     :param declaration_to_ids: Maps declared names to corresponding qubits ids.
@@ -173,4 +153,21 @@ class IOInfo:
     outputs: dict[int, QubitIOInstance | ClassicalIOInstance] = field(
         default_factory=dict,
     )
-    qubits: QubitIOInfo = field(default_factory=QubitIOInfo)
+
+
+@dataclass()
+class ProcessedProgramNode:
+    """Store a qasm snippet as string and AST.
+
+    :param raw: The corresponding ProgramNode.
+    :param implementation: The implementation as AST. Might be modified during processing.
+    :param id: Unique ID of this node, used in the renaming.
+    :param io: Input/output information required for connections.
+    :param qubit: Qubit information required for optimization.
+    """
+
+    raw: ProgramNode
+    implementation: Program
+    id: UUID = field(default_factory=uuid4)
+    io: IOInfo = field(default_factory=IOInfo)
+    qubit: QubitInfo = field(default_factory=QubitInfo)
