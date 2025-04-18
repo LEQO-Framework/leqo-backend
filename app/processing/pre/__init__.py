@@ -3,8 +3,6 @@ Each qasm snippet attached to a node in the editor will first be passed through 
 The pipeline consists of multiple :class:`~openqasm3.visitor.QASMTransformer` that will transform the abstract syntax tree (AST) of the qasm snippet.
 """
 
-from uuid import uuid4
-
 from app.openqasm3.parser import leqo_parse
 from app.processing.graph import IOInfo, ProcessedProgramNode, ProgramNode, QubitInfo
 from app.processing.pre.inlining import InliningTransformer
