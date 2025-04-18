@@ -19,6 +19,7 @@ Basic idea:
     - This would mean that the graph has no topological sort.
 """
 
+from sys import maxsize
 from typing import override
 
 from app.processing.graph import (
@@ -245,6 +246,73 @@ class NoPred(OptimizationAlgo):
         return self.ancilla_edges, self.uncomputes
 
 
-class NoPredCheckNeed(NoPred):
-    pass
-    # TODO: port this from playground
+class NoPredCheckNeedDiffScore(NoPred):
+    """NoPred variant with the check-need strategy + diff score.
+
+    Check need strategy:
+    All possible nodes are divided in one of two categories:
+    1. satisfied: the requirement of that node are satisfied by the available resources
+    2. unsatisfied: the requirement of that node can't be satisfied
+    We always prefer nodes that are in the first category.
+
+    Diff score:
+    Sort the nodes based on provided resources - required resources.
+
+    :param weight_reusable: weight of reusable qubits in diff-score
+    :param weight_uncomp: weight of uncomputable qubits in diff-score
+    :param weight_dirty: weight of dirty qubits in diff-score
+    """
+
+    weight_reusable: int = 1
+    weight_uncomp: int = 1
+    weight_dirty: int = 1
+
+    @override
+    def pop_nopred(self) -> ProcessedProgramNode:
+        total_reusable = sum(
+            [len(n.info.io.qubits.returned_reusable_ids) for n in self.reusable],
+        )
+        total_dirty = sum(
+            [len(n.info.io.qubits.required_dirty_ids) for n in self.dirty],
+        )
+        total_uncomputable = sum(
+            [
+                len(n.info.io.qubits.returned_reusable_after_uncompute_ids)
+                for n in self.uncomputable
+            ],
+        )
+        current_best: tuple[bool, int, None | ProcessedProgramNode] = (
+            False,
+            -maxsize - 1,
+            None,
+        )
+        for node in self.nopred:
+            required_dirty = len(node.info.io.qubits.required_dirty_ids)
+            required_reusable = len(node.info.io.qubits.required_reusable_ids)
+            satisfied = (
+                required_dirty < total_dirty + total_uncomputable
+                and required_reusable < total_reusable + total_uncomputable
+                and required_dirty + required_reusable
+                < total_dirty + total_reusable + total_uncomputable
+            )
+            if not satisfied and current_best[0]:
+                continue
+            score = (
+                len(node.info.io.qubits.returned_reusable_ids) * self.weight_reusable
+                + len(node.info.io.qubits.returned_reusable_after_uncompute_ids)
+                * self.weight_uncomp
+                + len(node.info.io.qubits.returned_dirty_ids) * self.weight_dirty
+                - required_reusable * self.weight_reusable
+                - required_dirty * self.weight_dirty
+            )
+            if score < current_best[1]:
+                continue
+            current_best = (satisfied, score, node)
+
+        choice = current_best[2]
+        if choice is None:
+            msg = "No nopred node available to pop."
+            raise RuntimeError(msg)
+
+        self.nopred.remove(choice)
+        return choice
