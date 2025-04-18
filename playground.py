@@ -489,19 +489,19 @@ class NoPredCheckNeedDiffScore(NoPredDummy):
         return choice
 
 
-class NoPredCheckNeedDiffScore211(NoPredDummy):
+class NoPredCheckNeedDiffScore221(NoPredCheckNeedDiffScore):
     score_reusable = 2
     score_uncomp = 1
     score_dirty = 1
 
 
-class NoPredCheckNeedDiffScore110(NoPredDummy):
+class NoPredCheckNeedDiffScore110(NoPredCheckNeedDiffScore):
     score_reusable = 1
     score_uncomp = 1
     score_dirty = 0
 
 
-class NoPredCheckNeedDiffScore431(NoPredDummy):
+class NoPredCheckNeedDiffScore431(NoPredCheckNeedDiffScore):
     score_reusable = 4
     score_uncomp = 3
     score_dirty = 1
@@ -778,7 +778,7 @@ def main() -> None:
         NoPredCheckNeed951: (0, 0),
         NoPredCheckNeedDiffScore: (0, 0),
         NoPredCheckNeedDiffScore110: (0, 0),
-        NoPredCheckNeedDiffScore211: (0, 0),
+        NoPredCheckNeedDiffScore221: (0, 0),
         NoPredCheckNeedDiffScore431: (0, 0),
         NoPredCheckNeedQuoteScore: (0, 0),
         NoSuccDummy: (0, 0),
