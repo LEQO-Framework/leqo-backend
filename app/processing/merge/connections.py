@@ -23,8 +23,8 @@ from app.processing.graph import (
     IOConnection,
     IOInfo,
     ProgramGraph,
-    QubitIOInstance,
     QubitInfo,
+    QubitIOInstance,
 )
 
 
@@ -50,7 +50,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
     qubit_to_index: dict[SingleQubit, int]
     classical_input_to_output: dict[str, str]
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         section_id: UUID,
         io_info: IOInfo,

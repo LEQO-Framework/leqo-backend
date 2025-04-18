@@ -3,6 +3,7 @@ Transformer to rename identifiers in a qasm program to globally unique names.
 """
 
 from uuid import UUID
+
 from openqasm3.ast import (
     AliasStatement,
     CalibrationDefinition,
@@ -31,9 +32,7 @@ class RenameRegisterTransformer(QASMTransformer[UUID]):
     def __init__(self) -> None:
         self.renames = {}
 
-    def new_identifier(
-        self, old_identifier: Identifier, context: UUID
-    ) -> Identifier:
+    def new_identifier(self, old_identifier: Identifier, context: UUID) -> Identifier:
         """
         Generates a new identifier that will be globally unique even after merging multiple programs.
         Adds the old identifier to the list of renames.
@@ -60,17 +59,13 @@ class RenameRegisterTransformer(QASMTransformer[UUID]):
             context,
         )
 
-    def visit_AliasStatement(
-        self, node: AliasStatement, context: UUID
-    ) -> QASMNode:
+    def visit_AliasStatement(self, node: AliasStatement, context: UUID) -> QASMNode:
         identifier = self.new_identifier(node.target, context)
         return self.generic_visit(
             annotate(AliasStatement(identifier, node.value), node.annotations), context
         )
 
-    def visit_QubitDeclaration(
-        self, node: QubitDeclaration, context: UUID
-    ) -> QASMNode:
+    def visit_QubitDeclaration(self, node: QubitDeclaration, context: UUID) -> QASMNode:
         identifier = self.new_identifier(node.qubit, context)
         return self.generic_visit(
             annotate(QubitDeclaration(identifier, node.size), node.annotations), context
@@ -112,9 +107,7 @@ class RenameRegisterTransformer(QASMTransformer[UUID]):
             context,
         )
 
-    def visit_IODeclaration(
-        self, node: IODeclaration, context: UUID
-    ) -> IODeclaration:
+    def visit_IODeclaration(self, node: IODeclaration, context: UUID) -> IODeclaration:
         identifier = self.new_identifier(node.identifier, context)
         return annotate(
             IODeclaration(node.io_identifier, node.type, identifier), node.annotations

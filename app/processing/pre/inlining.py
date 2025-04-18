@@ -49,9 +49,7 @@ class InliningTransformer(LeqoTransformer[None]):
         self.lookup[node.identifier.name] = node
         return None  # Remove node
 
-    def visit_Identifier(
-        self, node: Identifier
-    ) -> Identifier | Expression:
+    def visit_Identifier(self, node: Identifier) -> Identifier | Expression:
         """
         Rewrites an identifier to use the inlined aliases.
 
