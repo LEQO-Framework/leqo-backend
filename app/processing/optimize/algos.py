@@ -88,7 +88,7 @@ class NoPred(OptimizationAlgo):
     def __init__(self, graph: ProgramGraph) -> None:
         super().__init__(graph)
         self.ancilla_edges = []
-        self.uncomputes = {n: False for n in graph.nodes}
+        self.uncomputes = dict.fromkeys(graph.nodes, False)
         self.reusable = []
         self.dirty = []
         self.uncomputable = []
