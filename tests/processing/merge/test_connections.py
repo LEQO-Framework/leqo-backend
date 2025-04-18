@@ -1,5 +1,4 @@
 from io import UnsupportedOperation
-from uuid import uuid4
 
 import pytest
 from openqasm3.parser import parse
@@ -22,14 +21,13 @@ from app.processing.utils import normalize_qasm_string
 def str_to_nodes(index: int, code: str) -> ProcessedProgramNode:
     node = ProgramNode(str(index), code)
 
-    id = uuid4()
     implementation = parse(code)
 
     io = IOInfo()
     qubit = QubitInfo()
     _ = ParseAnnotationsVisitor(io, qubit).visit(implementation)
 
-    return ProcessedProgramNode(node, implementation, id, io, qubit)
+    return ProcessedProgramNode(node, implementation, io, qubit)
 
 
 def assert_connections(

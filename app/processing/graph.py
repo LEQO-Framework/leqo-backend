@@ -16,12 +16,16 @@ QubitIDs = list[int]
 class ProgramNode:
     """Represents a node in a visual model of an openqasm3 program.
 
-    :param name: The name given from the front-end.
-    :param implementation: Implementation string from front-end or enricher.
+    :param name: The id given from the front-end.
+    :param id: Unique ID of this node, used in the renaming.
+    :param label: (Optional) Label given from the front-end.
+    :param is_ancilla_node: This node is ancilla node in the model.
     """
 
     name: str
-    implementation: str
+    label: str | None = None
+    is_ancilla_node: bool = False
+    id: UUID = field(default_factory=uuid4)
 
 
 @dataclass(frozen=True)
@@ -52,20 +56,20 @@ else:
 class ProgramGraph(ProgramGraphBase):
     """Internal representation of the program graph."""
 
-    __node_data: dict[ProgramNode, ProcessedProgramNode]
-    __edge_data: dict[
+    node_data: dict[ProgramNode, ProcessedProgramNode]
+    edge_data: dict[
         tuple[ProgramNode, ProgramNode],
         list[IOConnection | AncillaConnection],
     ]
 
     def __init__(self) -> None:
         super().__init__()
-        self.__node_data = {}
-        self.__edge_data = {}
+        self.node_data = {}
+        self.edge_data = {}
 
     def append_node(self, node: ProcessedProgramNode) -> None:
         super().add_node(node.raw)
-        self.__node_data[node.raw] = node
+        self.node_data[node.raw] = node
 
     def append_nodes(self, *nodes: ProcessedProgramNode) -> None:
         for node in nodes:
@@ -73,21 +77,21 @@ class ProgramGraph(ProgramGraphBase):
 
     def append_edge(self, edge: IOConnection | AncillaConnection) -> None:
         super().add_edge(edge.source[0], edge.target[0])
-        self.__edge_data.setdefault((edge.source[0], edge.target[0]), []).append(edge)
+        self.edge_data.setdefault((edge.source[0], edge.target[0]), []).append(edge)
 
     def append_edges(self, *edges: IOConnection | AncillaConnection) -> None:
         for edge in edges:
             self.append_edge(edge)
 
     def get_data_node(self, node: ProgramNode) -> ProcessedProgramNode:
-        return self.__node_data[node]
+        return self.node_data[node]
 
     def get_data_edges(
         self,
         source: ProgramNode,
         target: ProgramNode,
     ) -> list[IOConnection | AncillaConnection]:
-        return self.__edge_data[(source, target)]
+        return self.edge_data[(source, target)]
 
 
 @dataclass()
@@ -159,13 +163,15 @@ class ProcessedProgramNode:
 
     :param raw: The corresponding ProgramNode.
     :param implementation: The implementation as AST. Might be modified during processing.
-    :param id: Unique ID of this node, used in the renaming.
     :param io: Input/output information required for connections.
     :param qubit: Qubit information required for optimization.
     """
 
     raw: ProgramNode
     implementation: Program
-    id: UUID = field(default_factory=uuid4)
     io: IOInfo = field(default_factory=IOInfo)
     qubit: QubitInfo = field(default_factory=QubitInfo)
+
+    @property
+    def id(self) -> UUID:
+        return self.raw.id

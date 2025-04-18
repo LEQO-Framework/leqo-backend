@@ -13,20 +13,19 @@ from app.processing.pre.renaming import RenameRegisterTransformer
 from app.processing.utils import cast_to_program
 
 
-def preprocess(node: ProgramNode) -> ProcessedProgramNode:
+def preprocess(node: ProgramNode, implementation: str) -> ProcessedProgramNode:
     """Run an openqasm3 snippet through the preprocessing pipeline.
 
     :param program: A valid openqasm3 program (as AST) to preprocess.
     :param section_info: MetaData of the section to preprocess.
     :return: The preprocessed program.
     """
-    id = uuid4()
-    implementation = leqo_parse(node.implementation)
-    implementation = RenameRegisterTransformer().visit(implementation, id)
-    implementation = cast_to_program(InliningTransformer().visit(implementation))
+    ast = leqo_parse(implementation)
+    ast = RenameRegisterTransformer().visit(ast, node.id)
+    ast = cast_to_program(InliningTransformer().visit(ast))
 
     io = IOInfo()
     qubit = QubitInfo()
-    _ = ParseAnnotationsVisitor(io, qubit).visit(implementation)
+    _ = ParseAnnotationsVisitor(io, qubit).visit(ast)
 
-    return ProcessedProgramNode(node, implementation, id, io, qubit)
+    return ProcessedProgramNode(node, ast, io, qubit)
