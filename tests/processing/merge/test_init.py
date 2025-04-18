@@ -1,10 +1,11 @@
 from app.openqasm3.printer import leqo_dumps
-from app.processing import merge_nodes, preprocess
 from app.processing.graph import (
     IOConnection,
     ProgramGraph,
     ProgramNode,
 )
+from app.processing.merge import merge_nodes
+from app.processing.pre import preprocess
 from app.processing.utils import normalize_qasm_string
 
 
@@ -15,7 +16,7 @@ def assert_merge(
 ) -> None:
     nodes = []
     for i, code in enumerate(codes):
-        nodes.append(preprocess(ProgramNode(str(i), code)))
+        nodes.append(preprocess(ProgramNode(str(i)), code))
 
     graph = ProgramGraph()
     graph.append_nodes(*nodes)
@@ -30,7 +31,7 @@ def assert_merge(
     actual = normalize_qasm_string(leqo_dumps(merge_nodes(graph)))
 
     for i, node in enumerate(nodes):
-        expected = expected.replace(f"leqo_node{i}", f"leqo_{node.info.id.hex}")
+        expected = expected.replace(f"leqo_node{i}", f"leqo_{node.id.hex}")
     expected = normalize_qasm_string(expected)
 
     assert actual == expected

@@ -1,17 +1,15 @@
+from textwrap import dedent
 from uuid import uuid4
 
-from app.processing.graph import SectionInfo
+from openqasm3.parser import parse
+from openqasm3.printer import dumps
+
 from app.processing.pre.renaming import RenameRegisterTransformer
-from tests.processing.utils import assert_processor
 
 
 def test_register_renaming() -> None:
     id = uuid4()
-    section_info = SectionInfo(id)
-    assert_processor(
-        RenameRegisterTransformer(),
-        section_info,
-        f"""
+    original = f"""
         OPENQASM 3;
         @leqo.input 0
         float f1;
@@ -38,8 +36,8 @@ def test_register_renaming() -> None:
         x q2;
         x q3;
         x leqo_{id.hex}_f1;
-        """,
-        f"""\
+        """
+    expected = f"""\
         OPENQASM 3;
         @leqo.input 0
         float leqo_{id.hex}_f1;
@@ -66,5 +64,8 @@ def test_register_renaming() -> None:
         x leqo_{id.hex}_q2;
         x leqo_{id.hex}_q3;
         x leqo_{id.hex}_leqo_{id.hex}_f1;
-        """,
-    )
+        """
+    program = parse(original)
+    program = RenameRegisterTransformer().visit(program, id)
+    processed = dumps(program)
+    assert processed == dedent(expected), f"{processed} != {expected}"
