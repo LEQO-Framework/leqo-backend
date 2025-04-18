@@ -30,11 +30,18 @@ from app.processing.graph import (
 
 
 class OptimizationAlgo(ABC):
-    """Interface for optimization algorithms."""
+    """Abstract parent of optimization algorithms.
+
+    - Specify the interface.
+    - Handle explicit set new ancilla qubits.
+    """
 
     graph: ProgramGraph
 
     def __init__(self, graph: ProgramGraph) -> None:
+        for raw in graph.nodes:
+            if raw.is_ancilla_node:
+                graph.get_data_node(raw).qubit.required_reusable_ids.clear()
         self.graph = graph
 
     @abstractmethod

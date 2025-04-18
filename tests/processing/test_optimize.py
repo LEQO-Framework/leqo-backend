@@ -18,8 +18,8 @@ IOConIndexed = tuple[tuple[int, int], tuple[int, int]]
 AncillaConIndexed = tuple[tuple[int, list[int]], tuple[int, list[int]]]
 
 
-def str_to_nodes(index: int, code: str) -> ProcessedProgramNode:
-    node = ProgramNode(str(index), code)
+def str_to_nodes(index: int, code: str, is_ancilla_node: bool) -> ProcessedProgramNode:
+    node = ProgramNode(str(index), code, is_ancilla_node)
 
     implementation = parse(code)
 
@@ -34,9 +34,15 @@ def assert_optimize(
     before: list[str],
     expected: str,
     io_connections: list[IOConIndexed] | None = None,
+    ancilla_nodes: dict[int, bool] | None = None,
 ) -> None:
+    ancilla_nodes = (
+        dict.fromkeys(range(len(before)), False)
+        if ancilla_nodes is None
+        else ancilla_nodes
+    )
     graph = ProgramGraph()
-    nodes = [str_to_nodes(i, code) for i, code in enumerate(before)]
+    nodes = [str_to_nodes(i, code, ancilla_nodes[i]) for i, code in enumerate(before)]
     raw_nodes = []
     for processed in nodes:
         raw_nodes.append(processed.raw)
@@ -77,6 +83,29 @@ def test_obvious_ancialla_connection() -> None:
     let c1_q0 = leqo_reg[{0, 1, 2, 3, 4}];
     """
     assert_optimize(before, expected)
+
+
+def test_respect_new_ancillas_via_ancilla_node() -> None:
+    before = [
+        """
+        qubit[5] c0_q0;
+        @leqo.reusable
+        let _reuse = c0_q0;
+        """,
+        """
+        qubit[5]  c1_q0;
+        """,
+    ]
+    expected = """
+    OPENQASM 3.1;
+    qubit[10] leqo_reg;
+    let c0_q0 = leqo_reg[{0, 1, 2, 3, 4}];
+    @leqo.reusable
+    let _reuse = c0_q0;
+    let c1_q0 = leqo_reg[{5, 6, 7, 8, 9}];
+    """
+    ancilla_nodes = {0: False, 1: True}
+    assert_optimize(before, expected, ancilla_nodes=ancilla_nodes)
 
 
 def test_obvious_uncompute() -> None:
