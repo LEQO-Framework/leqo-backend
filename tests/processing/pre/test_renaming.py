@@ -26,7 +26,7 @@ def test_register_renaming() -> None:
         @leqo.input 5
         qubit[3] q3;
         @leqo.input 6
-        qubit leqo_{id.hex}_declaration1;
+        qubit leqo_{id.hex}_f1;
         @leqo.input 7
         let alias = q1_2;
         @leqo.input 8
@@ -37,34 +37,34 @@ def test_register_renaming() -> None:
         x q1_2;
         x q2;
         x q3;
-        x leqo_{id.hex}_declaration1;
+        x leqo_{id.hex}_f1;
         """,
         f"""\
         OPENQASM 3;
         @leqo.input 0
-        float leqo_{id.hex}_declaration0;
+        float leqo_{id.hex}_f1;
         @leqo.input 1
-        float leqo_{id.hex}_declaration1;
+        float leqo_{id.hex}_f2;
         @leqo.input 2
-        qubit leqo_{id.hex}_declaration2;
+        qubit leqo_{id.hex}_q1;
         @leqo.input 3
-        qubit[1] leqo_{id.hex}_declaration3;
+        qubit[1] leqo_{id.hex}_q1_2;
         @leqo.input 4
-        qubit[2] leqo_{id.hex}_declaration4;
+        qubit[2] leqo_{id.hex}_q2;
         @leqo.input 5
-        qubit[3] leqo_{id.hex}_declaration5;
+        qubit[3] leqo_{id.hex}_q3;
         @leqo.input 6
-        qubit leqo_{id.hex}_declaration6;
+        qubit leqo_{id.hex}_leqo_{id.hex}_f1;
         @leqo.input 7
-        let leqo_{id.hex}_declaration7 = leqo_{id.hex}_declaration3;
+        let leqo_{id.hex}_alias = leqo_{id.hex}_q1_2;
         @leqo.input 8
-        bit leqo_{id.hex}_declaration8 = leqo_{id.hex}_declaration3;
+        bit leqo_{id.hex}_classicalTest = leqo_{id.hex}_q1_2;
         @leqo.input 9
-        const bit leqo_{id.hex}_declaration9 = measure leqo_{id.hex}_declaration3;
-        x leqo_{id.hex}_declaration2;
-        x leqo_{id.hex}_declaration3;
-        x leqo_{id.hex}_declaration4;
-        x leqo_{id.hex}_declaration5;
-        x leqo_{id.hex}_declaration6;
+        const bit leqo_{id.hex}_classicalTest2 = measure leqo_{id.hex}_q1_2;
+        x leqo_{id.hex}_q1;
+        x leqo_{id.hex}_q1_2;
+        x leqo_{id.hex}_q2;
+        x leqo_{id.hex}_q3;
+        x leqo_{id.hex}_leqo_{id.hex}_f1;
         """,
     )

@@ -48,7 +48,7 @@ def test_pseudo_merge_single() -> None:
     OPENQASM 3.1;
     qubit[1] leqo_reg;
     /* Start node 0 */
-    let leqo_node0_declaration0 = leqo_reg[{0}];
+    let leqo_node0_a = leqo_reg[{0}];
     /* End node 0 */
     """
     assert_merge(codes, connections, expected)
@@ -73,13 +73,13 @@ def test_merge_two_nodes() -> None:
     OPENQASM 3.1;
     qubit[1] leqo_reg;
     /* Start node 0 */
-    let leqo_node0_declaration0 = leqo_reg[{0}];
+    let leqo_node0_a = leqo_reg[{0}];
     @leqo.output 0
-    let leqo_node0_declaration1 = leqo_node0_declaration0;
+    let leqo_node0__out = leqo_node0_a;
     /* End node 0 */
     /* Start node 1 */
     @leqo.input 0
-    let leqo_node1_declaration0 = leqo_reg[{0}];
+    let leqo_node1_a = leqo_reg[{0}];
     /* End node 1 */
     """
     assert_merge(codes, connections, expected)
@@ -119,23 +119,23 @@ def test_complex_merge() -> None:
     OPENQASM 3.1;
     qubit[4] leqo_reg;
     /* Start node 0 */
-    let leqo_node0_declaration0 = leqo_reg[{0, 1, 2, 3}];
+    let leqo_node0_q = leqo_reg[{0, 1, 2, 3}];
     @leqo.output 0
-    let leqo_node0_declaration1 = leqo_node0_declaration0[0:2];
+    let leqo_node0__out0 = leqo_node0_q[0:2];
     @leqo.output 1
-    let leqo_node0_declaration2 = leqo_node0_declaration0[3];
+    let leqo_node0__out1 = leqo_node0_q[3];
     /* End node 0 */
     /* Start node 1 */
     @leqo.input 0
-    let leqo_node1_declaration0 = leqo_reg[{3}];
+    let leqo_node1_q = leqo_reg[{3}];
     @leqo.output 0
-    let leqo_node1_declaration1 = leqo_node1_declaration0;
+    let leqo_node1__out0 = leqo_node1_q;
     /* End node 1 */
     /* Start node 2 */
     @leqo.input 0
-    let leqo_node2_declaration0 = leqo_reg[{3}];
+    let leqo_node2_q0 = leqo_reg[{3}];
     @leqo.input 1
-    let leqo_node2_declaration1 = leqo_reg[{0, 1, 2}];
+    let leqo_node2_q1 = leqo_reg[{0, 1, 2}];
     /* End node 2 */
     """
     assert_merge(codes, connections, expected)
