@@ -370,30 +370,27 @@ class NoPredCheckNeed(NoPredDummy):
 
     @override
     def pop_nopred(self) -> ProcessedProgramNode:
-        total_reusable = 0
-        total_dirty = 0
-        total_qubits = 0
-        for node in self.reusable:
-            tmp = len(node.info.io.qubits.returned_reusable_ids)
-            total_reusable += tmp
-            total_qubits += tmp
-        for node in self.dirty:
-            tmp = len(node.info.io.qubits.returned_dirty_ids)
-            total_dirty += tmp
-            total_qubits += tmp
-        for node in self.uncomputable:
-            tmp = len(node.info.io.qubits.returned_reusable_ids)
-            tmp = len(node.info.io.qubits.returned_dirty_ids)
-            total_dirty += tmp
-            total_qubits += tmp
+        total_reusable = sum(
+            [len(n.info.io.qubits.returned_reusable_ids) for n in self.reusable],
+        )
+        total_dirty = sum(
+            [len(n.info.io.qubits.required_dirty_ids) for n in self.dirty],
+        )
+        total_uncomputable = sum(
+            [
+                len(n.info.io.qubits.returned_reusable_after_uncompute_ids)
+                for n in self.uncomputable
+            ],
+        )
         current_best: tuple[bool, int, None | ProcessedProgramNode] = False, -1, None
         for node in self.nopred:
             required_dirty = len(node.info.io.qubits.required_dirty_ids)
             required_reusable = len(node.info.io.qubits.required_reusable_ids)
             satisfied = (
-                required_dirty < total_dirty
-                and required_reusable < total_reusable
-                and required_dirty + required_reusable < total_qubits
+                required_dirty < total_dirty + total_uncomputable
+                and required_reusable < total_reusable + total_uncomputable
+                and required_dirty + required_reusable
+                < total_dirty + total_reusable + total_uncomputable
             )
             if not satisfied and current_best[0]:
                 continue
@@ -411,6 +408,12 @@ class NoPredCheckNeed(NoPredDummy):
             raise RuntimeError
         self.nopred.remove(choice)
         return choice
+
+
+class NoPredCheckNeed221(NoPredCheckNeed):
+    score_reusable = 2
+    score_uncomp = 2
+    score_dirty = 1
 
 
 class NoPredCheckNeed551(NoPredCheckNeed):
@@ -646,6 +649,7 @@ def main() -> None:
         NoPredReturnedRequiredDifference: (0, 0),
         NoPredReturnedRequiredQuotient: (0, 0),
         NoPredCheckNeed: (0, 0),
+        NoPredCheckNeed221: (0, 0),
         NoPredCheckNeed551: (0, 0),
         NoPredCheckNeed521: (0, 0),
         NoPredCheckNeed951: (0, 0),
