@@ -190,6 +190,9 @@ class QASMConverter:
         :raises QASMConversionError: If any line contains an unsupported QASM version or library or opaque was used.
         """
         opaque = OPAQUE_STATEMENT_PATTERN.findall(qasm2_code)
+        if len(opaque) != 0:
+            msg = f"Unsupported opaque definition {opaque} could not be ported to OpenQASM 3."
+            raise QASMConversionError(msg)
 
         qasm2_code = UNCOMPUTE_BLOCK_PATTERN.sub(
             r"@leqo.uncompute\nif(false) {\n\1\n}",
@@ -197,10 +200,6 @@ class QASMConverter:
         )
         qasm2_code = ANNOTATION_WITH_ALIAS_PATTERN.sub(r"\1\n\2", qasm2_code)
         qasm2_code = ANNOTATION_PATTERN.sub(r"\1", qasm2_code)
-
-        if len(opaque) != 0:
-            msg = f"Unsupported opaque definition {opaque} could not be ported to OpenQASM 3."
-            raise QASMConversionError(msg)
 
         result = parse(qasm2_code)
 
