@@ -9,6 +9,7 @@ Annotations can be emulated in openqasm2 by using special comments.
     The `whole line <https://openqasm.com/language/directives.html#annotations#:~:text=continue%20to%20the%20end%20of%20the%20line>`_ will be interpreted like an annotation.
     Therefore you cannot use inline-comments on annotations!
 
+.. input-anker
 Input
 -----
 
@@ -144,3 +145,77 @@ To do so, one can declare an alias to the reusable qubits.
 .. note::
     Even if the reusable alias is not used in code, an alias must be defined to mark qubits as reusable.
     The identifier is insignificant.
+
+Dirty Ancilla Qubits
+--------------------
+
+If qubits are used in a program and are neither marked as output nor reusable, they are considered dirty ancilla qubits thereafter.
+These qubits may be in an arbitrary state, including entanglement with other qubits, and require the explicit `@leqo.dirty` annotation to indicate their intended use in another snippet.
+A dirty ancilla may be promoted to a reusable ancilla via an associated uncomputation block.
+
+To use dirty ancillae within a snippet, the programmer must explicitly opt in by annotating the qubit definition with `@leqo.dirty`.
+
+* The `@leqo.dirty` annotation follows the same implementation rules as input definitions, but omits indexing, as defined in :ref:`input definition <input-anker>`
+
+.. warning::
+    The state of a dirty ancilla qubit can be altered temporarily but must be restored at the end of a snippet.
+    Therefore measuring a dirty qubit is not permitted.
+
+.. code-block:: openqasm3
+    :linenos:
+
+    // Single dirty ancilla
+    @leqo.dirty
+    qubit singleDirtyAncilla;
+
+.. code-block:: openqasm3
+    :linenos:
+
+    // Dirty ancilla array
+    @leqo.dirty
+    qubit[<<length>>] dirtyAncillaArray;
+
+Uncomputation
+~~~~~~~~~~~~~
+QASM 3
+^^^^^^
+When dirty ancilla qubits can be uncomputed, the programmer may provide an explicit uncomputation block to reverse their effects.
+This is done using the `@leqo.uncompute` annotation, which defines a scoped region that is disabled by default via an `if (false)` statement.
+The compiler may override this value to `true` if uncomputation of the associated dirty ancillae is required.
+
+* The `@leqo.uncompute` annotation must appear directly above a `if (false)` statement with a block body that must not be followed by an `else` statement
+* `@leqo.uncompute` annotations may appear multiple times in a program, each time referring to different uncomputation logic
+* Nested `@leqo.uncompute` if-blocks are not allowed
+* The `@leqo.uncompute` block must reverse all transformations on the associated ancillae, removing entanglement and restoring each to the |0⟩ state
+* `@leqo.uncompute` blocks only operate on existing variables, qubits or selfdeclared aliases
+* A `@leqo.uncompute` if-block must declare the uncomputed ancillae as reusable qubits by using the corresponding `@leqo.reusable` annotation
+
+.. warning::
+    Qubits previously annotated with `@leqo.dirty` must not be uncomputed
+
+.. note::
+    Not all operations are reversible; in such cases, the qubit should not be reused.
+
+.. code-block:: openqasm3
+    :linenos:
+    @leqo.uncompute
+    if (false) {
+        someUncomputeOperation
+
+        @leqo.reusable
+        let reusable1 = dirtyAncilla1
+    }
+
+QASM 2
+^^^^^^
+Since annotations are not supported in QASM 2.x, uncomputation blocks must be delimited using single-line comments.
+The start and end of the uncompute block are marked explicitly, as shown below:
+
+.. code-block:: openqasm2
+    :linenos:
+    // @leqo.uncompute start
+    someUncomputeOperation
+
+    @leqo.reusable
+    let reusable1 = dirtyAncilla1
+    // @leqo.uncompute end
