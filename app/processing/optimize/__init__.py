@@ -1,26 +1,12 @@
 """Optimize the modelled graph be adding additional ancilla connections and decide whether to uncompute."""
 
-from abc import ABC, abstractmethod
 from copy import deepcopy
 
 from openqasm3.ast import BooleanLiteral, BranchingStatement, QASMNode
 
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import AncillaConnection, ProgramGraph, ProgramNode
-from app.processing.optimize.no_pred import NoPredCheckNeedDiffScore
-
-
-class OptimizationAlgo(ABC):
-    """Interface for optimization algorithms."""
-
-    graph: ProgramGraph
-
-    def __init__(self, graph: ProgramGraph) -> None:
-        self.graph = graph
-
-    @abstractmethod
-    def compute(self) -> tuple[list[AncillaConnection], dict[ProgramNode, bool]]:
-        pass
+from app.processing.graph import ProgramGraph
+from app.processing.optimize.algos import NoPredCheckNeedDiffScore
 
 
 class EnableUncomputeTransformer(LeqoTransformer[None]):
