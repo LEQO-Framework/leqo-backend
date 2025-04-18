@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from math import inf
 from random import randint, random, shuffle
+from sys import maxsize
 from textwrap import dedent
 from typing import override
 from uuid import uuid4
@@ -436,6 +437,10 @@ class NoPredCheckNeed951(NoPredCheckNeed):
 
 
 class NoPredCheckNeedDiffScore(NoPredDummy):
+    score_reusable = 1
+    score_uncomp = 1
+    score_dirty = 1
+
     @override
     def pop_nopred(self) -> ProcessedProgramNode:
         total_reusable = sum(
@@ -452,7 +457,7 @@ class NoPredCheckNeedDiffScore(NoPredDummy):
         )
         current_best: tuple[bool, int, None | ProcessedProgramNode] = (
             False,
-            -10000000000,
+            -maxsize - 1,
             None,
         )
         for node in self.nopred:
@@ -467,11 +472,12 @@ class NoPredCheckNeedDiffScore(NoPredDummy):
             if not satisfied and current_best[0]:
                 continue
             score = (
-                len(node.info.io.qubits.returned_reusable_ids)
+                len(node.info.io.qubits.returned_reusable_ids) * self.score_reusable
                 + len(node.info.io.qubits.returned_reusable_after_uncompute_ids)
-                + len(node.info.io.qubits.returned_dirty_ids)
-                - len(node.info.io.qubits.required_reusable_ids)
-                - len(node.info.io.qubits.required_dirty_ids)
+                * self.score_uncomp
+                + len(node.info.io.qubits.returned_dirty_ids) * self.score_dirty
+                - len(node.info.io.qubits.required_reusable_ids) * self.score_reusable
+                - len(node.info.io.qubits.required_dirty_ids) * self.score_dirty
             )
             if score < current_best[1]:
                 continue
@@ -481,6 +487,24 @@ class NoPredCheckNeedDiffScore(NoPredDummy):
             raise RuntimeError
         self.nopred.remove(choice)
         return choice
+
+
+class NoPredCheckNeedDiffScore211(NoPredDummy):
+    score_reusable = 2
+    score_uncomp = 1
+    score_dirty = 1
+
+
+class NoPredCheckNeedDiffScore110(NoPredDummy):
+    score_reusable = 1
+    score_uncomp = 1
+    score_dirty = 0
+
+
+class NoPredCheckNeedDiffScore431(NoPredDummy):
+    score_reusable = 4
+    score_uncomp = 3
+    score_dirty = 1
 
 
 class NoPredCheckNeedQuoteScore(NoPredDummy):
@@ -753,6 +777,9 @@ def main() -> None:
         NoPredCheckNeed521: (0, 0),
         NoPredCheckNeed951: (0, 0),
         NoPredCheckNeedDiffScore: (0, 0),
+        NoPredCheckNeedDiffScore110: (0, 0),
+        NoPredCheckNeedDiffScore211: (0, 0),
+        NoPredCheckNeedDiffScore431: (0, 0),
         NoPredCheckNeedQuoteScore: (0, 0),
         NoSuccDummy: (0, 0),
         NoSuccRequiredReusable: (0, 0),
