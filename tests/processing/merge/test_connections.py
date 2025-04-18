@@ -12,27 +12,24 @@ from app.processing.graph import (
     ProcessedProgramNode,
     ProgramGraph,
     ProgramNode,
-    SectionInfo,
+    QubitInfo,
 )
 from app.processing.merge.connections import connect_qubits
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.utils import normalize_qasm_string
 
 
-def str_to_nodes(index: int, code: str) -> tuple[ProgramNode, ProcessedProgramNode]:
-    ast = parse(code)
+def str_to_nodes(index: int, code: str) -> ProcessedProgramNode:
+    node = ProgramNode(str(index), code)
+
+    id = uuid4()
+    implementation = parse(code)
+
     io = IOInfo()
-    ParseAnnotationsVisitor(io).visit(ast)
-    node = ProgramNode(str(index), code, None)
-    return (
-        node,
-        ProcessedProgramNode(
-            node,
-            ast,
-            SectionInfo(uuid4(), io),
-            None,
-        ),
-    )
+    qubit = QubitInfo()
+    _ = ParseAnnotationsVisitor(io, qubit).visit(implementation)
+
+    return ProcessedProgramNode(node, implementation, id, io, qubit)
 
 
 def assert_connections(
@@ -45,8 +42,8 @@ def assert_connections(
     graph = ProgramGraph()
     nodes = [str_to_nodes(i, code) for i, code in enumerate(inputs)]
     raw_nodes = []
-    for node, processed in nodes:
-        raw_nodes.append(node)
+    for processed in nodes:
+        raw_nodes.append(processed.raw)
         graph.append_node(processed)
     if io_connections is not None:
         graph.append_edges(

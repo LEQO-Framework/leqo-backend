@@ -30,7 +30,7 @@ def assert_merge(
     actual = normalize_qasm_string(leqo_dumps(merge_nodes(graph)))
 
     for i, node in enumerate(nodes):
-        expected = expected.replace(f"leqo_node{i}", f"leqo_{node.info.id.hex}")
+        expected = expected.replace(f"leqo_node{i}", f"leqo_{node.id.hex}")
     expected = normalize_qasm_string(expected)
 
     assert actual == expected
