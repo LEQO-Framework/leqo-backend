@@ -24,6 +24,7 @@ from app.processing.graph import (
     IOInfo,
     ProgramGraph,
     QubitIOInstance,
+    QubitInfo,
 )
 
 
@@ -44,6 +45,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
 
     section_id: UUID
     io_info: IOInfo
+    qubit_info: QubitInfo
     global_reg_name: str
     qubit_to_index: dict[SingleQubit, int]
     classical_input_to_output: dict[str, str]
@@ -52,6 +54,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         self,
         section_id: UUID,
         io_info: IOInfo,
+        qubit_info: QubitInfo,
         global_reg_name: str,
         qubit_to_index: dict[SingleQubit, int],
         classical_input_to_output: dict[str, str],
@@ -66,6 +69,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         """
         self.section_id = section_id
         self.io_info = io_info
+        self.qubit_info = qubit_info
         self.global_reg_name = global_reg_name
         self.qubit_to_index = qubit_to_index
         self.classical_input_to_output = classical_input_to_output
@@ -77,7 +81,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
         """Replace qubit declaration with alias to leqo_reg."""
         name = node.qubit.name
-        ids = self.io_info.qubits.declaration_to_ids[name]
+        ids = self.qubit_info.declaration_to_ids[name]
         reg_indexes = [self.qubit_to_index[self.id_to_qubit(id)] for id in ids]
         result = AliasStatement(
             Identifier(name),
@@ -115,10 +119,10 @@ class Connections:
         """Get dict of all qubits pointing to set containing themselves."""
         equiv_classes = {}
         for node in graph.nodes():
-            section = graph.get_data_node(node).info
-            for qubit_ids in section.io.qubits.declaration_to_ids.values():
+            processed = graph.get_data_node(node)
+            for qubit_ids in processed.qubit.declaration_to_ids.values():
                 for qubit_id in qubit_ids:
-                    qubit = SingleQubit(section.id, qubit_id)
+                    qubit = SingleQubit(processed.id, qubit_id)
                     equiv_classes[qubit] = {qubit}
         return equiv_classes
 
@@ -197,12 +201,12 @@ class Connections:
         edge: IOConnection | AncillaConnection,
     ) -> None:
         """Handle connection based on type."""
-        source_section = self.graph.get_data_node(edge.source[0]).info
-        target_section = self.graph.get_data_node(edge.target[0]).info
+        processed_source = self.graph.get_data_node(edge.source[0])
+        processed_target = self.graph.get_data_node(edge.target[0])
         match edge:
             case IOConnection():
-                output = source_section.io.outputs.get(edge.source[1])
-                input = target_section.io.inputs.get(edge.target[1])
+                output = processed_source.io.outputs.get(edge.source[1])
+                input = processed_target.io.inputs.get(edge.target[1])
                 if output is None:
                     msg = dedent(f"""
                         Unsupported: Missing output index in connection
@@ -224,8 +228,8 @@ class Connections:
                         self.handle_qubit_connection(
                             output,
                             input,
-                            source_section.id,
-                            target_section.id,
+                            processed_source.id,
+                            processed_target.id,
                         )
                     case ClassicalIOInstance(), ClassicalIOInstance():
                         self.handle_classical_connection(output, input)
@@ -242,8 +246,8 @@ class Connections:
                     # the name __ancilla__ is only used in errors
                     QubitIOInstance("__ancilla__", edge.source[1]),
                     QubitIOInstance("__ancilla__", edge.target[1]),
-                    source_section.id,
-                    target_section.id,
+                    processed_source.id,
+                    processed_target.id,
                 )
 
     def apply(self) -> int:
@@ -269,8 +273,9 @@ class Connections:
         for nd in self.graph.nodes():
             node = self.graph.get_data_node(nd)
             ApplyConnectionsTransformer(
-                node.info.id,
-                node.info.io,
+                node.id,
+                node.io,
+                node.qubit,
                 self.global_reg_name,
                 qubit_to_reg_index,
                 self.classical_input_to_output,

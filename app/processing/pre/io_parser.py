@@ -29,6 +29,7 @@ from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     ClassicalIOInstance,
     IOInfo,
+    QubitInfo,
     QubitIOInstance,
 )
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
@@ -48,14 +49,17 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     __found_output_ids: set[int]
     __in_uncompute: bool
     io: IOInfo
+    qubit: QubitInfo
 
-    def __init__(self, io: IOInfo) -> None:
+    def __init__(self, io: IOInfo, qubit: QubitInfo) -> None:
         """Construct the ParseAnnotationsVisitor.
 
         :param io: The IOInfo to be modified in-place.
+        :param qubit: The QubitInfo to be modified in-place.
         """
         super().__init__()
         self.io = io
+        self.qubit = qubit
         self.__next_qubit_id = 0
         self.__name_to_info = {}
         self.__found_input_ids = set()
@@ -224,7 +228,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         for _ in range(reg_size):
             qubit_ids.append(self.__next_qubit_id)
             self.__next_qubit_id += 1
-        self.io.qubits.declaration_to_ids[name] = qubit_ids
+        self.qubit.declaration_to_ids[name] = qubit_ids
 
         info = QubitIOInstance(name, qubit_ids)
         self.__name_to_info[name] = info
@@ -235,9 +239,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             self.__found_input_ids.add(input_id)
             self.io.inputs[input_id] = info
         elif dirty:
-            self.io.qubits.required_dirty_ids.extend(qubit_ids)
+            self.qubit.required_dirty_ids.extend(qubit_ids)
         else:  # non-input and non-dirty
-            self.io.qubits.required_reusable_ids.extend(qubit_ids)
+            self.qubit.required_reusable_ids.extend(qubit_ids)
 
         return self.generic_visit(node)
 
@@ -310,9 +314,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 msg = f"Unsupported: reusable annotation over classical {info.name}"
                 raise UnsupportedOperation(msg)
             if self.__in_uncompute:
-                self.io.qubits.returned_reusable_after_uncompute_ids.extend(info.ids)
+                self.qubit.returned_reusable_after_uncompute_ids.extend(info.ids)
             else:
-                self.io.qubits.returned_reusable_ids.extend(info.ids)
+                self.qubit.returned_reusable_ids.extend(info.ids)
 
         return self.generic_visit(node)
 
@@ -351,14 +355,14 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self.raise_on_non_contiguous_range(self.__found_input_ids, "input")
         self.raise_on_non_contiguous_range(self.__found_output_ids, "output")
 
-        returned_dirty = set(chain(*self.io.qubits.declaration_to_ids.values()))
-        for qubit_id in self.io.qubits.returned_reusable_ids:
+        returned_dirty = set(chain(*self.qubit.declaration_to_ids.values()))
+        for qubit_id in self.qubit.returned_reusable_ids:
             try:
                 returned_dirty.remove(qubit_id)
             except KeyError:
                 msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable twice"
                 raise UnsupportedOperation(msg) from None
-        for qubit_id in self.io.qubits.returned_reusable_after_uncompute_ids:
+        for qubit_id in self.qubit.returned_reusable_after_uncompute_ids:
             try:
                 returned_dirty.remove(qubit_id)
             except KeyError:
@@ -372,6 +376,6 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     except KeyError:
                         msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable or output twice"
                         raise UnsupportedOperation(msg) from None
-        self.io.qubits.returned_dirty_ids = sorted(returned_dirty)
+        self.qubit.returned_dirty_ids = sorted(returned_dirty)
 
         return result

@@ -12,10 +12,9 @@ from openqasm3.ast import (
 )
 
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import SectionInfo
 
 
-class InliningTransformer(LeqoTransformer[SectionInfo]):
+class InliningTransformer(LeqoTransformer[None]):
     """
     Inlines all integer :py:class:`openqasm3.ast.ConstantDeclaration` in a qasm ast.
     """
@@ -26,7 +25,7 @@ class InliningTransformer(LeqoTransformer[SectionInfo]):
         self.lookup = {}
 
     def visit_ConstantDeclaration(
-        self, node: ConstantDeclaration, _context: SectionInfo
+        self, node: ConstantDeclaration
     ) -> ConstantDeclaration | None:
         """
         Removes integer constants from the ast and saves them in a lookup table.
@@ -51,7 +50,7 @@ class InliningTransformer(LeqoTransformer[SectionInfo]):
         return None  # Remove node
 
     def visit_Identifier(
-        self, node: Identifier, _context: SectionInfo
+        self, node: Identifier
     ) -> Identifier | Expression:
         """
         Rewrites an identifier to use the inlined aliases.
