@@ -9,7 +9,8 @@ Annotations can be emulated in openqasm2 by using special comments.
     The `whole line <https://openqasm.com/language/directives.html#annotations#:~:text=continue%20to%20the%20end%20of%20the%20line>`_ will be interpreted like an annotation.
     Therefore you cannot use inline-comments on annotations!
 
-.. input-anker
+.. _input-anker:
+
 Input
 -----
 
