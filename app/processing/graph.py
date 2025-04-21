@@ -104,7 +104,7 @@ class QubitInfo:
     :param required_reusable_ids: List of required reusable/fresh/uncomputed qubit ids.
     :param required_dirty_ids: List of required (possible) dirty qubits.
     :param returned_reusable_ids: List of returned reusable qubits.
-    :param returned_reusable_after_uncompute_ids: List of qubits that are reusable after uncompute.
+    :param returned_uncomputable_ids: List of qubits that are reusable after uncompute.
     :param returned_dirty_ids: List of qubits that are always returned dirty.
     """
 
@@ -112,7 +112,7 @@ class QubitInfo:
     required_reusable_ids: QubitIDs = field(default_factory=list)
     required_dirty_ids: QubitIDs = field(default_factory=list)
     returned_reusable_ids: QubitIDs = field(default_factory=list)
-    returned_reusable_after_uncompute_ids: QubitIDs = field(default_factory=list)
+    returned_uncomputable_ids: QubitIDs = field(default_factory=list)
     returned_dirty_ids: QubitIDs = field(default_factory=list)
 
 
