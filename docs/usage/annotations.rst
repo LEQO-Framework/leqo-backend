@@ -201,7 +201,7 @@ The compiler may override this value to `true` if uncomputation of the associate
 
     @leqo.uncompute
     if (false) {
-        someUncomputeOperation
+        // some uncompute operation
 
         @leqo.reusable
         let reusable1 = dirtyAncilla1
