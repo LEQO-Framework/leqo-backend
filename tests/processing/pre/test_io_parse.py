@@ -113,7 +113,7 @@ def test_reusable_in_uncompute() -> None:
         QubitInfo(
             declaration_to_ids={"q": [0, 1, 2]},
             required_reusable_ids=[0, 1, 2],
-            returned_reusable_after_uncompute_ids=[0, 1],
+            returned_uncomputable_ids=[0, 1],
             returned_dirty_ids=[2],
         ),
     )
@@ -380,7 +380,7 @@ def test_all() -> None:
             },
             required_dirty_ids=[10],
             returned_reusable_ids=[2, 3, 4],
-            returned_reusable_after_uncompute_ids=[9],
+            returned_uncomputable_ids=[9],
             returned_dirty_ids=[6, 7, 10],
         ),
     )
