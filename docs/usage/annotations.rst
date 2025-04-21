@@ -198,6 +198,7 @@ The compiler may override this value to `true` if uncomputation of the associate
 
 .. code-block:: openqasm3
     :linenos:
+
     @leqo.uncompute
     if (false) {
         someUncomputeOperation
