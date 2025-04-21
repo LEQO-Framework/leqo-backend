@@ -9,12 +9,18 @@ Given:
     - amount of returned dirty ancilla qubits
     - amount of returned 'reusable if uncomputed, else dirty' qubits
 - set of connections between these nodes
-- note: reusable can be used as dirty
 Wanted:
 - set of ancilla edges that reuse dirty/reusable ancillas
     - topological sort has to be possible after!
 - dict that tells whether to uncompute a given node
 - optimize on minimal amount of required qubits (that could not be satisfied via ancilla connections)
+
+Note on ancilla qubit types:
+- returned reusable qubits can be used as required dirty and required reusable
+- returned dirty qubits can be used as required dirty
+- returned uncomputable can be used as:
+    - required dirty in any case
+    - required dirty and required reusable if uncompute is executed
 """
 
 from abc import ABC, abstractmethod
