@@ -177,9 +177,7 @@ To use dirty ancillae within a snippet, the programmer must explicitly opt in by
     qubit[<<length>>] dirtyAncillaArray;
 
 Uncomputation
-~~~~~~~~~~~~~
-QASM 3
-^^^^^^
+-------------
 When dirty ancilla qubits can be uncomputed, the programmer may provide an explicit uncomputation block to reverse their effects.
 This is done using the `@leqo.uncompute` annotation, which defines a scoped region that is disabled by default via an `if (false)` statement.
 The compiler may override this value to `true` if uncomputation of the associated dirty ancillae is required.
@@ -210,15 +208,18 @@ The compiler may override this value to `true` if uncomputation of the associate
 
 QASM 2
 ^^^^^^
-Since annotations are not supported in QASM 2.x, uncomputation blocks must be delimited using single-line comments.
-The start and end of the uncompute block are marked explicitly, as shown below:
+An uncompute block is marked explicitly, as shown below:
 
 .. code-block:: openqasm2
     :linenos:
 
     // @leqo.uncompute start
-    someUncomputeOperation
-
-    @leqo.reusable
-    let reusable1 = dirtyAncilla1
+    // someUncomputeOperation
+    //
+    // @leqo.reusable
+    // let reusable1 = dirtyAncilla1
     // @leqo.uncompute end
+
+.. note::
+    * Every line of the uncompute block must start with `//`
+    * A uncompute block must start with `// @leqo.uncompute start` and end with `// @leqo.uncompute end`
