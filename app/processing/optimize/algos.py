@@ -149,9 +149,7 @@ class NoPred(OptimizationAlgo):
 
         result = min(
             self.uncomputable,
-            key=lambda n: len(
-                n.qubit.returned_reusable_after_uncompute_ids,
-            ),
+            key=lambda n: len(n.qubit.returned_uncomputable_ids),
         )
 
         self.uncomputable.remove(result)
@@ -187,21 +185,19 @@ class NoPred(OptimizationAlgo):
 
         while len(need_dirty) > 0 and len(self.uncomputable) > 0:
             source = self.uncomputable[0]
-            possible_source_ids = source.qubit.returned_reusable_after_uncompute_ids
+            possible_source_ids = source.qubit.returned_uncomputable_ids
             size = min(len(need_dirty), len(possible_source_ids))
             target_ids = need_dirty[:size]
             need_dirty = need_dirty[size:]
             source_ids = possible_source_ids[:size]
-            source.qubit.returned_reusable_after_uncompute_ids = possible_source_ids[
-                size:
-            ]
+            source.qubit.returned_uncomputable_ids = possible_source_ids[size:]
             self.ancilla_edges.append(
                 AncillaConnection(
                     (source.raw, source_ids),
                     (self.current_node.raw, target_ids),
                 ),
             )
-            if len(source.qubit.returned_reusable_after_uncompute_ids) == 0:
+            if len(source.qubit.returned_uncomputable_ids) == 0:
                 self.uncomputable.remove(source)
 
         while len(need_dirty) > 0 and len(self.reusable) > 0:
@@ -256,9 +252,9 @@ class NoPred(OptimizationAlgo):
                 new_reusable = self.pop_uncomputable()
                 self.reusable.append(new_reusable)
                 new_reusable.qubit.returned_reusable_ids.extend(
-                    new_reusable.qubit.returned_reusable_after_uncompute_ids,
+                    new_reusable.qubit.returned_uncomputable_ids,
                 )
-                new_reusable.qubit.returned_reusable_after_uncompute_ids.clear()
+                new_reusable.qubit.returned_uncomputable_ids.clear()
                 self.uncomputes[new_reusable.raw] = True
 
     @override
@@ -275,12 +271,7 @@ class NoPred(OptimizationAlgo):
                 self.dirty.append(self.current_node)
             if len(self.current_node.qubit.returned_reusable_ids) > 0:
                 self.reusable.append(self.current_node)
-            if (
-                len(
-                    self.current_node.qubit.returned_reusable_after_uncompute_ids,
-                )
-                > 0
-            ):
+            if len(self.current_node.qubit.returned_uncomputable_ids) > 0:
                 self.uncomputable.append(self.current_node)
 
         return self.ancilla_edges, self.uncomputes
@@ -316,10 +307,7 @@ class NoPredCheckNeedDiffScore(NoPred):
             [len(n.qubit.required_dirty_ids) for n in self.dirty],
         )
         total_uncomputable = sum(
-            [
-                len(n.qubit.returned_reusable_after_uncompute_ids)
-                for n in self.uncomputable
-            ],
+            [len(n.qubit.returned_uncomputable_ids) for n in self.uncomputable],
         )
         current_best: tuple[bool, int, None | ProcessedProgramNode] = (
             False,
@@ -339,8 +327,7 @@ class NoPredCheckNeedDiffScore(NoPred):
                 continue
             score = (
                 len(node.qubit.returned_reusable_ids) * self.weight_reusable
-                + len(node.qubit.returned_reusable_after_uncompute_ids)
-                * self.weight_uncomp
+                + len(node.qubit.returned_uncomputable_ids) * self.weight_uncomp
                 + len(node.qubit.returned_dirty_ids) * self.weight_dirty
                 - required_reusable * self.weight_reusable
                 - required_dirty * self.weight_dirty

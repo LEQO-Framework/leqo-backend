@@ -314,7 +314,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 msg = f"Unsupported: reusable annotation over classical {info.name}"
                 raise UnsupportedOperation(msg)
             if self.__in_uncompute:
-                self.qubit.returned_reusable_after_uncompute_ids.extend(info.ids)
+                self.qubit.returned_uncomputable_ids.extend(info.ids)
             else:
                 self.qubit.returned_reusable_ids.extend(info.ids)
 
@@ -362,7 +362,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             except KeyError:
                 msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable twice"
                 raise UnsupportedOperation(msg) from None
-        for qubit_id in self.qubit.returned_reusable_after_uncompute_ids:
+        for qubit_id in self.qubit.returned_uncomputable_ids:
             try:
                 returned_dirty.remove(qubit_id)
             except KeyError:
