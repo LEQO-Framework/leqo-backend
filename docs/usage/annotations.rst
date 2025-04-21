@@ -215,6 +215,7 @@ The start and end of the uncompute block are marked explicitly, as shown below:
 
 .. code-block:: openqasm2
     :linenos:
+
     // @leqo.uncompute start
     someUncomputeOperation
 
