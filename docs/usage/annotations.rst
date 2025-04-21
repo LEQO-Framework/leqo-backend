@@ -149,7 +149,7 @@ To do so, one can declare an alias to the reusable qubits.
 Dirty Ancilla Qubits
 --------------------
 
-If qubits are used in a program and are neither marked as output nor reusable, they are considered dirty ancilla qubits thereafter.
+If qubits are used in a program and are neither marked as output nor reusable, they are considered dirty ancilla qubits.
 These qubits may be in an arbitrary state, including entanglement with other qubits, and require the explicit `@leqo.dirty` annotation to indicate their intended use in another snippet.
 A dirty ancilla may be promoted to a reusable ancilla via an associated uncomputation block.
 
