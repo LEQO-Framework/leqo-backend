@@ -183,7 +183,7 @@ When dirty ancilla qubits can be uncomputed, the programmer may provide an expli
 This is done using the `@leqo.uncompute` annotation, which defines a scoped region that is disabled by default via an `if (false)` statement.
 The compiler may override this value to `true` if uncomputation of the associated dirty ancillae is required.
 
-* The `@leqo.uncompute` annotation must appear directly above a `if (false)` statement with a block body that must not be followed by an `else` statement
+* The `@leqo.uncompute` annotation must appear directly above an `if (false)` statement with a block body that must not be followed by an `else` statement
 * `@leqo.uncompute` annotations may appear multiple times in a program, each time referring to different uncomputation logic
 * Nested `@leqo.uncompute` if-blocks are not allowed
 * The `@leqo.uncompute` block must reverse all transformations on the associated ancillae, removing entanglement and restoring each to the |0⟩ state
