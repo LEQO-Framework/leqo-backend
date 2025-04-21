@@ -76,10 +76,10 @@ class NoPred(OptimizationAlgo):
     :param uncomputes: whether to uncompute a node
     :param reusable: list of nodes that have reusable qubits.
     :param dirty: list of nodes that have dirty qubits.
-    :param uncomputable: list of nodes that have reusable qubits.
+    :param uncomputable: list of nodes that have uncomputable qubits.
     :param nopred: list of nodes without predecessors (ProcessedProgramNode is not hashable).
     :param need_dirty: current requirement of dirty qubits
-    :param need_reusable: current requirement of dirty qubits
+    :param need_reusable: current requirement of reusable qubits
     """
 
     ancilla_edges: list[AncillaConnection]
