@@ -258,7 +258,7 @@ class NoPred(OptimizationAlgo):
                 new_reusable.qubit.returned_reusable_ids.extend(
                     new_reusable.qubit.returned_reusable_after_uncompute_ids,
                 )
-                new_reusable.qubit.returned_reusable_after_uncompute_ids = []
+                new_reusable.qubit.returned_reusable_after_uncompute_ids.clear()
                 self.uncomputes[new_reusable.raw] = True
 
     @override
