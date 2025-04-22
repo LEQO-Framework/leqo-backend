@@ -9,38 +9,25 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from networkx import DiGraph
-from openqasm3.ast import Program
+from openqasm3.ast import ClassicalType, Program
+
+QubitIDs = list[int]
 
 
 @dataclass(frozen=True)
 class ProgramNode:
-    """Represents a node in a visual model of an openqasm3 program."""
+    """Represents a node in a visual model of an openqasm3 program.
+
+    :param name: The id given from the front-end.
+    :param id: Unique ID of this node, used in the renaming.
+    :param label: (Optional) Label given from the front-end.
+    :param is_ancilla_node: This node is ancilla node in the model.
+    """
 
     name: str
-    implementation: str
-    uncompute_implementation: str | None = None
-
-
-@dataclass
-class SectionInfo:
-    """Store information scraped in preprocessing."""
-
-    id: UUID
-    io: IOInfo
-
-    def __init__(self, uuid: UUID | None = None, io_info: IOInfo | None = None) -> None:
-        self.id = uuid4() if uuid is None else uuid
-        self.io = IOInfo() if io_info is None else io_info
-
-
-@dataclass(frozen=True)
-class ProcessedProgramNode:
-    """Store a qasm snippet as string and AST."""
-
-    raw: ProgramNode
-    implementation: Program
-    info: SectionInfo
-    uncompute_implementation: Program | None
+    label: str | None = None
+    is_ancilla_node: bool = False
+    id: UUID = field(default_factory=uuid4)
 
 
 @dataclass(frozen=True)
@@ -58,8 +45,8 @@ class AncillaConnection:
     The qubits are identified via the id specified in :class:`app.processing.graph.IOInfo`.
     """
 
-    source: tuple[ProgramNode, list[int]]
-    target: tuple[ProgramNode, list[int]]
+    source: tuple[ProgramNode, QubitIDs]
+    target: tuple[ProgramNode, QubitIDs]
 
 
 if TYPE_CHECKING:
@@ -71,20 +58,20 @@ else:
 class ProgramGraph(ProgramGraphBase):
     """Internal representation of the program graph."""
 
-    __node_data: dict[ProgramNode, ProcessedProgramNode]
-    __edge_data: dict[
+    node_data: dict[ProgramNode, ProcessedProgramNode]
+    edge_data: dict[
         tuple[ProgramNode, ProgramNode],
         list[IOConnection | AncillaConnection],
     ]
 
     def __init__(self) -> None:
         super().__init__()
-        self.__node_data = {}
-        self.__edge_data = {}
+        self.node_data = {}
+        self.edge_data = {}
 
     def append_node(self, node: ProcessedProgramNode) -> None:
         super().add_node(node.raw)
-        self.__node_data[node.raw] = node
+        self.node_data[node.raw] = node
 
     def append_nodes(self, *nodes: ProcessedProgramNode) -> None:
         for node in nodes:
@@ -92,74 +79,101 @@ class ProgramGraph(ProgramGraphBase):
 
     def append_edge(self, edge: IOConnection | AncillaConnection) -> None:
         super().add_edge(edge.source[0], edge.target[0])
-        self.__edge_data.setdefault((edge.source[0], edge.target[0]), []).append(edge)
+        self.edge_data.setdefault((edge.source[0], edge.target[0]), []).append(edge)
 
     def append_edges(self, *edges: IOConnection | AncillaConnection) -> None:
         for edge in edges:
             self.append_edge(edge)
 
     def get_data_node(self, node: ProgramNode) -> ProcessedProgramNode:
-        return self.__node_data[node]
+        return self.node_data[node]
 
     def get_data_edges(
         self,
         source: ProgramNode,
         target: ProgramNode,
     ) -> list[IOConnection | AncillaConnection]:
-        return self.__edge_data[(source, target)]
+        return self.edge_data[(source, target)]
 
 
 @dataclass()
-class QubitInputInfo:
-    """Store the input id and the corresponding register position."""
+class QubitInfo:
+    """Store QubitIDs of declarations, reusable and dirty.
 
-    input_index: int
-    reg_position: int
+    :param declaration_to_ids: Maps declared names to corresponding qubits ids.
+    :param required_reusable_ids: List of required reusable/fresh/uncomputed qubit ids.
+    :param required_dirty_ids: List of required (possible) dirty qubits.
+    :param returned_reusable_ids: List of returned reusable qubits.
+    :param returned_uncomputable_ids: List of qubits that are reusable after uncompute.
+    :param returned_dirty_ids: List of qubits that are always returned dirty.
+    """
+
+    declaration_to_ids: dict[str, QubitIDs] = field(default_factory=dict)
+    required_reusable_ids: QubitIDs = field(default_factory=list)
+    required_dirty_ids: QubitIDs = field(default_factory=list)
+    returned_reusable_ids: QubitIDs = field(default_factory=list)
+    returned_uncomputable_ids: QubitIDs = field(default_factory=list)
+    returned_dirty_ids: QubitIDs = field(default_factory=list)
 
 
 @dataclass()
-class QubitOutputInfo:
-    """Store the output id and the corresponding register position."""
+class ClassicalIOInstance:
+    """Single input/output from a snippet of type classical.
 
-    output_index: int
-    reg_position: int
+    :param name: Name of the annotated variable.
+    :param type: Type of the annotated variable.
+    :param size: Size of the annotated variable.
+    """
+
+    name: str
+    type: type[ClassicalType]
+    size: int
 
 
 @dataclass()
-class QubitAnnotationInfo:
-    """Store input, output and reusable info for a single qubit."""
+class QubitIOInstance:
+    """Single input/output from a snippet of type qubits.
 
-    input: QubitInputInfo | None = None
-    output: QubitOutputInfo | None = None
-    reusable: bool = False
-    dirty: bool = False
+    :param name: Name of the annotated variable.
+    :param ids: List of annotated qubit ids.
+    """
+
+    name: str
+    ids: QubitIDs
 
 
 @dataclass()
 class IOInfo:
-    """Store input, output, dirty and reusable info for qubits in a qasm-snippet.
+    """Input/output info for a single snippet.
 
-    For this purpose, every qubit (not qubit-reg) is given an id, based on declaration order.
-    Then id_to_info maps these id's to the corresponding :class:`app.processing.graph.QubitAnnotationInfo`.
-    Warning: uncompute parse not inplemented yet.
-
-    :param declaration_to_ids: Maps declared qubit names to list of IDs.
-    :param id_to_info: Maps IDs to their corresponding info objects.
-    :param input_to_ids: Maps input indexes to their corresponding IDs.
-    :param output_to_ids: Maps output indexes to their corresponding IDs.
-    :param required_ancillas: Id list of required non-dirty ancillas.
-    :param dirty_ancillas: Id list of required (possible) dirty ancillas.
-    :param reusable_ancillas: Id list of reusable ancillas.
-    :param reusable_after_uncompute: Id list of additional reusable ancillas after uncompute.
-    :param returned_dirty_ancillas: Id list of ancillas that are returned dirty in any case.
+    :param inputs: Maps input-index to (Qubit/Classical)IOInstance.
+    :param outputs: Maps output-index to (Qubit/Classical)IOInstance.
+    :param qubits: Store qubit info via QubitIOInfo.
     """
 
-    declaration_to_ids: dict[str, list[int]] = field(default_factory=dict)
-    id_to_info: dict[int, QubitAnnotationInfo] = field(default_factory=dict)
-    input_to_ids: dict[int, list[int]] = field(default_factory=dict)
-    output_to_ids: dict[int, list[int]] = field(default_factory=dict)
-    required_ancillas: list[int] = field(default_factory=list)
-    dirty_ancillas: list[int] = field(default_factory=list)
-    reusable_ancillas: list[int] = field(default_factory=list)
-    reusable_after_uncompute: list[int] = field(default_factory=list)
-    returned_dirty_ancillas: list[int] = field(default_factory=list)
+    inputs: dict[int, QubitIOInstance | ClassicalIOInstance] = field(
+        default_factory=dict,
+    )
+    outputs: dict[int, QubitIOInstance | ClassicalIOInstance] = field(
+        default_factory=dict,
+    )
+
+
+@dataclass()
+class ProcessedProgramNode:
+    """Store a qasm snippet as string and AST.
+
+    :param raw: The corresponding ProgramNode.
+    :param implementation: The implementation as AST. Might be modified during processing.
+    :param io: Input/output information required for connections.
+    :param qubit: Qubit information required for optimization.
+    """
+
+    raw: ProgramNode
+    implementation: Program
+    io: IOInfo = field(default_factory=IOInfo)
+    qubit: QubitInfo = field(default_factory=QubitInfo)
+
+    @property
+    def id(self) -> UUID:
+        return self.raw.id

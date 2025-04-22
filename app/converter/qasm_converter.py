@@ -44,6 +44,15 @@ OPAQUE_STATEMENT_PATTERN = re.compile(
     r"opaque\s+[a-zA-Z0-9_\-]+\s*\([^;]+\)[^;]+;",
     re.MULTILINE,
 )
+UNCOMPUTE_BLOCK_PATTERN = re.compile(
+    r"^\s*//\s*@leqo\.uncompute\s+start\s*\n(.*)\n\s*//\s*@leqo.uncompute\s+end\s*$",
+    re.MULTILINE | re.DOTALL,
+)
+ANNOTATION_WITH_ALIAS_PATTERN = re.compile(
+    r"^\s*//\s*(@leqo.*)$\n\s*//\s*(let\s.*;)\s*$",
+    re.MULTILINE,
+)
+ANNOTATION_PATTERN = re.compile(r"^\s*//\s*(@.+)$", re.MULTILINE)
 LIB_REPLACEMENTS = {"qelib1.inc": "stdgates.inc"}
 # NOTE: if this version is updated, the docs need to be updated also
 TARGET_QASM_VERSION = "3.1"
@@ -184,6 +193,13 @@ class QASMConverter:
         if len(opaque) != 0:
             msg = f"Unsupported opaque definition {opaque} could not be ported to OpenQASM 3."
             raise QASMConversionError(msg)
+
+        qasm2_code = UNCOMPUTE_BLOCK_PATTERN.sub(
+            r"@leqo.uncompute\nif(false) {\n\1\n}",
+            qasm2_code,
+        )
+        qasm2_code = ANNOTATION_WITH_ALIAS_PATTERN.sub(r"\1\n\2", qasm2_code)
+        qasm2_code = ANNOTATION_PATTERN.sub(r"\1", qasm2_code)
 
         result = parse(qasm2_code)
 
