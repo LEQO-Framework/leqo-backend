@@ -164,18 +164,19 @@ and the data flow between snippets.
 
 .. _reusable-qubit-annotation:
 
-Ancilla Qubits
---------------
+Reusable Ancillae
+-----------------
 
 If the programmer manually resets a qubit they can mark it as reusable.
 To do so, one can declare an alias to the reusable qubits.
 
-* Reusable qubits may not be marked as output
+* Reusable ancillae may not be marked as output
 * Reusable annotated aliases may be declared anywhere in code
 * Reusable annotated aliases may be used like any other alias
 * Reusable annotations may only appear above a :class:`~openqasm3.ast.AliasStatement` pointing to qubits
 * Reusable annotations may only appear once per statement
-* Reusable annotations mark qubits that are no longer entangled and reset to \|0⟩
+* Reusable annotations mark qubits that are no longer entangled and reset to ``|0⟩``
+
     This actions has to be manually implemented by the user and guarantees that the backend is free to reuse the qubit
 
 .. code-block:: openqasm3
@@ -195,20 +196,21 @@ To do so, one can declare an alias to the reusable qubits.
     Even if the reusable alias is not used in code, an alias must be defined to mark qubits as reusable.
     The identifier is insignificant.
 
-Dirty Ancilla Qubits
---------------------
+Entangled & Dirty Ancillae
+--------------------------
+If qubits are used within a snippet and are not annotated with either ``@leqo.output`` or ``@leqo.reusable``,
+they are treated by that snippet as entangled ancillae.
+Subsequent snippets interpret these qubits as dirty ancillae.
+Dirty ancillae may exist in an arbitrary quantum state, potentially entangled with other qubits,
+and must be explicitly annotated with ``@leqo.dirty`` to signify their intentional reuse in a snippet.
 
-If qubits are used in a program and are neither marked as output nor reusable, they are considered dirty ancilla qubits.
-These qubits may be in an arbitrary state, including entanglement with other qubits, and require the explicit `@leqo.dirty` annotation to indicate their intended use in another snippet.
-A dirty ancilla may be promoted to a reusable ancilla via an associated uncomputation block.
+To use dirty ancillae within a snippet, the programmer must explicitly opt in by annotating the qubit definition with ``@leqo.dirty``.
 
-To use dirty ancillae within a snippet, the programmer must explicitly opt in by annotating the qubit definition with `@leqo.dirty`.
-
-* The `@leqo.dirty` annotation follows the same implementation rules as input definitions, but omits indexing, as defined in :ref:`input definition <input-anker>`
+* The ``@leqo.dirty`` annotation follows the same implementation rules as input definitions, but omits indexing, as defined in :ref:`input definition <input-anker>`
 
 .. warning::
     The state of a dirty ancilla qubit can be altered temporarily but must be restored at the end of a snippet.
-    Therefore measuring a dirty qubit is not permitted.
+    Therefore measuring or uncompute a dirty qubit is not permitted.
 
 .. code-block:: openqasm3
     :linenos:
@@ -226,23 +228,25 @@ To use dirty ancillae within a snippet, the programmer must explicitly opt in by
 
 Uncomputation
 -------------
-When dirty ancilla qubits can be uncomputed, the programmer may provide an explicit uncomputation block to reverse their effects.
-This is done using the `@leqo.uncompute` annotation, which defines a scoped region that is disabled by default via an `if (false)` statement.
-The compiler may override this value to `true` if uncomputation of the associated dirty ancillae is required.
+When modified clean ancillae or linking qubits can be uncomputed, the programmer may provide an explicit uncomputation block to reverse their effects.
+This is done using the ``@leqo.uncompute`` annotation, which defines a scoped region that is disabled by default via an ``if (false)`` statement.
+The compiler may override this statement to ``true`` if uncomputation of the associated qubits is determined to be necessary.
 
-* The `@leqo.uncompute` annotation must appear directly above an `if (false)` statement with a block body that must not be followed by an `else` statement
-* `@leqo.uncompute` annotations may appear multiple times in a program, each time referring to different uncomputation logic
-* Nested `@leqo.uncompute` if-blocks are not allowed
-* A `@leqo.uncompute` if-block must be declared at global scope
-* The `@leqo.uncompute` block must reverse all transformations on the associated ancillae, removing entanglement and restoring each to the ``|0⟩`` state
-* `@leqo.uncompute` blocks only operate on existing variables, qubits or selfdeclared aliases
-* A `@leqo.uncompute` if-block must declare the uncomputed ancillae as reusable qubits by using the corresponding `@leqo.reusable` annotation
+A qubit annotated with ``@leqo.reusable`` within such a block is referred to as an uncomputable ancilla.
+
+* The ``@leqo.uncompute`` annotation must appear directly above an ``if (false)`` statement with a block body that must not be followed by an ``else`` statement
+* ``@leqo.uncompute`` annotations may appear multiple times in a program, each time referring to different uncomputation logic
+* Nested ``@leqo.uncompute`` if-blocks are not allowed
+* A ``@leqo.uncompute`` if-block must be declared at global scope
+* The ``@leqo.uncompute`` block must reverse all transformations on the associated qubit, removing entanglement and restoring each to the ``|0⟩`` state
+* ``@leqo.uncompute`` blocks only operate on existing variables, qubits or selfdeclared aliases
+* A ``@leqo.uncompute`` if-block must declare the uncomputed ancillae as reusable qubits by using the corresponding ``@leqo.reusable`` annotation
 
 .. warning::
-    Qubits previously annotated with `@leqo.dirty` must not be uncomputed
+    Qubits previously annotated with ``@leqo.dirty`` must not be uncomputed
 
 .. note::
-    Not all operations are reversible; in such cases, the qubit should not be reused.
+    Not all operations are reversible; in such cases, the qubit should not be annotated as reusable.
 
 .. code-block:: openqasm3
     :linenos:
