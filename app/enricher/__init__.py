@@ -11,6 +11,7 @@ Some services could read implementations from a database or generate them on the
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from io import UnsupportedOperation
+from typing import override
 
 from app.model.CompileRequest import (
     ImplementationNode,
@@ -82,6 +83,7 @@ class AggregateEnricher(Enricher):
     def __init__(self, *enrichers: Enricher):
         self.enrichers = list(enrichers)
 
+    @override
     def try_enrich(
         self, node: Node, constraints: Constraints
     ) -> ImplementationNode | None:

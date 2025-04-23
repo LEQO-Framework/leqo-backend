@@ -1,4 +1,5 @@
 from io import UnsupportedOperation
+from typing import override
 
 import pytest
 
@@ -13,6 +14,7 @@ from app.model.CompileRequest import (
 
 
 class IntToAEnricher(Enricher):
+    @override
     def try_enrich(
         self, node: Node, _constraints: Constraints
     ) -> ImplementationNode | None:
@@ -23,6 +25,7 @@ class IntToAEnricher(Enricher):
 
 
 class FloatToBEnricher(Enricher):
+    @override
     def try_enrich(
         self, node: Node, _constraints: Constraints
     ) -> ImplementationNode | None:
