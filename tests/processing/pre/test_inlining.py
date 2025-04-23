@@ -1,16 +1,13 @@
-from uuid import uuid4
+from textwrap import dedent
 
-from app.processing.graph import SectionInfo
+from openqasm3.parser import parse
+from openqasm3.printer import dumps
+
 from app.processing.pre.inlining import InliningTransformer
-from tests.processing.utils import assert_processor
 
 
 def test_inline_aliases() -> None:
-    section_info = SectionInfo(uuid4())
-    assert_processor(
-        InliningTransformer(),
-        section_info,
-        """
+    original = """
         OPENQASM 3;
         qubit q;
         qubit q2;
@@ -26,8 +23,8 @@ def test_inline_aliases() -> None:
         x q[c2];
         x q[c3];
         x q[c4];
-        """,
-        """\
+        """
+    expected = """\
         OPENQASM 3;
         qubit q;
         qubit q2;
@@ -39,5 +36,8 @@ def test_inline_aliases() -> None:
         x q[c2];
         x q[42];
         x q[c4];
-        """,
-    )
+        """
+    program = parse(original)
+    program = InliningTransformer().visit(program)
+    processed = dumps(program)
+    assert processed == dedent(expected), f"{processed} != {expected}"
