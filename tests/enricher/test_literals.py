@@ -69,6 +69,21 @@ async def test_int_literal() -> None:
     )
 
     result = await strategy.enrich(
+        IntLiteralNode(id="nodeId", value=-123), constraints=None
+    )
+
+    assert_enrichment(
+        result.enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        int[32] literal = -123;
+        @leqo.output 0
+        let out = literal;
+        """,
+    )
+
+    result = await strategy.enrich(
         IntLiteralNode(id="nodeId", value=123, bitSize=64), constraints=None
     )
 
@@ -97,6 +112,21 @@ async def test_float_literal() -> None:
         """\
         OPENQASM 3.1;
         float[32] literal = 123.5;
+        @leqo.output 0
+        let out = literal;
+        """,
+    )
+
+    result = await strategy.enrich(
+        FloatLiteralNode(id="nodeId", value=-123.5), constraints=None
+    )
+
+    assert_enrichment(
+        result.enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        float[32] literal = -123.5;
         @leqo.output 0
         let out = literal;
         """,
