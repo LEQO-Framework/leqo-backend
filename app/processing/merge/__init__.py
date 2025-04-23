@@ -1,3 +1,7 @@
+"""
+Merge all nodes of the :class:`app.processing.graph.ProgramGraph` into a single QASM program.
+"""
+
 from networkx import topological_sort
 from openqasm3.ast import (
     Identifier,
