@@ -1,5 +1,5 @@
 """
-The enrichment module provides the abstract capability of "enriching" :class:`~app.model.CompileRequest.Node` with an implementation
+The enrichment module provides the abstract capability of "enriching" :class:`~app.model.CompileRequest.Node` with an openqasm implementation
 (See :class:`~app.model.CompileRequest.ImplementationNode`).
 
 The enrichment can be controlled by specifying :class:`~app.enricher.Constraints`.
@@ -30,7 +30,7 @@ class Constraints:
 
 def empty_constraints() -> Constraints:
     """
-    No constraints.
+    Returns a set of empty constraints.
     """
 
     return Constraints([])
