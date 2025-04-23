@@ -1,3 +1,51 @@
+Qubit Classification
+====================
+In LEQO’s OpenQASM snippet-based design, a set of semantic labels is introduced to characterize
+how qubits are utilized and managed, enabling more effective reasoning about the qubit lifecycle
+and the data flow between snippets.
+
+.. list-table:: Ingoing Qubits
+   :widths: 20 80
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - Linking Qubit
+     - A qubit annotated with ``@leqo.input``.
+       These qubits serve as the entry points for quantum states passed between snippets
+       and may be in arbitrary or entangled states.
+   * - Clean Ancilla
+     - A qubit declared in the current snippet without any annotation.
+       It is initialized to ``|0⟩`` and can serve as clean temporary workspace
+       or be used to introduce a working qubit intended to pass information to other snippets as a Linking Qubit.
+   * - Dirty Ancilla
+     - A qubit used for temporary computation that may be entangled or hold an unknown state.
+       Declared with ``@leqo.dirty``, it must not be measured
+       and must be restored to its original state before the snippet ends.
+
+.. list-table:: Outgoing Qubits
+   :widths: 20 80
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - Linking Qubit
+     - A qubit annotated with ``@leqo.output`` .
+       These qubits serve as the exit points for quantum states passed between snippets
+       and may be in arbitrary or entangled states.
+   * - Reusable Ancilla
+     - A qubit explicitly reset to ``|0⟩`` by the user and annotated with ``@leqo.reusable``.
+       It may originate as a clean ancilla or linking qubit and must be disentangled from all other qubits before reuse.
+       Reusable ancillae are considered clean ancillae in future snippets.
+   * - Uncomputable Ancilla
+     - A qubit annotated with ``@leqo.reusable`` within a ``@leqo.uncompute`` block.
+       These qubits are only uncomputed and returned to clean ancillae when the compiler deems it necessary,
+       allowing the code as a whole to be optimised.
+   * - Entangled Ancilla
+     - A qubit that is neither annotated with ``@leqo.output`` nor with ``@leqo.reusable`` within the snippet.
+       It may be in a non-zero or entangled state and cannot safely be reused without restrictions.
+       Entangled ancillae are considered dirty ancillae in future snippets.
+
 Annotations
 ===========
 
@@ -119,54 +167,6 @@ The annotation specifies the index of the corresponding output.
 .. note::
     Even if the ouput alias is not used in code, an alias must be defined to mark qubits as linking qubits.
     The identifier is insignificant.
-
-Qubit Classification
---------------------
-In LEQO’s OpenQASM snippet-based design, a set of semantic labels is introduced to characterize
-how qubits are utilized and managed, enabling more effective reasoning about the qubit lifecycle
-and the data flow between snippets.
-
-.. list-table:: Ingoing Qubits
-   :widths: 20 80
-   :header-rows: 1
-
-   * - Name
-     - Description
-   * - Linking Qubit
-     - A qubit annotated with ``@leqo.input``.
-       These qubits serve as the entry points for quantum states passed between snippets
-       and may be in arbitrary or entangled states.
-   * - Clean Ancilla
-     - A qubit declared in the current snippet without any annotation.
-       It is initialized to ``|0⟩`` and can serve as clean temporary workspace
-       or be used to introduce a working qubit intended to pass information to other snippets as a Linking Qubit.
-   * - Dirty Ancilla
-     - A qubit used for temporary computation that may be entangled or hold an unknown state.
-       Declared with ``@leqo.dirty``, it must not be measured
-       and must be restored to its original state before the snippet ends.
-
-.. list-table:: Outgoing Qubits
-   :widths: 20 80
-   :header-rows: 1
-
-   * - Name
-     - Description
-   * - Linking Qubit
-     - A qubit annotated with ``@leqo.output`` .
-       These qubits serve as the exit points for quantum states passed between snippets
-       and may be in arbitrary or entangled states.
-   * - Reusable Ancilla
-     - A qubit explicitly reset to ``|0⟩`` by the user and annotated with ``@leqo.reusable``.
-       It may originate as a clean ancilla or linking qubit and must be disentangled from all other qubits before reuse.
-       Reusable ancillae are considered clean ancillae in future snippets.
-   * - Uncomputable Ancilla
-     - A qubit annotated with ``@leqo.reusable`` within a ``@leqo.uncompute`` block.
-       These qubits are only uncomputed and returned to clean ancillae when the compiler deems it necessary,
-       allowing the code as a whole to be optimised.
-   * - Entangled Ancilla
-     - A qubit that is neither annotated with ``@leqo.output`` nor with ``@leqo.reusable`` within the snippet.
-       It may be in a non-zero or entangled state and cannot safely be reused without restrictions.
-       Entangled ancillae are considered dirty ancillae in future snippets.
 
 .. _reusable-qubit-annotation:
 
