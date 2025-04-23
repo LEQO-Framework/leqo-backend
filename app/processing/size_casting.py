@@ -1,3 +1,5 @@
+"""Allow for smaller inputs by reducing the size of the type in the AST and parsed info."""
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -26,6 +28,8 @@ from app.processing.utils import parse_io_annotation
 
 
 class CreateUnseenNamesVisitor(LeqoTransformer[None]):
+    """Keep track of all identifier in an AST to create new ones."""
+
     seen: set[str]
 
     def __init__(self) -> None:
@@ -33,11 +37,13 @@ class CreateUnseenNamesVisitor(LeqoTransformer[None]):
         self.seen = set()
 
     def visit_Identifier(self, node: Identifier) -> QASMNode:
+        """Collect identifier names."""
         self.seen.add(node.name)
         return self.generic_visit(node)
 
     @staticmethod
     def __increment_or_add_counter_str(name: str) -> str:
+        """Reduce the number at the end of a string by one or append '_0'."""
         prefix = ""
         maybe_number = name
         while True:
@@ -48,6 +54,7 @@ class CreateUnseenNamesVisitor(LeqoTransformer[None]):
             prefix, maybe_number = prefix + maybe_number[0], maybe_number[1:]
 
     def generate_new_name(self, name: str) -> str:
+        """Generate a new unused identifier name."""
         while name in self.seen:
             name = self.__increment_or_add_counter_str(name)
         self.seen.add(name)
@@ -55,6 +62,13 @@ class CreateUnseenNamesVisitor(LeqoTransformer[None]):
 
 
 class SizeCastTransformer(LeqoTransformer[None]):
+    """Apply the size-reduction casts.
+
+    :param processed: The ProcessedProgramNode to be modified in-place.
+    :param requested_sizes: Specifying the required sizes for the input indexes.
+    :param name_factory: Used for getting new unseen names.
+    """
+
     processed: ProcessedProgramNode
     requested_sizes: dict[int, int]
     name_factory: CreateUnseenNamesVisitor
@@ -72,6 +86,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
 
     @staticmethod
     def get_input_index(annotations: list[Annotation]) -> None | int:
+        """Parse annotations for input with index."""
         for annotation in annotations:
             if annotation.keyword.startswith("leqo.input"):
                 return parse_io_annotation(annotation)
@@ -81,6 +96,14 @@ class SizeCastTransformer(LeqoTransformer[None]):
         self,
         node: ClassicalDeclaration,
     ) -> QASMNode | list[QASMNode]:
+        """Reduce size of a classical input.
+
+        This is done by reducing the size in the declaration and changing its name.
+        Then the old name is declared with old size and assigned to the new name.
+
+        This seems to be the way that Openqasm 3 handles implicit casts,
+        but there was no concrete example of this in the specification.
+        """
         if not isinstance(node.type, IntType | FloatType):
             return node
 
@@ -124,6 +147,14 @@ class SizeCastTransformer(LeqoTransformer[None]):
         self,
         node: QubitDeclaration,
     ) -> QASMNode | list[QASMNode]:
+        """Reduce size of a qubit input.
+
+        This is done by splitting the old declaration in two:
+        - one for the linked qubits
+        - one for the clean ancillas
+        Both are created with new identifiers.
+        Then the old name is aliased to a concatenation of the previous variables.
+        """
         index = self.get_input_index(node.annotations)
         if index is None or index not in self.requested_sizes:
             return node
@@ -176,6 +207,11 @@ class SizeCastTransformer(LeqoTransformer[None]):
 
 
 def size_cast(node: ProcessedProgramNode, requested_sizes: dict[int, int]) -> None:
+    """Reduce the size of inputs in a node.
+
+    :param node: The node to be modified in-place.
+    :param requested_sizes: Specifying the sizes to cast to by input index.
+    """
     name_factory = CreateUnseenNamesVisitor()
     name_factory.visit(node.implementation)
     SizeCastTransformer(node, requested_sizes, name_factory).visit(node.implementation)
