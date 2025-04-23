@@ -114,6 +114,57 @@ The annotation specifies the index of the corresponding output.
     Even if the ouput alias is not used in code, an alias must be defined to mark qubits as outputs.
     The identifier is insignificant.
 
+Qubit Classification
+--------------------
+In LEQO’s OpenQASM snippet-based design, a set of semantic labels is introduced to characterize
+how qubits are utilized and managed, enabling more effective reasoning about the qubit lifecycle
+and the data flow between snippets.
+
+.. list-table:: Ingoing Qubits
+   :widths: 20 80
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - Linking Qubit
+     - A qubit annotated with ``@leqo.input``.
+       These qubits serve as the entry points for quantum states passed between snippets
+       and may be in arbitrary or entangled states.
+   * - Clean Ancilla
+     - A qubit declared in the current snippet without any annotation.
+       It is initialized to ``|0⟩`` and can serve as clean temporary workspace
+       or be used to introduce a working qubit intended to pass information to other snippets as a Linking Qubit.
+   * - Dirty Ancilla
+     - A qubit used for temporary computation that may be entangled or hold an unknown state.
+       Declared with ``@leqo.dirty``, it must not be measured
+       and must be restored to its original state before the snippet ends.
+
+.. list-table:: Outgoing Qubits
+   :widths: 20 80
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - Linking Qubit
+     - A qubit annotated with ``@leqo.output`` .
+       These qubits serve as the exit points for quantum states passed between snippets
+       and may be in arbitrary or entangled states.
+   * - Reusable Ancilla
+     - A qubit explicitly reset to ``|0⟩`` by the user and annotated with ``@leqo.reusable``.
+       It may originate as a clean or linking qubit and must be disentangled from all other qubits before reuse.
+       Reusable qubits are considered clean qubits in future snippets.
+   * - Uncomputable Ancilla
+     - A qubit annotated with ``@leqo.reusable`` within a ``@leqo.uncompute`` block.
+       These qubits are only uncomputed and returned to clean qubits when the compiler deems it necessary,
+       allowing the code as a whole to be optimised.
+   * - Entangled Ancilla
+     - A qubit that is neither annotated with ``@leqo.output`` nor with ``@leqo.reusable`` within the snippet.
+       The qubit may be in a non-zero or entangled state and cannot safely be reused without restrictions.
+       Entangled ancillae are considered dirty qubits in future snippets.
+
+.. note::
+   These classifications act as a conceptual framework and do not modify the underlying syntax of OpenQASM.
+
 .. _reusable-qubit-annotation:
 
 Ancilla Qubits
@@ -186,7 +237,7 @@ The compiler may override this value to `true` if uncomputation of the associate
 * `@leqo.uncompute` annotations may appear multiple times in a program, each time referring to different uncomputation logic
 * Nested `@leqo.uncompute` if-blocks are not allowed
 * A `@leqo.uncompute` if-block must be declared at global scope
-* The `@leqo.uncompute` block must reverse all transformations on the associated ancillae, removing entanglement and restoring each to the |0⟩ state
+* The `@leqo.uncompute` block must reverse all transformations on the associated ancillae, removing entanglement and restoring each to the ``|0⟩`` state
 * `@leqo.uncompute` blocks only operate on existing variables, qubits or selfdeclared aliases
 * A `@leqo.uncompute` if-block must declare the uncomputed ancillae as reusable qubits by using the corresponding `@leqo.reusable` annotation
 
@@ -208,7 +259,7 @@ The compiler may override this value to `true` if uncomputation of the associate
     }
 
 QASM 2
-^^^^^^
+~~~~~~
 An uncompute block is marked explicitly, as shown below:
 
 .. code-block:: openqasm2
@@ -222,5 +273,5 @@ An uncompute block is marked explicitly, as shown below:
     // @leqo.uncompute end
 
 .. note::
-    * Every line of the uncompute block must start with `//`
-    * A uncompute block must start with `// @leqo.uncompute start` and end with `// @leqo.uncompute end`
+    * Every line of the uncompute block must start with ``//``
+    * A uncompute block must start with ``// @leqo.uncompute start`` and end with ``// @leqo.uncompute end``
