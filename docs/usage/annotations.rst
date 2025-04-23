@@ -14,7 +14,10 @@ Annotations can be emulated in openqasm2 by using special comments.
 Input
 -----
 
-One input is defined as a single qubit register (:class:`~openqasm3.ast.QubitDeclaration`) with a single `@leqo.input` annotation.
+Input qubits, also referred to as linking qubits, act as entry points for quantum states transferred between snippets.
+They may exist in arbitrary states, including entangled configurations.
+
+One input is defined as a single qubit register (:class:`~openqasm3.ast.QubitDeclaration`) with a single ``@leqo.input`` annotation.
 The annotation specifies the index of the corresponding input.
 
 * Inputs can be of arbitrary size (See :ref:`input-memory-layout`)
@@ -40,7 +43,7 @@ The annotation specifies the index of the corresponding input.
     @leqo.input <<InputIndex>>
     qubit someName;
 
-`<<InputIndex>>` is replaced with the index of an input (positive integer literal)
+``<<InputIndex>>`` is replaced with the index of an input (positive integer literal)
 
 .. code-block:: openqasm3
     :linenos:
@@ -62,11 +65,11 @@ The annotated input size must match the input size of the corresponding node fro
 Inputs are expected to be **Little Endian**.
 
 The backend actively ensures that input qubits are initialized.
-All other qubits can be assumed to be `\|0⟩`.
+All other qubits can be assumed to be ``|0⟩``.
 
 .. note::
     The `specification <https://openqasm.com/language/types.html#qubits#:~:text=Qubits%20are%20initially%20in%20an%20undefined%20state>`_ allows implementors of openqasm3 to initialize qubits to an undefined state.
-    However, in practice major implementations (e.g. IBM) initialize qubits to `\|0⟩`.
+    However, in practice major implementations (e.g. IBM) initialize qubits to ``|0⟩``.
 
 In the future, it is planned to allow to input less qubits than specified using the annotation.
 In this case the backend would fill the lowest bytes with the actual input and ensure the upper bytes are initialized to zero:
@@ -80,7 +83,10 @@ In this case the backend would fill the lowest bytes with the actual input and e
 Output
 ------
 
-One output is defined as a single alias (:class:`~openqasm3.ast.AliasStatement`) with a single `@leqo.output` annotation.
+Output qubits, also referred to as linking qubits, act as exit points for quantum states transferred between snippets.
+They may exist in arbitrary states, including entangled configurations.
+
+One output is defined as a single alias (:class:`~openqasm3.ast.AliasStatement`) with a single ``@leqo.output`` annotation.
 The annotation specifies the index of the corresponding output.
 
 * One qubit may only be used in one output at most
@@ -98,7 +104,7 @@ The annotation specifies the index of the corresponding output.
     @leqo.output <<OutputIndex>>
     let someOutput = <<Expression>>;
 
-`<<OutputIndex>>` is replaced with the index of an output (positive integer literal)
+``<<OutputIndex>>`` is replaced with the index of an output (positive integer literal)
 
 .. code-block:: openqasm3
     :linenos:
@@ -111,7 +117,7 @@ The annotation specifies the index of the corresponding output.
     let output1 = a[1:2:3] ++ b[{1,2,3}];
 
 .. note::
-    Even if the ouput alias is not used in code, an alias must be defined to mark qubits as outputs.
+    Even if the ouput alias is not used in code, an alias must be defined to mark qubits as linking qubits.
     The identifier is insignificant.
 
 Qubit Classification
