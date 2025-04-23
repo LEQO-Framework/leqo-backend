@@ -210,7 +210,7 @@ Subsequent snippets interpret these qubits as dirty ancillae.
 Dirty ancillae may exist in an arbitrary quantum state, potentially entangled with other qubits,
 and must be explicitly annotated with ``@leqo.dirty`` to signify their intentional reuse in a snippet.
 
-To use dirty ancillae within a snippet, the programmer must explicitly opt in by annotating the qubit definition with ``@leqo.dirty``.
+To use dirty ancillae within a snippet, the programmer must explicitly opt in by annotating the qubit declaration with ``@leqo.dirty``.
 
 * The ``@leqo.dirty`` annotation follows the same implementation rules as input definitions, but omits indexing, as defined in :ref:`input definition <input-anker>`
 
