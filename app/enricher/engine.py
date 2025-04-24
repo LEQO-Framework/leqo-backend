@@ -8,8 +8,10 @@ from app.enricher.models import Base
 
 load_dotenv()
 
+
 class DatabaseEngine:
     """Singleton class to manage the database engine."""
+
     _instance = None
     _engine = None
 
