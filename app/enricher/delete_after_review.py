@@ -25,6 +25,7 @@ databaseEngine = DatabaseEngine()
 Session = sessionmaker(bind=databaseEngine._engine)
 session = Session()
 
+
 def createQuasmImplementation(quasm: str) -> None:
     with Session() as session:
         qasmImplementation = QuasmImplementation(quasm=quasm)
