@@ -6,7 +6,7 @@
 from sqlalchemy import Column, Integer, Text, select
 from sqlalchemy.orm import sessionmaker
 
-from app.enricher.engine import engine
+from app.enricher.engine import DatabaseEngine
 from app.enricher.models import Base
 
 
@@ -21,9 +21,9 @@ class QuasmImplementation(Base):
 
 
 # Used to connect to the DB through the engine
-Session = sessionmaker(bind=engine)
+databaseEngine = DatabaseEngine()
+Session = sessionmaker(bind=databaseEngine._engine)
 session = Session()
-
 
 def createQuasmImplementation(quasm: str) -> None:
     with Session() as session:
