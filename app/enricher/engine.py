@@ -15,13 +15,13 @@ class DatabaseEngine:
     _instance = None
     _engine = None
 
-    def __new__(cls):
+    def __new__(cls) -> "DatabaseEngine":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialize_engine()
         return cls._instance
 
-    def _initialize_engine(self):
+    def _initialize_engine(self) -> None:
         """Initialize the database engine."""
         try:
             url = URL.create(
