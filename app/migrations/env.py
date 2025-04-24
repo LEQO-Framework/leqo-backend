@@ -14,15 +14,17 @@ from app.enricher.models import Base
 def get_db_url() -> URL:
     load_dotenv()
     url = URL.create(
-        drivername=os.environ['SQLALCHEMY_DRIVER'],
-        username=os.environ['POSTGRES_USER'],
-        password=os.environ['POSTGRES_PASSWORD'],
-        host=os.environ['POSTGRES_HOST'],
-        port=int(os.environ['POSTGRES_PORT']),
-        database=os.environ['POSTGRES_DB']
+        drivername=os.environ["SQLALCHEMY_DRIVER"],
+        username=os.environ["POSTGRES_USER"],
+        password=os.environ["POSTGRES_PASSWORD"],
+        host=os.environ["POSTGRES_HOST"],
+        port=int(os.environ["POSTGRES_PORT"]),
+        database=os.environ["POSTGRES_DB"],
     )
     print(url)
     return url
+
+
 # ----------------------------------
 
 # this is the Alembic Config object, which provides
@@ -37,6 +39,7 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 target_metadata = Base.metadata
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -75,9 +78,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
