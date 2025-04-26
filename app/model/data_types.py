@@ -1,5 +1,5 @@
 """
-ToDO
+OpenQasm data-types that are supported by the leqo-backend.
 """
 
 from dataclasses import dataclass
@@ -7,27 +7,53 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class QubitType:
+    """
+    A single qubit or qubit register.
+    """
+
     reg_size: int
 
 
 @dataclass(frozen=True)
-class BitType:
+class ClassicalType:
+    """
+    Base class for classical data types.
+    """
+
+
+@dataclass(frozen=True)
+class BitType(ClassicalType):
+    """
+    A single bit or bit-array.
+    """
+
     reg_size: int
 
 
 @dataclass(frozen=True)
-class BoolType:
-    pass
+class BoolType(ClassicalType):
+    """
+    A single boolean or boolean register.
+    """
 
 
 @dataclass(frozen=True)
-class IntType:
+class IntType(ClassicalType):
+    """
+    An integer with size in bits.
+    """
+
     bitSize: int
 
 
 @dataclass(frozen=True)
-class FloatType:
+class FloatType(ClassicalType):
+    """
+    A float with size in bits.
+    """
+
     bitSize: int
 
 
-LeqoSupportedType = QubitType | IntType | FloatType | BitType | BoolType
+LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType
+LeqoSupportedType = QubitType | LeqoSupportedClassicalType
