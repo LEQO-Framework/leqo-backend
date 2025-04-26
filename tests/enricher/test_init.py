@@ -33,7 +33,7 @@ class IntToAEnricherStrategy(EnricherStrategy):
 
         return EnrichmentResult(
             ImplementationNode(id=node.id, implementation="A"),
-            ImplementationMetaData(width=42, depth=0),
+            ImplementationMetaData(width=None, depth=None),
         )
 
 
@@ -47,7 +47,7 @@ class FloatToBEnricherStrategy(EnricherStrategy):
 
         return EnrichmentResult(
             ImplementationNode(id=node.id, implementation="B"),
-            ImplementationMetaData(width=0, depth=42),
+            ImplementationMetaData(width=None, depth=None),
         )
 
 
@@ -62,7 +62,7 @@ class AsyncEnricherStrategy(EnricherStrategy):
         await asyncio.create_task(asyncio.sleep(1))
         return EnrichmentResult(
             ImplementationNode(id=node.id, implementation="C"),
-            ImplementationMetaData(width=2, depth=0),
+            ImplementationMetaData(width=None, depth=None),
         )
 
 

@@ -22,3 +22,19 @@ def opt_call(func: Callable[[TParam], TReturn], arg: TParam | None) -> TReturn |
         return None
 
     return func(arg)
+
+
+T = TypeVar("T")
+
+
+def coalesce(value: T | None, default_value: T) -> T:
+    """
+    Nullish coalescence - `??` operator.
+    Returns `value` if not `None`.
+    Else, returns `default_value`.
+    """
+
+    if value is None:
+        return default_value
+
+    return value

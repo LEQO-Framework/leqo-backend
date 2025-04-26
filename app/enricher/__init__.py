@@ -21,6 +21,7 @@ from app.model.CompileRequest import (
     Node as FrontendNode,
 )
 from app.model.data_types import LeqoSupportedType
+from app.utils import coalesce
 
 
 @dataclass(frozen=True)
@@ -175,17 +176,17 @@ class Enricher:
         if len(results) == 0:
             raise ExceptionGroup(f"Enrichment for node '{node.id}' failed", exceptions)
 
-        comparer: Callable[[EnrichmentResult], tuple[int | float, int | float]]
+        key_selector: Callable[[EnrichmentResult], tuple[int | float, int | float]]
         if constraints and constraints.optimizeDepth and not constraints.optimizeWidth:
-            comparer = lambda r: (  # noqa: E731 Do not assign a `lambda` expression, use a `def`
-                r.meta_data.depth or math.inf,
-                r.meta_data.width or math.inf,
+            key_selector = lambda r: (  # noqa: E731 Do not assign a `lambda` expression, use a `def`
+                coalesce(r.meta_data.depth, math.inf),
+                coalesce(r.meta_data.width, math.inf),
             )
         else:
-            comparer = lambda r: (  # noqa: E731 Do not assign a `lambda` expression, use a `def`
-                r.meta_data.width or math.inf,
-                r.meta_data.depth or math.inf,
+            key_selector = lambda r: (  # noqa: E731 Do not assign a `lambda` expression, use a `def`
+                coalesce(r.meta_data.width, math.inf),
+                coalesce(r.meta_data.depth, math.inf),
             )
 
-        results = sorted(results, key=comparer)
+        results = sorted(results, key=key_selector)
         return results[0].enriched_node
