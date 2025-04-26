@@ -25,6 +25,7 @@ dev = [
     "sphobjinv>=2.3.1.2",
     "sphinx-autoapi>=3.6.0",
     "pytest-cov>=6.1.1",
+    "pytest-asyncio>=0.26.0",
 ]
 
 # https://github.com/DSD-DBS/py-capellambse/blob/b0d63fac33c90d15f0d2d4c6c111184a5801ce6c/pyproject.toml#L174-L204
@@ -62,3 +63,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "qiskit.qasm3"
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
