@@ -1,10 +1,10 @@
 """
-The enrichment module provides the abstract capability of "enriching" :class:`~app.model.CompileRequest.Node` with an openqasm implementation
+The enrichment module provides the abstract capability of "enriching" a :class:`~app.model.CompileRequest.Node` with an openqasm implementation
 (See :class:`~app.model.CompileRequest.ImplementationNode`).
 
 The enrichment can be controlled by specifying :class:`~app.enricher.Constraints`.
 
-Multiple enrichment-services can be connected to the backend by supplying implementations of :class:`~app.enricher.Enricher`.
+Multiple "strategies" can be connected to the backend by implementing :class:`~app.enricher.EnricherStrategy`.
 Some services could read implementations from a database or generate them on the fly.
 """
 
@@ -56,7 +56,8 @@ class EnrichmentResult:
 
 class EnricherStrategy(ABC):
     """
-    An enrichment-unit capable of enriching some nodes.
+    A single unit capable of enriching some nodes.
+    Each strategy may choose to only support a subset of supported nodes.
     """
 
     @abstractmethod
@@ -84,6 +85,9 @@ class EnricherStrategy(ABC):
         :param node: The node to enrich.
         :param constraints: Constraints to follow during enrichment.
         :return: The enriched node.
+
+        :raises NodeUnsupportedException: If the specified node is not supported by this strategy.
+        :raises ConstraintValidationException: The specified constraints are invalid or cannot be met.
         """
 
         result = self._enrich_impl(node, constraints)
@@ -94,13 +98,13 @@ class EnricherStrategy(ABC):
 
 class EnricherException(Exception, ABC):
     """
-    Baseclass for exceptions raised by :class:`~app.enricher.EnrichmentStrategy`.
+    Baseclass for exceptions raised by :class:`~app.enricher.EnricherStrategy`.
     """
 
 
 class NodeUnsupportedException(EnricherException):
     """
-    Indicates that an :class:`~app.enricher.EnrichmentStrategy` does not support a :class:`~app.model.CompileRequest.Node`.
+    Indicates that an :class:`~app.enricher.EnricherStrategy` does not support a :class:`~app.model.CompileRequest.Node`.
     """
 
     def __init__(self, node: FrontendNode):
@@ -108,12 +112,14 @@ class NodeUnsupportedException(EnricherException):
 
 
 class ConstraintValidationException(EnricherException):
-    pass
+    """
+    Indicated that the specified constraints are invalid or cannot be met by an :class:`~app.enricher.EnricherStrategy`.
+    """
 
 
 class Enricher:
     """
-    Handles multiple :class:`~app.enricher.EnrichmentStrategy`.
+    Handles multiple :class:`~app.enricher.EnricherStrategy`.
     """
 
     strategies: list[EnricherStrategy]
@@ -125,7 +131,7 @@ class Enricher:
         self, node: FrontendNode, constraints: Constraints | None
     ) -> ImplementationNode | None:
         """
-        Tries to enrich a :class:`~app.model.CompileRequest.Node`.
+        Tries to enrich a :class:`~app.model.CompileRequest.Node` according to the specified :class:`~app.enricher.Constraints`.
         Returns none on failure.
 
         :param node: The node to enrich.
@@ -143,11 +149,13 @@ class Enricher:
     ) -> ImplementationNode:
         """
         Enrich the given :class:`~app.model.CompileRequest.Node` according to the specified :class:`~app.enricher.Constraints`.
-        Throws :class:`ExceptionGroup` containing the exceptions from all strategies.
+        Throws :class:`ExceptionGroup` containing the exceptions from all :class:`~app.enricher.EnricherStrategy`.
 
         :param node: The node to enrich.
         :param constraints: Constraints to follow during enrichment.
         :return: Enriched node.
+
+        :raises ExceptionGroup: If no strategy could generate an implementation.
         """
 
         if isinstance(node, ImplementationNode):
