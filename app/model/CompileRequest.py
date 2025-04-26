@@ -39,7 +39,7 @@ class ImplementationNode(_BaseNode):
 class EncodeValueNode(_BaseNode):
     type: Literal["encode"] = "encode"
     encoding: Literal["amplitude", "angle", "basis", "custom", "matrix", "schmidt"]
-    bounds: int = Field(ge=1)  # ToDo: ???
+    bounds: int = Field(ge=1)
 
 
 class PrepareStateNode(_BaseNode):
@@ -73,8 +73,6 @@ CircuitNode = QubitNode | GateNode
 
 
 # region Literals
-
-
 class BitLiteralNode(_BaseNode):
     type: Literal["bit"] = "bit"
     value: Literal[0, 1]
@@ -115,12 +113,12 @@ LiteralNode = (
 # region ControlFlow
 class IfThenElseNode(_BaseNode):
     type: Literal["if-then-else"] = "if-then-else"
-    # ToDo: Condition?
+    # ToDo: Specify if-block
 
 
 class RepeatNode(_BaseNode):
     type: Literal["repeat"] = "repeat"
-    # ToDo: ???
+    # ToDo: Specify repeat block
 
 
 ControlFlowNode = IfThenElseNode | RepeatNode
@@ -148,7 +146,7 @@ class OperatorNode(_BaseNode):
         "!=",
         "min",
         "max",
-        "search",  # ToDo: ?
+        "search",
     ]
 
 
