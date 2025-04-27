@@ -9,7 +9,6 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
 
-from app.enricher.delete_after_review import demo
 from app.model.CompileRequest import CompileRequest
 from app.model.StatusBody import Progress, StatusBody, StatusType
 
@@ -28,17 +27,6 @@ app.add_middleware(
 # FIXME: these should live in the database
 states: dict[UUID, StatusBody] = {}
 results: dict[UUID, str] = {}
-
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# This is only for testing delete after review
-
-
-@app.get("/enricher")
-def enricher() -> None:
-    print(demo())
-
-
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 @app.post("/compile")
