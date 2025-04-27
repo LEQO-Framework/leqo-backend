@@ -2,9 +2,9 @@ import re
 from io import UnsupportedOperation
 
 import pytest
-from openqasm3.ast import BitType, BoolType, IntType
 from openqasm3.parser import parse
 
+from app.model.data_types import BitType, BoolType, IntType
 from app.processing.graph import (
     ClassicalIOInstance,
     IOInfo,
@@ -318,11 +318,11 @@ def test_classical() -> None:
     expected = (
         IOInfo(
             inputs={
-                0: ClassicalIOInstance("c0", BitType, 4),
-                1: ClassicalIOInstance("i", IntType, 32),
-                2: ClassicalIOInstance("b", BoolType, 1),
+                0: ClassicalIOInstance("c0", BitType(4)),
+                1: ClassicalIOInstance("i", IntType(32)),
+                2: ClassicalIOInstance("b", BoolType()),
             },
-            outputs={0: ClassicalIOInstance("out", BitType, 6)},
+            outputs={0: ClassicalIOInstance("out", BitType(6))},
         ),
         QubitInfo(),
     )
@@ -364,12 +364,12 @@ def test_all() -> None:
             inputs={
                 0: QubitIOInstance("q0", [0, 1, 2, 3, 4]),
                 1: QubitIOInstance("q1", [5, 6, 7, 8, 9]),
-                2: ClassicalIOInstance("i", IntType, 32),
+                2: ClassicalIOInstance("i", IntType(32)),
             },
             outputs={
                 0: QubitIOInstance("_out0", [0, 5]),
                 1: QubitIOInstance("_out1", [1, 8]),
-                2: ClassicalIOInstance("_out2", IntType, 32),
+                2: ClassicalIOInstance("_out2", IntType(32)),
             },
         ),
         QubitInfo(

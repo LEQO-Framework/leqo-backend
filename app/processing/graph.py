@@ -9,7 +9,14 @@ from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from networkx import DiGraph
-from openqasm3.ast import ClassicalType, Program
+from openqasm3.ast import Program
+
+from app.model.data_types import (
+    LeqoSupportedClassicalType,
+)
+from app.model.data_types import (
+    QubitType as LeqoQubitType,
+)
 
 QubitIDs = list[int]
 
@@ -122,12 +129,10 @@ class ClassicalIOInstance:
 
     :param name: Name of the annotated variable.
     :param type: Type of the annotated variable.
-    :param size: Size of the annotated variable.
     """
 
     name: str
-    type: type[ClassicalType]
-    size: int
+    type: LeqoSupportedClassicalType
 
 
 @dataclass()
@@ -140,6 +145,10 @@ class QubitIOInstance:
 
     name: str
     ids: QubitIDs
+
+    @property
+    def type(self) -> LeqoQubitType:
+        return LeqoQubitType(len(self.ids))
 
 
 @dataclass()

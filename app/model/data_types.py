@@ -29,12 +29,34 @@ class BitType(ClassicalType):
 
     reg_size: int
 
+    @property
+    def bit_size(self) -> int:
+        return self.reg_size
+
+    @staticmethod
+    def with_bit_size(bit_size: int) -> "BitType":
+        return BitType(bit_size)
+
+
+BOOL_BIT_SIZE = 1
+
 
 @dataclass(frozen=True)
 class BoolType(ClassicalType):
     """
     A single boolean or boolean register.
     """
+
+    @property
+    def bit_size(self) -> int:
+        return BOOL_BIT_SIZE
+
+    @staticmethod
+    def with_bit_size(bit_size: int) -> "BoolType":
+        if bit_size != BOOL_BIT_SIZE:
+            raise ValueError(f"bit_size must be {BOOL_BIT_SIZE}")
+
+        return BoolType()
 
 
 @dataclass(frozen=True)
@@ -45,6 +67,10 @@ class IntType(ClassicalType):
 
     bit_size: int
 
+    @staticmethod
+    def with_bit_size(bit_size: int) -> "IntType":
+        return IntType(bit_size)
+
 
 @dataclass(frozen=True)
 class FloatType(ClassicalType):
@@ -53,6 +79,10 @@ class FloatType(ClassicalType):
     """
 
     bit_size: int
+
+    @staticmethod
+    def with_bit_size(bit_size: int) -> "FloatType":
+        return FloatType(bit_size)
 
 
 LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType

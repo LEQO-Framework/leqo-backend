@@ -451,7 +451,7 @@ def test_raise_on_mismatched_qubit_size() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Mismatched sizes in IOConnection of type qubits-register\n\noutput _out has size 1\ninput c1_q0 has size 100\n",
+        match="^Unsupported: Mismatched sizes in IOConnection of type qubits-register\n\noutput _out has size 1\ninput c1_q0 has size 100$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -473,7 +473,7 @@ def test_raise_on_classical_to_qubit() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Try to connect qubit with classical\n\nIndex 0 from 1 tries to\nconnect to index 0 from 1\n",
+        match="^Unsupported: Try to connect qubit with classical\n\nIndex 0 from 1 tries to\nconnect to index 0 from 1$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -495,7 +495,7 @@ def test_raise_on_mismatched_classic_type() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Mismatched types in IOConnection\n\noutput _out has type <class 'openqasm3.ast.IntType'>\ninput c1_b0 has type <class 'openqasm3.ast.BoolType'>\n",
+        match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(bit_size=32\\)\ninput c1_b0 has type BoolType\\(\\)$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -517,7 +517,7 @@ def test_raise_on_mismatched_classic_size() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Mismatched sizes in IOConnection of type <class 'openqasm3.ast.IntType'>\n\noutput _out has size 16\ninput c1_i0 has size 32\n",
+        match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(bit_size=16\\)\ninput c1_i0 has type IntType\\(bit_size=32\\)$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -545,7 +545,7 @@ def test_raise_two_classical_outputs_into_one_input() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Multiply inputs into classical\n\nBoth _out0 and _out1\nare input to c2_i0 but only one is allowed.\n",
+        match="^Unsupported: Multiply inputs into classical\n\nBoth _out0 and _out1\nare input to c2_i0 but only one is allowed.$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -566,7 +566,7 @@ def test_raise_on_missing_input_index() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Missing input index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.\n",
+        match="^Unsupported: Missing input index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -587,6 +587,6 @@ def test_raise_on_missing_output_index() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Missing output index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.\n",
+        match="^Unsupported: Missing output index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.$",
     ):
         assert_connections(inputs, [], connections)
