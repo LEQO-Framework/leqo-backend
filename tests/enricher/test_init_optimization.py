@@ -39,7 +39,7 @@ class EnricherStrategyDummy(EnricherStrategy):
 
 
 @pytest.fixture
-def test_enricher() -> Enricher:
+def enricher() -> Enricher:
     return Enricher(
         EnricherStrategyDummy("42_n", 42, None),
         EnricherStrategyDummy("n_0", None, 0),
@@ -53,8 +53,8 @@ def test_enricher() -> Enricher:
 
 
 @pytest.mark.asyncio
-async def test_enrich_no_constraints(test_enricher: Enricher) -> None:
-    enriched_node = await test_enricher.enrich(
+async def test_enrich_no_constraints(enricher: Enricher) -> None:
+    enriched_node = await enricher.enrich(
         BitLiteralNode(id="nodeId", value=0), constraints=None
     )
 
@@ -62,8 +62,8 @@ async def test_enrich_no_constraints(test_enricher: Enricher) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_no_optimize(test_enricher: Enricher) -> None:
-    enriched_node = await test_enricher.enrich(
+async def test_enrich_no_optimize(enricher: Enricher) -> None:
+    enriched_node = await enricher.enrich(
         BitLiteralNode(id="nodeId", value=0),
         constraints=Constraints(
             requested_inputs={}, optimizeWidth=False, optimizeDepth=False
@@ -74,8 +74,8 @@ async def test_enrich_no_optimize(test_enricher: Enricher) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_optimize_width(test_enricher: Enricher) -> None:
-    enriched_node = await test_enricher.enrich(
+async def test_enrich_optimize_width(enricher: Enricher) -> None:
+    enriched_node = await enricher.enrich(
         BitLiteralNode(id="nodeId", value=0),
         constraints=Constraints(
             requested_inputs={}, optimizeWidth=True, optimizeDepth=False
@@ -86,8 +86,8 @@ async def test_enrich_optimize_width(test_enricher: Enricher) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_optimize_depth(test_enricher: Enricher) -> None:
-    enriched_node = await test_enricher.enrich(
+async def test_enrich_optimize_depth(enricher: Enricher) -> None:
+    enriched_node = await enricher.enrich(
         BitLiteralNode(id="nodeId", value=0),
         constraints=Constraints(
             requested_inputs={}, optimizeWidth=False, optimizeDepth=True
@@ -98,8 +98,8 @@ async def test_enrich_optimize_depth(test_enricher: Enricher) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_optimize_both(test_enricher: Enricher) -> None:
-    enriched_node = await test_enricher.enrich(
+async def test_enrich_optimize_both(enricher: Enricher) -> None:
+    enriched_node = await enricher.enrich(
         BitLiteralNode(id="nodeId", value=0),
         constraints=Constraints(
             requested_inputs={}, optimizeWidth=True, optimizeDepth=True

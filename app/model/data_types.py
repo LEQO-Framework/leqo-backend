@@ -43,7 +43,7 @@ class IntType(ClassicalType):
     An integer with size in bits.
     """
 
-    bitSize: int
+    bit_size: int
 
 
 @dataclass(frozen=True)
@@ -52,7 +52,7 @@ class FloatType(ClassicalType):
     A float with size in bits.
     """
 
-    bitSize: int
+    bit_size: int
 
 
 LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType
