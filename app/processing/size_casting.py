@@ -92,6 +92,13 @@ class SizeCastTransformer(LeqoTransformer[None]):
                 return parse_io_annotation(annotation)
         return None
 
+    @staticmethod
+    def raise_on_cast_to_bigger(
+        ioinstance: QubitIOInstance | ClassicalIOInstance,
+    ) -> None:
+        msg = f"Try to make {ioinstance} bigger, only smaller is possible."
+        raise UnsupportedOperation(msg)
+
     def visit_ClassicalDeclaration(
         self,
         node: ClassicalDeclaration,
@@ -119,8 +126,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
         requested = self.requested_sizes[index]
         actual = ioinstance.size
         if requested > actual:
-            msg = f"Try to make {ioinstance} bigger, only smaller is possible."
-            raise UnsupportedOperation(msg)
+            self.raise_on_cast_to_bigger(ioinstance)
 
         if requested == actual:
             return node
@@ -169,8 +175,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
         actual = len(ids)
 
         if requested > actual:
-            msg = f"Try to make {ioinstance} bigger, only smaller is possible."
-            raise UnsupportedOperation(msg)
+            self.raise_on_cast_to_bigger(ioinstance)
 
         if requested == actual:
             return node
