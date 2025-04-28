@@ -43,7 +43,7 @@ class CreateUnseenNamesVisitor(LeqoTransformer[None]):
 
     @staticmethod
     def __increment_or_add_counter_str(name: str) -> str:
-        """Reduce the number at the end of a string by one or append '_0'."""
+        """Increment the number at the end of a string by one or append '_0'."""
         prefix = ""
         maybe_number = name
         while True:
