@@ -33,13 +33,13 @@ class _Processor:
 
     def process(self) -> str:
         for frontend_node in self.request.nodes:
-            program_node = ProgramNode(frontend_node.id)
-            self.lookup[frontend_node.id] = (program_node, frontend_node)
-
             if not isinstance(frontend_node, ImplementationNode):
                 raise TypeError(
                     f"Type of node {frontend_node.id} must be ImplementationNode"
-                )
+              )
+
+            program_node = ProgramNode(frontend_node.id)
+            self.lookup[frontend_node.id] = (program_node, frontend_node)
 
             self.graph.append_node(
                 preprocess(program_node, frontend_node.implementation)
