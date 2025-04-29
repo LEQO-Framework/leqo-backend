@@ -36,7 +36,7 @@ class _Processor:
             if not isinstance(frontend_node, ImplementationNode):
                 raise TypeError(
                     f"Type of node {frontend_node.id} must be ImplementationNode"
-              )
+                )
 
             program_node = ProgramNode(frontend_node.id)
             self.lookup[frontend_node.id] = (program_node, frontend_node)
