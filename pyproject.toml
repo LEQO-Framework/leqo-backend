@@ -8,6 +8,10 @@ dependencies = [
     "fastapi[standard]>=0.115.8",
     "networkx>=3.4.2",
     "openqasm3[parser]>=1.0.1",
+    "psycopg>=3.2.6",
+    "psycopg-binary>=3.2.6",
+    "python-dotenv>=1.0.1",
+    "sqlalchemy[mypy]>=2.0.38"
 ]
 
 [dependency-groups]
@@ -25,6 +29,7 @@ dev = [
     "sphobjinv>=2.3.1.2",
     "sphinx-autoapi>=3.6.0",
     "pytest-cov>=6.1.1",
+    "pytest-asyncio>=0.26.0",
 ]
 
 # https://github.com/DSD-DBS/py-capellambse/blob/b0d63fac33c90d15f0d2d4c6c111184a5801ce6c/pyproject.toml#L174-L204
@@ -58,7 +63,11 @@ extend-select = [
 
 [tool.mypy]
 ignore_missing_imports = true
+plugins = "sqlalchemy.ext.mypy.plugin"
 
 [[tool.mypy.overrides]]
 module = "qiskit.qasm3"
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
