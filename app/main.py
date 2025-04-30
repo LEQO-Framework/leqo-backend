@@ -11,6 +11,7 @@ from starlette.responses import RedirectResponse
 
 from app.model.CompileRequest import CompileRequest
 from app.model.StatusBody import Progress, StatusBody, StatusType
+from app.processing import process
 
 app = FastAPI()
 
@@ -98,15 +99,19 @@ async def process_request(body: CompileRequest, uuid: UUID) -> None:
     :param uuid: Id of the compile request
     """
 
+    status = StatusType.FAILED
+    try:
+        result_str = process(body)
+        status = StatusType.COMPLETED
+    except Exception as exception:
+        result_str = str(exception) or type(exception).__name__
+
     old_state: StatusBody = states[uuid]
-
-    results[uuid] = body.model_dump_json()
-
     states[uuid] = StatusBody(
         uuid=old_state.uuid,
-        status=StatusType.COMPLETED,
+        status=status,
         createdAt=old_state.createdAt,
         completedAt=datetime.now(UTC),
         progress=Progress(percentage=100, currentStep="done"),
-        result=old_state.result,
+        result=result_str,
     )
