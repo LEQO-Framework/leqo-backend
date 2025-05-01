@@ -4,6 +4,11 @@ OpenQasm data-types that are supported by the leqo-backend.
 
 from dataclasses import dataclass
 
+DEFAULT_BIT_SIZE = 1
+DEFAULT_INT_SIZE = 32
+DEFAULT_FLOAT_SIZE = 32
+BOOL_BIT_SIZE = 1
+
 
 @dataclass(frozen=True)
 class QubitType:
@@ -27,18 +32,11 @@ class BitType(ClassicalType):
     A single bit or bit-array.
     """
 
-    reg_size: int
-
-    @property
-    def bit_size(self) -> int:
-        return self.reg_size
+    bit_size: int
 
     @staticmethod
     def with_bit_size(bit_size: int) -> "BitType":
         return BitType(bit_size)
-
-
-BOOL_BIT_SIZE = 1
 
 
 @dataclass(frozen=True)

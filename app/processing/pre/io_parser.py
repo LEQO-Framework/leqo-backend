@@ -26,6 +26,12 @@ from openqasm3.ast import (
 )
 
 from app.model.data_types import (
+    DEFAULT_BIT_SIZE,
+    DEFAULT_FLOAT_SIZE,
+    DEFAULT_INT_SIZE,
+    LeqoSupportedType,
+)
+from app.model.data_types import (
     BitType as LeqoBitType,
 )
 from app.model.data_types import (
@@ -37,9 +43,6 @@ from app.model.data_types import (
 from app.model.data_types import (
     IntType as LeqoIntType,
 )
-from app.model.data_types import (
-    LeqoSupportedType,
-)
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     ClassicalIOInstance,
@@ -49,11 +52,6 @@ from app.processing.graph import (
 )
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
 from app.utils import coalesce, opt_call
-
-DEFAULT_BIT_SIZE = 32
-DEFAULT_INT_SIZE = 32
-DEFAULT_FLOAT_SIZE = 32
-BOOL_SIZE = 1
 
 
 class ParseAnnotationsVisitor(LeqoTransformer[None]):
@@ -203,7 +201,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                                 LeqoBitType(
                                     len(
                                         parse_qasm_index(
-                                            [value.index], source.type.reg_size
+                                            [value.index], source.type.bit_size
                                         ),
                                     )
                                 ),
@@ -228,7 +226,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                             rhs.type, LeqoBitType
                         ):
                             return ClassicalIOInstance(
-                                name, LeqoBitType(lhs.type.reg_size + rhs.type.reg_size)
+                                name, LeqoBitType(lhs.type.bit_size + rhs.type.bit_size)
                             )
                         msg = f"Unsupported: Can't handle concatenation of non-bit types: {lhs.type} {rhs.type}"
                         raise UnsupportedOperation(msg)
