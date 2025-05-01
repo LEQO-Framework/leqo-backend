@@ -126,14 +126,41 @@ def test_obvious_uncompute() -> None:
     OPENQASM 3.1;
     qubit[5] leqo_reg;
     let c0_q0 = leqo_reg[{0, 1, 2, 3, 4}];
-    @leqo.uncompute
-    if (true) {
-        @leqo.reusable
-        let _reuse = c0_q0;
-    }
+    @leqo.reusable
+    let _reuse = c0_q0;
     let c1_q0 = leqo_reg[{0, 1, 2, 3, 4}];
     """
     assert_optimize(before, expected)
+
+
+def test_removed_uncompute() -> None:
+    before = [
+        """
+        qubit[5] c0_q0;
+        @leqo.output 0
+        let _out = c0_q0[0];
+        @leqo.uncompute
+        if (false) {
+            @leqo.reusable
+            let _reuse = c0_q0[1:];
+        }
+        """,
+        """
+        @leqo.input 0
+        qubit c1_q0;
+        """,
+    ]
+    io_connections = [((0, 0), (1, 0))]
+    expected = """
+    OPENQASM 3.1;
+    qubit[5] leqo_reg;
+    let c0_q0 = leqo_reg[{0, 1, 2, 3, 4}];
+    @leqo.output 0
+    let _out = c0_q0[0];
+    @leqo.input 0
+    let c1_q0 = leqo_reg[{0}];
+    """
+    assert_optimize(before, expected, io_connections)
 
 
 def test_keep_io_connections() -> None:
@@ -302,11 +329,6 @@ def test_simple_avoid_uncompute() -> None:
     @leqo.output 0
     let c1_out0 = c1_q0;
     let c1_q1 = leqo_reg[{2, 3, 4, 5, 6}];
-    @leqo.uncompute
-    if (false) {
-    @leqo.reusable
-    let c1_reuse0 = c1_q1;
-    }
     @leqo.input 0
     let c3_q0 = leqo_reg[{0}];
     @leqo.input 1
