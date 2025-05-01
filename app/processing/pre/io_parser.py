@@ -51,7 +51,7 @@ from app.processing.graph import (
     QubitIOInstance,
 )
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
-from app.utils import coalesce, opt_call
+from app.utils import not_none_or, opt_call
 
 
 class ParseAnnotationsVisitor(LeqoTransformer[None]):
@@ -275,15 +275,17 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         match node.type:
             case BitType():
                 leqo_type = LeqoBitType(
-                    coalesce(opt_call(expr_to_int, node.type.size), DEFAULT_BIT_SIZE)
+                    not_none_or(opt_call(expr_to_int, node.type.size), DEFAULT_BIT_SIZE)
                 )
             case IntType():
                 leqo_type = LeqoIntType(
-                    coalesce(opt_call(expr_to_int, node.type.size), DEFAULT_INT_SIZE)
+                    not_none_or(opt_call(expr_to_int, node.type.size), DEFAULT_INT_SIZE)
                 )
             case FloatType():
                 leqo_type = LeqoFloatType(
-                    coalesce(opt_call(expr_to_int, node.type.size), DEFAULT_FLOAT_SIZE)
+                    not_none_or(
+                        opt_call(expr_to_int, node.type.size), DEFAULT_FLOAT_SIZE
+                    )
                 )
             case BoolType():
                 leqo_type = LeqoBoolType()
