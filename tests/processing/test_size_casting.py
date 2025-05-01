@@ -163,7 +163,7 @@ def test_raise_on_invalid_classic_cast() -> None:
     with pytest.raises(
         UnsupportedOperation,
         match=re.escape(
-            f"Try to make ClassicalIOInstance(name='leqo_{id.hex}_i', type=<class 'openqasm3.ast.IntType'>, size=5) bigger, only smaller is possible.",
+            f"Try to make ClassicalIOInstance(name='leqo_{id.hex}_i', type=IntType(bit_size=5)) bigger, only smaller is possible.",
         ),
     ):
         size_cast(preprocess(ProgramNode("", id=id), before), requested_sizes)

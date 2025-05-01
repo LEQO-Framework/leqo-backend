@@ -21,7 +21,7 @@ from app.model.CompileRequest import (
     Node as FrontendNode,
 )
 from app.model.data_types import LeqoSupportedType
-from app.utils import coalesce
+from app.utils import not_none_or
 
 
 @dataclass(frozen=True)
@@ -179,13 +179,13 @@ class Enricher:
         key_selector: Callable[[EnrichmentResult], tuple[int | float, int | float]]
         if constraints and constraints.optimizeDepth and not constraints.optimizeWidth:
             key_selector = lambda r: (  # noqa: E731 Do not assign a `lambda` expression, use a `def`
-                coalesce(r.meta_data.depth, math.inf),
-                coalesce(r.meta_data.width, math.inf),
+                not_none_or(r.meta_data.depth, math.inf),
+                not_none_or(r.meta_data.width, math.inf),
             )
         else:
             key_selector = lambda r: (  # noqa: E731 Do not assign a `lambda` expression, use a `def`
-                coalesce(r.meta_data.width, math.inf),
-                coalesce(r.meta_data.depth, math.inf),
+                not_none_or(r.meta_data.width, math.inf),
+                not_none_or(r.meta_data.depth, math.inf),
             )
 
         results = sorted(results, key=key_selector)
