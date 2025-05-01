@@ -190,6 +190,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     return None
                 source = self.__name_to_info.get(collection.name)
                 match source:
+                    case None:
+                        return None
                     case QubitIOInstance():
                         qubit_ids = source.ids
                         indices = parse_qasm_index([value.index], len(qubit_ids))
@@ -208,8 +210,6 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                             )
                         msg = f"Unsupported: Can't handle indexed {source.type}"
                         raise UnsupportedOperation(msg)
-                    case _:
-                        return None
             case Identifier():
                 info = deepcopy(self.__name_to_info.get(value.name))
                 if info is not None:
