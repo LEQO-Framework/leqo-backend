@@ -121,6 +121,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
         - Handle bit:
             Similar to qubits, declare a dummy register to be concatenated to
             the now smaller input.
+            This is done in little endian order.
 
             .. warning::
 
@@ -148,22 +149,53 @@ class SizeCastTransformer(LeqoTransformer[None]):
             return node
 
         old_name = node.identifier.name
-        old_type = deepcopy(node.type)
-        new_name = self.name_factory.generate_new_name(old_name)
+        new_input_name = self.name_factory.generate_new_name(node.identifier.name)
 
-        node.identifier.name = new_name
-        node.type.size = IntegerLiteral(requested)
-        ioinstance.name = new_name
+        # update IO-Info in-place
+        ioinstance.name = new_input_name
         ioinstance.type = ioinstance.type.with_bit_size(requested)
 
-        return [
-            node,
-            ClassicalDeclaration(
-                type=old_type,
-                identifier=Identifier(old_name),
-                init_expression=Identifier(new_name),
-            ),
-        ]
+        match node.type:
+            case IntType() | FloatType():
+                # create new declaration with old name + size pointing to new
+                new_input_node = ClassicalDeclaration(
+                    type=deepcopy(node.type),
+                    identifier=deepcopy(node.identifier),
+                    init_expression=Identifier(new_input_name),
+                )
+
+                # modify old node in-place (keep annotations)
+                node.identifier.name = new_input_name
+                node.type.size = IntegerLiteral(requested)
+
+                return [
+                    node,
+                    new_input_node,
+                ]
+
+            case BitType():
+                # modify old node in-place (keep annotations)
+                node.identifier.name = new_input_name
+                node.type = BitType(IntegerLiteral(requested))
+
+                # create new dummy node for remaining bits
+                new_dummy_name = self.name_factory.generate_new_name(old_name)
+                new_dummy_node = ClassicalDeclaration(
+                    BitType(IntegerLiteral(actual - requested)),
+                    Identifier(new_dummy_name),
+                    None,
+                )
+
+                # create alias with old name pointing to concatenation
+                new_alias = AliasStatement(
+                    target=Identifier(old_name),
+                    value=Concatenation(
+                        Identifier(new_input_name),
+                        Identifier(new_dummy_name),
+                    ),
+                )
+
+                return [node, new_dummy_node, new_alias]
 
     def visit_QubitDeclaration(
         self,
@@ -178,6 +210,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
 
         Both are created with new identifiers.
         Then the old name is aliased to a concatenation of the previous variables.
+        The concatenation uses little endian order.
         """
         index = self.get_input_index(node.annotations)
         if index is None or index not in self.requested_sizes:
@@ -199,34 +232,38 @@ class SizeCastTransformer(LeqoTransformer[None]):
             return node
 
         old_name = node.qubit.name
-        new_name_io = self.name_factory.generate_new_name(old_name)
-        new_name_ancilla = self.name_factory.generate_new_name(old_name)
+        new_input_name = self.name_factory.generate_new_name(old_name)
+        new_input_ids, new_ancilla_ids = ids[:requested], ids[requested:]
 
-        io_ids, ancilla_ids = ids[:requested], ids[requested:]
-
-        node.qubit.name = new_name_io
+        # modify old node in-place (keep annotations)
+        node.qubit.name = new_input_name
         node.size = IntegerLiteral(requested)
-        self.processed.qubit.declaration_to_ids.pop(old_name)
-        self.processed.qubit.declaration_to_ids[new_name_io] = io_ids
-        self.processed.qubit.declaration_to_ids[new_name_ancilla] = ancilla_ids
-        ioinstance.name = new_name_io
-        ioinstance.ids = io_ids
-        self.processed.qubit.required_reusable_ids.extend(ancilla_ids)
 
-        return [
-            node,
-            QubitDeclaration(
-                Identifier(new_name_ancilla),
-                size=IntegerLiteral(len(ancilla_ids)),
+        # create new dummy node for ancillae
+        new_ancilla_name = self.name_factory.generate_new_name(old_name)
+        new_ancilla_node = QubitDeclaration(
+            Identifier(new_ancilla_name),
+            size=IntegerLiteral(len(new_ancilla_ids)),
+        )
+
+        # create alias with old name pointing to concatenation
+        new_alias = AliasStatement(
+            target=Identifier(old_name),
+            value=Concatenation(
+                Identifier(new_input_name),
+                Identifier(new_ancilla_name),
             ),
-            AliasStatement(
-                target=Identifier(old_name),
-                value=Concatenation(
-                    Identifier(new_name_io),
-                    Identifier(new_name_ancilla),
-                ),
-            ),
-        ]
+        )
+
+        # update IO-Info in-place
+        self.processed.qubit.declaration_to_ids.pop(old_name)
+        self.processed.qubit.declaration_to_ids[new_input_name] = new_input_ids
+        self.processed.qubit.declaration_to_ids[new_ancilla_name] = new_ancilla_ids
+        self.processed.qubit.required_reusable_ids.extend(new_ancilla_ids)
+        ioinstance.name = new_input_name
+        ioinstance.ids = new_input_ids
+
+        return [node, new_ancilla_node, new_alias]
 
 
 def size_cast(node: ProcessedProgramNode, requested_sizes: dict[int, int]) -> None:
