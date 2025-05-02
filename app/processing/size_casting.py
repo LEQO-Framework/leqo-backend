@@ -8,6 +8,7 @@ from io import UnsupportedOperation
 from openqasm3.ast import (
     AliasStatement,
     Annotation,
+    BitType,
     ClassicalDeclaration,
     Concatenation,
     FloatType,
@@ -105,13 +106,28 @@ class SizeCastTransformer(LeqoTransformer[None]):
     ) -> QASMNode | list[QASMNode]:
         """Reduce size of a classical input.
 
-        This is done by reducing the size in the declaration and changing its name.
-        Then the old name is declared with old size and assigned to the new name.
+        - Handle int/float:
+            This is done by reducing the size in the declaration and changing its name.
+            Then the old name is declared with old size and assigned to the new name.
 
-        This seems to be the way that Openqasm 3 handles implicit casts,
-        but there was no concrete example of this in the specification.
+            This seems to be the way that Openqasm 3 handles implicit casts,
+            but there was no concrete example of this in the specification.
+
+            .. warning::
+
+                Qiskit does not support the declaration of int/float yet.
+                Making this currently unusable.
+
+        - Handle bit:
+            Similar to qubits, declare a dummy register to be concatenated to
+            the now smaller input.
+
+            .. warning::
+
+                The dummy register is not initialized to zero as this is
+                unsupported by qiskit. It is assumed that they are 0 by default.
         """
-        if not isinstance(node.type, IntType | FloatType):
+        if not isinstance(node.type, IntType | FloatType | BitType):
             return node
 
         index = self.get_input_index(node.annotations)
@@ -156,8 +172,10 @@ class SizeCastTransformer(LeqoTransformer[None]):
         """Reduce size of a qubit input.
 
         This is done by splitting the old declaration in two:
+
         - one for the linked qubits
         - one for the clean ancillas
+
         Both are created with new identifiers.
         Then the old name is aliased to a concatenation of the previous variables.
         """
