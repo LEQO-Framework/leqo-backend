@@ -124,7 +124,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
             raise RuntimeError(msg)
 
         requested = self.requested_sizes[index]
-        actual = ioinstance.size
+        actual = ioinstance.type.bit_size
         if requested > actual:
             self.raise_on_cast_to_bigger(ioinstance)
 
@@ -138,7 +138,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
         node.identifier.name = new_name
         node.type.size = IntegerLiteral(requested)
         ioinstance.name = new_name
-        ioinstance.size = requested
+        ioinstance.type = ioinstance.type.with_bit_size(requested)
 
         return [
             node,
