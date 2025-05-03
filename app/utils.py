@@ -2,7 +2,7 @@
 Utils used throughout the whole application.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import TypeVar
 
 TParam = TypeVar("TParam")
@@ -38,3 +38,15 @@ def coalesce(value: T | None, default_value: T) -> T:
         return default_value
 
     return value
+
+
+def duplicates(list: list[T]) -> Iterator[T]:
+    """
+    Return duplicate indices.
+    """
+    seen = set()
+    for item in list:
+        if item in seen:
+            yield item
+        else:
+            seen.add(item)

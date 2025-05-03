@@ -17,6 +17,7 @@ from app.enricher import (
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
+    InputValidationException,
     NodeUnsupportedException,
 )
 from app.enricher.utils import implementation, leqo_input, leqo_output
@@ -27,6 +28,7 @@ from app.model.CompileRequest import (
     Node as FrontendNode,
 )
 from app.model.data_types import QubitType
+from app.utils import duplicates
 
 
 class MeasurementEnricherStrategy(EnricherStrategy):
@@ -49,8 +51,19 @@ class MeasurementEnricherStrategy(EnricherStrategy):
 
         input_size = constraints.requested_inputs[0].reg_size
 
+        out_of_range_indices = [i for i in node.indices if i < 0 or i >= input_size]
+        if any(out_of_range_indices):
+            raise InputValidationException(
+                f"Indices {out_of_range_indices} out of range [0, {input_size})"
+            )
+
+        duplicate_indices = list(duplicates(node.indices))
+        if len(duplicate_indices) != 0:
+            raise InputValidationException(f"Duplicate indices {duplicate_indices}")
+
         indices: list[Expression] = [IntegerLiteral(x) for x in node.indices]
         output_size = len(indices)
+
         return EnrichmentResult(
             implementation(
                 node,
