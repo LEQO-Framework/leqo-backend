@@ -3,7 +3,14 @@ from io import UnsupportedOperation
 from uuid import uuid4
 
 import pytest
-from openqasm3.ast import Concatenation, Identifier, IntegerLiteral, IntType, QASMNode
+from openqasm3.ast import (
+    Annotation,
+    Concatenation,
+    Identifier,
+    IntegerLiteral,
+    IntType,
+    QASMNode,
+)
 
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import ProgramNode
@@ -25,6 +32,10 @@ class RemoveSpanTransformer(LeqoTransformer[None]):
         return self.generic_visit(node)
 
     def visit_IntType(self, node: IntType) -> QASMNode:
+        node.span = None
+        return self.generic_visit(node)
+
+    def visit_Annotation(self, node: Annotation) -> QASMNode:
         node.span = None
         return self.generic_visit(node)
 
@@ -88,6 +99,23 @@ def test_float_cast() -> None:
         @leqo.input 0
         float[16] i_0;
         float[32] i = i_0;
+        """
+    assert_size_cast(before, requested_sizes, expected)
+
+
+def test_bit_cast() -> None:
+    before = """
+        OPENQASM 3;
+        @leqo.input 0
+        bit[32] b;
+        """
+    requested_sizes = {0: 16}
+    expected = """
+        OPENQASM 3;
+        @leqo.input 0
+        bit[16] b_0;
+        bit[16] b_1;
+        let b = b_0 ++ b_1;
         """
     assert_size_cast(before, requested_sizes, expected)
 
