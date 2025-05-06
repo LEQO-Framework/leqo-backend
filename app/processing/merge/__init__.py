@@ -90,7 +90,7 @@ def merge_if_nodes(
     """Construct single Program with a :class:`openqasm3.ast.BranchingStatement` from two sub-graphs.
 
     There are two known limitations of this implementation:
-    
+
     - Classical outputs are not supported.
         This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-else,
         meaning the can not pass there value to the **endif_node**, which is outside.
