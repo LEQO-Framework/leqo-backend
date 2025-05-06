@@ -101,7 +101,7 @@ async def process_request(body: CompileRequest, uuid: UUID) -> None:
 
     status = StatusType.FAILED
     try:
-        result_str = process(body)
+        result_str = await process(body)
         status = StatusType.COMPLETED
     except Exception as exception:
         result_str = str(exception) or type(exception).__name__

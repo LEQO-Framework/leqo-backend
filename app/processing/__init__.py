@@ -2,13 +2,12 @@
 Provides the core logic of the backend.
 """
 
-from app.model.CompileRequest import (
-    CompileRequest,
-    ImplementationNode,
-)
-from app.model.CompileRequest import (
-    Node as FrontendNode,
-)
+from networkx.algorithms.dag import topological_sort
+
+from app.enricher import Constraints, Enricher
+from app.model.CompileRequest import CompileRequest
+from app.model.CompileRequest import Node as FrontendNode
+from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
 from app.processing.graph import (
     IOConnection,
@@ -25,25 +24,18 @@ class _Processor:
     request: CompileRequest
     graph: ProgramGraph
     lookup: dict[str, tuple[ProgramNode, FrontendNode]]
+    enricher: Enricher
 
     def __init__(self, request: CompileRequest):
         self.request = request
         self.graph = ProgramGraph()
         self.lookup = {}
 
-    def process(self) -> str:
+    async def process(self) -> str:
         for frontend_node in self.request.nodes:
-            if not isinstance(frontend_node, ImplementationNode):
-                raise TypeError(
-                    f"Type of node {frontend_node.id} must be ImplementationNode"
-                )
-
             program_node = ProgramNode(frontend_node.id)
             self.lookup[frontend_node.id] = (program_node, frontend_node)
-
-            self.graph.append_node(
-                preprocess(program_node, frontend_node.implementation)
-            )
+            self.graph.add_node(program_node)
 
         for edge in self.request.edges:
             self.graph.append_edge(
@@ -60,8 +52,41 @@ class _Processor:
         program = postprocess(program)
         return leqo_dumps(program)
 
+    async def _enrich_graph(self) -> None:
+        for target_node in topological_sort(self.graph):
+            assert self.graph.node_data.get(target_node) is None, ""
 
-def process(body: CompileRequest) -> str:
+            _, frontend_node = self.lookup[target_node.name]
+
+            requested_inputs: dict[int, LeqoSupportedType] = {}
+            for source_node in self.graph.predecessors(target_node):
+                source_node_data = self.graph.node_data[source_node]
+                for edge in self.graph.edge_data[(source_node, target_node)]:
+                    if not isinstance(edge, IOConnection):
+                        continue
+
+                    output_index = edge.source[1]
+                    input_index = edge.target[1]
+
+                    requested_inputs[input_index] = source_node_data.io.outputs[
+                        output_index
+                    ].type
+
+            enriched_node = await self.enricher.enrich(
+                frontend_node,
+                Constraints(
+                    requested_inputs,
+                    optimizeWidth=self.request.metadata.optimizeWidth is not None,
+                    optimizeDepth=self.request.metadata.optimizeDepth is not None,
+                ),
+            )
+
+            self.graph.node_data[target_node] = preprocess(
+                target_node, enriched_node.implementation
+            )
+
+
+async def process(body: CompileRequest) -> str:
     """
     Process the :class:`~app.model.CompileRequest`.
 
@@ -74,4 +99,4 @@ def process(body: CompileRequest) -> str:
     :return: The final QASM program as a string.
     """
     processor = _Processor(body)
-    return processor.process()
+    return await processor.process()
