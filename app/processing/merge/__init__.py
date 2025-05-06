@@ -1,4 +1,4 @@
-"""Merge all nodes of the :class:`app.processing.graph.ProgramGraph` into a single QASM program."""
+"""Merge all nodes from :class:`app.processing.graph.ProgramGraph` into a single QASM program."""
 
 from copy import deepcopy
 from io import UnsupportedOperation
@@ -21,15 +21,23 @@ from openqasm3.ast import (
 
 from app.openqasm3.ast import CommentStatement
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import ProcessedProgramNode, ProgramGraph
+from app.processing.graph import ProcessedProgramNode, ProgramGraph, ProgramNode
 from app.processing.merge.connections import connect_qubits
 from app.processing.post import postprocess
 from app.processing.utils import cast_to_program
 
 GLOBAL_REG_NAME = "leqo_reg"
+IF_REG_NAME = "if_reg"
+OPENQASM_VERSION = "3.1"
 
 
 class RemoveAnnotationTransformer(LeqoTransformer[None]):
+    """Remove leqo annotations of specified types.
+
+    :param inputs: Whether to remove 'leqo.input' annotations.
+    :param outputs: Whether to remove 'leqo.output' annotations.
+    """
+
     to_delete: set[str]
 
     def __init__(self, inputs: bool, outputs: bool) -> None:
@@ -40,9 +48,36 @@ class RemoveAnnotationTransformer(LeqoTransformer[None]):
             self.to_delete.add("leqo.output")
 
     def visit_Annotation(self, node: Annotation) -> QASMNode | None:
+        """Remove or keep annotation."""
         if node.keyword.strip().split()[0] in self.to_delete:
             return None
         return node
+
+
+def graph_to_statements(
+    graph: ProgramGraph,
+    if_node: ProgramNode,
+    endif_node: ProgramNode,
+) -> list[Statement]:
+    """Concatenate nodes from graph via topological_sort and remove annotations.
+
+    **if_node** and **endif_node** need to be skipped here.
+    """
+    result = []
+    for node in topological_sort(graph):
+        if node in [if_node, endif_node]:
+            continue
+        processed = graph.get_data_node(node)
+        implementation = cast_to_program(
+            RemoveAnnotationTransformer(True, True).visit(
+                processed.implementation,
+            ),
+        )
+        for statement in implementation.statements:
+            if isinstance(statement, Pragma):
+                continue
+            result.append(statement)
+    return result
 
 
 def merge_if_nodes(
@@ -52,14 +87,35 @@ def merge_if_nodes(
     else_graph: ProgramGraph,
     condition: Expression,
 ) -> Program:
+    """Construct single Program with a :class:`openqasm3.ast.BranchingStatement` from two sub-graphs.
+
+    There are two known limitations of this implementation:
+    
+    - Classical outputs are not supported.
+        This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-else,
+        meaning the can not pass there value to the **endif_node**, which is outside.
+        This would be required for classical outputs to work.
+
+    - The **endif_node** from both **then_graph** and **else_graph** need to match.
+        This not only true for the size of the outputs, but also for the order of the used qubit ids.
+
+    :param if_node: The border node that leads into the if-else.
+        This node has to be in both **then_graph** and **else_graph**.
+    :param endif_node: The border node that leads out of the if-else.
+        This node has to be in both **then_graph** and **else_graph**.
+    :param then_graph: The sub-graph for the **then** case.
+    :param else_graph: The sub-graph for the **else** case.
+    :param condition: The condition to use in the generated :class:`openqasm3.ast.BranchingStatement`.
+    """
     endif_node_from_else = deepcopy(endif_node)
     else_graph.node_data[endif_node.raw] = endif_node_from_else
 
-    reg_name = f"leqo_{if_node.id.hex}_if_reg"
+    reg_name = f"leqo_{if_node.id.hex}_{IF_REG_NAME}"
     then_size = connect_qubits(then_graph, reg_name, if_node)
     else_size = connect_qubits(else_graph, reg_name, if_node)
 
     if endif_node != endif_node_from_else:
+        # TODO: in the future, this should do something smarter
         msg = "Unsupported: output of 'then' does not match with output of 'else'"
         raise UnsupportedOperation(msg)
 
@@ -96,41 +152,11 @@ def merge_if_nodes(
             AliasStatement(Identifier(reg_name), concat),
         )
 
-    if_statements = []
-    for node in topological_sort(then_graph):
-        if node in [if_node.raw, endif_node.raw]:
-            continue
-        processed = then_graph.get_data_node(node)
-        implementation = cast_to_program(
-            RemoveAnnotationTransformer(True, True).visit(
-                processed.implementation,
-            ),
-        )
-        for statement in implementation.statements:
-            if isinstance(statement, Pragma):
-                continue
-            if_statements.append(statement)
-
-    else_statements = []
-    for node in topological_sort(else_graph):
-        if node in [if_node.raw, endif_node.raw]:
-            continue
-        processed = else_graph.get_data_node(node)
-        implementation = cast_to_program(
-            RemoveAnnotationTransformer(True, True).visit(
-                processed.implementation,
-            ),
-        )
-        for statement in implementation.statements:
-            if isinstance(statement, Pragma):
-                continue
-            else_statements.append(statement)
-
     all_statements.append(
         BranchingStatement(
             condition,
-            if_statements,
-            else_statements,
+            graph_to_statements(then_graph, if_node.raw, endif_node.raw),
+            graph_to_statements(else_graph, if_node.raw, endif_node.raw),
         ),
     )
     all_statements.extend(
@@ -140,7 +166,7 @@ def merge_if_nodes(
             ),
         ).statements,
     )
-    return Program(all_statements, version="3.1")
+    return Program(all_statements, version=OPENQASM_VERSION)
 
 
 def merge_nodes(graph: ProgramGraph) -> Program:
@@ -162,5 +188,5 @@ def merge_nodes(graph: ProgramGraph) -> Program:
 
         all_statements.append(CommentStatement(f"End node {node.name}"))
 
-    merged_program = Program(all_statements, version="3.1")
+    merged_program = Program(all_statements, version=OPENQASM_VERSION)
     return postprocess(merged_program)

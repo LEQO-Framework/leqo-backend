@@ -29,7 +29,7 @@ from app.processing.graph import (
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class SingleQubit:
     """Give an qubit a unique ID in the whole program.
 
@@ -274,14 +274,24 @@ class Connections:
                             raise RuntimeError(msg) from e
                         qubit_to_reg_index[qubit] = reg_index
                     reg_index += 1
-
-        while len(self.equiv_classes) > 0:
-            some_qubit = next(iter(self.equiv_classes))
-            equiv_class = self.equiv_classes[some_qubit]
-            for qubit in equiv_class:
-                _ = self.equiv_classes.pop(qubit)
-                qubit_to_reg_index[qubit] = reg_index
-            reg_index += 1
+            remaining = sorted(
+                self.equiv_classes.keys(),
+            )  # minimize the change to get different endif_nodes
+            while len(remaining) > 0:
+                some_qubit = remaining[0]
+                equiv_class = self.equiv_classes[some_qubit]
+                for qubit in equiv_class:
+                    remaining.remove(qubit)
+                    qubit_to_reg_index[qubit] = reg_index
+                reg_index += 1
+        else:
+            while len(self.equiv_classes) > 0:
+                some_qubit = next(iter(self.equiv_classes))
+                equiv_class = self.equiv_classes[some_qubit]
+                for qubit in equiv_class:
+                    _ = self.equiv_classes.pop(qubit)
+                    qubit_to_reg_index[qubit] = reg_index
+                reg_index += 1
 
         for nd in self.graph.nodes():
             if self.input is not None and self.input.raw == nd:
