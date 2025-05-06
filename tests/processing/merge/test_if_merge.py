@@ -61,7 +61,7 @@ def manual_to_graph(
     return result
 
 
-def assert_if_merge(
+def assert_if_merge(  # noqa: PLR0913 Too many arguments in function definition (6 > 5)
     if_str: str,
     endif_str: str,
     then_manual: manual_graph,

@@ -250,6 +250,57 @@ class Connections:
                     processed_target.id,
                 )
 
+    def collect_qubit_to_reg_with_input(
+        self,
+    ) -> tuple[dict[SingleQubit, int], int]:
+        if self.input is None:
+            raise RuntimeError
+
+        reg_index = 0
+        qubit_to_reg_index: dict[SingleQubit, int] = {}
+        for declaration_ids in self.input.qubit.declaration_to_ids.values():
+            for id in declaration_ids:
+                equiv_class = self.equiv_classes[SingleQubit(self.input.id, id)]
+                for qubit in equiv_class:
+                    try:
+                        _ = self.equiv_classes.pop(qubit)
+                    except KeyError as e:
+                        msg = "Two qubits in input share the same equiv_class."
+                        raise RuntimeError(msg) from e
+                    qubit_to_reg_index[qubit] = reg_index
+                reg_index += 1
+
+        remaining = sorted(
+            self.equiv_classes.keys(),
+        )  # minimize the change to get different endif_nodes
+        while len(remaining) > 0:
+            some_qubit = remaining[0]
+            equiv_class = self.equiv_classes[some_qubit]
+            for qubit in equiv_class:
+                remaining.remove(qubit)
+                qubit_to_reg_index[qubit] = reg_index
+            reg_index += 1
+
+        return (qubit_to_reg_index, reg_index)
+
+    def collect_qubit_to_reg_without_input(
+        self,
+    ) -> tuple[dict[SingleQubit, int], int]:
+        if self.input is not None:
+            raise RuntimeError
+
+        reg_index = 0
+        qubit_to_reg_index: dict[SingleQubit, int] = {}
+        while len(self.equiv_classes) > 0:
+            some_qubit = next(iter(self.equiv_classes))
+            equiv_class = self.equiv_classes[some_qubit]
+            for qubit in equiv_class:
+                _ = self.equiv_classes.pop(qubit)
+                qubit_to_reg_index[qubit] = reg_index
+            reg_index += 1
+
+        return (qubit_to_reg_index, reg_index)
+
     def apply(self) -> int:
         """Apply the connections to the graph.
 
@@ -260,38 +311,12 @@ class Connections:
             for edge in edges:
                 self.handle_connection(edge)
 
-        reg_index = 0
-        qubit_to_reg_index: dict[SingleQubit, int] = {}
+        qubit_to_reg_index: dict[SingleQubit, int]
+        reg_index: int
         if self.input is not None:
-            for declaration_ids in self.input.qubit.declaration_to_ids.values():
-                for id in declaration_ids:
-                    equiv_class = self.equiv_classes[SingleQubit(self.input.id, id)]
-                    for qubit in equiv_class:
-                        try:
-                            _ = self.equiv_classes.pop(qubit)
-                        except KeyError as e:
-                            msg = "Two qubits in input share the same equiv_class."
-                            raise RuntimeError(msg) from e
-                        qubit_to_reg_index[qubit] = reg_index
-                    reg_index += 1
-            remaining = sorted(
-                self.equiv_classes.keys(),
-            )  # minimize the change to get different endif_nodes
-            while len(remaining) > 0:
-                some_qubit = remaining[0]
-                equiv_class = self.equiv_classes[some_qubit]
-                for qubit in equiv_class:
-                    remaining.remove(qubit)
-                    qubit_to_reg_index[qubit] = reg_index
-                reg_index += 1
+            qubit_to_reg_index, reg_index = self.collect_qubit_to_reg_with_input()
         else:
-            while len(self.equiv_classes) > 0:
-                some_qubit = next(iter(self.equiv_classes))
-                equiv_class = self.equiv_classes[some_qubit]
-                for qubit in equiv_class:
-                    _ = self.equiv_classes.pop(qubit)
-                    qubit_to_reg_index[qubit] = reg_index
-                reg_index += 1
+            qubit_to_reg_index, reg_index = self.collect_qubit_to_reg_without_input()
 
         for nd in self.graph.nodes():
             if self.input is not None and self.input.raw == nd:
