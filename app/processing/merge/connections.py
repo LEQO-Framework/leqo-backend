@@ -22,6 +22,7 @@ from app.processing.graph import (
     ClassicalIOInstance,
     IOConnection,
     IOInfo,
+    ProcessedProgramNode,
     ProgramGraph,
     QubitInfo,
     QubitIOInstance,
@@ -111,6 +112,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
 class Connections:
     graph: ProgramGraph
     global_reg_name: str
+    input: ProcessedProgramNode | None
     equiv_classes: dict[SingleQubit, set[SingleQubit]]
     classical_input_to_output: dict[str, str]
 
@@ -126,7 +128,12 @@ class Connections:
                     equiv_classes[qubit] = {qubit}
         return equiv_classes
 
-    def __init__(self, graph: ProgramGraph, global_reg_name: str) -> None:
+    def __init__(
+        self,
+        graph: ProgramGraph,
+        global_reg_name: str,
+        input: ProcessedProgramNode | None = None,
+    ) -> None:
         """Construct Connections.
 
         :param graph: The graph to modify in-place.
@@ -134,6 +141,7 @@ class Connections:
         """
         self.graph = graph
         self.global_reg_name = global_reg_name
+        self.input = input
         self.equiv_classes = self.get_equiv_classes(graph)
         self.classical_input_to_output = {}
 
@@ -254,6 +262,19 @@ class Connections:
 
         reg_index = 0
         qubit_to_reg_index: dict[SingleQubit, int] = {}
+        if self.input is not None:
+            for declaration_ids in self.input.qubit.declaration_to_ids.values():
+                for id in declaration_ids:
+                    equiv_class = self.equiv_classes[SingleQubit(self.input.id, id)]
+                    for qubit in equiv_class:
+                        try:
+                            _ = self.equiv_classes.pop(qubit)
+                        except KeyError as e:
+                            msg = "Two qubits in input share the same equiv_class."
+                            raise RuntimeError(msg) from e
+                        qubit_to_reg_index[qubit] = reg_index
+                    reg_index += 1
+
         while len(self.equiv_classes) > 0:
             some_qubit = next(iter(self.equiv_classes))
             equiv_class = self.equiv_classes[some_qubit]
@@ -263,6 +284,8 @@ class Connections:
             reg_index += 1
 
         for nd in self.graph.nodes():
+            if self.input is not None and self.input.raw == nd:
+                continue
             node = self.graph.get_data_node(nd)
             ApplyConnectionsTransformer(
                 node.id,
@@ -278,11 +301,15 @@ class Connections:
         return reg_index
 
 
-def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
+def connect_qubits(
+    graph: ProgramGraph,
+    global_reg_name: str,
+    input: ProcessedProgramNode | None = None,
+) -> int:
     """Apply connections to graph.
 
     :param graph: The graph to modify in-place.
     :param global_reg_name: The name of the qubit reg to use in aliases.
     :return: Size of the global qubit register.
     """
-    return Connections(graph, global_reg_name).apply()
+    return Connections(graph, global_reg_name, input).apply()
