@@ -1,8 +1,23 @@
 Qubit Classification
 ====================
+This section provides definitions of key terms to ensure consistent usage throughout the document.
+
+.. glossary::
+
+node
+    The smallest model element in LEQO, representing a logical operation with defined inputs and outputs; each node has an associated snippet that implements its behavior.
+
+snippet
+    An OpenQASM code fragment that serves as a concrete implementation attached to a node, defining quantum operations on specified qubits.
+
+backend
+    The LEQO component responsible for compiling, optimizing, and executing snippets, transforming high-level models into executable quantum instructions.
+
 In LEQO’s OpenQASM snippet-based design, a set of semantic labels is introduced to characterize
 how qubits are utilized and managed, enabling more effective reasoning about the qubit lifecycle
 and the data flow between snippets.
+
+.. _definition_table:
 
 .. list-table:: Ingoing Qubits
    :widths: 20 80
@@ -15,8 +30,8 @@ and the data flow between snippets.
        These qubits serve as the entry points for quantum states passed between snippets
        and may be in arbitrary or entangled states.
    * - Clean Ancilla
-     - A qubit declared in the current snippet without any annotation.
-       It is initialized to ``|0⟩`` and can serve as clean temporary workspace
+     - A qubit declared in the current snippet without any annotation, that has already been initialized to ``|0⟩`` outside the snippet.
+       It can serve as clean temporary workspace
        or be used to introduce a working qubit intended to pass information to other snippets as a Linking Qubit.
    * - Dirty Ancilla
      - A qubit used for temporary computation that may be entangled or hold an unknown state.
@@ -34,12 +49,11 @@ and the data flow between snippets.
        These qubits serve as the exit points for quantum states passed between snippets
        and may be in arbitrary or entangled states.
    * - Reusable Ancilla
-     - A qubit explicitly reset to ``|0⟩`` by the user and annotated with ``@leqo.reusable``.
-       It may originate as a clean ancilla or linking qubit and must be disentangled from all other qubits before reuse.
+     - A qubit explicitly reset to ``|0⟩`` within a snippet and annotated with ``@leqo.reusable``.
        Reusable ancillae are considered clean ancillae in future snippets.
    * - Uncomputable Ancilla
      - A qubit annotated with ``@leqo.reusable`` within a ``@leqo.uncompute`` block.
-       These qubits are only uncomputed and returned to clean ancillae when the compiler deems it necessary,
+       These qubits are only uncomputed and returned to clean ancillae when the backend determines it is beneficial,
        allowing the code as a whole to be optimised.
    * - Entangled Ancilla
      - A qubit that is neither annotated with ``@leqo.output`` nor with ``@leqo.reusable`` within the snippet.
@@ -62,7 +76,7 @@ Annotations can be emulated in openqasm2 by using special comments.
 Input
 -----
 
-Input qubits, also referred to as linking qubits, act as entry points for quantum states transferred between snippets.
+Input qubits, also referred to as linking qubits, act as entry points for quantum states transferred between snippets (see :ref:`Linking Qubit definition <definition_table>`).
 They may exist in arbitrary states, including entangled configurations.
 
 One input is defined as a single qubit register (:class:`~openqasm3.ast.QubitDeclaration`) with a single ``@leqo.input`` annotation.
@@ -131,7 +145,7 @@ In this case the backend would fill the lowest bytes with the actual input and e
 Output
 ------
 
-Output qubits, also referred to as linking qubits, act as exit points for quantum states transferred between snippets.
+Output qubits, also referred to as linking qubits, act as exit points for quantum states transferred between snippets (see :ref:`Linking Qubit definition <definition_table>`).
 They may exist in arbitrary states, including entangled configurations.
 
 One output is defined as a single alias (:class:`~openqasm3.ast.AliasStatement`) with a single ``@leqo.output`` annotation.
@@ -205,10 +219,10 @@ To do so, one can declare an alias to the reusable qubits.
 Entangled & Dirty Ancillae
 --------------------------
 If qubits are used within a snippet and are not annotated with either ``@leqo.output`` or ``@leqo.reusable``,
-they are treated by that snippet as entangled ancillae.
-Subsequent snippets interpret these qubits as dirty ancillae.
+they are classified as entangled ancillae.
+When those same qubits are explicitly used **as input qubits** in later snippets, they are regarded as dirty ancillae.
 Dirty ancillae may exist in an arbitrary quantum state, potentially entangled with other qubits,
-and must be explicitly annotated with ``@leqo.dirty`` to signify their intentional reuse in a snippet.
+and must be explicitly annotated with ``@leqo.dirty`` to signify their intentional reuse as inputs in a snippet.
 
 To use dirty ancillae within a snippet, the programmer must explicitly opt in by annotating the qubit declaration with ``@leqo.dirty``.
 
@@ -216,7 +230,7 @@ To use dirty ancillae within a snippet, the programmer must explicitly opt in by
 
 .. warning::
     The state of a dirty ancilla qubit can be altered temporarily but must be restored at the end of a snippet.
-    Therefore measuring or uncompute a dirty qubit is not permitted.
+    Therefore measuring or uncompute operations on a dirty qubit are not permitted.
 
 .. code-block:: openqasm3
     :linenos:
@@ -234,7 +248,7 @@ To use dirty ancillae within a snippet, the programmer must explicitly opt in by
 
 Uncomputation
 -------------
-When modified clean ancillae or linking qubits can be uncomputed, the programmer may provide an explicit uncomputation block to reverse their effects.
+When modified clean ancillae or linking qubits can be uncomputed, the programmer may provide an explicit uncomputation block to allow for safe reuse of those qubits.
 This is done using the ``@leqo.uncompute`` annotation, which defines a scoped region that is disabled by default via an ``if (false)`` statement.
 The compiler may override this statement to ``true`` if uncomputation of the associated qubits is determined to be necessary.
 
@@ -244,15 +258,13 @@ A qubit annotated with ``@leqo.reusable`` within such a block is referred to as 
 * ``@leqo.uncompute`` annotations may appear multiple times in a program, each time referring to different uncomputation logic
 * Nested ``@leqo.uncompute`` if-blocks are not allowed
 * A ``@leqo.uncompute`` if-block must be declared at global scope
-* The ``@leqo.uncompute`` block must reverse all transformations on the associated qubit, removing entanglement and restoring each to the ``|0⟩`` state
+* All ``@leqo.uncompute`` blocks together must reverse all transformations on the associated qubit, removing entanglement and restoring each to the ``|0⟩`` state
 * ``@leqo.uncompute`` blocks only operate on existing variables, qubits or selfdeclared aliases
 * A ``@leqo.uncompute`` if-block must declare the uncomputed ancillae as reusable qubits by using the corresponding ``@leqo.reusable`` annotation
 
 .. warning::
     Qubits previously annotated with ``@leqo.dirty`` must not be uncomputed
 
-.. note::
-    Not all operations are reversible; in such cases, the qubit should not be annotated as reusable.
 
 .. code-block:: openqasm3
     :linenos:
