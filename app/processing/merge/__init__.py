@@ -23,7 +23,6 @@ from app.openqasm3.ast import CommentStatement
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     ClassicalIOInstance,
-    IOConnection,
     ProcessedProgramNode,
     ProgramGraph,
     ProgramNode,
@@ -34,6 +33,7 @@ from app.processing.utils import cast_to_program
 
 GLOBAL_REG_NAME = "leqo_reg"
 IF_REG_NAME = "if_reg"
+ANCILLAES_NAME = "ancillae"
 OPENQASM_VERSION = "3.1"
 
 
@@ -143,7 +143,7 @@ def merge_if_nodes(
     if ancillae_size > 0:
         all_statements.append(
             QubitDeclaration(
-                Identifier(f"leqo_{if_node.id.hex}_ancillae"),
+                Identifier(f"leqo_{if_node.id.hex}_{ANCILLAES_NAME}"),
                 IntegerLiteral(ancillae_size),
             ),
         )
