@@ -336,6 +336,141 @@ def test_only_else() -> None:
     )
 
 
+def test_no_input_but_output() -> None:
+    assert_if_merge(
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        bit if_b;
+        @leqo.output 0
+        let if_o0 = if_b;
+        """,
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] endif_q;
+        @leqo.output 0
+        let endif_o0 = endif_q;
+        """,
+        (
+            [
+                """
+                OPENQASM 3.1;
+                qubit[1] t0_q;
+                h t0_q;
+                @leqo.output 0
+                let t0_o0 = t0_q;
+                """,
+            ],
+            [
+                ((1, 0), (2, 0)),
+            ],
+            [],
+        ),
+        (
+            [
+                """
+                OPENQASM 3.1;
+                qubit[1] e0_q;
+                x e0_q;
+                @leqo.output 0
+                let e0_o0 = e0_q;
+                """,
+            ],
+            [
+                ((1, 0), (2, 0)),
+            ],
+            [],
+        ),
+        "b",
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        bit if_b;
+        let if_o0 = if_b;
+        qubit[1] leqo_00000000000000000000000000000378_ancillae;
+        let leqo_00000000000000000000000000000378_if_reg = leqo_00000000000000000000000000000378_ancillae;
+        if (b == true) {
+            let t0_q = leqo_00000000000000000000000000000378_if_reg[{0}];
+            h t0_q;
+            let t0_o0 = t0_q;
+        } else {
+            let e0_q = leqo_00000000000000000000000000000378_if_reg[{0}];
+            x e0_q;
+            let e0_o0 = e0_q;
+        }
+        let endif_q = leqo_00000000000000000000000000000378_if_reg[{0}];
+        @leqo.output 0
+        let endif_o0 = endif_q;
+        """,
+    )
+
+
+def test_input_but_no_output() -> None:
+    assert_if_merge(
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] if_q;
+        @leqo.output 0
+        let if_o0 = if_q;
+        @leqo.input 1
+        bit if_b;
+        @leqo.output 1
+        let if_o1 = if_b;
+        """,
+        """
+        OPENQASM 3.1;
+        """,
+        (
+            [
+                """
+                OPENQASM 3.1;
+                @leqo.input 0
+                qubit[1] t0_q;
+                h t0_q;
+                """,
+            ],
+            [
+                ((0, 0), (1, 0)),
+            ],
+            [],
+        ),
+        (
+            [
+                """
+                OPENQASM 3.1;
+                @leqo.input 0
+                qubit[1] e0_q;
+                x e0_q;
+                """,
+            ],
+            [
+                ((0, 0), (1, 0)),
+            ],
+            [],
+        ),
+        "b",
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] if_q;
+        let if_o0 = if_q;
+        @leqo.input 1
+        bit if_b;
+        let if_o1 = if_b;
+        let leqo_00000000000000000000000000000378_if_reg = if_q;
+        if (b == true) {
+            let t0_q = leqo_00000000000000000000000000000378_if_reg[{0}];
+            h t0_q;
+        } else {
+            let e0_q = leqo_00000000000000000000000000000378_if_reg[{0}];
+            x e0_q;
+        }
+        """,
+    )
+
+
 def test_complexer() -> None:
     assert_if_merge(
         """
