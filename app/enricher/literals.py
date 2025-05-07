@@ -44,7 +44,7 @@ class LiteralEnricherStrategy(EnricherStrategy):
         self, node: FrontendNode, constraints: Constraints | None
     ) -> EnrichmentResult:
         if constraints is not None and len(constraints.requested_inputs) != 0:
-            raise ConstraintValidationException()
+            raise ConstraintValidationException("Literals may not have inputs")
 
         match node:
             case QubitNode():
