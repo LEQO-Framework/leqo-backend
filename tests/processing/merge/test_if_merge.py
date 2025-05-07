@@ -204,6 +204,55 @@ def test_basic_use_case() -> None:
     )
 
 
+def test_ancilla_connection() -> None:
+    assert_if_merge(
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        bit if_b;
+        @leqo.output 0
+        let if_o0 = if_b;
+        """,
+        """
+        OPENQASM 3.1;
+        """,
+        (
+            [
+                """
+                OPENQASM 3.1;
+                qubit[2] t0_q;
+                """,
+                """
+                OPENQASM 3.1;
+                qubit[2] t1_q;
+                """,
+            ],
+            [],
+            [
+                ((1, [0, 1]), (2, [0, 1])),
+            ],
+        ),
+        (
+            [],
+            [],
+            [],
+        ),
+        "b",
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        bit if_b;
+        let if_o0 = if_b;
+        qubit[2] leqo_00000000000000000000000000000378_ancillae;
+        let leqo_00000000000000000000000000000378_if_reg = leqo_00000000000000000000000000000378_ancillae;
+        if (b == true) {
+            let t0_q = leqo_00000000000000000000000000000378_if_reg[{0, 1}];
+            let t1_q = leqo_00000000000000000000000000000378_if_reg[{0, 1}];
+        }
+        """,
+    )
+
+
 def test_only_then() -> None:
     assert_if_merge(
         """
