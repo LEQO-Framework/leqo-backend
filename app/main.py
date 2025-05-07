@@ -142,10 +142,13 @@ async def debug_compile(
 @app.post("/debug/enrich")
 async def debug_enrich(
     body: CompileRequest, enricher: Annotated[Enricher, Depends(get_enricher)]
-) -> list[ImplementationNode]:
+) -> list[ImplementationNode] | str:
     """
     Enriches all nodes in the compile request.
     """
 
     processor = Processor(body, enricher)
-    return [x async for x in processor.enrich()]
+    try:
+        return [x async for x in processor.enrich()]
+    except Exception:
+        return traceback.format_exc()

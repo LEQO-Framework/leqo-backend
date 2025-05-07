@@ -95,6 +95,10 @@ class Processor:
                 ),
             )
 
+            self.graph.node_data[target_node] = preprocess(
+                target_node, enriched_node.implementation
+            )
+
             yield target_node, enriched_node
 
     async def enrich(self) -> AsyncIterator[ImplementationNode]:
@@ -120,10 +124,9 @@ class Processor:
         :return: The final QASM program as a string.
         """
 
-        async for target_node, enriched_node in self._enrich_internal():
-            self.graph.node_data[target_node] = preprocess(
-                target_node, enriched_node.implementation
-            )
+        # Enrich all nodes
+        async for _ in self._enrich_internal():
+            pass
 
         if self.request.metadata.optimizeWidth is not None:
             optimize(self.graph)
