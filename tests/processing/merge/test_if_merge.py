@@ -1,5 +1,7 @@
+from io import UnsupportedOperation
 from uuid import UUID
 
+import pytest
 from openqasm3.ast import BinaryExpression, BinaryOperator, BooleanLiteral, Identifier
 from openqasm3.printer import dumps
 
@@ -469,6 +471,122 @@ def test_input_but_no_output() -> None:
         }
         """,
     )
+
+
+def test_big_concatenation() -> None:
+    assert_if_merge(
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        bit if_b;
+        @leqo.output 0
+        let if_o0 = if_b;
+        @leqo.input 1
+        qubit[1] if_q0;
+        @leqo.output 1
+        let if_o1 = if_q0;
+        @leqo.input 2
+        qubit[2] if_q1;
+        @leqo.output 2
+        let if_o2 = if_q1;
+        @leqo.input 3
+        qubit[3] if_q2;
+        @leqo.output 3
+        let if_o3 = if_q2;
+        """,
+        """
+        OPENQASM 3.1;
+        """,
+        (
+            [
+                """
+                OPENQASM 3.1;
+                qubit[10] t0_q;
+                """,
+            ],
+            [],
+            [],
+        ),
+        (
+            [],
+            [],
+            [],
+        ),
+        "b",
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        bit if_b;
+        let if_o0 = if_b;
+        @leqo.input 1
+        qubit[1] if_q0;
+        let if_o1 = if_q0;
+        @leqo.input 2
+        qubit[2] if_q1;
+        let if_o2 = if_q1;
+        @leqo.input 3
+        qubit[3] if_q2;
+        let if_o3 = if_q2;
+        qubit[10] leqo_00000000000000000000000000000378_ancillae;
+        let leqo_00000000000000000000000000000378_if_reg = if_q0 ++ if_q1 ++ if_q2 ++ leqo_00000000000000000000000000000378_ancillae;
+        if (b == true) {
+            let t0_q = leqo_00000000000000000000000000000378_if_reg[{6, 7, 8, 9, 10, 11, 12, 13, 14, 15}];
+        }
+        """,
+    )
+
+
+def test_future_work() -> None:
+    with pytest.raises(
+        UnsupportedOperation,
+        match="Future Work: output of 'then' does not match with output of 'else'",
+    ):
+        assert_if_merge(
+            """
+            OPENQASM 3.1;
+            @leqo.input 0
+            bit if_b;
+            @leqo.output 0
+            let if_o0 = if_b;
+            @leqo.input 1
+            qubit[1] if_q0;
+            @leqo.output 1
+            let if_o1 = if_q0;
+            @leqo.input 2
+            qubit[1] if_q1;
+            @leqo.output 2
+            let if_o2 = if_q1;
+            """,
+            """
+            OPENQASM 3.1;
+            @leqo.input 0
+            qubit[1] endif_q0;
+            @leqo.output 0
+            let endif_o0 = endif_q0;
+            @leqo.input 1
+            qubit[1] endif_q1;
+            @leqo.output 1
+            let endif_o1 = endif_q1;
+            """,
+            (
+                [],
+                [
+                    ((0, 1), (1, 0)),
+                    ((0, 2), (1, 1)),
+                ],
+                [],
+            ),
+            (
+                [],
+                [
+                    ((0, 1), (1, 1)),
+                    ((0, 2), (1, 0)),
+                ],
+                [],
+            ),
+            "b",
+            "not solved what the output should be.",
+        )
 
 
 def test_complexer() -> None:

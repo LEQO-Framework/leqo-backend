@@ -117,7 +117,7 @@ def merge_if_nodes(
 
     if endif_node != endif_node_from_else:
         # TODO: in the future, this should do something smarter
-        msg = "Unsupported: output of 'then' does not match with output of 'else'"
+        msg = "Future Work: output of 'then' does not match with output of 'else'"
         raise UnsupportedOperation(msg)
 
     all_statements = cast_to_program(
