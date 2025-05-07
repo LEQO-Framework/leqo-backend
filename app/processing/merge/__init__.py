@@ -75,7 +75,8 @@ def graph_to_statements(
         )
         for statement in implementation.statements:
             if isinstance(statement, Pragma):
-                continue
+                msg = f"Can't handle pragma inside if-else: {statement}"
+                raise UnsupportedOperation(msg)
             result.append(statement)
     return result
 
@@ -136,18 +137,13 @@ def merge_if_nodes(
             ),
         )
 
-    declarations = [d for d in all_statements if isinstance(d, QubitDeclaration)]
-    if len(declarations) == 1:
-        all_statements.append(
-            AliasStatement(Identifier(reg_name), declarations[0].qubit),
-        )
-    else:
-        concat = Concatenation(
-            declarations[0].qubit,
-            declarations[1].qubit,
-        )
-        for i in range(2, len(declarations)):
-            concat = Concatenation(concat, declarations[i].qubit)
+    concat: Identifier | Concatenation | None = None
+    for declaration in [d for d in all_statements if isinstance(d, QubitDeclaration)]:
+        if concat is None:
+            concat = declaration.qubit
+        else:
+            concat = Concatenation(concat, declaration.qubit)
+    if concat is not None:  # concat == None means there are no qubits at all
         all_statements.append(
             AliasStatement(Identifier(reg_name), concat),
         )
