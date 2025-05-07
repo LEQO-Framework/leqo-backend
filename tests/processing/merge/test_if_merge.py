@@ -1,4 +1,3 @@
-from io import UnsupportedOperation
 from uuid import UUID
 
 import pytest
@@ -536,9 +535,48 @@ def test_big_concatenation() -> None:
     )
 
 
-def test_future_work() -> None:
+def test_future_work_classic_output() -> None:
     with pytest.raises(
-        UnsupportedOperation,
+        NotImplementedError,
+        match="Future Work: if-else can't have classical output.",
+    ):
+        assert_if_merge(
+            """
+            OPENQASM 3.1;
+            @leqo.input 0
+            bit if_b;
+            @leqo.output 0
+            let if_o0 = if_b;
+            """,
+            """
+            OPENQASM 3.1;
+            @leqo.input 0
+            bit endif_b;
+            @leqo.output 0
+            let endif_o0 = endif_b;
+            """,
+            (
+                [],
+                [
+                    ((0, 0), (1, 0)),
+                ],
+                [],
+            ),
+            (
+                [],
+                [
+                    ((0, 0), (1, 0)),
+                ],
+                [],
+            ),
+            "b",
+            "not solved what the output should be.",
+        )
+
+
+def test_future_work_endif_mismatch() -> None:
+    with pytest.raises(
+        NotImplementedError,
         match="Future Work: output of 'then' does not match with output of 'else'",
     ):
         assert_if_merge(

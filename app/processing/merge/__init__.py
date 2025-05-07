@@ -21,7 +21,13 @@ from openqasm3.ast import (
 
 from app.openqasm3.ast import CommentStatement
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import ProcessedProgramNode, ProgramGraph, ProgramNode
+from app.processing.graph import (
+    ClassicalIOInstance,
+    IOConnection,
+    ProcessedProgramNode,
+    ProgramGraph,
+    ProgramNode,
+)
 from app.processing.merge.connections import connect_qubits
 from app.processing.post import postprocess
 from app.processing.utils import cast_to_program
@@ -118,7 +124,12 @@ def merge_if_nodes(
     if endif_node != endif_node_from_else:
         # TODO: in the future, this should do something smarter
         msg = "Future Work: output of 'then' does not match with output of 'else'"
-        raise UnsupportedOperation(msg)
+        raise NotImplementedError(msg)
+
+    for input in endif_node.io.inputs.values():
+        if isinstance(input, ClassicalIOInstance):
+            msg = "Future Work: if-else can't have classical output."
+            raise NotImplementedError(msg)
 
     all_statements = cast_to_program(
         RemoveAnnotationTransformer(inputs=False, outputs=True).visit(
