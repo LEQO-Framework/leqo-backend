@@ -71,7 +71,7 @@ def assert_if_merge(  # noqa: PLR0913 Too many arguments in function definition 
     expected: str,
 ) -> None:
     if_node = preprocess(ProgramNode("if", id=UUID(int=888)), if_str)
-    endif_node = preprocess(ProgramNode("endif", id=UUID(int=999)), endif_str)
+    endif_node = preprocess(ProgramNode("endif"), endif_str)
     then_graph = manual_to_graph(then_manual, if_node, endif_node)
     else_graph = manual_to_graph(else_manual, if_node, endif_node)
     actual = dumps(
