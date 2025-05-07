@@ -118,6 +118,12 @@ class ConstraintValidationException(EnricherException):
     """
 
 
+class InputValidationException(EnricherException):
+    """
+    Indicates the use-input is not valid (in the context of the given :class:`~app.enricher.Constraints`).
+    """
+
+
 class Enricher:
     """
     Handles multiple :class:`~app.enricher.EnricherStrategy`.

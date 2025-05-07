@@ -38,3 +38,17 @@ def not_none_or(value: T | None, default_value: T) -> T:
         return default_value
 
     return value
+
+
+def duplicates(list: list[T]) -> set[T]:
+    """
+    Returns set of duplicate items.
+    """
+    seen = set()
+    result = set()
+    for item in list:
+        if item in seen:
+            result.add(item)
+        else:
+            seen.add(item)
+    return result
