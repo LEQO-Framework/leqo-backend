@@ -2,7 +2,7 @@
 Utils used throughout the whole application.
 """
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import TypeVar
 
 TParam = TypeVar("TParam")
@@ -40,13 +40,15 @@ def not_none_or(value: T | None, default_value: T) -> T:
     return value
 
 
-def duplicates(list: list[T]) -> Iterator[T]:
+def duplicates(list: list[T]) -> set[T]:
     """
-    Return duplicate indices.
+    Returns set of duplicate items.
     """
     seen = set()
+    result = set()
     for item in list:
         if item in seen:
-            yield item
+            result.add(item)
         else:
             seen.add(item)
+    return result
