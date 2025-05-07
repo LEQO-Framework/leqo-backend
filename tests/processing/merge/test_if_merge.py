@@ -89,6 +89,40 @@ def assert_if_merge(  # noqa: PLR0913 Too many arguments in function definition 
     assert normalize_qasm_string(expected) == normalize_qasm_string(actual)
 
 
+def test_trivial() -> None:
+    assert_if_merge(
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        bit if_b;
+        @leqo.output 0
+        let if_o0 = if_b;
+        """,
+        """
+        OPENQASM 3.1;
+        """,
+        (
+            [],
+            [],
+            [],
+        ),
+        (
+            [],
+            [],
+            [],
+        ),
+        "b",
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        bit if_b;
+        let if_o0 = if_b;
+        if (b == true) {
+        }
+        """,
+    )
+
+
 def test_basic_use_case() -> None:
     assert_if_merge(
         """
@@ -157,6 +191,139 @@ def test_basic_use_case() -> None:
             let t0_q = leqo_00000000000000000000000000000378_if_reg[{0}];
             h t0_q;
             let t0_o0 = t0_q;
+        } else {
+            let e0_q = leqo_00000000000000000000000000000378_if_reg[{0}];
+            x e0_q;
+            let e0_o0 = e0_q;
+        }
+        let endif_q = leqo_00000000000000000000000000000378_if_reg[{0}];
+        @leqo.output 0
+        let endif_o0 = endif_q;
+        """,
+    )
+
+
+def test_only_then() -> None:
+    assert_if_merge(
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] if_q;
+        @leqo.output 0
+        let if_o0 = if_q;
+        @leqo.input 1
+        bit if_b;
+        @leqo.output 1
+        let if_o1 = if_b;
+        """,
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] endif_q;
+        @leqo.output 0
+        let endif_o0 = endif_q;
+        """,
+        (
+            [
+                """
+                OPENQASM 3.1;
+                @leqo.input 0
+                qubit[1] t0_q;
+                h t0_q;
+                @leqo.output 0
+                let t0_o0 = t0_q;
+                """,
+            ],
+            [
+                ((0, 0), (1, 0)),
+                ((1, 0), (2, 0)),
+            ],
+            [],
+        ),
+        (
+            [],
+            [
+                ((0, 0), (1, 0)),
+            ],
+            [],
+        ),
+        "b",
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] if_q;
+        let if_o0 = if_q;
+        @leqo.input 1
+        bit if_b;
+        let if_o1 = if_b;
+        let leqo_00000000000000000000000000000378_if_reg = if_q;
+        if (b == true) {
+            let t0_q = leqo_00000000000000000000000000000378_if_reg[{0}];
+            h t0_q;
+            let t0_o0 = t0_q;
+        }
+        let endif_q = leqo_00000000000000000000000000000378_if_reg[{0}];
+        @leqo.output 0
+        let endif_o0 = endif_q;
+        """,
+    )
+
+
+def test_only_else() -> None:
+    assert_if_merge(
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] if_q;
+        @leqo.output 0
+        let if_o0 = if_q;
+        @leqo.input 1
+        bit if_b;
+        @leqo.output 1
+        let if_o1 = if_b;
+        """,
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] endif_q;
+        @leqo.output 0
+        let endif_o0 = endif_q;
+        """,
+        (
+            [],
+            [
+                ((0, 0), (1, 0)),
+            ],
+            [],
+        ),
+        (
+            [
+                """
+                OPENQASM 3.1;
+                @leqo.input 0
+                qubit[1] e0_q;
+                x e0_q;
+                @leqo.output 0
+                let e0_o0 = e0_q;
+                """,
+            ],
+            [
+                ((0, 0), (1, 0)),
+                ((1, 0), (2, 0)),
+            ],
+            [],
+        ),
+        "b",
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] if_q;
+        let if_o0 = if_q;
+        @leqo.input 1
+        bit if_b;
+        let if_o1 = if_b;
+        let leqo_00000000000000000000000000000378_if_reg = if_q;
+        if (b == true) {
         } else {
             let e0_q = leqo_00000000000000000000000000000378_if_reg[{0}];
             x e0_q;
