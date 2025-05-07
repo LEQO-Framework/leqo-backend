@@ -1,3 +1,7 @@
+"""
+Provides enricher strategy for enriching :class:`~app.model.CompileRequest.MeasurementNode`.
+"""
+
 from typing import override
 
 from openqasm3.ast import (
@@ -32,6 +36,10 @@ from app.utils import duplicates
 
 
 class MeasurementEnricherStrategy(EnricherStrategy):
+    """
+    Strategy capable of enriching :class:`~app.model.CompileRequest.MeasurementNode`.
+    """
+
     @override
     def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None

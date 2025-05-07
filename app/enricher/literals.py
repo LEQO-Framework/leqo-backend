@@ -1,3 +1,12 @@
+"""
+Provides enricher strategy for enriching literal nodes
+ * :class:`~app.model.CompileRequest.QubitNode`
+ * :class:`~app.model.CompileRequest.IntLiteralNode`
+ * :class:`~app.model.CompileRequest.FloatLiteralNode`
+ * :class:`~app.model.CompileRequest.BitLiteralNode`
+ * :class:`~app.model.CompileRequest.BoolLiteralNode`
+"""
+
 from typing import override
 
 from openqasm3.ast import (
