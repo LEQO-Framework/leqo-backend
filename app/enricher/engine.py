@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.enricher.models import Base
 
@@ -38,3 +39,14 @@ class DatabaseEngine:
             raise RuntimeError(f"Missing required environment variable: {e}") from e
         except Exception as e:
             raise RuntimeError(f"Failed to create the database engine: {e}") from e
+        
+    def _get_database_session(self) -> Session:
+        """Create and return a database session.
+        
+        :return Session: A database session to commit things to the database
+        """
+        try:
+            Session = sessionmaker(bind=self._engine)
+            return Session()
+        except Exception as e:
+            raise RuntimeError(f"Failed to create database session: {e}") from e
