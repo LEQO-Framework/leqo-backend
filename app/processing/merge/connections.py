@@ -42,7 +42,15 @@ class SingleQubit:
 
 
 class ApplyConnectionsTransformer(LeqoTransformer[None]):
-    """Replace qubit declaration and classical inputs with alias."""
+    """Replace qubit declaration and classical inputs with alias.
+
+    :param section_id: The UUID of the currently visited section.
+    :param io_info: The IOInfo for the current section.
+    :param qubit_info: The QubitInfo for the current section.
+    :param global_reg_name: The name to use for global qubit register.
+    :param qubit_to_index: Map qubits to the indexes in the global reg.
+    :param classical_input_to_output: Map classical declaration names to alias to use.
+    """
 
     section_id: UUID
     io_info: IOInfo
@@ -60,14 +68,6 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         qubit_to_index: dict[SingleQubit, int],
         classical_input_to_output: dict[str, str],
     ) -> None:
-        """Construct QubitDeclarationToAlias.
-
-        :param section_id: The UUID of the currently visited section.
-        :param io_info: The IOInfo for the current section.
-        :param global_reg_name: The name to use for global qubit register.
-        :param qubit_to_index: Map qubits to the indexes in the global reg.
-        :param classical_input_to_output: Map classical declaration names to alias to use.
-        """
         self.section_id = section_id
         self.io_info = io_info
         self.qubit_info = qubit_info
@@ -138,6 +138,7 @@ class Connections:
 
         :param graph: The graph to modify in-place.
         :param global_reg_name: The name of the qubit reg to use in aliases.
+        :param input: Optional input node: don't modify it + ids in the order of the declarations in this node.
         """
         self.graph = graph
         self.global_reg_name = global_reg_name
@@ -345,6 +346,7 @@ def connect_qubits(
 
     :param graph: The graph to modify in-place.
     :param global_reg_name: The name of the qubit reg to use in aliases.
+    :param input: Optional input node: don't modify it + ids in the order of the declarations in this node.
     :return: Size of the global qubit register.
     """
     return Connections(graph, global_reg_name, input).apply()
