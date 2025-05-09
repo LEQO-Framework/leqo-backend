@@ -100,7 +100,7 @@ def merge_if_nodes(
 
     - Classical outputs are not supported.
         This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-else,
-        meaning the can not pass there value to the **endif_node**, which is outside.
+        meaning they can not pass there value to the **endif_node**, which is outside.
         This would be required for classical outputs to work.
 
     - The **endif_node** from both **then_graph** and **else_graph** need to match.
