@@ -86,7 +86,7 @@ class EncodeNode(QuantumNode):
     encoding = Column(Enum(EncodingType), nullable=False)
     bounds = Column(Integer, nullable=False)
 
-    __mapper_args__: ClassVar[dict] = {"polymorphic_identity": NodeType.ENCODE}
+    __mapper_args__: ClassVar[dict[str, NodeType]] = {"polymorphic_identity": NodeType.ENCODE}
 
 
 class PrepareNode(QuantumNode):
@@ -96,7 +96,7 @@ class PrepareNode(QuantumNode):
     size = Column(Integer, nullable=False)
     quantum_state = Column(Enum(QuantumStateType), nullable=False)
 
-    __mapper_args__: ClassVar[dict] = {"polymorphic_identity": NodeType.PREPARE}
+    __mapper_args__: ClassVar[dict[str, NodeType]] = {"polymorphic_identity": NodeType.PREPARE}
 
 
 class OperatorNode(QuantumNode):
@@ -105,4 +105,4 @@ class OperatorNode(QuantumNode):
     id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
     operator = Column(Enum(OperatorType), nullable=False)
 
-    __mapper_args__: ClassVar[dict] = {"polymorphic_identity": NodeType.OPERATOR}
+    __mapper_args__: ClassVar[dict[str, NodeType]] = {"polymorphic_identity": NodeType.OPERATOR}
