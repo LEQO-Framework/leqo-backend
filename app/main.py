@@ -35,17 +35,6 @@ app.add_middleware(
 states: dict[UUID, StatusBody] = {}
 results: dict[UUID, str] = {}
 
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# This is only for testing delete after review
-
-
-@app.get("/enricher")
-def enricher() -> None:
-    print(demo())
-
-
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 def get_enricher() -> Enricher:
     return Enricher(LiteralEnricherStrategy(), MeasurementEnricherStrategy())
 
