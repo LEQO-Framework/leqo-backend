@@ -39,10 +39,10 @@ class DatabaseEngine:
             raise RuntimeError(f"Missing required environment variable: {e}") from e
         except Exception as e:
             raise RuntimeError(f"Failed to create the database engine: {e}") from e
-        
+
     def _get_database_session(self) -> Session:
         """Create and return a database session.
-        
+
         :return Session: A database session to commit things to the database
         """
         try:
