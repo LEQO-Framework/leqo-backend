@@ -114,7 +114,7 @@ class NodeUnsupportedException(EnricherException):
 
 class ConstraintValidationException(EnricherException):
     """
-    Indicated that the specified constraints are invalid or cannot be met by an :class:`~app.enricher.EnricherStrategy`.
+    Indicates that the specified constraints are invalid or cannot be met by an :class:`~app.enricher.EnricherStrategy`.
     """
 
 

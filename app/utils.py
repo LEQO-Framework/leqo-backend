@@ -27,6 +27,21 @@ def opt_call(func: Callable[[TParam], TReturn], arg: TParam | None) -> TReturn |
 T = TypeVar("T")
 
 
+def not_none(value: T | None, error_msg: str) -> T:
+    """
+    Returns value if not none or raises exception.
+
+    :param value: Value to check.
+    :param error_msg: Message to throw.
+    :return: The none-none value.
+    """
+
+    if value is None:
+        raise Exception(error_msg)
+
+    return value
+
+
 def not_none_or(value: T | None, default_value: T) -> T:
     """
     Nullish coalescence - `??` operator.
