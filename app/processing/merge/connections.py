@@ -22,13 +22,14 @@ from app.processing.graph import (
     ClassicalIOInstance,
     IOConnection,
     IOInfo,
+    ProcessedProgramNode,
     ProgramGraph,
     QubitInfo,
     QubitIOInstance,
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, order=True)
 class SingleQubit:
     """Give an qubit a unique ID in the whole program.
 
@@ -41,7 +42,15 @@ class SingleQubit:
 
 
 class ApplyConnectionsTransformer(LeqoTransformer[None]):
-    """Replace qubit declaration and classical inputs with alias."""
+    """Replace qubit declaration and classical inputs with alias.
+
+    :param section_id: The UUID of the currently visited section.
+    :param io_info: The IOInfo for the current section.
+    :param qubit_info: The QubitInfo for the current section.
+    :param global_reg_name: The name to use for global qubit register.
+    :param qubit_to_index: Map qubits to the indexes in the global reg.
+    :param classical_input_to_output: Map classical declaration names to alias to use.
+    """
 
     section_id: UUID
     io_info: IOInfo
@@ -59,14 +68,6 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         qubit_to_index: dict[SingleQubit, int],
         classical_input_to_output: dict[str, str],
     ) -> None:
-        """Construct QubitDeclarationToAlias.
-
-        :param section_id: The UUID of the currently visited section.
-        :param io_info: The IOInfo for the current section.
-        :param global_reg_name: The name to use for global qubit register.
-        :param qubit_to_index: Map qubits to the indexes in the global reg.
-        :param classical_input_to_output: Map classical declaration names to alias to use.
-        """
         self.section_id = section_id
         self.io_info = io_info
         self.qubit_info = qubit_info
@@ -111,6 +112,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
 class Connections:
     graph: ProgramGraph
     global_reg_name: str
+    input: ProcessedProgramNode | None
     equiv_classes: dict[SingleQubit, set[SingleQubit]]
     classical_input_to_output: dict[str, str]
 
@@ -126,14 +128,21 @@ class Connections:
                     equiv_classes[qubit] = {qubit}
         return equiv_classes
 
-    def __init__(self, graph: ProgramGraph, global_reg_name: str) -> None:
+    def __init__(
+        self,
+        graph: ProgramGraph,
+        global_reg_name: str,
+        input: ProcessedProgramNode | None = None,
+    ) -> None:
         """Construct Connections.
 
         :param graph: The graph to modify in-place.
         :param global_reg_name: The name of the qubit reg to use in aliases.
+        :param input: Optional input node: don't modify it + ids in the order of the declarations in this node.
         """
         self.graph = graph
         self.global_reg_name = global_reg_name
+        self.input = input
         self.equiv_classes = self.get_equiv_classes(graph)
         self.classical_input_to_output = {}
 
@@ -242,15 +251,44 @@ class Connections:
                     processed_target.id,
                 )
 
-    def apply(self) -> int:
-        """Apply the connections to the graph.
+    def collect_qubit_to_reg_with_input(
+        self,
+    ) -> tuple[dict[SingleQubit, int], int]:
+        if self.input is None:
+            raise RuntimeError
 
-        :return: Size of the global qubit register.
-        """
-        for source_node, target_node in self.graph.edges():
-            edges = self.graph.get_data_edges(source_node, target_node)
-            for edge in edges:
-                self.handle_connection(edge)
+        reg_index = 0
+        qubit_to_reg_index: dict[SingleQubit, int] = {}
+        for declaration_ids in self.input.qubit.declaration_to_ids.values():
+            for id in declaration_ids:
+                equiv_class = self.equiv_classes[SingleQubit(self.input.id, id)]
+                for qubit in equiv_class:
+                    try:
+                        _ = self.equiv_classes.pop(qubit)
+                    except KeyError as e:
+                        msg = "Two qubits in input share the same equiv_class."
+                        raise RuntimeError(msg) from e
+                    qubit_to_reg_index[qubit] = reg_index
+                reg_index += 1
+
+        remaining = sorted(
+            self.equiv_classes.keys(),
+        )  # minimize the change to get different endif_nodes
+        while len(remaining) > 0:
+            some_qubit = remaining[0]
+            equiv_class = self.equiv_classes[some_qubit]
+            for qubit in equiv_class:
+                remaining.remove(qubit)
+                qubit_to_reg_index[qubit] = reg_index
+            reg_index += 1
+
+        return (qubit_to_reg_index, reg_index)
+
+    def collect_qubit_to_reg_without_input(
+        self,
+    ) -> tuple[dict[SingleQubit, int], int]:
+        if self.input is not None:
+            raise RuntimeError
 
         reg_index = 0
         qubit_to_reg_index: dict[SingleQubit, int] = {}
@@ -262,7 +300,28 @@ class Connections:
                 qubit_to_reg_index[qubit] = reg_index
             reg_index += 1
 
+        return (qubit_to_reg_index, reg_index)
+
+    def apply(self) -> int:
+        """Apply the connections to the graph.
+
+        :return: Size of the global qubit register.
+        """
+        for source_node, target_node in self.graph.edges():
+            edges = self.graph.get_data_edges(source_node, target_node)
+            for edge in edges:
+                self.handle_connection(edge)
+
+        qubit_to_reg_index: dict[SingleQubit, int]
+        reg_index: int
+        if self.input is not None:
+            qubit_to_reg_index, reg_index = self.collect_qubit_to_reg_with_input()
+        else:
+            qubit_to_reg_index, reg_index = self.collect_qubit_to_reg_without_input()
+
         for nd in self.graph.nodes():
+            if self.input is not None and self.input.raw == nd:
+                continue
             node = self.graph.get_data_node(nd)
             ApplyConnectionsTransformer(
                 node.id,
@@ -278,11 +337,16 @@ class Connections:
         return reg_index
 
 
-def connect_qubits(graph: ProgramGraph, global_reg_name: str) -> int:
+def connect_qubits(
+    graph: ProgramGraph,
+    global_reg_name: str,
+    input: ProcessedProgramNode | None = None,
+) -> int:
     """Apply connections to graph.
 
     :param graph: The graph to modify in-place.
     :param global_reg_name: The name of the qubit reg to use in aliases.
+    :param input: Optional input node: don't modify it + ids in the order of the declarations in this node.
     :return: Size of the global qubit register.
     """
-    return Connections(graph, global_reg_name).apply()
+    return Connections(graph, global_reg_name, input).apply()
