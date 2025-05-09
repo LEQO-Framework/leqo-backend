@@ -1,7 +1,10 @@
+"""Database schema to store and query node implementations."""
+
 import enum
 from typing import ClassVar
 
 from sqlalchemy import Column, Enum, ForeignKey, Integer, Text
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -62,7 +65,18 @@ class InputType(enum.Enum):
     QubitType = "QubitType"
 
 
-class QuantumNode(Base):
+class BaseNode(Base):
+    """Base class for all nodes.
+    
+    :param id: ID and primary key of a node
+    :param type: One of the types defined in :class:`NodeType`
+    :param depth: Depth of the node implementation
+    :param width: Width of the node implementation
+    :param implementation: Implementation of the node
+    :param uncompute_implementation: Uncompute implementation for the node
+    :param inputs: An array of input types defined by :class:`InputType` the implemetation supports
+    """
+
     __tablename__ = "quantum_nodes"
 
     id = Column(Integer, primary_key=True)
@@ -71,7 +85,7 @@ class QuantumNode(Base):
     width = Column(Integer, nullable=False)
     implementation = Column(Text)
     uncompute_implementation = Column(Text)
-    inputs = Column(Enum(InputType), nullable=False)
+    inputs = Column(ARRAY(Enum(InputType)), nullable=False)
 
     __mapper_args__: ClassVar[dict] = {
         "polymorphic_on": type,
@@ -79,7 +93,13 @@ class QuantumNode(Base):
     }
 
 
-class EncodeNode(QuantumNode):
+class EncodeValueNode(BaseNode):
+    """Special properties of EncodeValueNode.
+    
+    :param id: Foreign key to the id of the BaseNode (:class:`BaseNode`)
+    :param encoding: Type of encoding defined by :class:`EncodingType`
+    :param bounds: ??????????? 
+    """
     __tablename__ = "encode_nodes"
 
     id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
@@ -89,7 +109,13 @@ class EncodeNode(QuantumNode):
     __mapper_args__: ClassVar[dict[str, NodeType]] = {"polymorphic_identity": NodeType.ENCODE}
 
 
-class PrepareNode(QuantumNode):
+class PrepareStateNode(BaseNode):
+    """Special properties of PrepareStateNode
+    
+    :param id: Foreign key to the id of the BaseNode (:class:`BaseNode`)
+    :param size: Integer value for the size the implementation supports
+    :param quantum_state: Quantum state of the implementation defined by :class:`QuantumStateType`
+    """
     __tablename__ = "prepare_nodes"
 
     id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
@@ -99,7 +125,12 @@ class PrepareNode(QuantumNode):
     __mapper_args__: ClassVar[dict[str, NodeType]] = {"polymorphic_identity": NodeType.PREPARE}
 
 
-class OperatorNode(QuantumNode):
+class OperatorNode(BaseNode):
+    """Special properties of OperatorNode
+    
+    :param: id: Foreign key to the id of the BaseNode (:class:`BaseNode`)
+    :param: operator: Operator the implementation supports
+    """
     __tablename__ = "operator_nodes"
 
     id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
