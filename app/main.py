@@ -35,6 +35,7 @@ app.add_middleware(
 states: dict[UUID, StatusBody] = {}
 results: dict[UUID, str] = {}
 
+
 def get_enricher() -> Enricher:
     return Enricher(LiteralEnricherStrategy(), MeasurementEnricherStrategy())
 
