@@ -67,7 +67,7 @@ class InputType(enum.Enum):
 
 class BaseNode(Base):
     """Base class for all nodes.
-    
+
     :param id: ID and primary key of a node
     :param type: One of the types defined in :class:`NodeType`
     :param depth: Depth of the node implementation
@@ -95,45 +95,54 @@ class BaseNode(Base):
 
 class EncodeValueNode(BaseNode):
     """Special properties of EncodeValueNode.
-    
+
     :param id: Foreign key to the id of the BaseNode (:class:`BaseNode`)
     :param encoding: Type of encoding defined by :class:`EncodingType`
-    :param bounds: ??????????? 
+    :param bounds: ???????????
     """
+
     __tablename__ = "encode_nodes"
 
     id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
     encoding = Column(Enum(EncodingType), nullable=False)
     bounds = Column(Integer, nullable=False)
 
-    __mapper_args__: ClassVar[dict[str, NodeType]] = {"polymorphic_identity": NodeType.ENCODE}
+    __mapper_args__: ClassVar[dict[str, NodeType]] = {
+        "polymorphic_identity": NodeType.ENCODE
+    }
 
 
 class PrepareStateNode(BaseNode):
     """Special properties of PrepareStateNode
-    
+
     :param id: Foreign key to the id of the BaseNode (:class:`BaseNode`)
     :param size: Integer value for the size the implementation supports
     :param quantum_state: Quantum state of the implementation defined by :class:`QuantumStateType`
     """
+
     __tablename__ = "prepare_nodes"
 
     id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
     size = Column(Integer, nullable=False)
     quantum_state = Column(Enum(QuantumStateType), nullable=False)
 
-    __mapper_args__: ClassVar[dict[str, NodeType]] = {"polymorphic_identity": NodeType.PREPARE}
+    __mapper_args__: ClassVar[dict[str, NodeType]] = {
+        "polymorphic_identity": NodeType.PREPARE
+    }
 
 
 class OperatorNode(BaseNode):
     """Special properties of OperatorNode
-    
+
     :param: id: Foreign key to the id of the BaseNode (:class:`BaseNode`)
     :param: operator: Operator the implementation supports
     """
+
     __tablename__ = "operator_nodes"
 
     id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
     operator = Column(Enum(OperatorType), nullable=False)
 
-    __mapper_args__: ClassVar[dict[str, NodeType]] = {"polymorphic_identity": NodeType.OPERATOR}
+    __mapper_args__: ClassVar[dict[str, NodeType]] = {
+        "polymorphic_identity": NodeType.OPERATOR
+    }
