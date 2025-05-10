@@ -63,7 +63,7 @@ class OperatorEnricherStrategy(EnricherStrategy):
                             InputType.QubitType
                         ]
                     ),
-                    OperatorNode.operator == node.operator
+                    OperatorNodeTable.operator == node.operator
                 )
             )
         )
