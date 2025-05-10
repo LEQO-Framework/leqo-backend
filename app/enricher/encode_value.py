@@ -84,6 +84,7 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
         )
 
         result_data = session.execute(query).scalars().first()
+        session.close()
 
         if result_data is None:
             raise NodeUnsupportedException(node)
