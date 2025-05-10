@@ -26,7 +26,6 @@ from app.model.CompileRequest import (
 )
 
 
-# ToDo: bound and size are unclear
 class PrepareStateEnricherStrategy(EnricherStrategy):
     """
     Strategy capable of enriching :class:`~app.model.CompileRequest.PrepareStateNode` from a database.
