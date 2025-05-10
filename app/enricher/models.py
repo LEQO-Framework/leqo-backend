@@ -84,8 +84,8 @@ class BaseNode(Base):
     type = Column(Enum(NodeType), nullable=False)
     depth = Column(Integer, nullable=False)
     width = Column(Integer, nullable=False)
-    implementation = Column(Text)
-    uncompute_implementation = Column(Text)
+    implementation = Column(Text, nullable=False)
+    uncompute_implementation = Column(Text, nullable=True)
     inputs = Column(ARRAY(Enum(InputType)), nullable=False)
 
     __mapper_args__: ClassVar[dict] = {
