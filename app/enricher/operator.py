@@ -1,5 +1,5 @@
 """
-Provides enricher strategy for enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
+Provides enricher strategy for enriching :class:`~app.model.CompileRequest.OperatorNode` from a database.
 """
 
 from typing import override
@@ -16,61 +16,54 @@ from app.enricher import (
 )
 from app.enricher.engine import DatabaseEngine
 from app.enricher.models import BaseNode as BaseNodeTable
-from app.enricher.models import EncodeValueNode as EncodeNodeTable
 from app.enricher.models import InputType
+from app.enricher.models import OperatorNode as OperatorNodeTable
 from app.enricher.utils import implementation
-from app.model.CompileRequest import (
-    EncodeValueNode,
-)
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
-from app.model.data_types import LeqoSupportedClassicalType
+from app.model.CompileRequest import OperatorNode
+from app.model.data_types import QubitType
 
 
-# ToDo: bound and size are unclear
-class EncodeValueEnricherStrategy(EnricherStrategy):
+class OperatorEnricherStrategy(EnricherStrategy):
     """
-    Strategy capable of enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
+    Strategy capable of enriching :class:`~app.model.CompileRequest.OperatorNode` from a database.
     """
 
     @override
     def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> EnrichmentResult:
-        if not isinstance(node, EncodeValueNode):
+        if not isinstance(node, OperatorNode):
             raise NodeUnsupportedException(node)
 
-        if constraints is None or len(constraints.requested_inputs) != 1:
+        if constraints is None or len(constraints.requested_inputs) != 2:
             raise ConstraintValidationException(
-                "EncodeValue can only have a single input"
+                "OperatorNode can only have a two inputs"
             )
 
-        if not isinstance(constraints.requested_inputs[0], LeqoSupportedClassicalType):
+        if not isinstance(constraints.requested_inputs[0], QubitType):
             raise ConstraintValidationException(
-                "EncodeValue only supports classical types"
+                "OperatorNode only supports qubit types"
             )
 
         databaseEngine = DatabaseEngine()
         session = databaseEngine._get_database_session()
         query = (
-            select(EncodeNodeTable)
-            .join(BaseNodeTable, EncodeNodeTable.id == BaseNodeTable.id)
+            select(OperatorNodeTable)
+            .join(BaseNodeTable, OperatorNodeTable.id == BaseNodeTable.id)
             .where(
                 and_(
-                    BaseNodeTable.type == node.type,
-                    BaseNodeTable.depth <= constraints.optimizeDepth,
-                    BaseNodeTable.width <= constraints.optimizeWidth,
-                    BaseNodeTable.inputs.in_(
+                    OperatorNodeTable.type == node.type,
+                    OperatorNodeTable.depth <= constraints.optimizeDepth,
+                    OperatorNodeTable.width <= constraints.optimizeWidth,
+                    OperatorNodeTable.inputs.in_(
                         [
-                            InputType.IntType,
-                            InputType.FloatType,
-                            InputType.BoolType,
-                            InputType.BitType,
+                            InputType.QubitType
                         ]
                     ),
-                    EncodeNodeTable.encoding == node.encoding,
-                    EncodeNodeTable.bounds == node.bounds,
+                    OperatorNode.operator == node.operator
                 )
             )
         )

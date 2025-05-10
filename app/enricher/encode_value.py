@@ -60,10 +60,10 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
             .join(BaseNodeTable, EncodeNodeTable.id == BaseNodeTable.id)
             .where(
                 and_(
-                    BaseNodeTable.type == node.type,
-                    BaseNodeTable.depth <= constraints.optimizeDepth,
-                    BaseNodeTable.width <= constraints.optimizeWidth,
-                    BaseNodeTable.inputs.in_(
+                    EncodeNodeTable.type == node.type,
+                    EncodeNodeTable.depth <= constraints.optimizeDepth,
+                    EncodeNodeTable.width <= constraints.optimizeWidth,
+                    EncodeNodeTable.inputs.in_(
                         [
                             InputType.IntType,
                             InputType.FloatType,
