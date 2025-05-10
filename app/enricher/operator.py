@@ -41,16 +41,14 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
         if not isinstance(node, EncodeValueNode):
             raise NodeUnsupportedException(node)
 
-        if (
-            constraints is None or len(constraints.requested_inputs) != 1
-        ):  # How do Ancilla nodes count
+        if constraints is None or len(constraints.requested_inputs) != 1:
             raise ConstraintValidationException(
-                "EncodeValueNode can only have a single input"
+                "EncodeValue can only have a single input"
             )
 
         if not isinstance(constraints.requested_inputs[0], LeqoSupportedClassicalType):
             raise ConstraintValidationException(
-                "EncodeValueNode only supports classical types"
+                "EncodeValue only supports classical types"
             )
 
         databaseEngine = DatabaseEngine()

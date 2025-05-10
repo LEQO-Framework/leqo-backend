@@ -74,7 +74,8 @@ class BaseNode(Base):
     :param width: Width of the node implementation
     :param implementation: Implementation of the node
     :param uncompute_implementation: Uncompute implementation for the node
-    :param inputs: An array of input types defined by :class:`InputType` the implemetation supports
+    :param inputs: An array of input types defined by :class:`InputType` the implemetation supports.
+                   If there are no inputs this should be an empty array.
     """
 
     __tablename__ = "quantum_nodes"
