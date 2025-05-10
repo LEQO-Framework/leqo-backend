@@ -48,12 +48,24 @@ class PrepareStateNode(_BaseNode):
     quantumState: Literal["ϕ+", "ϕ-", "ψ+", "ψ-", "custom", "ghz", "uniform", "w"]
 
 
+class SplitterNode(_BaseNode):
+    type: Literal["splitter"] = "splitter"
+    number_of_outputs: int = Field(ge=2)
+
+
+class MergerNode(_BaseNode):
+    type: Literal["merger"] = "merger"
+    number_of_inputs: int = Field(ge=2)
+
+
 class MeasurementNode(_BaseNode):
     type: Literal["measure"] = "measure"
     indices: list[Annotated[int, Field(ge=0)]]
 
 
-BoundaryNode = EncodeValueNode | PrepareStateNode | MeasurementNode
+BoundaryNode = (
+    EncodeValueNode | PrepareStateNode | SplitterNode | MergerNode | MeasurementNode
+)
 # endregion
 
 
