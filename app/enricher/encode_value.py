@@ -12,6 +12,7 @@ from app.enricher import (
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
+    InputValidationException,
     NodeUnsupportedException,
 )
 from app.enricher.engine import DatabaseEngine
@@ -40,7 +41,12 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
     ) -> EnrichmentResult:
         if not isinstance(node, EncodeValueNode):
             raise NodeUnsupportedException(node)
-
+        
+        if node.encoding == 'custom' or node.bounds <= 0:
+            raise InputValidationException(
+                "Custom encoding or bounds below 1 are not supported"
+            )
+        
         if (
             constraints is None or len(constraints.requested_inputs) != 1
         ):  # How do Ancilla nodes count

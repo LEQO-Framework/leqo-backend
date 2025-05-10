@@ -47,52 +47,61 @@ async def reset_database() -> None:
     # reset the database
 
 @pytest.mark.asyncio
-async def test_enrich_amplitude_encode_value() -> None:
+async def test_enrich_phi_plus_prepare_state() -> None:
     # Enrich node implementation
     # assert the implementation
 
 @pytest.mark.asyncio
-async def test_enrich_angle_encode_value() -> None:
+async def test_enrich_phi_minus_prepare_state() -> None:
     # Enrich node implementation
     # assert the implementation
 
 @pytest.mark.asyncio
-async def test_enrich_matrix_encode_value() -> None:
+async def test_enrich_psi_plus_prepare_state() -> None:
     # Enrich node implementation
     # assert the implementation
 
 @pytest.mark.asyncio
-async def test_enrich_schmidt_encode_value() -> None:
+async def test_enrich_psi_minus_prepare_state() -> None:
     # Enrich node implementation
     # assert the implementation
 
 @pytest.mark.asyncio
-async def test_enrich_custom_encode_value() -> None:
+async def test_enrich_gzh_prepare_state() -> None:
+    # Enrich node implementation
+    # assert the implementation
+
+@pytest.mark.asyncio
+async def test_enrich_superposition_prepare_state() -> None:
+    # Enrich node implementation
+    # assert the implementation
+
+@pytest.mark.asyncio
+async def test_enrich_w_prepare_state() -> None:
+    # Enrich node implementation
+    # assert the implementation
+
+@pytest.mark.asyncio
+async def test_enrich_custom_prepare_state() -> None:
     # Enrich node implementation
     # assert exception InputValidationException
 
 @pytest.mark.asyncio
-async def test_enrich_encode_value_bound_zero() -> None:
+async def test_enrich_prepare_state_size_zero() -> None:
     # Enrich node implementation
     # assert exception InputValidationException
 
 @pytest.mark.asyncio
 async def test_enrich_unknown_node() -> None:
-    # Try enrich not EncodeValueNode implementation
+    # Try enrich non PrepareStateNode implementation
     # assert exception NodeUnsupportedException
 
 @pytest.mark.asyncio
-async def test_enrich_encode_value_two_inputs() -> None:
+async def test_enrich_prepare_state_one_inputs() -> None:
     # Enrich node implementation
     # assert exception ConstraintValidationException
 
 @pytest.mark.asyncio
-async def test_enrich_encode_value_quibit_input() -> None:
-    # Enrich node with quibit input
-    # assert exception ConstraintValidationException
-
-@pytest.mark.asyncio
-async def test_enrich_encode_value_node_not_in_db() -> None:
+async def test_enrich_prepare_state_node_not_in_db() -> None:
     # Enrich node without implemetation in db
     # assert exception NodeUnsupportedException
-

@@ -12,6 +12,7 @@ from app.enricher import (
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
+    InputValidationException,
     NodeUnsupportedException,
 )
 from app.enricher.engine import DatabaseEngine
@@ -37,6 +38,11 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
     ) -> EnrichmentResult:
         if not isinstance(node, PrepareStateNode):
             raise NodeUnsupportedException(node)
+        
+        if node.quantumState == 'custom' or node.size <= 0:
+            raise InputValidationException(
+                "Custom prepare state or size below 1 are not supported"
+            )
 
         if (
             constraints is None or len(constraints.requested_inputs) != 0

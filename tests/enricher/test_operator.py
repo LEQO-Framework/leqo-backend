@@ -47,52 +47,56 @@ async def reset_database() -> None:
     # reset the database
 
 @pytest.mark.asyncio
-async def test_enrich_amplitude_encode_value() -> None:
+async def test_enrich_plus_operator() -> None:
     # Enrich node implementation
     # assert the implementation
 
 @pytest.mark.asyncio
-async def test_enrich_angle_encode_value() -> None:
+async def test_enrich_multiplication_operator() -> None:
     # Enrich node implementation
     # assert the implementation
 
 @pytest.mark.asyncio
-async def test_enrich_matrix_encode_value() -> None:
+async def test_enrich_OR_operator() -> None:
     # Enrich node implementation
     # assert the implementation
 
 @pytest.mark.asyncio
-async def test_enrich_schmidt_encode_value() -> None:
+async def test_enrich_greater_operator() -> None:
     # Enrich node implementation
     # assert the implementation
 
 @pytest.mark.asyncio
-async def test_enrich_custom_encode_value() -> None:
+async def test_enrich_min_operator() -> None:
     # Enrich node implementation
-    # assert exception InputValidationException
+    # assert the implementation
 
 @pytest.mark.asyncio
-async def test_enrich_encode_value_bound_zero() -> None:
+async def test_enrich_search_operator() -> None:
     # Enrich node implementation
-    # assert exception InputValidationException
+    # assert the implementation
 
 @pytest.mark.asyncio
 async def test_enrich_unknown_node() -> None:
-    # Try enrich not EncodeValueNode implementation
+    # Try enrich non OperatorNode implementation
     # assert exception NodeUnsupportedException
 
 @pytest.mark.asyncio
-async def test_enrich_encode_value_two_inputs() -> None:
+async def test_enrich_operator_one_inputs() -> None:
     # Enrich node implementation
     # assert exception ConstraintValidationException
 
 @pytest.mark.asyncio
-async def test_enrich_encode_value_quibit_input() -> None:
-    # Enrich node with quibit input
+async def test_enrich_operator_three_inputs() -> None:
+    # Enrich node implementation
     # assert exception ConstraintValidationException
 
 @pytest.mark.asyncio
-async def test_enrich_encode_value_node_not_in_db() -> None:
+async def test_enrich_operator_classical_input() -> None:
+    # Enrich node with classical input
+    # assert exception ConstraintValidationException
+
+@pytest.mark.asyncio
+async def test_enrich_operator_node_not_in_db() -> None:
     # Enrich node without implemetation in db
     # assert exception NodeUnsupportedException
-
