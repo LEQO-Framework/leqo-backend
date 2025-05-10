@@ -147,7 +147,7 @@ def test_removed_uncompute() -> None:
         """,
         """
         @leqo.input 0
-        qubit c1_q0;
+        qubit[1] c1_q0;
         """,
     ]
     io_connections = [((0, 0), (1, 0))]
@@ -197,7 +197,7 @@ def test_keep_io_connections() -> None:
 def test_simple_find_best_sort() -> None:
     before = [
         """
-        qubit c0_q0;
+        qubit[1] c0_q0;
         qubit[5] c0_q1;
         @leqo.output 0
         let c0_out0 = c0_q0;
@@ -206,7 +206,7 @@ def test_simple_find_best_sort() -> None:
         """,
         """
         @leqo.input 0
-        qubit  c1_q0;
+        qubit[1]  c1_q0;
         @leqo.output 0
         let c1_out0 = c1_q0;
 
@@ -223,9 +223,9 @@ def test_simple_find_best_sort() -> None:
         """,
         """
         @leqo.input 0
-        qubit  c3_q0;
+        qubit[1]  c3_q0;
         @leqo.input 1
-        qubit  c3_q1;
+        qubit[1]  c3_q1;
         """,
     ]
     io_connections = [
@@ -265,8 +265,8 @@ def test_simple_find_best_sort() -> None:
 def test_simple_avoid_uncompute() -> None:
     before = [
         """
-        qubit c0_q0;
-        qubit c0_q1;
+        qubit[1] c0_q0;
+        qubit[1] c0_q1;
         @leqo.output 0
         let c0_out0 = c0_q0;
         @leqo.output 1
@@ -274,7 +274,7 @@ def test_simple_avoid_uncompute() -> None:
         """,
         """
         @leqo.input 0
-        qubit c1_q0;
+        qubit[1] c1_q0;
         @leqo.output 0
         let c1_out0 = c1_q0;
 
@@ -287,7 +287,7 @@ def test_simple_avoid_uncompute() -> None:
         """,
         """
         @leqo.input 0
-        qubit c2_q0;
+        qubit[1] c2_q0;
         @leqo.output 0
         let c2_out0 = c2_q0;
 
@@ -297,9 +297,9 @@ def test_simple_avoid_uncompute() -> None:
         """,
         """
         @leqo.input 0
-        qubit c3_q0;
+        qubit[1] c3_q0;
         @leqo.input 1
-        qubit c3_q1;
+        qubit[1] c3_q1;
         """,
     ]
     io_connections = [

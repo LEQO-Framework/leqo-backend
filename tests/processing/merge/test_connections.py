@@ -93,6 +93,25 @@ def test_no_connections() -> None:
     assert_connections(inputs, expected, connections)
 
 
+def test_keep_qubit_type() -> None:
+    inputs = [
+        """
+        qubit[3] q0;
+        qubit[1] q1;
+        qubit q2;
+        """,
+    ]
+    connections: list[tuple[tuple[int, int], tuple[int, int]]] = []
+    expected = [
+        """
+        let q0 = leqo_reg[{0, 1, 2}];
+        let q1 = leqo_reg[{3}];
+        let q2 = leqo_reg[4];
+        """,
+    ]
+    assert_connections(inputs, expected, connections)
+
+
 def test_single_connections() -> None:
     inputs = [
         """
@@ -379,7 +398,7 @@ def test_complex() -> None:
         """
         @leqo.input 0
         qubit[2] c1_q0;
-        qubit c1_q1;
+        qubit[1] c1_q1;
         @leqo.output 0
         let _out_c1_0 = c1_q0[0] ++ c1_q1;
         """,
@@ -390,7 +409,7 @@ def test_complex() -> None:
         qubit[2] c2_q1;
         @leqo.input 2
         int c2_i0;
-        qubit c2_q2;
+        qubit[1] c2_q2;
         """,
     ]
     io_connections = [

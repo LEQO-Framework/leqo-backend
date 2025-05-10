@@ -84,15 +84,27 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         name = node.qubit.name
         ids = self.qubit_info.declaration_to_ids[name]
         reg_indexes = [self.qubit_to_index[self.id_to_qubit(id)] for id in ids]
-        result = AliasStatement(
-            Identifier(name),
-            # ignore type cause of bug in openqasm3.ast:
-            # IndexExpression is allowed as value in AliasStatement
-            IndexExpression(  # type: ignore
-                Identifier(self.global_reg_name),
-                DiscreteSet([IntegerLiteral(index) for index in reg_indexes]),
-            ),
-        )
+        # the 'type: ignore' is because of a bug in the openqasm3 module:
+        # IndexExpression is allowed as value in AliasStatement (as can be seen by parsed input)
+        if node.size is None:
+            if len(reg_indexes) != 1:
+                msg = f"Critical Internal Error: Expected exactly one qubit index for {node.qubit.name} found {reg_indexes}"
+                raise RuntimeError(msg)
+            result = AliasStatement(
+                Identifier(name),
+                IndexExpression(  # type: ignore
+                    Identifier(self.global_reg_name),
+                    [IntegerLiteral(reg_indexes[0])],
+                ),
+            )
+        else:
+            result = AliasStatement(
+                Identifier(name),
+                IndexExpression(  # type: ignore
+                    Identifier(self.global_reg_name),
+                    DiscreteSet([IntegerLiteral(index) for index in reg_indexes]),
+                ),
+            )
         result.annotations = node.annotations
         return result
 
