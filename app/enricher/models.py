@@ -20,7 +20,6 @@ class EncodingType(enum.Enum):
     AMPLITUDE = "amplitude"
     ANGLE = "angle"
     BASIS = "basis"
-    CUSTOM = "custom"
     MATRIX = "matrix"
     SCHMIDT = "schmidt"
 
@@ -30,7 +29,6 @@ class QuantumStateType(enum.Enum):
     PHI_MINUS = "ϕ-"
     PSI_PLUS = "ψ+"
     PSI_MINUS = "ψ-"
-    CUSTOM = "custom"
     GHZ = "ghz"
     UNIFORM = "uniform"
     W = "w"
