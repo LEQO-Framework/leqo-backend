@@ -11,7 +11,8 @@ dependencies = [
     "psycopg>=3.2.6",
     "psycopg-binary>=3.2.6",
     "python-dotenv>=1.0.1",
-    "sqlalchemy[mypy]>=2.0.38"
+    "sqlalchemy[mypy]>=2.0.38",
+    "testcontainers[postgres]>=4.10.0",
 ]
 
 [dependency-groups]

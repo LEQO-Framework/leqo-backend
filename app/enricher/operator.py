@@ -38,7 +38,7 @@ class OperatorEnricherStrategy(EnricherStrategy):
         if not isinstance(node, OperatorNode):
             raise NodeUnsupportedException(node)
 
-        if constraints is None or len(constraints.requested_inputs) != 2:
+        if constraints is None or len(constraints.requested_inputs) != 2:  # noqa: PLR2004
             raise ConstraintValidationException(
                 "OperatorNode can only have a two inputs"
             )
@@ -58,12 +58,8 @@ class OperatorEnricherStrategy(EnricherStrategy):
                     OperatorNodeTable.type == node.type,
                     OperatorNodeTable.depth <= constraints.optimizeDepth,
                     OperatorNodeTable.width <= constraints.optimizeWidth,
-                    OperatorNodeTable.inputs.in_(
-                        [
-                            InputType.QubitType
-                        ]
-                    ),
-                    OperatorNodeTable.operator == node.operator
+                    OperatorNodeTable.inputs.in_([InputType.QubitType]),
+                    OperatorNodeTable.operator == node.operator,
                 )
             )
         )

@@ -19,9 +19,9 @@ from app.enricher.engine import DatabaseEngine
 from app.enricher.models import BaseNode as BaseNodeTable
 from app.enricher.models import EncodeValueNode as EncodeNodeTable
 from app.enricher.models import InputType
-from app.enricher.utils import implementation
 from app.model.CompileRequest import (
     EncodeValueNode,
+    ImplementationNode,
 )
 from app.model.CompileRequest import (
     Node as FrontendNode,
@@ -41,15 +41,15 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
     ) -> EnrichmentResult:
         if not isinstance(node, EncodeValueNode):
             raise NodeUnsupportedException(node)
-        
-        if node.encoding == 'custom' or node.bounds <= 0:
+
+        if node.encoding == "custom" or node.bounds <= 0:
             raise InputValidationException(
                 "Custom encoding or bounds below 1 are not supported"
             )
-        
+
         if (
             constraints is None or len(constraints.requested_inputs) != 1
-        ):  # How do Ancilla nodes count
+        ):
             raise ConstraintValidationException(
                 "EncodeValueNode can only have a single input"
             )
@@ -67,8 +67,6 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
             .where(
                 and_(
                     EncodeNodeTable.type == node.type,
-                    EncodeNodeTable.depth <= constraints.optimizeDepth,
-                    EncodeNodeTable.width <= constraints.optimizeWidth,
                     EncodeNodeTable.inputs.in_(
                         [
                             InputType.IntType,
@@ -82,6 +80,7 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
                 )
             )
         )
+        # give back all impl with different width an depth (multiple enrichmentResults)
 
         result_data = session.execute(query).scalars().first()
         session.close()
@@ -90,11 +89,9 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
             raise NodeUnsupportedException(node)
 
         return EnrichmentResult(
-            implementation(
-                node,
-                [
-                    # convert implementation into program ????
-                ],
+            ImplementationNode(
+                id=node.id,
+                implementation=result_data.implementation
             ),
             ImplementationMetaData(width=result_data.width, depth=result_data.depth),
         )

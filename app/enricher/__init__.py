@@ -29,7 +29,7 @@ class Constraints:
     """
     Constraints to follow during enrichment.
     """
-
+    # int is the index which the implementation uses, e.g. first Qubit then Int
     requested_inputs: dict[int, LeqoSupportedType]
     optimizeWidth: bool
     optimizeDepth: bool

@@ -54,7 +54,7 @@ class OperatorType(enum.Enum):
     MAX = "max"
     SEARCH = "search"
 
-
+# sizes has to be added (reference data_types)
 class InputType(enum.Enum):
     IntType = "IntType"
     FloatType = "FloatType"
@@ -71,7 +71,6 @@ class BaseNode(Base):
     :param depth: Depth of the node implementation
     :param width: Width of the node implementation
     :param implementation: Implementation of the node
-    :param uncompute_implementation: Uncompute implementation for the node
     :param inputs: An array of input types defined by :class:`InputType` the implemetation supports.
                    If there are no inputs this should be an empty array.
     """
@@ -83,7 +82,6 @@ class BaseNode(Base):
     depth = Column(Integer, nullable=False)
     width = Column(Integer, nullable=False)
     implementation = Column(Text, nullable=False)
-    uncompute_implementation = Column(Text, nullable=True)
     inputs = Column(ARRAY(Enum(InputType)), nullable=False)
 
     __mapper_args__: ClassVar[dict] = {
