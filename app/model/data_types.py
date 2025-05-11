@@ -18,6 +18,10 @@ class QubitType:
 
     reg_size: int
 
+    @property
+    def bit_size(self) -> int:
+        return self.reg_size
+
 
 @dataclass(frozen=True)
 class ClassicalType:
