@@ -38,15 +38,15 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
     ) -> EnrichmentResult:
         if not isinstance(node, PrepareStateNode):
             raise NodeUnsupportedException(node)
-        
-        if node.quantumState == 'custom' or node.size <= 0:
+
+        if node.quantumState == "custom" or node.size <= 0:
             raise InputValidationException(
                 "Custom prepare state or size below 1 are not supported"
             )
 
         if (
             constraints is None or len(constraints.requested_inputs) != 0
-        ):  # How do Ancilla nodes count?????
+        ):
             raise ConstraintValidationException("PrepareStateNode can't have an input")
 
         databaseEngine = DatabaseEngine()
