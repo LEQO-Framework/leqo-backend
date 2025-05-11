@@ -25,6 +25,24 @@ from openqasm3.ast import (
     QubitDeclaration,
 )
 
+from app.model.data_types import (
+    DEFAULT_BIT_SIZE,
+    DEFAULT_FLOAT_SIZE,
+    DEFAULT_INT_SIZE,
+    LeqoSupportedType,
+)
+from app.model.data_types import (
+    BitType as LeqoBitType,
+)
+from app.model.data_types import (
+    BoolType as LeqoBoolType,
+)
+from app.model.data_types import (
+    FloatType as LeqoFloatType,
+)
+from app.model.data_types import (
+    IntType as LeqoIntType,
+)
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     ClassicalIOInstance,
@@ -33,11 +51,7 @@ from app.processing.graph import (
     QubitIOInstance,
 )
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
-
-DEFAULT_BIT_SIZE = 32
-DEFAULT_INT_SIZE = 32
-DEFAULT_FLOAT_SIZE = 32
-BOOL_SIZE = 1
+from app.utils import not_none_or, opt_call
 
 
 class ParseAnnotationsVisitor(LeqoTransformer[None]):
@@ -164,7 +178,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         name: str,
         value: Identifier | IndexExpression | Concatenation | Expression,
     ) -> QubitIOInstance | ClassicalIOInstance | None:
-        """Recursivly get new (Qubit/Classical)IOInstance from alias expression.
+        """Recursively get new (Qubit/Classical)IOInstance from alias expression.
 
         :param name: New name to use in the info.
         :param value: The alias expression to parse.
@@ -183,12 +197,15 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                         indices = parse_qasm_index([value.index], len(qubit_ids))
                         return QubitIOInstance(name, [source.ids[i] for i in indices])
                     case ClassicalIOInstance():
-                        if source.type == BitType:
+                        if isinstance(source.type, LeqoBitType):
                             return ClassicalIOInstance(
                                 name,
-                                BitType,
-                                len(
-                                    parse_qasm_index([value.index], source.size),
+                                LeqoBitType(
+                                    len(
+                                        parse_qasm_index(
+                                            [value.index], source.type.bit_size
+                                        ),
+                                    )
                                 ),
                             )
                         msg = f"Unsupported: Can't handle indexed {source.type}"
@@ -205,11 +222,11 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                     case QubitIOInstance(ids=li), QubitIOInstance(ids=ri):
                         return QubitIOInstance(name, li + ri)
                     case ClassicalIOInstance(), ClassicalIOInstance():
-                        if lhs.type == rhs.type == BitType:
+                        if isinstance(lhs.type, LeqoBitType) and isinstance(
+                            rhs.type, LeqoBitType
+                        ):
                             return ClassicalIOInstance(
-                                name,
-                                BitType,
-                                lhs.size + rhs.size,
+                                name, LeqoBitType(lhs.type.bit_size + rhs.type.bit_size)
                             )
                         msg = f"Unsupported: Can't handle concatenation of non-bit types: {lhs.type} {rhs.type}"
                         raise UnsupportedOperation(msg)
@@ -245,7 +262,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
         return self.generic_visit(node)
 
-    def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:  # noqa: PLR0912
+    def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
         """Parse classical-declarations and their corresponding input annotations."""
         name = node.identifier.name
         input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
@@ -254,28 +271,28 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             msg = f"""Unsupported: dirty annotation over classical {name}"""
             raise UnsupportedOperation(msg)
 
+        leqo_type: LeqoSupportedType
         match node.type:
             case BitType():
-                if node.type.size is None:
-                    size = DEFAULT_BIT_SIZE
-                else:
-                    size = expr_to_int(node.type.size)
+                leqo_type = LeqoBitType(
+                    not_none_or(opt_call(expr_to_int, node.type.size), DEFAULT_BIT_SIZE)
+                )
             case IntType():
-                if node.type.size is None:
-                    size = DEFAULT_INT_SIZE
-                else:
-                    size = expr_to_int(node.type.size)
+                leqo_type = LeqoIntType(
+                    not_none_or(opt_call(expr_to_int, node.type.size), DEFAULT_INT_SIZE)
+                )
             case FloatType():
-                if node.type.size is None:
-                    size = DEFAULT_FLOAT_SIZE
-                else:
-                    size = expr_to_int(node.type.size)
+                leqo_type = LeqoFloatType(
+                    not_none_or(
+                        opt_call(expr_to_int, node.type.size), DEFAULT_FLOAT_SIZE
+                    )
+                )
             case BoolType():
-                size = BOOL_SIZE
+                leqo_type = LeqoBoolType()
             case _:
                 return self.generic_visit(node)
 
-        info = ClassicalIOInstance(name, type(node.type), size)
+        info = ClassicalIOInstance(name, leqo_type)
         self.__name_to_info[name] = info
         if input_id is not None:
             if input_id in self.__found_input_ids:

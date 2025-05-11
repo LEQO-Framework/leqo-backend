@@ -22,3 +22,48 @@ def opt_call(func: Callable[[TParam], TReturn], arg: TParam | None) -> TReturn |
         return None
 
     return func(arg)
+
+
+T = TypeVar("T")
+
+
+def not_none(value: T | None, error_msg: str) -> T:
+    """
+    Returns value if not none or raises exception.
+
+    :param value: Value to check.
+    :param error_msg: Message to throw.
+    :return: The none-none value.
+    """
+
+    if value is None:
+        raise Exception(error_msg)
+
+    return value
+
+
+def not_none_or(value: T | None, default_value: T) -> T:
+    """
+    Nullish coalescence - `??` operator.
+    Returns `value` if not `None`.
+    Else, returns `default_value`.
+    """
+
+    if value is None:
+        return default_value
+
+    return value
+
+
+def duplicates(list: list[T]) -> set[T]:
+    """
+    Returns set of duplicate items.
+    """
+    seen = set()
+    result = set()
+    for item in list:
+        if item in seen:
+            result.add(item)
+        else:
+            seen.add(item)
+    return result

@@ -2,23 +2,33 @@
 
 from copy import deepcopy
 
-from openqasm3.ast import BooleanLiteral, BranchingStatement, QASMNode
+from openqasm3.ast import BranchingStatement, QASMNode, Statement
 
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import ProgramGraph
 from app.processing.optimize.algos import NoPredCheckNeedDiffScore
 
 
-class EnableUncomputeTransformer(LeqoTransformer[None]):
-    def visit_BranchingStatement(self, node: BranchingStatement) -> QASMNode:
+class ApplyUncomputeTransformer(LeqoTransformer[None]):
+    enable: bool
+
+    def __init__(self, enable: bool) -> None:
+        super().__init__()
+        self.enable = enable
+
+    def visit_BranchingStatement(
+        self,
+        node: BranchingStatement,
+    ) -> QASMNode | None | list[Statement]:
         uncompute_block = False
         for annotation in node.annotations:
             if annotation.keyword.startswith("leqo.uncompute"):
                 uncompute_block = True
         if not uncompute_block:
             return node
-        node.condition = BooleanLiteral(True)
-        return node
+        if not self.enable:
+            return None
+        return node.if_block
 
 
 def optimize(graph: ProgramGraph) -> None:
@@ -31,7 +41,7 @@ def optimize(graph: ProgramGraph) -> None:
         graph.append_edge(edge)
 
     for raw_node in graph.nodes:
-        if not uncomputes[raw_node]:
-            continue
         node = graph.get_data_node(raw_node)
-        node.implementation = EnableUncomputeTransformer().visit(node.implementation)
+        node.implementation = ApplyUncomputeTransformer(uncomputes[raw_node]).visit(
+            node.implementation,
+        )
