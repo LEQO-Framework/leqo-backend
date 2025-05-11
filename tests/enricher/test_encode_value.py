@@ -1,28 +1,21 @@
-import asyncio
-from typing import override
-
 import pytest
 
 from app.enricher import (
     Constraints,
     ConstraintValidationException,
-    EnricherStrategy,
-    EnrichmentResult,
-    ImplementationMetaData,
     InputValidationException,
     NodeUnsupportedException,
 )
 from app.enricher.encode_value import EncodeValueEnricherStrategy
 from app.enricher.engine import DatabaseEngine
-from app.enricher.models import EncodeValueNode, EncodingType, InputType, NodeType
-from app.model.CompileRequest import (
-    BitLiteralNode,
-    ImplementationNode,
+from app.enricher.models import (
+    EncodeValueNode,
+    EncodingType,
+    InputType,
+    InputTypeWithSize,
+    NodeType,
 )
 from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
-from app.model.CompileRequest import (
-    Node as FrontendNode,
-)
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
 from app.model.data_types import FloatType, IntType, QubitType
 
@@ -37,7 +30,7 @@ async def initialise_database() -> None:
         depth=1,
         width=1,
         implementation="amplitude_impl",
-        inputs=[InputType.FloatType],
+        inputs=[InputTypeWithSize(InputType.FloatType, 32)],
         encoding=EncodingType.AMPLITUDE,
         bounds=2,
     )
@@ -46,7 +39,7 @@ async def initialise_database() -> None:
         depth=2,
         width=2,
         implementation="angle_impl",
-        inputs=[InputType.FloatType],
+        inputs=[InputTypeWithSize(InputType.FloatType, 32)],
         encoding=EncodingType.ANGLE,
         bounds=4,
     )
@@ -55,7 +48,7 @@ async def initialise_database() -> None:
         depth=3,
         width=3,
         implementation="matrix_impl",
-        inputs=[InputType.BitType],
+        inputs=[InputTypeWithSize(InputType.BitType, 32)],
         encoding=EncodingType.MATRIX,
         bounds=6,
     )
@@ -64,7 +57,7 @@ async def initialise_database() -> None:
         depth=4,
         width=4,
         implementation="schimdt_impl",
-        inputs=[InputType.BoolType],
+        inputs=[InputTypeWithSize(InputType.BoolType, None)],
         encoding=EncodingType.SCHMIDT,
         bounds=8,
     )
