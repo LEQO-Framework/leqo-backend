@@ -263,7 +263,9 @@ A qubit annotated with ``@leqo.reusable`` within such a block is referred to as 
 * A ``@leqo.uncompute`` if-block must declare the uncomputed ancillae as reusable qubits by using the corresponding ``@leqo.reusable`` annotation
 
 .. warning::
-    Qubits previously annotated with ``@leqo.dirty`` must not be uncomputed
+    Qubits previously annotated with ``@leqo.dirty`` must not be uncomputed.
+    This constraint is not enforced by the backend; it is the user's responsibility to ensure compliance.
+    Violating this rule may lead to undefined behavior or incorrect program semantics.
 
 
 .. code-block:: openqasm3
