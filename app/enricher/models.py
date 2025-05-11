@@ -62,6 +62,10 @@ class InputType(enum.Enum):
     BoolType = "BoolType"
     QubitType = "QubitType"
 
+class InputTypeWithSize(InputType):
+    type: InputType
+    size: int | None = None
+
 
 class BaseNode(Base):
     """Base class for all nodes.
