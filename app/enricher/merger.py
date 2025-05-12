@@ -73,8 +73,8 @@ class MergerEnricherStrategy(EnricherStrategy):
                 "Merger must produce a non-empty register."
             )
 
-        stmts.append(leqo_output(f"leqo_{node.id}_output", 0, concatenation))
+        stmts.append(leqo_output(f"leqo_{node.id}_output", 0, concatenation))  # type: ignore[arg-type]
 
-        enriched_node = implementation(node, stmts)
+        enriched_node = implementation(node, stmts)  # type: ignore[arg-type]
         metadata = ImplementationMetaData(width=out_size, depth=0)
         return EnrichmentResult(enriched_node=enriched_node, meta_data=metadata)

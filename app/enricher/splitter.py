@@ -60,15 +60,15 @@ class SplitterEnricherStrategy(EnricherStrategy):
         stmts.append(leqo_input(identifier, 0, reg_size))
         for index in range(reg_size):
             stmts.append(
-                leqo_output(
+                leqo_output(  # type: ignore[arg-type]
                     f"leqo_{node.id}_output_q{index}",
                     index,
-                    IndexExpression(
+                    IndexExpression(  # type: ignore[arg-type]
                         Identifier(identifier), DiscreteSet([IntegerLiteral(index)])
                     ),
                 )
             )
 
-        enriched_node = implementation(node, stmts)
+        enriched_node = implementation(node, stmts)  # type: ignore[arg-type]
         metadata = ImplementationMetaData(width=reg_size, depth=0)
         return EnrichmentResult(enriched_node=enriched_node, meta_data=metadata)
