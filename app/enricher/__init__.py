@@ -28,8 +28,12 @@ from app.utils import not_none_or
 class Constraints:
     """
     Constraints to follow during enrichment.
+    
+    :param requested_inputs: Dictionary where the key is the input index and value the type of the node.
+    :param optimizeWidth: If the width of the implementation should be optimized.
+    :param optimizeDepth: If the depth of the implementation should be optimized. 
     """
-    # int is the index which the implementation uses, e.g. first Qubit then Int
+    
     requested_inputs: dict[int, LeqoSupportedType]
     optimizeWidth: bool
     optimizeDepth: bool

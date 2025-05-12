@@ -12,7 +12,6 @@ from app.enricher.models import (
     EncodeValueNode,
     EncodingType,
     InputType,
-    InputTypeWithSize,
     NodeType,
 )
 from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
@@ -30,7 +29,7 @@ async def initialise_database() -> None:
         depth=1,
         width=1,
         implementation="amplitude_impl",
-        inputs=[InputTypeWithSize(InputType.FloatType, 32)],
+        inputs=[{"type": InputType.FloatType.value, "size": 32}],
         encoding=EncodingType.AMPLITUDE,
         bounds=2,
     )
@@ -39,7 +38,7 @@ async def initialise_database() -> None:
         depth=2,
         width=2,
         implementation="angle_impl",
-        inputs=[InputTypeWithSize(InputType.FloatType, 32)],
+        inputs=[{"type": InputType.FloatType.value, "size": 32}],
         encoding=EncodingType.ANGLE,
         bounds=4,
     )
@@ -48,7 +47,7 @@ async def initialise_database() -> None:
         depth=3,
         width=3,
         implementation="matrix_impl",
-        inputs=[InputTypeWithSize(InputType.BitType, 32)],
+        inputs=[{"type": InputType.BitType.value, "size": 32}],
         encoding=EncodingType.MATRIX,
         bounds=6,
     )
@@ -57,7 +56,7 @@ async def initialise_database() -> None:
         depth=4,
         width=4,
         implementation="schimdt_impl",
-        inputs=[InputTypeWithSize(InputType.BoolType, None)],
+        inputs=[{"type": InputType.BoolType.value, "size": None}],
         encoding=EncodingType.SCHMIDT,
         bounds=8,
     )

@@ -4,7 +4,7 @@ import enum
 from typing import ClassVar
 
 from sqlalchemy import Column, Enum, ForeignKey, Integer, Text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -54,17 +54,12 @@ class OperatorType(enum.Enum):
     MAX = "max"
     SEARCH = "search"
 
-# sizes has to be added (reference data_types)
 class InputType(enum.Enum):
     IntType = "IntType"
     FloatType = "FloatType"
     BitType = "BitType"
     BoolType = "BoolType"
     QubitType = "QubitType"
-
-class InputTypeWithSize(InputType):
-    type: InputType
-    size: int | None = None
 
 
 class BaseNode(Base):
@@ -75,7 +70,14 @@ class BaseNode(Base):
     :param depth: Depth of the node implementation
     :param width: Width of the node implementation
     :param implementation: Implementation of the node
-    :param inputs: An array of input types defined by :class:`InputType` the implemetation supports.
+    :param inputs: An array JSON object of the following form:
+                   [
+                       {
+                           index: int,
+                           type: `class:InputType`,
+                           size: int | None
+                       }    
+                   ]
                    If there are no inputs this should be an empty array.
     """
 
@@ -86,7 +88,7 @@ class BaseNode(Base):
     depth = Column(Integer, nullable=False)
     width = Column(Integer, nullable=False)
     implementation = Column(Text, nullable=False)
-    inputs = Column(ARRAY(Enum(InputType)), nullable=False)
+    inputs = Column(JSON, nullable=False)
 
     __mapper_args__: ClassVar[dict] = {
         "polymorphic_on": type,
