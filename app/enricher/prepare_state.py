@@ -20,6 +20,7 @@ from app.enricher.models import BaseNode as BaseNodeTable
 from app.enricher.models import PrepareStateNode as PrepareStateTable
 from app.enricher.utils import implementation
 from app.model.CompileRequest import (
+    ImplementationNode,
     Node as FrontendNode,
 )
 from app.model.CompileRequest import (
@@ -66,18 +67,22 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
             )
         )
 
-        result_data = session.execute(query).scalars().first()
+        result_nodes = session.execute(query).scalars().all()
         session.close()
 
-        if result_data is None:
+        if not result_nodes:
             raise NodeUnsupportedException(node)
 
-        return EnrichmentResult(
-            implementation(
-                node,
-                [
-                    # convert implementation into program ????
-                ],
-            ),
-            ImplementationMetaData(width=result_data.width, depth=result_data.depth),
-        )
+        enrichment_results = []
+        for node in result_nodes:
+            enrichment_results.append(
+                EnrichmentResult(
+                    ImplementationNode(
+                        id=node.id,
+                        implementation=node.implementation
+                    ),
+                    ImplementationMetaData(width=node.width, depth=node.depth),
+                )
+            )
+            
+        return enrichment_results
