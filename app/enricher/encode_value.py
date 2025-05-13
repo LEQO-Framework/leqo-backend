@@ -16,9 +16,8 @@ from app.enricher import (
     NodeUnsupportedException,
 )
 from app.enricher.engine import DatabaseEngine
-from app.enricher.models import BaseNode as BaseNodeTable
 from app.enricher.models import EncodeValueNode as EncodeNodeTable
-from app.enricher.models import InputType
+from app.enricher.models import EncodingType, InputType, NodeType
 from app.model.CompileRequest import (
     EncodeValueNode,
     ImplementationNode,
@@ -26,37 +25,37 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
-from app.model.data_types import LeqoSupportedClassicalType
+from app.model.data_types import LeqoSupportedClassicalType, LeqoSupportedType
 
 
-# ToDo: bound and size are unclear
 class EncodeValueEnricherStrategy(EnricherStrategy):
     """
     Strategy capable of enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
     """
     
-    def _convert_requested_inputs_to_json(self, requested_inputs: dict[int, LeqoSupportedClassicalType]) -> list[dict[str, int | str | None]]:
+    def _convert_requested_inputs_to_json(self, requested_inputs: dict[int, LeqoSupportedType]) -> list[dict[str, object]]:
         """
         Converts the requested inputs to the required JSON object.
         """
         inputsTransformedToJSON = []
+        size: int | None = None
         for index, input in requested_inputs.items():
-            match input.__name__:
+            match type(input).__name__:
                 case "IntType":
                     input_type = InputType.IntType.value
-                    size = input.bit_size
+                    size = getattr(input, "bit_size", None)
                 case "FloatType":
                     input_type = InputType.FloatType.value
-                    size = input.bit_size
+                    size = getattr(input, "bit_size", None)
                 case "BitType":
                     input_type = InputType.BitType.value
-                    size = input.bit_size
+                    size = getattr(input, "bit_size", None)
                 case "BoolType":
                     input_type = InputType.BoolType.value
                     size = None
                 case "QubitType":
                     input_type = InputType.QubitType.value
-                    size = input.reg_size
+                    size = getattr(input, "reg_size", None)
                 case _:
                     raise ConstraintValidationException(f"Unsupported input type: {input}")
 
@@ -98,12 +97,11 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
         session = databaseEngine._get_database_session()
         query = (
             select(EncodeNodeTable)
-            .join(BaseNodeTable, EncodeNodeTable.id == BaseNodeTable.id)
             .where(
                 and_(
-                    EncodeNodeTable.type == node.type,
+                    EncodeNodeTable.type == NodeType(node.type),
                     EncodeNodeTable.inputs == inputsTransformedToJSON,
-                    EncodeNodeTable.encoding == node.encoding,
+                    EncodeNodeTable.encoding == EncodingType(node.encoding),
                     EncodeNodeTable.bounds == node.bounds,
                 )
             )
@@ -113,17 +111,21 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
         session.close()
 
         if not result_nodes:
-            raise NodeUnsupportedException(node)
+            print(result_nodes)
+            raise RuntimeError("No results found in the database for the given query")
 
         enrichment_results = []
-        for node in result_nodes:
+        for result_node in result_nodes:
+            if result_node.implementation is None:
+                raise NodeUnsupportedException(node)
+            
             enrichment_results.append(
                 EnrichmentResult(
                     ImplementationNode(
                         id=node.id,
-                        implementation=node.implementation
+                        implementation=result_node.implementation
                     ),
-                    ImplementationMetaData(width=node.width, depth=node.depth),
+                    ImplementationMetaData(width=result_node.width, depth=result_node.depth),
                 )
             )
             

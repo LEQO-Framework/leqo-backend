@@ -4,8 +4,8 @@ import enum
 from typing import ClassVar
 
 from sqlalchemy import Column, Enum, ForeignKey, Integer, Text
-from sqlalchemy.dialects.postgresql import JSON
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
 
@@ -88,7 +88,7 @@ class BaseNode(Base):
     depth = Column(Integer, nullable=False)
     width = Column(Integer, nullable=False)
     implementation = Column(Text, nullable=False)
-    inputs = Column(JSON, nullable=False)
+    inputs = Column(JSONB, nullable=False)
 
     __mapper_args__: ClassVar[dict] = {
         "polymorphic_on": type,
