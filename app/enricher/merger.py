@@ -1,3 +1,7 @@
+"""
+Provides enricher strategy for enriching :class:`~app.model.CompileRequest.MergerNode`.
+"""
+
 from typing import override
 
 from openqasm3.ast import (
