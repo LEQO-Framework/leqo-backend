@@ -39,12 +39,11 @@ class ImplementationNode(_BaseNode):
 class EncodeValueNode(_BaseNode):
     type: Literal["encode"] = "encode"
     encoding: Literal["amplitude", "angle", "basis", "custom", "matrix", "schmidt"]
-    bounds: int = Field(ge=1)
+    bounds: int = Field(ge=0)
 
 
 class PrepareStateNode(_BaseNode):
     type: Literal["prepare"] = "prepare"
-    size: int = Field(ge=1)
     quantumState: Literal["ϕ+", "ϕ-", "ψ+", "ψ-", "custom", "ghz", "uniform", "w"]
 
 
@@ -146,7 +145,6 @@ class OperatorNode(_BaseNode):
         "!=",
         "min",
         "max",
-        "search",
     ]
 
 
@@ -170,7 +168,6 @@ class _EdgeBase(BaseModel):
 
 class QubitEdge(_EdgeBase):
     type: Literal["qubit"]
-    size: int = Field(1, ge=1)
 
 
 class ClassicalEdge(_EdgeBase):
@@ -179,7 +176,6 @@ class ClassicalEdge(_EdgeBase):
 
 class AncillaEdge(_EdgeBase):
     type: Literal["ancilla"]
-    size: int = Field(1, ge=1)
 
 
 Edge = QubitEdge | ClassicalEdge | AncillaEdge
