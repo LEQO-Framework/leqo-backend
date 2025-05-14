@@ -41,11 +41,11 @@ async def test_merger_normal_cases() -> None:
         """\
         OPENQASM 3.1;
         @leqo.input 0
-        qubit[1] leqo_nodeId_input_q0;
+        qubit[1] merger_input_0;
         @leqo.input 1
-        qubit[1] leqo_nodeId_input_q1;
+        qubit[1] merger_input_1;
         @leqo.output 0
-        let leqo_nodeId_output = leqo_nodeId_input_q0 ++ leqo_nodeId_input_q1;
+        let merger_output = merger_input_0 ++ merger_input_1;
         """,
     )
 
@@ -64,11 +64,11 @@ async def test_merger_normal_cases() -> None:
         """\
         OPENQASM 3.1;
         @leqo.input 0
-        qubit[2] leqo_nodeId_input_q0;
+        qubit[2] merger_input_0;
         @leqo.input 1
-        qubit[3] leqo_nodeId_input_q1;
+        qubit[3] merger_input_1;
         @leqo.output 0
-        let leqo_nodeId_output = leqo_nodeId_input_q0 ++ leqo_nodeId_input_q1;
+        let merger_output = merger_input_0 ++ merger_input_1;
         """,
     )
 
@@ -91,13 +91,13 @@ async def test_merger_normal_cases() -> None:
         """\
         OPENQASM 3.1;
         @leqo.input 0
-        qubit[1] leqo_nodeId_input_q0;
+        qubit[1] merger_input_0;
         @leqo.input 1
-        qubit[2] leqo_nodeId_input_q1;
+        qubit[2] merger_input_1;
         @leqo.input 2
-        qubit[3] leqo_nodeId_input_q2;
+        qubit[3] merger_input_2;
         @leqo.output 0
-        let leqo_nodeId_output = leqo_nodeId_input_q0 ++ leqo_nodeId_input_q1 ++ leqo_nodeId_input_q2;
+        let merger_output = merger_input_0 ++ merger_input_1 ++ merger_input_2;
         """,
     )
 

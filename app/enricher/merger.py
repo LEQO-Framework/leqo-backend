@@ -64,7 +64,7 @@ class MergerEnricherStrategy(EnricherStrategy):
 
             out_size += reg_size
 
-            identifier = f"leqo_{node.id}_input_q{index}"
+            identifier = f"merger_input_{index}"
             stmts.append(leqo_input(identifier, index, reg_size))
 
             if concatenation is None:
@@ -77,7 +77,7 @@ class MergerEnricherStrategy(EnricherStrategy):
                 "Merger must produce a non-empty register."
             )
 
-        stmts.append(leqo_output(f"leqo_{node.id}_output", 0, concatenation))  # type: ignore[arg-type]
+        stmts.append(leqo_output("merger_output", 0, concatenation))  # type: ignore[arg-type]
 
         enriched_node = implementation(node, stmts)  # type: ignore[arg-type]
         metadata = ImplementationMetaData(width=out_size, depth=0)

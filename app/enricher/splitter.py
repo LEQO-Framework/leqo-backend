@@ -60,12 +60,12 @@ class SplitterEnricherStrategy(EnricherStrategy):
             )
 
         stmts = []
-        identifier = f"leqo_{node.id}_input"
+        identifier = "splitter_input"
         stmts.append(leqo_input(identifier, 0, reg_size))
         for index in range(reg_size):
             stmts.append(
                 leqo_output(  # type: ignore[arg-type]
-                    f"leqo_{node.id}_output_q{index}",
+                    f"splitter_output_{index}",
                     index,
                     IndexExpression(  # type: ignore[arg-type]
                         Identifier(identifier), DiscreteSet([IntegerLiteral(index)])

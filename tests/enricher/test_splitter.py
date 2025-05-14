@@ -42,11 +42,11 @@ async def test_splitter_normal_cases() -> None:
         """\
         OPENQASM 3.1;
         @leqo.input 0
-        qubit[2] leqo_nodeId_input;
+        qubit[2] splitter_input;
         @leqo.output 0
-        let leqo_nodeId_output_q0 = leqo_nodeId_input[{0}];
+        let splitter_output_0 = splitter_input[{0}];
         @leqo.output 1
-        let leqo_nodeId_output_q1 = leqo_nodeId_input[{1}];
+        let splitter_output_1 = splitter_input[{1}];
         """,
     )
 
@@ -65,13 +65,13 @@ async def test_splitter_normal_cases() -> None:
         """\
         OPENQASM 3.1;
         @leqo.input 0
-        qubit[3] leqo_nodeId_input;
+        qubit[3] splitter_input;
         @leqo.output 0
-        let leqo_nodeId_output_q0 = leqo_nodeId_input[{0}];
+        let splitter_output_0 = splitter_input[{0}];
         @leqo.output 1
-        let leqo_nodeId_output_q1 = leqo_nodeId_input[{1}];
+        let splitter_output_1 = splitter_input[{1}];
         @leqo.output 2
-        let leqo_nodeId_output_q2 = leqo_nodeId_input[{2}];
+        let splitter_output_2 = splitter_input[{2}];
         """,
     )
 
