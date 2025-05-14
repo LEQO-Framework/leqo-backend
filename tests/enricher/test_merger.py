@@ -173,7 +173,7 @@ async def test_merger_number_of_inputs_neq_reg_size() -> None:
 
     with pytest.raises(
         ConstraintValidationException,
-        match=r"^MergerNode\.numberInputs \([0-9]+\) does not match the amount of provided inputs \([0-9]+\)\.$",
+        match=r"^MergerNode\.numberInputs \(3\) does not match the amount of provided inputs \(2\)\.$",
     ):
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=3),
@@ -212,7 +212,7 @@ async def test_merger_invalid_input_type() -> None:
 
     with pytest.raises(
         ConstraintValidationException,
-        match=r"^Invalid input type at index [0-9]+: expected QubitType, got .+\.$",
+        match=r"^Invalid input type at index 1: expected QubitType, got .+\.$",
     ):
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
@@ -230,7 +230,7 @@ async def test_merger_invalid_register_size() -> None:
 
     with pytest.raises(
         ConstraintValidationException,
-        match=r"^Invalid register size at index [0-9]+: [0-9]+\. Must be >= 1\.$",
+        match=r"^Invalid register size at index 1: 0\. Must be >= 1\.$",
     ):
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
