@@ -15,6 +15,8 @@ from starlette.responses import PlainTextResponse, RedirectResponse
 from app.enricher import Enricher
 from app.enricher.literals import LiteralEnricherStrategy
 from app.enricher.measure import MeasurementEnricherStrategy
+from app.enricher.merger import MergerEnricherStrategy
+from app.enricher.splitter import SplitterEnricherStrategy
 from app.model.CompileRequest import CompileRequest, ImplementationNode
 from app.model.StatusBody import Progress, StatusBody, StatusType
 from app.processing import Processor
@@ -37,7 +39,12 @@ results: dict[UUID, str] = {}
 
 
 def get_enricher() -> Enricher:
-    return Enricher(LiteralEnricherStrategy(), MeasurementEnricherStrategy())
+    return Enricher(
+        LiteralEnricherStrategy(),
+        MeasurementEnricherStrategy(),
+        SplitterEnricherStrategy(),
+        MergerEnricherStrategy(),
+    )
 
 
 @app.post("/compile")
