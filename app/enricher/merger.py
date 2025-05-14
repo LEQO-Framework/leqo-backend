@@ -40,9 +40,9 @@ class MergerEnricherStrategy(EnricherStrategy):
         if constraints is None or len(constraints.requested_inputs) < MIN_INPUTS:
             raise ConstraintValidationException("Merger requires at least two inputs.")
 
-        if node.number_of_inputs != len(constraints.requested_inputs):
+        if node.numberInputs != len(constraints.requested_inputs):
             raise ConstraintValidationException(
-                f"MergerNode.number_of_inputs ({node.number_of_inputs}) does not match the amount of provided inputs ({len(constraints.requested_inputs)})."
+                f"MergerNode.numberInputs ({node.numberInputs}) does not match the amount of provided inputs ({len(constraints.requested_inputs)})."
             )
 
         out_size = 0

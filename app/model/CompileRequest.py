@@ -50,12 +50,12 @@ class PrepareStateNode(_BaseNode):
 
 class SplitterNode(_BaseNode):
     type: Literal["splitter"] = "splitter"
-    number_of_outputs: int = Field(ge=2)
+    numberOutputs: int = Field(ge=2)
 
 
 class MergerNode(_BaseNode):
     type: Literal["merger"] = "merger"
-    number_of_inputs: int = Field(ge=2)
+    numberInputs: int = Field(ge=2)
 
 
 class MeasurementNode(_BaseNode):

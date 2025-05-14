@@ -54,9 +54,9 @@ class SplitterEnricherStrategy(EnricherStrategy):
                 f"Invalid register size: {reg_size}. Must be >= 1."
             )
 
-        if node.number_of_outputs != reg_size:
+        if node.numberOutputs != reg_size:
             raise ConstraintValidationException(
-                f"SplitterNode.number_of_outputs ({node.number_of_outputs}) does not match input register size ({reg_size})."
+                f"SplitterNode.numberOutputs ({node.numberOutputs}) does not match input register size ({reg_size})."
             )
 
         stmts = []
