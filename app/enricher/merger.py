@@ -16,6 +16,7 @@ from app.enricher import (
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
+    InputValidationException,
     NodeUnsupportedException,
 )
 from app.enricher.utils import implementation, leqo_input, leqo_output
@@ -49,7 +50,12 @@ class MergerEnricherStrategy(EnricherStrategy):
         stmts: list[Statement] = []
         concatenation: Concatenation | Identifier | None = None
 
-        for index, input in constraints.requested_inputs.items():
+        for index in range(len(constraints.requested_inputs)):
+            input = constraints.requested_inputs.get(index)
+
+            if input is None:
+                raise InputValidationException("Merger does not allow empty inputs.")
+
             if not isinstance(input, QubitType):
                 raise ConstraintValidationException(
                     f"Invalid input type at index {index}: expected QubitType, got {type(input).__name__}."

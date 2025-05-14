@@ -5,6 +5,7 @@ import pytest
 from app.enricher import (
     Constraints,
     ConstraintValidationException,
+    InputValidationException,
     NodeUnsupportedException,
 )
 from app.enricher.merger import MergerEnricherStrategy
@@ -101,6 +102,35 @@ async def test_merger_normal_cases() -> None:
         """,
     )
 
+    result = await strategy.enrich(
+        MergerNode(id="nodeId", numberInputs=3),
+        constraints=Constraints(
+            requested_inputs={
+                2: QubitType(reg_size=3),
+                0: QubitType(reg_size=1),
+                1: QubitType(reg_size=2),
+            },
+            optimizeWidth=False,
+            optimizeDepth=False,
+        ),
+    )
+
+    assert_enrichment(
+        result.enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] merger_input_0;
+        @leqo.input 1
+        qubit[2] merger_input_1;
+        @leqo.input 2
+        qubit[3] merger_input_2;
+        @leqo.output 0
+        let merger_output = merger_input_0 ++ merger_input_1 ++ merger_input_2;
+        """,
+    )
+
 
 @pytest.mark.asyncio
 async def test_merger_invalid_node_type() -> None:
@@ -149,6 +179,27 @@ async def test_merger_number_of_inputs_neq_reg_size() -> None:
             MergerNode(id="nodeId", numberInputs=3),
             constraints=Constraints(
                 requested_inputs={0: QubitType(reg_size=1), 1: QubitType(reg_size=1)},
+                optimizeWidth=False,
+                optimizeDepth=False,
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_merger_empty_input() -> None:
+    strategy = MergerEnricherStrategy()
+
+    with pytest.raises(
+        InputValidationException,
+        match=r"^Merger does not allow empty inputs\.$",
+    ):
+        await strategy.enrich(
+            MergerNode(id="nodeId", numberInputs=2),
+            constraints=Constraints(
+                requested_inputs={
+                    0: QubitType(reg_size=1),
+                    2: QubitType(reg_size=3),
+                },
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
