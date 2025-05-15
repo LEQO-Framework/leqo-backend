@@ -16,7 +16,7 @@ from app.enricher import (
     NodeUnsupportedException,
 )
 from app.enricher.engine import DatabaseEngine
-from app.enricher.models import BaseNode as BaseNodeTable
+from app.enricher.models import NodeType, QuantumStateType
 from app.enricher.models import PrepareStateNode as PrepareStateTable
 from app.model.CompileRequest import (
     ImplementationNode,
@@ -51,13 +51,12 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
         session = databaseEngine._get_database_session()
         query = (
             select(PrepareStateTable)
-            .join(BaseNodeTable, PrepareStateTable.id == BaseNodeTable.id)
             .where(
                 and_(
-                    PrepareStateTable.type == node.type,
+                    PrepareStateTable.type == NodeType(node.type),
                     PrepareStateTable.inputs == [],
                     PrepareStateTable.size == node.size,
-                    PrepareStateTable.quantum_state == node.quantumState,
+                    PrepareStateTable.quantum_state == QuantumStateType(node.quantumState),
                 )
             )
         )
@@ -66,17 +65,21 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
         session.close()
 
         if not result_nodes:
-            raise NodeUnsupportedException(node)
+            raise RuntimeError("No results found in the database")
 
         enrichment_results = []
         for result_node in result_nodes:
             if result_node.implementation is None:
                 raise NodeUnsupportedException(node)
-            
+
             enrichment_results.append(
                 EnrichmentResult(
-                    ImplementationNode(id=node.id, implementation=result_node.implementation),
-                    ImplementationMetaData(width=result_node.width, depth=result_node.depth),
+                    ImplementationNode(
+                        id=node.id, implementation=result_node.implementation
+                    ),
+                    ImplementationMetaData(
+                        width=result_node.width, depth=result_node.depth
+                    ),
                 )
             )
 

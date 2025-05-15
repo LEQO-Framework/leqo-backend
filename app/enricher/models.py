@@ -102,7 +102,7 @@ class EncodeValueNode(BaseNode):
 
     :param id: Foreign key to the id of the BaseNode (:class:`BaseNode`)
     :param encoding: Type of encoding defined by :class:`EncodingType`
-    :param bounds: ???????????
+    :param bounds: Bound of the encode value node
     """
 
     __tablename__ = "encode_nodes"
