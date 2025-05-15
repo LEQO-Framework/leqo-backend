@@ -18,12 +18,13 @@ from app.enricher.engine import DatabaseEngine
 from app.enricher.models import BaseNode as BaseNodeTable
 from app.enricher.models import InputType
 from app.enricher.models import OperatorNode as OperatorNodeTable
-from app.enricher.utils import implementation
 from app.model.CompileRequest import (
     ImplementationNode,
+    OperatorNode,
+)
+from app.model.CompileRequest import (
     Node as FrontendNode,
 )
-from app.model.CompileRequest import OperatorNode
 from app.model.data_types import QubitType
 
 
@@ -44,7 +45,9 @@ class OperatorEnricherStrategy(EnricherStrategy):
                 "OperatorNode can only have a two inputs"
             )
 
-        if not isinstance(constraints.requested_inputs[0], QubitType):
+        if not isinstance(constraints.requested_inputs[0], QubitType) or not isinstance(
+            constraints.requested_inputs[1], QubitType
+        ):
             raise ConstraintValidationException(
                 "OperatorNode only supports qubit types"
             )
@@ -57,9 +60,8 @@ class OperatorEnricherStrategy(EnricherStrategy):
             .where(
                 and_(
                     OperatorNodeTable.type == node.type,
-                    OperatorNodeTable.depth <= constraints.optimizeDepth,
-                    OperatorNodeTable.width <= constraints.optimizeWidth,
-                    OperatorNodeTable.inputs == [
+                    OperatorNodeTable.inputs
+                    == [
                         {
                             "index": 0,
                             "type": InputType.QubitType.value,
@@ -83,15 +85,19 @@ class OperatorEnricherStrategy(EnricherStrategy):
             raise NodeUnsupportedException(node)
 
         enrichment_results = []
-        for node in result_nodes:
+        for result_node in result_nodes:
+            if result_node.implementation is None:
+                raise NodeUnsupportedException(node)
+
             enrichment_results.append(
                 EnrichmentResult(
                     ImplementationNode(
-                        id=node.id,
-                        implementation=node.implementation
+                        id=node.id, implementation=result_node.implementation
                     ),
-                    ImplementationMetaData(width=node.width, depth=node.depth),
+                    ImplementationMetaData(
+                        width=result_node.width, depth=result_node.depth
+                    ),
                 )
             )
-            
+
         return enrichment_results
