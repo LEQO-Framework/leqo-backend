@@ -18,13 +18,12 @@ from app.enricher import (
 from app.enricher.engine import DatabaseEngine
 from app.enricher.models import BaseNode as BaseNodeTable
 from app.enricher.models import PrepareStateNode as PrepareStateTable
-from app.enricher.utils import implementation
 from app.model.CompileRequest import (
     ImplementationNode,
-    Node as FrontendNode,
+    PrepareStateNode,
 )
 from app.model.CompileRequest import (
-    PrepareStateNode,
+    Node as FrontendNode,
 )
 
 
@@ -56,8 +55,6 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
             .where(
                 and_(
                     PrepareStateTable.type == node.type,
-                    PrepareStateTable.depth <= constraints.optimizeDepth,
-                    PrepareStateTable.width <= constraints.optimizeWidth,
                     PrepareStateTable.inputs == [],
                     PrepareStateTable.size == node.size,
                     PrepareStateTable.quantum_state == node.quantumState,
@@ -72,11 +69,14 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
             raise NodeUnsupportedException(node)
 
         enrichment_results = []
-        for node in result_nodes:
+        for result_node in result_nodes:
+            if result_node.implementation is None:
+                raise NodeUnsupportedException(node)
+            
             enrichment_results.append(
                 EnrichmentResult(
-                    ImplementationNode(id=node.id, implementation=node.implementation),
-                    ImplementationMetaData(width=node.width, depth=node.depth),
+                    ImplementationNode(id=node.id, implementation=result_node.implementation),
+                    ImplementationMetaData(width=result_node.width, depth=result_node.depth),
                 )
             )
 
