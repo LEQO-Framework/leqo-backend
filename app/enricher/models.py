@@ -54,6 +54,7 @@ class OperatorType(enum.Enum):
     MAX = "max"
     SEARCH = "search"
 
+
 class InputType(enum.Enum):
     IntType = "IntType"
     FloatType = "FloatType"
@@ -76,7 +77,7 @@ class BaseNode(Base):
                            index: int,
                            type: `class:InputType`,
                            size: int | None
-                       }    
+                       }
                    ]
                    If there are no inputs this should be an empty array.
     """
