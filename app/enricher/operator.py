@@ -53,25 +53,23 @@ class OperatorEnricherStrategy(EnricherStrategy):
 
         databaseEngine = DatabaseEngine()
         session = databaseEngine._get_database_session()
-        query = (
-            select(OperatorNodeTable)
-            .where(
-                and_(
-                    OperatorNodeTable.type == NodeType(node.type),
-                    OperatorNodeTable.inputs == [
-                        {
-                            "index": 0,
-                            "type": InputType.QubitType.value,
-                            "size": constraints.requested_inputs[0].reg_size,
-                        },
-                        {
-                            "index": 1,
-                            "type": InputType.QubitType.value,
-                            "size": constraints.requested_inputs[1].reg_size,
-                        },
-                    ],
-                    OperatorNodeTable.operator == OperatorType(node.operator),
-                )
+        query = select(OperatorNodeTable).where(
+            and_(
+                OperatorNodeTable.type == NodeType(node.type),
+                OperatorNodeTable.inputs
+                == [
+                    {
+                        "index": 0,
+                        "type": InputType.QubitType.value,
+                        "size": constraints.requested_inputs[0].reg_size,
+                    },
+                    {
+                        "index": 1,
+                        "type": InputType.QubitType.value,
+                        "size": constraints.requested_inputs[1].reg_size,
+                    },
+                ],
+                OperatorNodeTable.operator == OperatorType(node.operator),
             )
         )
 
