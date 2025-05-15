@@ -49,15 +49,12 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
 
         databaseEngine = DatabaseEngine()
         session = databaseEngine._get_database_session()
-        query = (
-            select(PrepareStateTable)
-            .where(
-                and_(
-                    PrepareStateTable.type == NodeType(node.type),
-                    PrepareStateTable.inputs == [],
-                    PrepareStateTable.size == node.size,
-                    PrepareStateTable.quantum_state == QuantumStateType(node.quantumState),
-                )
+        query = select(PrepareStateTable).where(
+            and_(
+                PrepareStateTable.type == NodeType(node.type),
+                PrepareStateTable.inputs == [],
+                PrepareStateTable.size == node.size,
+                PrepareStateTable.quantum_state == QuantumStateType(node.quantumState),
             )
         )
 
