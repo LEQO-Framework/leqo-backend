@@ -110,8 +110,7 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
         session.close()
 
         if not result_nodes:
-            print(result_nodes)
-            raise RuntimeError("No results found in the database for the given query")
+            raise RuntimeError("No results found in the database")
 
         enrichment_results = []
         for result_node in result_nodes:

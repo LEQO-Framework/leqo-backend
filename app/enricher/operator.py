@@ -15,8 +15,7 @@ from app.enricher import (
     NodeUnsupportedException,
 )
 from app.enricher.engine import DatabaseEngine
-from app.enricher.models import BaseNode as BaseNodeTable
-from app.enricher.models import InputType
+from app.enricher.models import InputType, NodeType, OperatorType
 from app.enricher.models import OperatorNode as OperatorNodeTable
 from app.model.CompileRequest import (
     ImplementationNode,
@@ -56,12 +55,10 @@ class OperatorEnricherStrategy(EnricherStrategy):
         session = databaseEngine._get_database_session()
         query = (
             select(OperatorNodeTable)
-            .join(BaseNodeTable, OperatorNodeTable.id == BaseNodeTable.id)
             .where(
                 and_(
-                    OperatorNodeTable.type == node.type,
-                    OperatorNodeTable.inputs
-                    == [
+                    OperatorNodeTable.type == NodeType(node.type),
+                    OperatorNodeTable.inputs == [
                         {
                             "index": 0,
                             "type": InputType.QubitType.value,
@@ -73,7 +70,7 @@ class OperatorEnricherStrategy(EnricherStrategy):
                             "size": constraints.requested_inputs[1].reg_size,
                         },
                     ],
-                    OperatorNodeTable.operator == node.operator,
+                    OperatorNodeTable.operator == OperatorType(node.operator),
                 )
             )
         )
@@ -82,7 +79,7 @@ class OperatorEnricherStrategy(EnricherStrategy):
         session.close()
 
         if not result_nodes:
-            raise NodeUnsupportedException(node)
+            raise RuntimeError("No results found in the database")
 
         enrichment_results = []
         for result_node in result_nodes:
