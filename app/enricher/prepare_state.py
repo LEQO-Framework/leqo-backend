@@ -45,9 +45,7 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
                 "Custom prepare state or size below 1 are not supported"
             )
 
-        if (
-            constraints is None or len(constraints.requested_inputs) != 0
-        ):
+        if constraints is None or len(constraints.requested_inputs) != 0:
             raise ConstraintValidationException("PrepareStateNode can't have an input")
 
         databaseEngine = DatabaseEngine()
@@ -77,12 +75,9 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
         for node in result_nodes:
             enrichment_results.append(
                 EnrichmentResult(
-                    ImplementationNode(
-                        id=node.id,
-                        implementation=node.implementation
-                    ),
+                    ImplementationNode(id=node.id, implementation=node.implementation),
                     ImplementationMetaData(width=node.width, depth=node.depth),
                 )
             )
-            
+
         return enrichment_results

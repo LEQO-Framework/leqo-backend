@@ -50,12 +50,12 @@ class DatabaseEngine:
             return Session()
         except Exception as e:
             raise RuntimeError(f"Failed to create database session: {e}") from e
-        
+
     def _reset_database(self) -> None:
         """Reset the database by dropping all tables and recreating them."""
         if self._engine is None:
             raise RuntimeError("Database engine is not initialized.")
-        
+
         try:
             Base.metadata.drop_all(self._engine)
             Base.metadata.create_all(self._engine)

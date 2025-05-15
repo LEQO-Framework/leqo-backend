@@ -22,18 +22,14 @@ from app.model.data_types import BitType, BoolType, FloatType, IntType, QubitTyp
 @pytest.fixture(autouse=True)
 def setup_database_data(session: Session) -> None:
     """
-        Set up the database with test data for the EncodeValueNode.
+    Set up the database with test data for the EncodeValueNode.
     """
     node1 = EncodeValueNode(
         type=NodeType.ENCODE,
         depth=1,
         width=1,
         implementation="amplitude_impl",
-        inputs=[{
-            "index": 0,
-            "type": InputType.FloatType.value, 
-            "size": 32
-        }],
+        inputs=[{"index": 0, "type": InputType.FloatType.value, "size": 32}],
         encoding=EncodingType.AMPLITUDE,
         bounds=2,
     )
@@ -42,11 +38,7 @@ def setup_database_data(session: Session) -> None:
         depth=2,
         width=2,
         implementation="angle_impl",
-        inputs=[{
-            "index": 0,
-            "type": InputType.IntType.value, 
-            "size": 32
-        }],
+        inputs=[{"index": 0, "type": InputType.IntType.value, "size": 32}],
         encoding=EncodingType.ANGLE,
         bounds=1,
     )
@@ -55,11 +47,7 @@ def setup_database_data(session: Session) -> None:
         depth=3,
         width=3,
         implementation="matrix_impl",
-        inputs=[{
-            "index": 0,   
-            "type": InputType.BitType.value, 
-            "size": 32
-        }],
+        inputs=[{"index": 0, "type": InputType.BitType.value, "size": 32}],
         encoding=EncodingType.MATRIX,
         bounds=6,
     )
@@ -68,11 +56,7 @@ def setup_database_data(session: Session) -> None:
         depth=4,
         width=4,
         implementation="schimdt_impl",
-        inputs=[{
-            "index": 0,   
-            "type": InputType.BoolType.value, 
-            "size": None
-        }],
+        inputs=[{"index": 0, "type": InputType.BoolType.value, "size": None}],
         encoding=EncodingType.SCHMIDT,
         bounds=8,
     )
@@ -195,14 +179,11 @@ async def test_enrich_custom_encode_value() -> None:
     ):
         await EncodeValueEnricherStrategy().enrich(node, constraints)
 
+
 @pytest.mark.asyncio
 async def test_enrich_unknown_node() -> None:
     node = FrontendPrepareStateNode(
-        id="1", 
-        label=None,
-        type="prepare",
-        size=3,
-        quantumState="ghz"
+        id="1", label=None, type="prepare", size=3, quantumState="ghz"
     )
     constraints = Constraints(
         requested_inputs={0: FloatType(bit_size=32)},
@@ -258,7 +239,7 @@ async def test_enrich_encode_value_quibit_input() -> None:
         ConstraintValidationException,
         match=r"^EncodeValueNode only supports classical types$",
     ):
-       await EncodeValueEnricherStrategy().enrich(node, constraints)
+        await EncodeValueEnricherStrategy().enrich(node, constraints)
 
 
 @pytest.mark.asyncio
