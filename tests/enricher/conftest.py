@@ -24,6 +24,8 @@ def engine() -> Generator[DatabaseEngine]:
     
     engine = DatabaseEngine()
     yield engine
+    
+    engine._reset_database()
     postgres.stop()
 
 @pytest.fixture(scope="session", autouse=True)

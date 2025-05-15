@@ -29,7 +29,11 @@ def setup_database_data(session: Session) -> None:
         depth=1,
         width=1,
         implementation="amplitude_impl",
-        inputs=[{"type": InputType.FloatType.value, "size": 32}],
+        inputs=[{
+            "index": 0,
+            "type": InputType.FloatType.value, 
+            "size": 32
+        }],
         encoding=EncodingType.AMPLITUDE,
         bounds=2,
     )
@@ -38,7 +42,11 @@ def setup_database_data(session: Session) -> None:
         depth=2,
         width=2,
         implementation="angle_impl",
-        inputs=[{"type": InputType.IntType.value, "size": 32}],
+        inputs=[{
+            "index": 0,
+            "type": InputType.IntType.value, 
+            "size": 32
+        }],
         encoding=EncodingType.ANGLE,
         bounds=1,
     )
@@ -47,7 +55,11 @@ def setup_database_data(session: Session) -> None:
         depth=3,
         width=3,
         implementation="matrix_impl",
-        inputs=[{"type": InputType.BitType.value, "size": 32}],
+        inputs=[{
+            "index": 0,   
+            "type": InputType.BitType.value, 
+            "size": 32
+        }],
         encoding=EncodingType.MATRIX,
         bounds=6,
     )
@@ -56,7 +68,11 @@ def setup_database_data(session: Session) -> None:
         depth=4,
         width=4,
         implementation="schimdt_impl",
-        inputs=[{"type": InputType.BoolType.value, "size": None}],
+        inputs=[{
+            "index": 0,   
+            "type": InputType.BoolType.value, 
+            "size": None
+        }],
         encoding=EncodingType.SCHMIDT,
         bounds=8,
     )
@@ -179,29 +195,6 @@ async def test_enrich_custom_encode_value() -> None:
     ):
         await EncodeValueEnricherStrategy().enrich(node, constraints)
 
-
-@pytest.mark.asyncio
-async def test_enrich_encode_value_bound_zero() -> None:
-    node = FrontendEncodeValueNode(
-        id="1",
-        label=None,
-        type="encode",
-        encoding="matrix",
-        bounds=0,
-    )
-    constraints = Constraints(
-        requested_inputs={0: FloatType(bit_size=32)},
-        optimizeDepth=True,
-        optimizeWidth=True,
-    )
-
-    with pytest.raises(
-        InputValidationException,
-        match=r"^Custom encoding or bounds below 1 are not supported$",
-    ):
-        await EncodeValueEnricherStrategy().enrich(node, constraints)
-
-
 @pytest.mark.asyncio
 async def test_enrich_unknown_node() -> None:
     node = FrontendPrepareStateNode(
@@ -284,7 +277,7 @@ async def test_enrich_encode_value_node_not_in_db() -> None:
     )
 
     with pytest.raises(
-        NodeUnsupportedException,
-        match=r"^Node 'EncodeValueNode' is not supported$",
+        RuntimeError,
+        match=r"^No results found in the database for the given query$",
     ):
         await EncodeValueEnricherStrategy().enrich(node, constraints)

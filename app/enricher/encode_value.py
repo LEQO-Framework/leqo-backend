@@ -128,5 +128,5 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
                     ImplementationMetaData(width=result_node.width, depth=result_node.depth),
                 )
             )
-            
+
         return enrichment_results
