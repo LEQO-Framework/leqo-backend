@@ -39,7 +39,7 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
         if not isinstance(node, PrepareStateNode):
             raise NodeUnsupportedException(node)
 
-        if node.quantumState == "custom" or node.size <= 0:
+        if node.quantumState == "custom":
             raise InputValidationException(
                 "Custom prepare state or size below 1 are not supported"
             )
@@ -53,7 +53,6 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
             and_(
                 PrepareStateTable.type == NodeType(node.type),
                 PrepareStateTable.inputs == [],
-                PrepareStateTable.size == node.size,
                 PrepareStateTable.quantum_state == QuantumStateType(node.quantumState),
             )
         )

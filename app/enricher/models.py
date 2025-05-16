@@ -127,7 +127,6 @@ class PrepareStateNode(BaseNode):
     __tablename__ = "prepare_nodes"
 
     id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
-    size = Column(Integer, nullable=False)
     quantum_state = Column(Enum(QuantumStateType), nullable=False)
 
     __mapper_args__: ClassVar[dict[str, NodeType]] = {
