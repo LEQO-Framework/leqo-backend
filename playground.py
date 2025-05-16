@@ -587,13 +587,13 @@ class NoSuccDummy(AlgoPerf):
                 result.append(self.graph.get_data_node(pred))
         return result
 
-    def get_and_remove_next_nosucc(self) -> ProcessedProgramNode:
+    def pop_nosucc(self) -> ProcessedProgramNode:
         return self.nosucc.pop()
 
     @override
     def compute(self) -> tuple[int, int]:
         while len(self.nosucc) > 0:
-            node = self.get_and_remove_next_nosucc()
+            node = self.pop_nosucc()
             self.nosucc.extend(self.remove_node(node))
 
             self.got_dirty = node.info.io.qubits.returned_dirty_ids
@@ -674,7 +674,7 @@ class NoSuccDummy(AlgoPerf):
 
 class NoSuccRequiredReusable(NoSuccDummy):
     @override
-    def get_and_remove_next_nosucc(self) -> ProcessedProgramNode:
+    def pop_nosucc(self) -> ProcessedProgramNode:
         self.nosucc.sort(
             key=lambda x: len(x.info.io.qubits.required_reusable_ids),
             reverse=True,
@@ -685,11 +685,11 @@ class NoSuccRequiredReusable(NoSuccDummy):
 
 class NoSuccReturnedRequiredDifference(NoSuccDummy):
     @override
-    def get_and_remove_next_nosucc(self) -> ProcessedProgramNode:
+    def pop_nosucc(self) -> ProcessedProgramNode:
         self.nosucc.sort(
-            key=lambda x: len(x.info.io.qubits.returned_reusable_ids)
-            - len(x.info.io.qubits.required_reusable_ids),
-            reverse=False,
+            key=lambda x: len(x.info.io.qubits.required_reusable_ids)
+            - len(x.info.io.qubits.returned_reusable_ids),
+            reverse=True,
         )
         result, self.nosucc = self.nosucc[0], self.nosucc[1:]
         return result
@@ -697,12 +697,11 @@ class NoSuccReturnedRequiredDifference(NoSuccDummy):
 
 class NoSuccReturnedRequiredQuotient(NoSuccDummy):
     @override
-    def get_and_remove_next_nosucc(self) -> ProcessedProgramNode:
+    def pop_nosucc(self) -> ProcessedProgramNode:
         self.nosucc.sort(
             key=lambda x: (
                 len(x.info.io.qubits.returned_reusable_ids)
                 + len(x.info.io.qubits.returned_reusable_after_uncompute_ids)
-                + 1
             )
             / (len(x.info.io.qubits.required_reusable_ids) + 1),
             reverse=False,
@@ -716,7 +715,7 @@ class NoSuccCheckNeed(NoSuccDummy):
     score_dirty = 1
 
     @override
-    def get_and_remove_next_nosucc(self) -> ProcessedProgramNode:
+    def pop_nosucc(self) -> ProcessedProgramNode:
         total_reusable = sum(
             [len(n.info.io.qubits.required_reusable_ids) for n in self.reusable],
         )
@@ -733,7 +732,7 @@ class NoSuccCheckNeed(NoSuccDummy):
             remaining_dirty = total_dirty - returned_dirty
             remaining_reusable = total_reusable - returned_reusable
             satisfied = (
-                remaining_dirty > 0  # removing this line makes the algo much better
+                remaining_dirty > 0  # removing this line makes the algo much better, but should be kept
                 and remaining_reusable > 0
                 and remaining_reusable + remaining_dirty > returned_uncomputable
             )
