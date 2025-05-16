@@ -41,7 +41,7 @@ def test_pseudo_merge_single() -> None:
     codes = [
         """
         OPENQASM 3.1;
-        qubit a;
+        qubit[1] a;
         """,
     ]
     connections: list[tuple[tuple[int, int], tuple[int, int]]] = []
@@ -59,14 +59,14 @@ def test_merge_two_nodes() -> None:
     codes = [
         """
         OPENQASM 3.1;
-        qubit a;
+        qubit[1] a;
         @leqo.output 0
         let _out = a;
         """,
         """
         OPENQASM 3.1;
         @leqo.input 0
-        qubit a;
+        qubit[1] a;
         """,
     ]
     connections = [((0, 0), (1, 0))]
@@ -99,14 +99,14 @@ def test_complex_merge() -> None:
         """
         OPENQASM 3.1;
         @leqo.input 0
-        qubit q;
+        qubit[1] q;
         @leqo.output 0
         let _out0 = q;
         """,
         """
         OPENQASM 3.1;
         @leqo.input 0
-        qubit q0;
+        qubit[1] q0;
         @leqo.input 1
         qubit[3] q1;
         """,
