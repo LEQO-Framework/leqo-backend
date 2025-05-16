@@ -38,6 +38,7 @@ from openqasm3.ast import Include, Program, QASMNode, QuantumGate, QuantumGateDe
 from openqasm3.parser import parse
 
 from app.openqasm3.visitor import LeqoTransformer
+from app.processing.pre import PreprocessingException
 from app.processing.utils import cast_to_program
 
 OPAQUE_STATEMENT_PATTERN = re.compile(
@@ -79,7 +80,7 @@ class CustomOpenqamsLib:
                 self.gates.append(statement)
 
 
-class QASMConversionError(Exception):
+class QASMConversionError(PreprocessingException):
     """Custom exception raised for errors occurring during QASM conversion."""
 
 
@@ -192,7 +193,7 @@ class QASMConverter:
         opaque = OPAQUE_STATEMENT_PATTERN.findall(qasm2_code)
         if len(opaque) != 0:
             msg = f"Unsupported opaque definition {opaque} could not be ported to OpenQASM 3."
-            raise QASMConversionError(msg)
+            raise QASMConversionError(msg, error_code=501)
 
         qasm2_code = UNCOMPUTE_BLOCK_PATTERN.sub(
             r"@leqo.uncompute\nif(false) {\n\1\n}",
@@ -205,12 +206,12 @@ class QASMConverter:
 
         if result.version is None:
             msg = "No OpenQASM version specified."
-            raise QASMConversionError(msg)
+            raise QASMConversionError(msg, error_code=400)
         if result.version.startswith("3"):
             return result
         if not result.version.startswith("2"):
             msg = f"Unsupported OpenQASM version {result.version} could not be ported to OpenQASM 3.1."
-            raise QASMConversionError(msg)
+            raise QASMConversionError(msg, error_code=501)
 
         result.version = TARGET_QASM_VERSION
 
