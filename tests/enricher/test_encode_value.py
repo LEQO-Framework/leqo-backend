@@ -175,7 +175,7 @@ async def test_enrich_custom_encode_value() -> None:
 
     with pytest.raises(
         InputValidationException,
-        match=r"^Custom encoding or bounds below 1 are not supported$",
+        match=r"^Custom encoding or bounds below 0 are not supported$",
     ):
         await EncodeValueEnricherStrategy().enrich(node, constraints)
 
