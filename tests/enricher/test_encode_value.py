@@ -183,7 +183,7 @@ async def test_enrich_custom_encode_value() -> None:
 @pytest.mark.asyncio
 async def test_enrich_unknown_node() -> None:
     node = FrontendPrepareStateNode(
-        id="1", label=None, type="prepare", size=3, quantumState="ghz"
+        id="1", label=None, type="prepare", quantumState="ghz"
     )
     constraints = Constraints(
         requested_inputs={0: FloatType(bit_size=32)},
