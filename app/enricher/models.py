@@ -52,7 +52,6 @@ class OperatorType(enum.Enum):
     NEQ = "!="
     MIN = "min"
     MAX = "max"
-    SEARCH = "search"
 
 
 class InputType(enum.Enum):
