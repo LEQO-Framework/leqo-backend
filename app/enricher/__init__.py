@@ -11,7 +11,7 @@ Some services could read implementations from a database or generate them on the
 import asyncio
 import math
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Iterable
 from dataclasses import dataclass
 
 from app.model.CompileRequest import (
@@ -64,7 +64,12 @@ class EnricherStrategy(ABC):
     @abstractmethod
     def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
-    ) -> EnrichmentResult | Coroutine[None, None, EnrichmentResult]:
+    ) -> (
+        EnrichmentResult
+        | Iterable[EnrichmentResult]
+        | Coroutine[None, None, EnrichmentResult]
+        | Coroutine[None, None, Iterable[EnrichmentResult]]
+    ):
         """
         Implementation of :meth:`~app.enricher.EnricherStrategy.enrich`.
         May return awaitable or result directly.
@@ -78,7 +83,7 @@ class EnricherStrategy(ABC):
 
     async def enrich(
         self, node: FrontendNode, constraints: Constraints | None
-    ) -> EnrichmentResult:
+    ) -> Iterable[EnrichmentResult]:
         """
         Enrich the given node according to the specified constraints.
         Throws if enrichment is not possible.
@@ -93,8 +98,18 @@ class EnricherStrategy(ABC):
 
         result = self._enrich_impl(node, constraints)
         if isinstance(result, EnrichmentResult):
+            return [result]
+        if isinstance(result, Iterable):
             return result
-        return await asyncio.create_task(result)
+
+        result = await asyncio.create_task(result)
+
+        if isinstance(result, EnrichmentResult):
+            return [result]
+        if isinstance(result, Iterable):
+            return result
+
+        raise Exception("Invalid enrichment result")
 
 
 class EnricherException(Exception, ABC):
@@ -175,7 +190,7 @@ class Enricher:
             x.enrich(node, constraints) for x in self.strategies
         ):
             try:
-                results.append(await result)
+                results.extend(await result)
             except Exception as ex:
                 exceptions.append(ex)
 

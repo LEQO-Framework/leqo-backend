@@ -23,10 +23,11 @@ def assert_enrichment(
 @pytest.mark.asyncio
 async def test_qubit_literal() -> None:
     strategy = LiteralEnricherStrategy()
-    result = await strategy.enrich(QubitNode(id="nodeId"), constraints=None)
+    result = list(await strategy.enrich(QubitNode(id="nodeId"), constraints=None))
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -36,10 +37,13 @@ async def test_qubit_literal() -> None:
         """,
     )
 
-    result = await strategy.enrich(QubitNode(id="nodeId", size=42), constraints=None)
+    result = list(
+        await strategy.enrich(QubitNode(id="nodeId", size=42), constraints=None)
+    )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -53,12 +57,13 @@ async def test_qubit_literal() -> None:
 @pytest.mark.asyncio
 async def test_int_literal() -> None:
     strategy = LiteralEnricherStrategy()
-    result = await strategy.enrich(
-        IntLiteralNode(id="nodeId", value=123), constraints=None
+    result = list(
+        await strategy.enrich(IntLiteralNode(id="nodeId", value=123), constraints=None)
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -68,12 +73,13 @@ async def test_int_literal() -> None:
         """,
     )
 
-    result = await strategy.enrich(
-        IntLiteralNode(id="nodeId", value=-123), constraints=None
+    result = list(
+        await strategy.enrich(IntLiteralNode(id="nodeId", value=-123), constraints=None)
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -83,12 +89,15 @@ async def test_int_literal() -> None:
         """,
     )
 
-    result = await strategy.enrich(
-        IntLiteralNode(id="nodeId", value=123, bitSize=64), constraints=None
+    result = list(
+        await strategy.enrich(
+            IntLiteralNode(id="nodeId", value=123, bitSize=64), constraints=None
+        )
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -102,12 +111,15 @@ async def test_int_literal() -> None:
 @pytest.mark.asyncio
 async def test_float_literal() -> None:
     strategy = LiteralEnricherStrategy()
-    result = await strategy.enrich(
-        FloatLiteralNode(id="nodeId", value=123.5), constraints=None
+    result = list(
+        await strategy.enrich(
+            FloatLiteralNode(id="nodeId", value=123.5), constraints=None
+        )
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -117,12 +129,15 @@ async def test_float_literal() -> None:
         """,
     )
 
-    result = await strategy.enrich(
-        FloatLiteralNode(id="nodeId", value=-123.5), constraints=None
+    result = list(
+        await strategy.enrich(
+            FloatLiteralNode(id="nodeId", value=-123.5), constraints=None
+        )
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -132,12 +147,15 @@ async def test_float_literal() -> None:
         """,
     )
 
-    result = await strategy.enrich(
-        FloatLiteralNode(id="nodeId", value=123.5, bitSize=64), constraints=None
+    result = list(
+        await strategy.enrich(
+            FloatLiteralNode(id="nodeId", value=123.5, bitSize=64), constraints=None
+        )
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -151,12 +169,13 @@ async def test_float_literal() -> None:
 @pytest.mark.asyncio
 async def test_bit_literal() -> None:
     strategy = LiteralEnricherStrategy()
-    result = await strategy.enrich(
-        BitLiteralNode(id="nodeId", value=0), constraints=None
+    result = list(
+        await strategy.enrich(BitLiteralNode(id="nodeId", value=0), constraints=None)
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -166,12 +185,13 @@ async def test_bit_literal() -> None:
         """,
     )
 
-    result = await strategy.enrich(
-        BitLiteralNode(id="nodeId", value=1), constraints=None
+    result = list(
+        await strategy.enrich(BitLiteralNode(id="nodeId", value=1), constraints=None)
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -185,12 +205,15 @@ async def test_bit_literal() -> None:
 @pytest.mark.asyncio
 async def test_bool_literal() -> None:
     strategy = LiteralEnricherStrategy()
-    result = await strategy.enrich(
-        BoolLiteralNode(id="nodeId", value=False), constraints=None
+    result = list(
+        await strategy.enrich(
+            BoolLiteralNode(id="nodeId", value=False), constraints=None
+        )
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -200,12 +223,15 @@ async def test_bool_literal() -> None:
         """,
     )
 
-    result = await strategy.enrich(
-        BoolLiteralNode(id="nodeId", value=True), constraints=None
+    result = list(
+        await strategy.enrich(
+            BoolLiteralNode(id="nodeId", value=True), constraints=None
+        )
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;

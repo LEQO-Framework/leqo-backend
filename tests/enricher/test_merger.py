@@ -6,7 +6,6 @@ from app.enricher import (
     Constraints,
     ConstraintValidationException,
     InputValidationException,
-    NodeUnsupportedException,
 )
 from app.enricher.merger import MergerEnricherStrategy
 from app.model.CompileRequest import (
@@ -27,17 +26,19 @@ def assert_enrichment(
 @pytest.mark.asyncio
 async def test_merger_normal_cases() -> None:
     strategy = MergerEnricherStrategy()
-    result = await strategy.enrich(
-        MergerNode(id="nodeId", numberInputs=2),
-        constraints=Constraints(
-            requested_inputs={0: QubitType(reg_size=1), 1: QubitType(reg_size=1)},
-            optimizeWidth=False,
-            optimizeDepth=False,
-        ),
+    result = list(
+        await strategy.enrich(
+            MergerNode(id="nodeId", numberInputs=2),
+            constraints=Constraints(
+                requested_inputs={0: QubitType(reg_size=1), 1: QubitType(reg_size=1)},
+                optimizeWidth=False,
+                optimizeDepth=False,
+            ),
+        )
     )
 
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -50,17 +51,20 @@ async def test_merger_normal_cases() -> None:
         """,
     )
 
-    result = await strategy.enrich(
-        MergerNode(id="nodeId", numberInputs=2),
-        constraints=Constraints(
-            requested_inputs={0: QubitType(reg_size=2), 1: QubitType(reg_size=3)},
-            optimizeWidth=False,
-            optimizeDepth=False,
-        ),
+    result = list(
+        await strategy.enrich(
+            MergerNode(id="nodeId", numberInputs=2),
+            constraints=Constraints(
+                requested_inputs={0: QubitType(reg_size=2), 1: QubitType(reg_size=3)},
+                optimizeWidth=False,
+                optimizeDepth=False,
+            ),
+        )
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -73,21 +77,24 @@ async def test_merger_normal_cases() -> None:
         """,
     )
 
-    result = await strategy.enrich(
-        MergerNode(id="nodeId", numberInputs=3),
-        constraints=Constraints(
-            requested_inputs={
-                0: QubitType(reg_size=1),
-                1: QubitType(reg_size=2),
-                2: QubitType(reg_size=3),
-            },
-            optimizeWidth=False,
-            optimizeDepth=False,
-        ),
+    result = list(
+        await strategy.enrich(
+            MergerNode(id="nodeId", numberInputs=3),
+            constraints=Constraints(
+                requested_inputs={
+                    0: QubitType(reg_size=1),
+                    1: QubitType(reg_size=2),
+                    2: QubitType(reg_size=3),
+                },
+                optimizeWidth=False,
+                optimizeDepth=False,
+            ),
+        )
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -102,21 +109,24 @@ async def test_merger_normal_cases() -> None:
         """,
     )
 
-    result = await strategy.enrich(
-        MergerNode(id="nodeId", numberInputs=3),
-        constraints=Constraints(
-            requested_inputs={
-                2: QubitType(reg_size=3),
-                0: QubitType(reg_size=1),
-                1: QubitType(reg_size=2),
-            },
-            optimizeWidth=False,
-            optimizeDepth=False,
-        ),
+    result = list(
+        await strategy.enrich(
+            MergerNode(id="nodeId", numberInputs=3),
+            constraints=Constraints(
+                requested_inputs={
+                    2: QubitType(reg_size=3),
+                    0: QubitType(reg_size=1),
+                    1: QubitType(reg_size=2),
+                },
+                optimizeWidth=False,
+                optimizeDepth=False,
+            ),
+        )
     )
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -136,8 +146,9 @@ async def test_merger_normal_cases() -> None:
 async def test_merger_invalid_node_type() -> None:
     strategy = MergerEnricherStrategy()
 
-    with pytest.raises(NodeUnsupportedException):
+    assert (
         await strategy.enrich(IntLiteralNode(id="nodeId", value=42), constraints=None)
+    ) == []
 
 
 @pytest.mark.asyncio
