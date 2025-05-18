@@ -172,16 +172,14 @@ class OperatorNode(_BaseNode):
 
 NestableNode = (
     ImplementationNode
-    | QubitNode
     | BoundaryNode
     | GateNode
     | ParameterizedGateNode
     | LiteralNode
     | AncillaNode
-    | ControlFlowNode
     | OperatorNode
 )
-Node = NestableNode | QubitNode
+Node = NestableNode | QubitNode | ControlFlowNode
 
 
 class Edge(BaseModel):
