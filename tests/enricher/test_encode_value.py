@@ -64,13 +64,19 @@ def setup_database_data(session: Session) -> None:
     session.add_all([node1, node2, node3, node4])
     session.commit()
     session.close()
-    
 
-def assert_enrichment(enrichment_result: Iterable[EnrichmentResult], expected_implementation: str, expected_width: int, expected_depth: int):
+
+def assert_enrichment(
+    enrichment_result: Iterable[EnrichmentResult],
+    expected_implementation: str,
+    expected_width: int,
+    expected_depth: int,
+):
     for result in enrichment_result:
         assert result.enriched_node.implementation == expected_implementation
         assert result.meta_data.width == expected_width
         assert result.meta_data.depth == expected_depth
+
 
 @pytest.mark.asyncio
 async def test_enrich_amplitude_encode_value() -> None:
@@ -182,7 +188,7 @@ async def test_enrich_unknown_node() -> None:
     )
 
     result = await EncodeValueEnricherStrategy().enrich(node, constraints)
-    
+
     assert result == []
 
 

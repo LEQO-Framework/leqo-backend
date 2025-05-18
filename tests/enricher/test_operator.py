@@ -82,7 +82,12 @@ def setup_database_data(session: Session) -> None:
     session.close()
 
 
-def assert_enrichment(enrichment_result: Iterable[EnrichmentResult], expected_implementation: str, expected_width: int, expected_depth: int):
+def assert_enrichment(
+    enrichment_result: Iterable[EnrichmentResult],
+    expected_implementation: str,
+    expected_width: int,
+    expected_depth: int,
+):
     for result in enrichment_result:
         assert result.enriched_node.implementation == expected_implementation
         assert result.meta_data.width == expected_width
@@ -166,7 +171,7 @@ async def test_enrich_unknown_node() -> None:
     )
 
     result = await OperatorEnricherStrategy().enrich(node, constraints)
-    
+
     assert result == []
 
 

@@ -28,7 +28,7 @@ def setup_database_data(session: Session) -> None:
         implementation="phi_plus_impl",
         inputs=[],
         quantum_state=QuantumStateType.PHI_PLUS,
-        size=1
+        size=1,
     )
     node2 = PrepareStateNode(
         type=NodeType.PREPARE,
@@ -37,7 +37,7 @@ def setup_database_data(session: Session) -> None:
         implementation="psi_plus_impl",
         inputs=[],
         quantum_state=QuantumStateType.PSI_PLUS,
-        size=3
+        size=3,
     )
     node3 = PrepareStateNode(
         type=NodeType.PREPARE,
@@ -46,7 +46,7 @@ def setup_database_data(session: Session) -> None:
         implementation="gzh_impl",
         inputs=[],
         quantum_state=QuantumStateType.GHZ,
-        size=6
+        size=6,
     )
     node4 = PrepareStateNode(
         type=NodeType.PREPARE,
@@ -55,7 +55,7 @@ def setup_database_data(session: Session) -> None:
         implementation="superposition_impl",
         inputs=[],
         quantum_state=QuantumStateType.UNIFORM,
-        size=4
+        size=4,
     )
     node5 = PrepareStateNode(
         type=NodeType.PREPARE,
@@ -64,7 +64,7 @@ def setup_database_data(session: Session) -> None:
         implementation="w_impl",
         inputs=[],
         quantum_state=QuantumStateType.W,
-        size=9
+        size=9,
     )
 
     session.add_all([node1, node2, node3, node4, node5])
@@ -72,7 +72,12 @@ def setup_database_data(session: Session) -> None:
     session.close()
 
 
-def assert_enrichment(enrichment_result: Iterable[EnrichmentResult], expected_implementation: str, expected_width: int, expected_depth: int):
+def assert_enrichment(
+    enrichment_result: Iterable[EnrichmentResult],
+    expected_implementation: str,
+    expected_width: int,
+    expected_depth: int,
+):
     for result in enrichment_result:
         assert result.enriched_node.implementation == expected_implementation
         assert result.meta_data.width == expected_width
@@ -82,11 +87,7 @@ def assert_enrichment(enrichment_result: Iterable[EnrichmentResult], expected_im
 @pytest.mark.asyncio
 async def test_enrich_phi_plus_prepare_state() -> None:
     node = FrontendPrepareStateNode(
-        id="1",
-        label=None,
-        type="prepare",
-        quantumState="ϕ+",
-        size=1
+        id="1", label=None, type="prepare", quantumState="ϕ+", size=1
     )
     constraints = Constraints(
         requested_inputs={},
@@ -101,11 +102,7 @@ async def test_enrich_phi_plus_prepare_state() -> None:
 @pytest.mark.asyncio
 async def test_enrich_psi_plus_prepare_state() -> None:
     node = FrontendPrepareStateNode(
-        id="1",
-        label=None,
-        type="prepare",
-        quantumState="ψ+",
-        size=3
+        id="1", label=None, type="prepare", quantumState="ψ+", size=3
     )
     constraints = Constraints(
         requested_inputs={},
@@ -120,11 +117,7 @@ async def test_enrich_psi_plus_prepare_state() -> None:
 @pytest.mark.asyncio
 async def test_enrich_gzh_prepare_state() -> None:
     node = FrontendPrepareStateNode(
-        id="3",
-        label=None,
-        type="prepare",
-        quantumState="ghz",
-        size=6
+        id="3", label=None, type="prepare", quantumState="ghz", size=6
     )
     constraints = Constraints(
         requested_inputs={},
@@ -139,11 +132,7 @@ async def test_enrich_gzh_prepare_state() -> None:
 @pytest.mark.asyncio
 async def test_enrich_superposition_prepare_state() -> None:
     node = FrontendPrepareStateNode(
-        id="4",
-        label=None,
-        type="prepare",
-        quantumState="uniform",
-        size=4
+        id="4", label=None, type="prepare", quantumState="uniform", size=4
     )
     constraints = Constraints(
         requested_inputs={},
@@ -158,11 +147,7 @@ async def test_enrich_superposition_prepare_state() -> None:
 @pytest.mark.asyncio
 async def test_enrich_w_prepare_state() -> None:
     node = FrontendPrepareStateNode(
-        id="5",
-        label=None,
-        type="prepare",
-        quantumState="w",
-        size=9
+        id="5", label=None, type="prepare", quantumState="w", size=9
     )
     constraints = Constraints(
         requested_inputs={},
@@ -204,18 +189,14 @@ async def test_enrich_unknown_node() -> None:
     )
 
     result = await PrepareStateEnricherStrategy().enrich(node, constraints)
-    
+
     assert result == []
 
 
 @pytest.mark.asyncio
 async def test_enrich_prepare_state_one_inputs() -> None:
     node = FrontendPrepareStateNode(
-        id="1",
-        label=None,
-        type="prepare",
-        quantumState="ghz",
-        size=4
+        id="1", label=None, type="prepare", quantumState="ghz", size=4
     )
     constraints = Constraints(
         requested_inputs={0: FloatType(bit_size=32)},

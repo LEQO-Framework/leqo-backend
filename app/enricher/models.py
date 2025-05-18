@@ -60,6 +60,7 @@ class InputType(enum.Enum):
     BoolType = "BoolType"
     QubitType = "QubitType"
 
+
 class BaseNode(Base):
     """Base class for all nodes.
 
@@ -68,7 +69,7 @@ class BaseNode(Base):
     :param depth: Depth of the node implementation
     :param width: Width of the node implementation
     :param implementation: Implementation of the node
-    :param inputs: 1-n-Relationship with :class:`Input` 
+    :param inputs: 1-n-Relationship with :class:`Input`
     """
 
     __tablename__ = "base_nodes"
@@ -78,28 +79,30 @@ class BaseNode(Base):
     depth = Column(Integer, nullable=False)
     width = Column(Integer, nullable=False)
     implementation = Column(Text, nullable=False)
-    
-    inputs: Mapped[list["Input"]] = relationship("Input", back_populates="node", cascade="all, delete-orphan")
+
+    inputs: Mapped[list["Input"]] = relationship(
+        "Input", back_populates="node", cascade="all, delete-orphan"
+    )
 
     __mapper_args__: ClassVar[dict] = {
         "polymorphic_on": type,
         "polymorphic_identity": "base_nodes",
     }
-    
+
 
 class Input(Base):
     """Input class to store input information for nodes."""
-    
+
     __tablename__ = "inputs"
-    
+
     id = Column(Integer, primary_key=True)
     index = Column(Integer, nullable=False)
     type = Column(Enum(InputType), nullable=False)
     size = Column(Integer, nullable=True)
     node_id = Column(Integer, ForeignKey("base_nodes.id"), nullable=False)
-    
+
     node: Mapped[BaseNode] = relationship("BaseNode", back_populates="inputs")
-    
+
 
 class EncodeValueNode(BaseNode):
     """Special properties of EncodeValueNode.

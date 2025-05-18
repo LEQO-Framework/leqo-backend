@@ -33,9 +33,7 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
     Strategy capable of enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
     """
 
-    def _convert_to_input_type(
-        self, node_type: LeqoSupportedType
-    ) -> str:
+    def _convert_to_input_type(self, node_type: LeqoSupportedType) -> str:
         """
         Converts the node type to the enum value of :class:`~app.enricher.models.InputType`
         """
@@ -51,9 +49,7 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
             case "QubitType":
                 input_type = InputType.QubitType.value
             case _:
-                raise ConstraintValidationException(
-                    f"Unsupported input type: {input}"
-                )
+                raise ConstraintValidationException(f"Unsupported input type: {input}")
 
         return input_type
 
