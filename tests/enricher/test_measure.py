@@ -23,10 +23,11 @@ async def test_simple_measurement() -> None:
     )
 
     strategy = MeasurementEnricherStrategy()
-    result = await strategy.enrich(node, constraints)
+    result = list(await strategy.enrich(node, constraints))
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;
@@ -47,10 +48,11 @@ async def test_less_indices() -> None:
     )
 
     strategy = MeasurementEnricherStrategy()
-    result = await strategy.enrich(node, constraints)
+    result = list(await strategy.enrich(node, constraints))
 
+    assert len(result) == 1
     assert_enrichment(
-        result.enriched_node,
+        result[0].enriched_node,
         "nodeId",
         """\
         OPENQASM 3.1;

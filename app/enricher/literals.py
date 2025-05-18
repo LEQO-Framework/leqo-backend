@@ -24,7 +24,6 @@ from openqasm3.ast import (
 
 from app.enricher import (
     Constraints,
-    ConstraintValidationException,
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
@@ -51,9 +50,9 @@ class LiteralEnricherStrategy(EnricherStrategy):
     @override
     def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
-    ) -> EnrichmentResult:
+    ) -> EnrichmentResult | list[EnrichmentResult]:
         if constraints is not None and len(constraints.requested_inputs) != 0:
-            raise ConstraintValidationException("Literals may not have inputs")
+            return []
 
         match node:
             case QubitNode():

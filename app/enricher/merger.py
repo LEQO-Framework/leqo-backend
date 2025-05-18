@@ -17,7 +17,6 @@ from app.enricher import (
     EnrichmentResult,
     ImplementationMetaData,
     InputValidationException,
-    NodeUnsupportedException,
 )
 from app.enricher.utils import implementation, leqo_input, leqo_output
 from app.model.CompileRequest import MergerNode
@@ -33,9 +32,9 @@ class MergerEnricherStrategy(EnricherStrategy):
     @override
     def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
-    ) -> EnrichmentResult:
+    ) -> EnrichmentResult | list[EnrichmentResult]:
         if not isinstance(node, MergerNode):
-            raise NodeUnsupportedException(node)
+            return []
 
         MIN_INPUTS: int = 2
         if constraints is None or len(constraints.requested_inputs) < MIN_INPUTS:

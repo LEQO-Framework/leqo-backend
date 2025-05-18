@@ -69,13 +69,14 @@ class AsyncEnricherStrategy(EnricherStrategy):
 @pytest.mark.asyncio
 async def test_strategy_enrich_known_node() -> None:
     strategy = IntToAEnricherStrategy()
-    result = await strategy.enrich(
-        IntLiteralNode(id="nodeId", value=42), constraints=None
+    result = list(
+        await strategy.enrich(IntLiteralNode(id="nodeId", value=42), constraints=None)
     )
 
-    assert result.enriched_node is not None
-    assert result.enriched_node.id == "nodeId"
-    assert result.enriched_node.implementation == "A"
+    assert len(result) == 1
+    assert result[0].enriched_node is not None
+    assert result[0].enriched_node.id == "nodeId"
+    assert result[0].enriched_node.implementation == "A"
 
 
 @pytest.mark.asyncio
