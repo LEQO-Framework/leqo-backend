@@ -1,12 +1,14 @@
+from collections.abc import Iterable
+
 import pytest
 from sqlalchemy.orm import Session
 
 from app.enricher import (
     Constraints,
     ConstraintValidationException,
-    NodeUnsupportedException,
+    EnrichmentResult,
 )
-from app.enricher.models import InputType, NodeType, OperatorNode, OperatorType
+from app.enricher.models import Input, InputType, NodeType, OperatorNode, OperatorType
 from app.enricher.operator import OperatorEnricherStrategy
 from app.model.CompileRequest import OperatorNode as FrontendOperatorNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
@@ -16,16 +18,17 @@ from app.model.data_types import FloatType, QubitType
 @pytest.fixture(autouse=True)
 def setup_database_data(session: Session) -> None:
     """
-    Set up the database with test data for the EncodeValueNode.
+    Set up the database with test data for the OperatorNode.
     """
+
     node1 = OperatorNode(
         type=NodeType.OPERATOR,
         depth=1,
         width=2,
         implementation="addition_impl",
         inputs=[
-            {"index": 0, "type": InputType.QubitType.value, "size": 2},
-            {"index": 1, "type": InputType.QubitType.value, "size": 3},
+            Input(index=0, type=InputType.QubitType, size=2),
+            Input(index=1, type=InputType.QubitType, size=3),
         ],
         operator=OperatorType.ADD,
     )
@@ -35,8 +38,8 @@ def setup_database_data(session: Session) -> None:
         width=2,
         implementation="multiplication_impl",
         inputs=[
-            {"index": 0, "type": InputType.QubitType.value, "size": 1},
-            {"index": 1, "type": InputType.QubitType.value, "size": 4},
+            Input(index=0, type=InputType.QubitType, size=1),
+            Input(index=1, type=InputType.QubitType, size=4),
         ],
         operator=OperatorType.MUL,
     )
@@ -46,8 +49,8 @@ def setup_database_data(session: Session) -> None:
         width=3,
         implementation="or_impl",
         inputs=[
-            {"index": 0, "type": InputType.QubitType.value, "size": 4},
-            {"index": 1, "type": InputType.QubitType.value, "size": 3},
+            Input(index=0, type=InputType.QubitType, size=4),
+            Input(index=1, type=InputType.QubitType, size=3),
         ],
         operator=OperatorType.OR,
     )
@@ -57,8 +60,8 @@ def setup_database_data(session: Session) -> None:
         width=4,
         implementation="greater_than_impl",
         inputs=[
-            {"index": 0, "type": InputType.QubitType.value, "size": 5},
-            {"index": 1, "type": InputType.QubitType.value, "size": 4},
+            Input(index=0, type=InputType.QubitType, size=5),
+            Input(index=1, type=InputType.QubitType, size=4),
         ],
         operator=OperatorType.GT,
     )
@@ -68,8 +71,8 @@ def setup_database_data(session: Session) -> None:
         width=5,
         implementation="minimum_impl",
         inputs=[
-            {"index": 0, "type": InputType.QubitType.value, "size": 5},
-            {"index": 1, "type": InputType.QubitType.value, "size": 6},
+            Input(index=0, type=InputType.QubitType, size=5),
+            Input(index=1, type=InputType.QubitType, size=6),
         ],
         operator=OperatorType.MIN,
     )
@@ -77,6 +80,13 @@ def setup_database_data(session: Session) -> None:
     session.add_all([node1, node2, node3, node4, node5])
     session.commit()
     session.close()
+
+
+def assert_enrichment(enrichment_result: Iterable[EnrichmentResult], expected_implementation: str, expected_width: int, expected_depth: int):
+    for result in enrichment_result:
+        assert result.enriched_node.implementation == expected_implementation
+        assert result.meta_data.width == expected_width
+        assert result.meta_data.depth == expected_depth
 
 
 @pytest.mark.asyncio
@@ -89,11 +99,7 @@ async def test_enrich_plus_operator() -> None:
     )
 
     result = await OperatorEnricherStrategy().enrich(node, constraints)
-
-    assert result is not None
-    assert result.enriched_node.implementation == "addition_impl"
-    assert result.meta_data.width == 1
-    assert result.meta_data.depth == 2  # noqa: PLR2004
+    assert_enrichment(result, "addition_impl", 2, 1)
 
 
 @pytest.mark.asyncio
@@ -106,11 +112,7 @@ async def test_enrich_multiplication_operator() -> None:
     )
 
     result = await OperatorEnricherStrategy().enrich(node, constraints)
-
-    assert result is not None
-    assert result.enriched_node.implementation == "multiplication_impl"
-    assert result.meta_data.width == 2  # noqa: PLR2004
-    assert result.meta_data.depth == 2  # noqa: PLR2004
+    assert_enrichment(result, "multiplication_impl", 2, 2)
 
 
 @pytest.mark.asyncio
@@ -123,11 +125,7 @@ async def test_enrich_OR_operator() -> None:
     )
 
     result = await OperatorEnricherStrategy().enrich(node, constraints)
-
-    assert result is not None
-    assert result.enriched_node.implementation == "or_impl"
-    assert result.meta_data.width == 3  # noqa: PLR2004
-    assert result.meta_data.depth == 3  # noqa: PLR2004
+    assert_enrichment(result, "or_impl", 3, 3)
 
 
 @pytest.mark.asyncio
@@ -140,11 +138,7 @@ async def test_enrich_greater_operator() -> None:
     )
 
     result = await OperatorEnricherStrategy().enrich(node, constraints)
-
-    assert result is not None
-    assert result.enriched_node.implementation == "greater_than_impl"
-    assert result.meta_data.width == 4  # noqa: PLR2004
-    assert result.meta_data.depth == 3  # noqa: PLR2004
+    assert_enrichment(result, "greater_than_impl", 4, 3)
 
 
 @pytest.mark.asyncio
@@ -157,17 +151,13 @@ async def test_enrich_min_operator() -> None:
     )
 
     result = await OperatorEnricherStrategy().enrich(node, constraints)
-
-    assert result is not None
-    assert result.enriched_node.implementation == "minimum_impl"
-    assert result.meta_data.width == 4  # noqa: PLR2004
-    assert result.meta_data.depth == 5  # noqa: PLR2004
+    assert_enrichment(result, "minimum_impl", 5, 4)
 
 
 @pytest.mark.asyncio
 async def test_enrich_unknown_node() -> None:
     node = FrontendPrepareStateNode(
-        id="1", label=None, type="prepare", quantumState="ghz"
+        id="1", label=None, type="prepare", quantumState="ghz", size=3
     )
     constraints = Constraints(
         requested_inputs={0: FloatType(bit_size=32)},
@@ -175,11 +165,9 @@ async def test_enrich_unknown_node() -> None:
         optimizeWidth=True,
     )
 
-    with pytest.raises(
-        NodeUnsupportedException,
-        match=r"^Node 'PrepareStateNode' is not supported$",
-    ):
-        await OperatorEnricherStrategy().enrich(node, constraints)
+    result = await OperatorEnricherStrategy().enrich(node, constraints)
+    
+    assert result == []
 
 
 @pytest.mark.asyncio

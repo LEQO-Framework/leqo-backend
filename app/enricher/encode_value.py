@@ -4,7 +4,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Encod
 
 from typing import override
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
 
 from app.enricher import (
     Constraints,
@@ -17,7 +17,7 @@ from app.enricher import (
 )
 from app.enricher.engine import DatabaseEngine
 from app.enricher.models import EncodeValueNode as EncodeNodeTable
-from app.enricher.models import EncodingType, InputType, NodeType
+from app.enricher.models import EncodingType, Input, InputType, NodeType
 from app.model.CompileRequest import (
     EncodeValueNode,
     ImplementationNode,
@@ -33,48 +33,36 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
     Strategy capable of enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
     """
 
-    def _convert_requested_inputs_to_json(
-        self, requested_inputs: dict[int, LeqoSupportedType]
-    ) -> list[dict[str, object]]:
+    def _convert_to_input_type(
+        self, node_type: LeqoSupportedType
+    ) -> str:
         """
-        Converts the requested inputs to the required JSON object.
+        Converts the node type to the enum value of :class:`~app.enricher.models.InputType`
         """
-        inputsTransformedToJSON = []
-        size: int | None = None
-        for index, input in requested_inputs.items():
-            match type(input).__name__:
-                case "IntType":
-                    input_type = InputType.IntType.value
-                    size = getattr(input, "bit_size", None)
-                case "FloatType":
-                    input_type = InputType.FloatType.value
-                    size = getattr(input, "bit_size", None)
-                case "BitType":
-                    input_type = InputType.BitType.value
-                    size = getattr(input, "bit_size", None)
-                case "BoolType":
-                    input_type = InputType.BoolType.value
-                    size = None
-                case "QubitType":
-                    input_type = InputType.QubitType.value
-                    size = getattr(input, "reg_size", None)
-                case _:
-                    raise ConstraintValidationException(
-                        f"Unsupported input type: {input}"
-                    )
+        match type(node_type).__name__:
+            case "IntType":
+                input_type = InputType.IntType.value
+            case "FloatType":
+                input_type = InputType.FloatType.value
+            case "BitType":
+                input_type = InputType.BitType.value
+            case "BoolType":
+                input_type = InputType.BoolType.value
+            case "QubitType":
+                input_type = InputType.QubitType.value
+            case _:
+                raise ConstraintValidationException(
+                    f"Unsupported input type: {input}"
+                )
 
-            inputsTransformedToJSON.append(
-                {"index": index, "type": input_type, "size": size}
-            )
-
-        return inputsTransformedToJSON
+        return input_type
 
     @override
     def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
-    ) -> EnrichmentResult:
+    ) -> list[EnrichmentResult]:
         if not isinstance(node, EncodeValueNode):
-            raise NodeUnsupportedException(node)
+            return []
 
         if node.encoding == "custom" or node.bounds < 0:
             raise InputValidationException(
@@ -91,18 +79,22 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
                 "EncodeValueNode only supports classical types"
             )
 
-        inputsTransformedToJSON = self._convert_requested_inputs_to_json(
-            constraints.requested_inputs
+        converted_input_type = self._convert_to_input_type(
+            constraints.requested_inputs[0]
         )
 
         databaseEngine = DatabaseEngine()
         session = databaseEngine._get_database_session()
-        query = select(EncodeNodeTable).where(
-            and_(
+        query = (
+            select(EncodeNodeTable)
+            .join(Input, EncodeNodeTable.inputs)
+            .where(
                 EncodeNodeTable.type == NodeType(node.type),
-                EncodeNodeTable.inputs == inputsTransformedToJSON,
                 EncodeNodeTable.encoding == EncodingType(node.encoding),
                 EncodeNodeTable.bounds == node.bounds,
+                Input.index == 0,
+                Input.type == converted_input_type,
+                Input.size == constraints.requested_inputs[0].bit_size,
             )
         )
 

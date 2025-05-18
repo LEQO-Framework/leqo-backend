@@ -4,7 +4,8 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Opera
 
 from typing import override
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
+from sqlalchemy.orm import aliased
 
 from app.enricher import (
     Constraints,
@@ -15,7 +16,7 @@ from app.enricher import (
     NodeUnsupportedException,
 )
 from app.enricher.engine import DatabaseEngine
-from app.enricher.models import InputType, NodeType, OperatorType
+from app.enricher.models import Input, InputType, NodeType, OperatorType
 from app.enricher.models import OperatorNode as OperatorNodeTable
 from app.model.CompileRequest import (
     ImplementationNode,
@@ -35,9 +36,9 @@ class OperatorEnricherStrategy(EnricherStrategy):
     @override
     def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
-    ) -> EnrichmentResult:
+    ) -> list[EnrichmentResult]:
         if not isinstance(node, OperatorNode):
-            raise NodeUnsupportedException(node)
+            return []
 
         if constraints is None or len(constraints.requested_inputs) != 2:  # noqa: PLR2004
             raise ConstraintValidationException(
@@ -53,23 +54,23 @@ class OperatorEnricherStrategy(EnricherStrategy):
 
         databaseEngine = DatabaseEngine()
         session = databaseEngine._get_database_session()
-        query = select(OperatorNodeTable).where(
-            and_(
+
+        Input0 = aliased(Input)
+        Input1 = aliased(Input)
+
+        query = (
+            select(OperatorNodeTable)
+            .join(Input0, OperatorNodeTable.inputs)
+            .join(Input1, OperatorNodeTable.inputs)
+            .where(
                 OperatorNodeTable.type == NodeType(node.type),
-                OperatorNodeTable.inputs
-                == [
-                    {
-                        "index": 0,
-                        "type": InputType.QubitType.value,
-                        "size": constraints.requested_inputs[0].reg_size,
-                    },
-                    {
-                        "index": 1,
-                        "type": InputType.QubitType.value,
-                        "size": constraints.requested_inputs[1].reg_size,
-                    },
-                ],
                 OperatorNodeTable.operator == OperatorType(node.operator),
+                Input0.index == 0,
+                Input0.type == InputType.QubitType,
+                Input0.size == constraints.requested_inputs[0].reg_size,
+                Input1.index == 1,
+                Input1.type == InputType.QubitType,
+                Input1.size == constraints.requested_inputs[1].reg_size,
             )
         )
 

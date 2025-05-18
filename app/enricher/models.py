@@ -4,8 +4,7 @@ import enum
 from typing import ClassVar
 
 from sqlalchemy import Column, Enum, ForeignKey, Integer, Text
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import Mapped, declarative_base, relationship
 
 Base = declarative_base()
 
@@ -61,7 +60,6 @@ class InputType(enum.Enum):
     BoolType = "BoolType"
     QubitType = "QubitType"
 
-
 class BaseNode(Base):
     """Base class for all nodes.
 
@@ -70,31 +68,38 @@ class BaseNode(Base):
     :param depth: Depth of the node implementation
     :param width: Width of the node implementation
     :param implementation: Implementation of the node
-    :param inputs: An array JSON object of the following form:
-                   [
-                       {
-                           index: int,
-                           type: `class:InputType`,
-                           size: int | None
-                       }
-                   ]
-                   If there are no inputs this should be an empty array.
+    :param inputs: 1-n-Relationship with :class:`Input` 
     """
 
-    __tablename__ = "quantum_nodes"
+    __tablename__ = "base_nodes"
 
     id = Column(Integer, primary_key=True)
     type = Column(Enum(NodeType), nullable=False)
     depth = Column(Integer, nullable=False)
     width = Column(Integer, nullable=False)
     implementation = Column(Text, nullable=False)
-    inputs = Column(JSONB, nullable=False)
+    
+    inputs: Mapped[list["Input"]] = relationship("Input", back_populates="node", cascade="all, delete-orphan")
 
     __mapper_args__: ClassVar[dict] = {
         "polymorphic_on": type,
-        "polymorphic_identity": "quantum_node",
+        "polymorphic_identity": "base_nodes",
     }
+    
 
+class Input(Base):
+    """Input class to store input information for nodes."""
+    
+    __tablename__ = "inputs"
+    
+    id = Column(Integer, primary_key=True)
+    index = Column(Integer, nullable=False)
+    type = Column(Enum(InputType), nullable=False)
+    size = Column(Integer, nullable=True)
+    node_id = Column(Integer, ForeignKey("base_nodes.id"), nullable=False)
+    
+    node: Mapped[BaseNode] = relationship("BaseNode", back_populates="inputs")
+    
 
 class EncodeValueNode(BaseNode):
     """Special properties of EncodeValueNode.
@@ -106,7 +111,7 @@ class EncodeValueNode(BaseNode):
 
     __tablename__ = "encode_nodes"
 
-    id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
+    id = Column(Integer, ForeignKey("base_nodes.id"), primary_key=True)
     encoding = Column(Enum(EncodingType), nullable=False)
     bounds = Column(Integer, nullable=False)
 
@@ -125,8 +130,9 @@ class PrepareStateNode(BaseNode):
 
     __tablename__ = "prepare_nodes"
 
-    id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
+    id = Column(Integer, ForeignKey("base_nodes.id"), primary_key=True)
     quantum_state = Column(Enum(QuantumStateType), nullable=False)
+    size = Column(Integer, nullable=False)
 
     __mapper_args__: ClassVar[dict[str, NodeType]] = {
         "polymorphic_identity": NodeType.PREPARE
@@ -142,7 +148,7 @@ class OperatorNode(BaseNode):
 
     __tablename__ = "operator_nodes"
 
-    id = Column(Integer, ForeignKey("quantum_nodes.id"), primary_key=True)
+    id = Column(Integer, ForeignKey("base_nodes.id"), primary_key=True)
     operator = Column(Enum(OperatorType), nullable=False)
 
     __mapper_args__: ClassVar[dict[str, NodeType]] = {

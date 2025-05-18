@@ -4,7 +4,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Prepa
 
 from typing import override
 
-from sqlalchemy import and_, select
+from sqlalchemy import exists, select
 
 from app.enricher import (
     Constraints,
@@ -16,7 +16,7 @@ from app.enricher import (
     NodeUnsupportedException,
 )
 from app.enricher.engine import DatabaseEngine
-from app.enricher.models import NodeType, QuantumStateType
+from app.enricher.models import Input, NodeType, QuantumStateType
 from app.enricher.models import PrepareStateNode as PrepareStateTable
 from app.model.CompileRequest import (
     ImplementationNode,
@@ -35,11 +35,11 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
     @override
     def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
-    ) -> EnrichmentResult:
+    ) -> list[EnrichmentResult]:
         if not isinstance(node, PrepareStateNode):
-            raise NodeUnsupportedException(node)
+            return []
 
-        if node.quantumState == "custom":
+        if node.quantumState == "custom" or node.size <= 0:
             raise InputValidationException(
                 "Custom prepare state or size below 1 are not supported"
             )
@@ -49,12 +49,13 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
 
         databaseEngine = DatabaseEngine()
         session = databaseEngine._get_database_session()
+        
+        no_inputs = ~exists().where(Input.node_id == PrepareStateTable.id)
         query = select(PrepareStateTable).where(
-            and_(
-                PrepareStateTable.type == NodeType(node.type),
-                PrepareStateTable.inputs == [],
-                PrepareStateTable.quantum_state == QuantumStateType(node.quantumState),
-            )
+            PrepareStateTable.type == NodeType(node.type),
+            no_inputs,
+            PrepareStateTable.quantum_state == QuantumStateType(node.quantumState),
+            PrepareStateTable.size == node.size,
         )
 
         result_nodes = session.execute(query).scalars().all()

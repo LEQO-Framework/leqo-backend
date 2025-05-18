@@ -1,11 +1,13 @@
+from collections.abc import Iterable
+
 import pytest
 from sqlalchemy.orm import Session
 
 from app.enricher import (
     Constraints,
     ConstraintValidationException,
+    EnrichmentResult,
     InputValidationException,
-    NodeUnsupportedException,
 )
 from app.enricher.models import NodeType, PrepareStateNode, QuantumStateType
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
@@ -26,6 +28,7 @@ def setup_database_data(session: Session) -> None:
         implementation="phi_plus_impl",
         inputs=[],
         quantum_state=QuantumStateType.PHI_PLUS,
+        size=1
     )
     node2 = PrepareStateNode(
         type=NodeType.PREPARE,
@@ -34,6 +37,7 @@ def setup_database_data(session: Session) -> None:
         implementation="psi_plus_impl",
         inputs=[],
         quantum_state=QuantumStateType.PSI_PLUS,
+        size=3
     )
     node3 = PrepareStateNode(
         type=NodeType.PREPARE,
@@ -42,6 +46,7 @@ def setup_database_data(session: Session) -> None:
         implementation="gzh_impl",
         inputs=[],
         quantum_state=QuantumStateType.GHZ,
+        size=6
     )
     node4 = PrepareStateNode(
         type=NodeType.PREPARE,
@@ -50,6 +55,7 @@ def setup_database_data(session: Session) -> None:
         implementation="superposition_impl",
         inputs=[],
         quantum_state=QuantumStateType.UNIFORM,
+        size=4
     )
     node5 = PrepareStateNode(
         type=NodeType.PREPARE,
@@ -58,11 +64,19 @@ def setup_database_data(session: Session) -> None:
         implementation="w_impl",
         inputs=[],
         quantum_state=QuantumStateType.W,
+        size=9
     )
 
     session.add_all([node1, node2, node3, node4, node5])
     session.commit()
     session.close()
+
+
+def assert_enrichment(enrichment_result: Iterable[EnrichmentResult], expected_implementation: str, expected_width: int, expected_depth: int):
+    for result in enrichment_result:
+        assert result.enriched_node.implementation == expected_implementation
+        assert result.meta_data.width == expected_width
+        assert result.meta_data.depth == expected_depth
 
 
 @pytest.mark.asyncio
@@ -72,6 +86,7 @@ async def test_enrich_phi_plus_prepare_state() -> None:
         label=None,
         type="prepare",
         quantumState="ϕ+",
+        size=1
     )
     constraints = Constraints(
         requested_inputs={},
@@ -80,11 +95,7 @@ async def test_enrich_phi_plus_prepare_state() -> None:
     )
 
     result = await PrepareStateEnricherStrategy().enrich(node, constraints)
-
-    assert result is not None
-    assert result.enriched_node.implementation == "phi_plus_impl"
-    assert result.meta_data.width == 1
-    assert result.meta_data.depth == 1
+    assert_enrichment(result, "phi_plus_impl", 1, 1)
 
 
 @pytest.mark.asyncio
@@ -94,6 +105,7 @@ async def test_enrich_psi_plus_prepare_state() -> None:
         label=None,
         type="prepare",
         quantumState="ψ+",
+        size=3
     )
     constraints = Constraints(
         requested_inputs={},
@@ -102,11 +114,7 @@ async def test_enrich_psi_plus_prepare_state() -> None:
     )
 
     result = await PrepareStateEnricherStrategy().enrich(node, constraints)
-
-    assert result is not None
-    assert result.enriched_node.implementation == "psi_plus_impl"
-    assert result.meta_data.width == 2  # noqa: PLR2004
-    assert result.meta_data.depth == 2  # noqa: PLR2004
+    assert_enrichment(result, "psi_plus_impl", 2, 2)
 
 
 @pytest.mark.asyncio
@@ -116,6 +124,7 @@ async def test_enrich_gzh_prepare_state() -> None:
         label=None,
         type="prepare",
         quantumState="ghz",
+        size=6
     )
     constraints = Constraints(
         requested_inputs={},
@@ -124,11 +133,7 @@ async def test_enrich_gzh_prepare_state() -> None:
     )
 
     result = await PrepareStateEnricherStrategy().enrich(node, constraints)
-
-    assert result is not None
-    assert result.enriched_node.implementation == "gzh_impl"
-    assert result.meta_data.width == 3  # noqa: PLR2004
-    assert result.meta_data.depth == 3  # noqa: PLR2004
+    assert_enrichment(result, "gzh_impl", 3, 3)
 
 
 @pytest.mark.asyncio
@@ -138,6 +143,7 @@ async def test_enrich_superposition_prepare_state() -> None:
         label=None,
         type="prepare",
         quantumState="uniform",
+        size=4
     )
     constraints = Constraints(
         requested_inputs={},
@@ -146,11 +152,7 @@ async def test_enrich_superposition_prepare_state() -> None:
     )
 
     result = await PrepareStateEnricherStrategy().enrich(node, constraints)
-
-    assert result is not None
-    assert result.enriched_node.implementation == "superposition_impl"
-    assert result.meta_data.width == 4  # noqa: PLR2004
-    assert result.meta_data.depth == 4  # noqa: PLR2004
+    assert_enrichment(result, "superposition_impl", 4, 4)
 
 
 @pytest.mark.asyncio
@@ -160,6 +162,7 @@ async def test_enrich_w_prepare_state() -> None:
         label=None,
         type="prepare",
         quantumState="w",
+        size=9
     )
     constraints = Constraints(
         requested_inputs={},
@@ -168,17 +171,13 @@ async def test_enrich_w_prepare_state() -> None:
     )
 
     result = await PrepareStateEnricherStrategy().enrich(node, constraints)
-
-    assert result is not None
-    assert result.enriched_node.implementation == "w_impl"
-    assert result.meta_data.width == 9  # noqa: PLR2004
-    assert result.meta_data.depth == 6  # noqa: PLR2004
+    assert_enrichment(result, "w_impl", 9, 6)
 
 
 @pytest.mark.asyncio
 async def test_enrich_custom_prepare_state() -> None:
     node = FrontendPrepareStateNode(
-        id="1", label=None, type="prepare", quantumState="custom"
+        id="1", label=None, type="prepare", quantumState="custom", size=3
     )
     constraints = Constraints(
         requested_inputs={},
@@ -204,11 +203,9 @@ async def test_enrich_unknown_node() -> None:
         optimizeWidth=True,
     )
 
-    with pytest.raises(
-        NodeUnsupportedException,
-        match=r"^Node 'EncodeValueNode' is not supported$",
-    ):
-        await PrepareStateEnricherStrategy().enrich(node, constraints)
+    result = await PrepareStateEnricherStrategy().enrich(node, constraints)
+    
+    assert result == []
 
 
 @pytest.mark.asyncio
@@ -218,6 +215,7 @@ async def test_enrich_prepare_state_one_inputs() -> None:
         label=None,
         type="prepare",
         quantumState="ghz",
+        size=4
     )
     constraints = Constraints(
         requested_inputs={0: FloatType(bit_size=32)},
@@ -235,7 +233,7 @@ async def test_enrich_prepare_state_one_inputs() -> None:
 @pytest.mark.asyncio
 async def test_enrich_prepare_state_node_not_in_db() -> None:
     node = FrontendPrepareStateNode(
-        id="1", label=None, type="prepare", quantumState="ϕ-"
+        id="1", label=None, type="prepare", quantumState="ϕ-", size=2
     )
     constraints = Constraints(
         requested_inputs={},
