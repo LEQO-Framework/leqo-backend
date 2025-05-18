@@ -21,6 +21,7 @@ def engine() -> Generator[DatabaseEngine]:
     os.environ["POSTGRES_USER"] = postgres.username
     os.environ["POSTGRES_PASSWORD"] = postgres.password
     os.environ["POSTGRES_DB"] = postgres.dbname
+    os.environ["SQLALCHEMY_DRIVER"] = "postgresql+psycopg"
 
     engine = DatabaseEngine()
     yield engine
