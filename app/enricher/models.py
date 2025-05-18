@@ -84,7 +84,7 @@ class BaseNode(Base):
         "Input", back_populates="node", cascade="all, delete-orphan"
     )
 
-    __mapper_args__: ClassVar[dict] = {
+    __mapper_args__: ClassVar[dict[str, object]] = {
         "polymorphic_on": type,
         "polymorphic_identity": "base_nodes",
     }
@@ -118,7 +118,7 @@ class EncodeValueNode(BaseNode):
     encoding = Column(Enum(EncodingType), nullable=False)
     bounds = Column(Integer, nullable=False)
 
-    __mapper_args__: ClassVar[dict[str, NodeType]] = {
+    __mapper_args__: ClassVar[dict[str, object]] = {
         "polymorphic_identity": NodeType.ENCODE
     }
 
@@ -137,7 +137,7 @@ class PrepareStateNode(BaseNode):
     quantum_state = Column(Enum(QuantumStateType), nullable=False)
     size = Column(Integer, nullable=False)
 
-    __mapper_args__: ClassVar[dict[str, NodeType]] = {
+    __mapper_args__: ClassVar[dict[str, object]] = {
         "polymorphic_identity": NodeType.PREPARE
     }
 
@@ -154,6 +154,6 @@ class OperatorNode(BaseNode):
     id = Column(Integer, ForeignKey("base_nodes.id"), primary_key=True)
     operator = Column(Enum(OperatorType), nullable=False)
 
-    __mapper_args__: ClassVar[dict[str, NodeType]] = {
+    __mapper_args__: ClassVar[dict[str, object]] = {
         "polymorphic_identity": NodeType.OPERATOR
     }

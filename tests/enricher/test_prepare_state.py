@@ -77,7 +77,7 @@ def assert_enrichment(
     expected_implementation: str,
     expected_width: int,
     expected_depth: int,
-):
+) -> None:
     for result in enrichment_result:
         assert result.enriched_node.implementation == expected_implementation
         assert result.meta_data.width == expected_width
