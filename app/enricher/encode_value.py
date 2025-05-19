@@ -61,14 +61,10 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
             return []
 
         if node.encoding == "custom":
-            raise InputValidationException(
-                "Custom encoding is not supported"
-            )
-            
+            raise InputValidationException("Custom encoding is not supported")
+
         if node.bounds < 0 or node.bounds > 1:
-            raise InputValidationException(
-                "Bounds must be between 0 and 1"
-            )
+            raise InputValidationException("Bounds must be between 0 and 1")
 
         if constraints is None or len(constraints.requested_inputs) != 1:
             raise ConstraintValidationException(
