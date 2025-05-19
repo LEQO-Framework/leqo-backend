@@ -30,7 +30,7 @@ def setup_database_data(session: Session) -> None:
         width=1,
         implementation="amplitude_impl",
         encoding=EncodingType.AMPLITUDE,
-        bounds=2,
+        bounds=1,
         inputs=[Input(index=0, type=InputType.FloatType, size=32)],
     )
     node2 = EncodeValueNode(
@@ -39,7 +39,7 @@ def setup_database_data(session: Session) -> None:
         width=2,
         implementation="angle_impl",
         encoding=EncodingType.ANGLE,
-        bounds=1,
+        bounds=0,
         inputs=[Input(index=0, type=InputType.IntType, size=32)],
     )
     node3 = EncodeValueNode(
@@ -48,7 +48,7 @@ def setup_database_data(session: Session) -> None:
         width=3,
         implementation="matrix_impl",
         encoding=EncodingType.MATRIX,
-        bounds=6,
+        bounds=1,
         inputs=[Input(index=0, type=InputType.BitType, size=32)],
     )
     node4 = EncodeValueNode(
@@ -57,7 +57,7 @@ def setup_database_data(session: Session) -> None:
         width=4,
         implementation="schmidt_impl",
         encoding=EncodingType.SCHMIDT,
-        bounds=8,
+        bounds=1,
         inputs=[Input(index=0, type=InputType.BoolType, size=1)],
     )
 
@@ -85,7 +85,7 @@ async def test_enrich_amplitude_encode_value() -> None:
         label=None,
         type="encode",
         encoding="amplitude",
-        bounds=2,
+        bounds=1,
     )
     constraints = Constraints(
         requested_inputs={0: FloatType(bit_size=32)},
@@ -104,7 +104,7 @@ async def test_enrich_angle_encode_value() -> None:
         label=None,
         type="encode",
         encoding="angle",
-        bounds=1,
+        bounds=0,
     )
     constraints = Constraints(
         requested_inputs={0: IntType(bit_size=32)},
@@ -123,7 +123,7 @@ async def test_enrich_matrix_encode_value() -> None:
         label=None,
         type="encode",
         encoding="matrix",
-        bounds=6,
+        bounds=1,
     )
     constraints = Constraints(
         requested_inputs={0: BitType(bit_size=32)},
@@ -142,7 +142,7 @@ async def test_enrich_schmidt_encode_value() -> None:
         label=None,
         type="encode",
         encoding="schmidt",
-        bounds=8,
+        bounds=1,
     )
     constraints = Constraints(
         requested_inputs={0: BoolType()},
@@ -161,7 +161,7 @@ async def test_enrich_custom_encode_value() -> None:
         label=None,
         type="encode",
         encoding="custom",
-        bounds=8,
+        bounds=1,
     )
     constraints = Constraints(
         requested_inputs={0: FloatType(bit_size=32)},
@@ -171,7 +171,7 @@ async def test_enrich_custom_encode_value() -> None:
 
     with pytest.raises(
         InputValidationException,
-        match=r"^Custom encoding or bounds below 0 are not supported$",
+        match=r"^Custom encoding is not supported$",
     ):
         await EncodeValueEnricherStrategy().enrich(node, constraints)
 
@@ -199,7 +199,7 @@ async def test_enrich_encode_value_two_inputs() -> None:
         label=None,
         type="encode",
         encoding="basis",
-        bounds=3,
+        bounds=0,
     )
     constraints = Constraints(
         requested_inputs={0: FloatType(bit_size=32), 1: IntType(bit_size=32)},
@@ -221,7 +221,7 @@ async def test_enrich_encode_value_quibit_input() -> None:
         label=None,
         type="encode",
         encoding="basis",
-        bounds=3,
+        bounds=1,
     )
     constraints = Constraints(
         requested_inputs={0: QubitType(reg_size=1)},
@@ -243,7 +243,7 @@ async def test_enrich_encode_value_node_not_in_db() -> None:
         label=None,
         type="encode",
         encoding="basis",
-        bounds=3,
+        bounds=1,
     )
     constraints = Constraints(
         requested_inputs={0: IntType(bit_size=32)},
