@@ -28,7 +28,6 @@ from app.processing.graph import (
     ProgramNode,
 )
 from app.processing.merge.connections import connect_qubits
-from app.processing.post import postprocess
 from app.processing.utils import cast_to_program
 
 GLOBAL_REG_NAME = "leqo_reg"
@@ -195,5 +194,4 @@ def merge_nodes(graph: ProgramGraph) -> Program:
 
         all_statements.append(CommentStatement(f"End node {node.name}"))
 
-    merged_program = Program(all_statements, version=OPENQASM_VERSION)
-    return postprocess(merged_program)
+    return Program(all_statements, version=OPENQASM_VERSION)
