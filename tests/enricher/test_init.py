@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Iterable
 from typing import override
 
 import pytest
@@ -171,3 +172,22 @@ async def test_enrich_unknown_node() -> None:
     assert len(ex.value.exceptions) == 2  # noqa: PLR2004 Magic value used in comparison
     assert isinstance(ex.value.exceptions[0], NodeUnsupportedException)
     assert isinstance(ex.value.exceptions[1], NodeUnsupportedException)
+
+
+class EmptyListEnricherStrategy(EnricherStrategy):
+    def _enrich_impl(
+        self, _node: FrontendNode, _constraints: Constraints | None
+    ) -> Iterable[EnrichmentResult]:
+        return []  # unknown node
+
+
+@pytest.mark.asyncio
+async def test_enrich_unknown_node_empty_list() -> None:
+    enricher = Enricher(EmptyListEnricherStrategy())
+    with pytest.raises(
+        Exception,
+        match=r"^No implementations were found for node 'nodeId'$",
+    ):
+        await enricher.enrich(
+            BoolLiteralNode(id="nodeId", value=False), constraints=None
+        )
