@@ -170,6 +170,10 @@ class OperatorNode(_BaseNode):
     ]
 
 
+class PassNode(_BaseNode):
+    type: Literal["pass-node"] = "pass-node"
+
+
 NestableNode = (
     ImplementationNode
     | BoundaryNode
@@ -178,8 +182,11 @@ NestableNode = (
     | LiteralNode
     | AncillaNode
     | OperatorNode
+    | PassNode
+    | QubitNode
+    | ControlFlowNode
 )
-Node = NestableNode | QubitNode | ControlFlowNode
+Node = NestableNode
 
 
 class Edge(BaseModel):

@@ -13,9 +13,11 @@ from fastapi.params import Depends
 from starlette.responses import PlainTextResponse, RedirectResponse
 
 from app.enricher import Enricher
+from app.enricher.if_else import IfElseEnricherStrategy
 from app.enricher.literals import LiteralEnricherStrategy
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.enricher.merger import MergerEnricherStrategy
+from app.enricher.pass_node import PassNodeEnricherStrategy
 from app.enricher.splitter import SplitterEnricherStrategy
 from app.model.CompileRequest import CompileRequest, ImplementationNode
 from app.model.StatusBody import Progress, StatusBody, StatusType
@@ -44,6 +46,8 @@ def get_enricher() -> Enricher:
         MeasurementEnricherStrategy(),
         SplitterEnricherStrategy(),
         MergerEnricherStrategy(),
+        IfElseEnricherStrategy(),
+        PassNodeEnricherStrategy(),
     )
 
 
