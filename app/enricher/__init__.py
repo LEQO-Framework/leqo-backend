@@ -195,6 +195,9 @@ class Enricher:
                 exceptions.append(ex)
 
         if len(results) == 0:
+            if len(exceptions) == 0:
+                raise Exception(f"No implementations were found for node '{node.id}'")
+
             raise ExceptionGroup(f"Enrichment for node '{node.id}' failed", exceptions)
 
         key_selector: Callable[[EnrichmentResult], tuple[int | float, int | float]]
