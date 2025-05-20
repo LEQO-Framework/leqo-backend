@@ -1,3 +1,4 @@
+from hashlib import sha1
 from pathlib import Path
 from uuid import UUID
 
@@ -12,13 +13,9 @@ from tests.baselines import find_files
 
 # region service overrides
 def get_dummy_node_id_factory() -> NodeIdFactory:
-    uuid_counter = 0
-
-    def dummy_node_id_factory(_node_id: str) -> UUID:
-        nonlocal uuid_counter
-
-        uuid_counter += 1
-        return UUID(int=uuid_counter)
+    def dummy_node_id_factory(node_id: str) -> UUID:
+        node_id_hash = sha1(node_id.encode()).digest()
+        return UUID(bytes=node_id_hash[:16])
 
     return dummy_node_id_factory
 
@@ -42,7 +39,7 @@ TEST_DIR = Path(__file__).parent
     "test",
     find_files(TEST_DIR / "debug" / "compile", DebugCompileBaseline),
 )
-def test_debug_compile_success(test: DebugCompileBaseline):
+def test_debug_compile_success(test: DebugCompileBaseline) -> None:
     response = client.post(
         "/debug/compile",
         headers={"Content-Type": "application/json"},
