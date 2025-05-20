@@ -195,5 +195,4 @@ def merge_nodes(graph: ProgramGraph) -> Program:
 
         all_statements.append(CommentStatement(f"End node {node.name}"))
 
-    merged_program = Program(all_statements, version=OPENQASM_VERSION)
-    return postprocess(merged_program)
+    return Program(all_statements, version=OPENQASM_VERSION)
