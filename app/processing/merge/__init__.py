@@ -92,7 +92,7 @@ def merge_if_nodes(
     then_graph: ProgramGraph,
     else_graph: ProgramGraph,
     condition: Expression,
-) -> Program:
+) -> tuple[Program, int]:
     """Construct single Program with a :class:`openqasm3.ast.BranchingStatement` from two sub-graphs.
 
     There are two known limitations of this implementation:
@@ -172,7 +172,7 @@ def merge_if_nodes(
             ),
         ).statements,
     )
-    return Program(all_statements, version=OPENQASM_VERSION)
+    return Program(all_statements, version=OPENQASM_VERSION), required_size
 
 
 def merge_nodes(graph: ProgramGraph) -> Program:

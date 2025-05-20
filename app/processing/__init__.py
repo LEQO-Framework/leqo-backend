@@ -4,12 +4,11 @@ Provides the core logic of the backend.
 
 from abc import ABC
 from collections.abc import AsyncIterator
-from typing import Annotated
 
 from networkx.algorithms.dag import topological_sort
-from pydantic import Field
 
 from app.enricher import Constraints, Enricher
+from app.main import get_enricher
 from app.model.CompileRequest import CompileRequest, Edge, ImplementationNode
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
@@ -33,29 +32,15 @@ class AbstractProcessor(ABC):
     def __init__(
         self,
         enricher: Enricher,
-        nodes: list[FrontendNode],
-        edges: list[Edge],
+        graph: ProgramGraph,
         optimize_width: int | None,
         optimize_depth: int | None,
     ):
         self.enricher = enricher
-        self.graph = ProgramGraph()
+        self.graph = graph
         self.lookup = {}
         self.optimize_width = optimize_width
         self.optimize_depth = optimize_depth
-
-        for frontend_node in nodes:
-            program_node = ProgramNode(frontend_node.id)
-            self.lookup[frontend_node.id] = (program_node, frontend_node)
-            self.graph.add_node(program_node)
-
-        for edge in edges:
-            self.graph.append_edge(
-                IOConnection(
-                    (self.lookup[edge.source[0]][0], edge.source[1]),
-                    (self.lookup[edge.target[0]][0], edge.target[1]),
-                )
-            )
 
     def _resolve_inputs(self, target_node: ProgramNode) -> dict[int, LeqoSupportedType]:
         requested_inputs: dict[int, LeqoSupportedType] = {}
@@ -122,10 +107,24 @@ class Processor(AbstractProcessor):
 
     def __init__(self, request: CompileRequest, enricher: Enricher):
         self.request = request
+
+        graph = ProgramGraph()
+        for frontend_node in request.nodes:
+            program_node = ProgramNode(frontend_node.id)
+            self.lookup[frontend_node.id] = (program_node, frontend_node)
+            self.graph.add_node(program_node)
+
+        for edge in request.edges:
+            self.graph.append_edge(
+                IOConnection(
+                    (self.lookup[edge.source[0]][0], edge.source[1]),
+                    (self.lookup[edge.target[0]][0], edge.target[1]),
+                )
+            )
+
         super().__init__(
             enricher,
-            request.nodes,
-            request.edges,
+            graph,
             request.metadata.optimizeWidth,
             request.metadata.optimizeDepth,
         )
@@ -166,9 +165,37 @@ class Processor(AbstractProcessor):
 
 
 class ProcessorIfElse(AbstractProcessor):
-    @staticmethod
-    async def collect_async_nodes(processor: Processor) -> list[ImplementationNode]:
-        return [node async for node in processor.enrich()]
+    def __init__(
+        self,
+        nodes: list[FrontendNode],
+        edges: list[Edge],
+        if_node: tuple[ProgramNode, FrontendNode],
+        endif_node: tuple[ProgramNode, FrontendNode],
+        optimize_width: int | None,
+        optimize_depth: int | None,
+    ):
+        graph = ProgramGraph()
+        for frontend_node in nodes:
+            program_node = ProgramNode(frontend_node.id)
+            self.lookup[frontend_node.id] = (program_node, frontend_node)
+            self.graph.add_node(program_node)
 
-    def process(self) -> str:
-        return ""
+        for program_node, frontend_node in [if_node, endif_node]:
+            self.lookup[frontend_node.id] = (program_node, frontend_node)
+            self.graph.add_node(program_node)
+
+        for edge in edges:
+            self.graph.append_edge(
+                IOConnection(
+                    (self.lookup[edge.source[0]][0], edge.source[1]),
+                    (self.lookup[edge.target[0]][0], edge.target[1]),
+                )
+            )
+
+        super().__init__(get_enricher(), graph, optimize_width, optimize_depth)
+
+    async def process(self) -> ProgramGraph:
+        async for _ in self._enrich_internal():
+            pass
+
+        return self.graph
