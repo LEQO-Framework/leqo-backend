@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from networkx import DiGraph
 from openqasm3.ast import Program
@@ -31,10 +31,10 @@ class ProgramNode:
     :param is_ancilla_node: This node is ancilla node in the model.
     """
 
+    id: UUID
     name: str
     label: str | None = None
     is_ancilla_node: bool = False
-    id: UUID = field(default_factory=uuid4)
 
 
 @dataclass(frozen=True)

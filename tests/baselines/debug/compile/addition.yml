@@ -1,0 +1,114 @@
+request: |
+  {
+    "metadata": {
+      "id": "flow-1747761598373",
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "int", "value": 1 },
+      { "id": "newNode1", "type": "int", "value": 2 },
+      {
+        "id": "newNode2",
+        "type": "implementation",
+        "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n@leqo.input 0\nint[32] val;\nqubit[3] q;\nx q[0];\n@leqo.output 0\nlet out = q;"
+      },
+      {
+        "id": "newNode3",
+        "type": "implementation",
+        "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n@leqo.input 0\nint[32] val;\nqubit[2] q;\nx q[0];\n@leqo.output 0\nlet out = q;"
+      },
+      {
+        "id": "newNode4",
+        "type": "implementation",
+        "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[3] q31;\n@leqo.input 1\nqubit[3] q32;\nqubit[2] q33;ccx q31[1], q32[1], q32[2];\ncx q31[1], q32[1];\nccx q31[0], q32[0], q33[1];\ncx q31[0], q32[0];\nccx q33[0], q32[0], q33[1];\nccx q33[1], q32[1], q32[2];\ncx q33[1], q32[1];\nccx q33[0], q32[0], q33[1];\ncx q31[0], q32[0];\nccx q31[0], q32[0], q33[1];\ncx q33[0], q32[0];\ncx q31[0], q32[0];\n@leqo.output 0\nlet out = q32;"
+      },
+      { "id": "newNode5", "type": "measure", "indices": [0, 1, 2] }
+    ],
+    "edges": [
+      {
+        "source": ["newNode4", 0],
+        "target": ["newNode5", 0],
+        "identifier": null,
+        "size": 1
+      },
+      {
+        "source": ["newNode3", 0],
+        "target": ["newNode4", 1],
+        "identifier": null,
+        "size": 1
+      },
+      {
+        "source": ["newNode2", 0],
+        "target": ["newNode4", 0],
+        "identifier": null,
+        "size": 1
+      },
+      { "source": ["newNode1", 0], "target": ["newNode3", 0] },
+      { "source": ["newNode0", 0], "target": ["newNode2", 0] }
+    ]
+  }
+
+expected_status: 200
+expected_result: |
+  OPENQASM 3.1;
+  include "stdgates.inc";
+  qubit[8] leqo_reg;
+  /* Start node newNode0 */
+  int[32] leqo_00000000000000000000000000000001_literal = 1;
+  @leqo.output 0
+  let leqo_00000000000000000000000000000001_out = leqo_00000000000000000000000000000001_literal;
+  /* End node newNode0 */
+  /* Start node newNode1 */
+  int[32] leqo_00000000000000000000000000000002_literal = 2;
+  @leqo.output 0
+  let leqo_00000000000000000000000000000002_out = leqo_00000000000000000000000000000002_literal;
+  /* End node newNode1 */
+  /* Start node newNode2 */
+  @leqo.input 0
+  let leqo_00000000000000000000000000000003_val = leqo_00000000000000000000000000000001_out;
+  let leqo_00000000000000000000000000000003_q = leqo_reg[{0, 1, 2}];
+  x leqo_00000000000000000000000000000003_q[0];
+  @leqo.output 0
+  let leqo_00000000000000000000000000000003_out = leqo_00000000000000000000000000000003_q;
+  /* End node newNode2 */
+  /* Start node newNode3 */
+  @leqo.input 0
+  let leqo_00000000000000000000000000000004_val = leqo_00000000000000000000000000000002_out;
+  let leqo_00000000000000000000000000000004_q = leqo_reg[{3, 4}];
+  x leqo_00000000000000000000000000000004_q[0];
+  @leqo.output 0
+  let leqo_00000000000000000000000000000004_out = leqo_00000000000000000000000000000004_q;
+  /* End node newNode3 */
+  /* Start node newNode4 */
+  @leqo.input 0
+  let leqo_00000000000000000000000000000005_q31 = leqo_reg[{0, 1, 2}];
+  @leqo.input 1
+  let leqo_00000000000000000000000000000005_q34 = leqo_reg[{3, 4}];
+  let leqo_00000000000000000000000000000005_q35 = leqo_reg[{7}];
+  let leqo_00000000000000000000000000000005_q32 = leqo_00000000000000000000000000000005_q34 ++ leqo_00000000000000000000000000000005_q35;
+  let leqo_00000000000000000000000000000005_q33 = leqo_reg[{5, 6}];
+  ccx leqo_00000000000000000000000000000005_q31[1], leqo_00000000000000000000000000000005_q34[1], leqo_00000000000000000000000000000005_q34[2];
+  cx leqo_00000000000000000000000000000005_q31[1], leqo_00000000000000000000000000000005_q34[1];
+  ccx leqo_00000000000000000000000000000005_q31[0], leqo_00000000000000000000000000000005_q34[0], leqo_00000000000000000000000000000005_q33[1];
+  cx leqo_00000000000000000000000000000005_q31[0], leqo_00000000000000000000000000000005_q34[0];
+  ccx leqo_00000000000000000000000000000005_q33[0], leqo_00000000000000000000000000000005_q34[0], leqo_00000000000000000000000000000005_q33[1];
+  ccx leqo_00000000000000000000000000000005_q33[1], leqo_00000000000000000000000000000005_q34[1], leqo_00000000000000000000000000000005_q34[2];
+  cx leqo_00000000000000000000000000000005_q33[1], leqo_00000000000000000000000000000005_q34[1];
+  ccx leqo_00000000000000000000000000000005_q33[0], leqo_00000000000000000000000000000005_q34[0], leqo_00000000000000000000000000000005_q33[1];
+  cx leqo_00000000000000000000000000000005_q31[0], leqo_00000000000000000000000000000005_q34[0];
+  ccx leqo_00000000000000000000000000000005_q31[0], leqo_00000000000000000000000000000005_q34[0], leqo_00000000000000000000000000000005_q33[1];
+  cx leqo_00000000000000000000000000000005_q33[0], leqo_00000000000000000000000000000005_q34[0];
+  cx leqo_00000000000000000000000000000005_q31[0], leqo_00000000000000000000000000000005_q34[0];
+  @leqo.output 0
+  let leqo_00000000000000000000000000000005_out = leqo_00000000000000000000000000000005_q34;
+  /* End node newNode4 */
+  /* Start node newNode5 */
+  @leqo.input 0
+  let leqo_00000000000000000000000000000006_q = leqo_reg[{3, 4, 7}];
+  bit[3] leqo_00000000000000000000000000000006_result = measure leqo_00000000000000000000000000000006_q[{0, 1, 2}];
+  @leqo.output 0
+  let leqo_00000000000000000000000000000006_out = leqo_00000000000000000000000000000006_result;
+  /* End node newNode5 */

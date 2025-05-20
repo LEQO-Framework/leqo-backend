@@ -12,12 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
 from starlette.responses import PlainTextResponse, RedirectResponse
 
-from app.enricher import Enricher
-from app.enricher.literals import LiteralEnricherStrategy
-from app.enricher.measure import MeasurementEnricherStrategy
-from app.enricher.merger import MergerEnricherStrategy
-from app.enricher.splitter import SplitterEnricherStrategy
-from app.model.CompileRequest import CompileRequest, ImplementationNode
+from app.model.CompileRequest import ImplementationNode
 from app.model.StatusBody import Progress, StatusBody, StatusType
 from app.processing import Processor
 
@@ -38,20 +33,9 @@ states: dict[UUID, StatusBody] = {}
 results: dict[UUID, str] = {}
 
 
-def get_enricher() -> Enricher:
-    return Enricher(
-        LiteralEnricherStrategy(),
-        MeasurementEnricherStrategy(),
-        SplitterEnricherStrategy(),
-        MergerEnricherStrategy(),
-    )
-
-
 @app.post("/compile")
 def compile(
-    body: CompileRequest,
-    background_tasks: BackgroundTasks,
-    enricher: Annotated[Enricher, Depends(get_enricher)],
+    processor: Annotated[Processor, Depends()], background_tasks: BackgroundTasks
 ) -> RedirectResponse:
     """
     Queue a compilation request.
@@ -66,9 +50,7 @@ def compile(
         progress=Progress(percentage=0, currentStep="init"),
         result=f"/result/{uuid}",
     )
-    background_tasks.add_task(
-        process_request, uuid, body, enricher
-    )  # ToDo: Use Celery (?)
+    background_tasks.add_task(process_request, uuid, processor)  # ToDo: Use Celery (?)
     return RedirectResponse(url=f"/status/{uuid}", status_code=303)
 
 
@@ -102,18 +84,17 @@ def result(uuid: UUID) -> str:
     return results[uuid]
 
 
-async def process_request(uuid: UUID, body: CompileRequest, enricher: Enricher) -> None:
+async def process_request(uuid: UUID, processor: Processor) -> None:
     """
     Process a compile request in background.
 
     :param uuid: Id of the compile request
-    :param body: Compile request from frontend
-    :param enricher: Enricher used to enrich nodes
+    :param processor: Processor for this request
     """
 
     status = StatusType.FAILED
     try:
-        result_str = await Processor(body, enricher).process()
+        result_str = await processor.process()
         status = StatusType.COMPLETED
     except Exception as exception:
         result_str = str(exception) or type(exception).__name__
@@ -131,14 +112,10 @@ async def process_request(uuid: UUID, body: CompileRequest, enricher: Enricher) 
 
 
 @app.post("/debug/compile", response_class=PlainTextResponse)
-async def debug_compile(
-    body: CompileRequest, enricher: Annotated[Enricher, Depends(get_enricher)]
-) -> str:
+async def debug_compile(processor: Annotated[Processor, Depends()]) -> str:
     """
     Compiles the request to an openqasm3 program in one shot.
     """
-
-    processor = Processor(body, enricher)
 
     try:
         return await processor.process()
@@ -148,13 +125,12 @@ async def debug_compile(
 
 @app.post("/debug/enrich")
 async def debug_enrich(
-    body: CompileRequest, enricher: Annotated[Enricher, Depends(get_enricher)]
+    processor: Annotated[Processor, Depends()],
 ) -> list[ImplementationNode] | str:
     """
     Enriches all nodes in the compile request.
     """
 
-    processor = Processor(body, enricher)
     try:
         return [x async for x in processor.enrich()]
     except Exception:
