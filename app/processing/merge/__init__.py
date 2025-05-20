@@ -28,7 +28,6 @@ from app.processing.graph import (
     ProgramNode,
 )
 from app.processing.merge.connections import connect_qubits
-from app.processing.post import postprocess
 from app.processing.utils import cast_to_program
 
 GLOBAL_REG_NAME = "leqo_reg"
