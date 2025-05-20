@@ -2,12 +2,15 @@
 Provides the core logic of the backend.
 """
 
+from abc import ABC
 from collections.abc import AsyncIterator
+from typing import Annotated
 
 from networkx.algorithms.dag import topological_sort
+from pydantic import Field
 
 from app.enricher import Constraints, Enricher
-from app.model.CompileRequest import CompileRequest, ImplementationNode
+from app.model.CompileRequest import CompileRequest, Edge, ImplementationNode
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
@@ -20,28 +23,33 @@ from app.processing.size_casting import size_cast
 from app.utils import not_none
 
 
-class Processor:
-    """
-    Handles processing a :class:`~app.model.CompileRequest.CompileRequest`.
-    """
-
-    request: CompileRequest
+class AbstractProcessor(ABC):
     graph: ProgramGraph
     lookup: dict[str, tuple[ProgramNode, FrontendNode]]
+    optimize_width: int | None
+    optimize_depth: int | None
     enricher: Enricher
 
-    def __init__(self, request: CompileRequest, enricher: Enricher):
-        self.request = request
+    def __init__(
+        self,
+        enricher: Enricher,
+        nodes: list[FrontendNode],
+        edges: list[Edge],
+        optimize_width: int | None,
+        optimize_depth: int | None,
+    ):
         self.enricher = enricher
         self.graph = ProgramGraph()
         self.lookup = {}
+        self.optimize_width = optimize_width
+        self.optimize_depth = optimize_depth
 
-        for frontend_node in self.request.nodes:
+        for frontend_node in nodes:
             program_node = ProgramNode(frontend_node.id)
             self.lookup[frontend_node.id] = (program_node, frontend_node)
             self.graph.add_node(program_node)
 
-        for edge in self.request.edges:
+        for edge in edges:
             self.graph.append_edge(
                 IOConnection(
                     (self.lookup[edge.source[0]][0], edge.source[1]),
@@ -91,8 +99,8 @@ class Processor:
                 frontend_node,
                 Constraints(
                     requested_inputs,
-                    optimizeWidth=self.request.metadata.optimizeWidth is not None,
-                    optimizeDepth=self.request.metadata.optimizeDepth is not None,
+                    optimizeWidth=self.optimize_width is not None,
+                    optimizeDepth=self.optimize_depth is not None,
                 ),
             )
             processed_node = preprocess(target_node, enriched_node.implementation)
@@ -103,6 +111,24 @@ class Processor:
             self.graph.node_data[target_node] = processed_node
 
             yield target_node, enriched_node
+
+
+class Processor(AbstractProcessor):
+    """
+    Handles processing a :class:`~app.model.CompileRequest.CompileRequest`.
+    """
+
+    request: CompileRequest
+
+    def __init__(self, request: CompileRequest, enricher: Enricher):
+        self.request = request
+        super().__init__(
+            enricher,
+            request.nodes,
+            request.edges,
+            request.metadata.optimizeWidth,
+            request.metadata.optimizeDepth,
+        )
 
     async def enrich(self) -> AsyncIterator[ImplementationNode]:
         """
@@ -137,3 +163,12 @@ class Processor:
         program = merge_nodes(self.graph)
         program = postprocess(program)
         return leqo_dumps(program)
+
+
+class ProcessorIfElse(AbstractProcessor):
+    @staticmethod
+    async def collect_async_nodes(processor: Processor) -> list[ImplementationNode]:
+        return [node async for node in processor.enrich()]
+
+    def process(self) -> str:
+        return ""
