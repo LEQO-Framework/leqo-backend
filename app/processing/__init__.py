@@ -46,7 +46,7 @@ class Processor:
 
         for frontend_node in self.request.nodes:
             program_node = ProgramNode(
-                id=node_id_factory(frontend_node.id), name=frontend_node.id
+                frontend_node.id, id=node_id_factory(frontend_node.id)
             )
             self.lookup[frontend_node.id] = (program_node, frontend_node)
             self.graph.add_node(program_node)
