@@ -119,7 +119,7 @@ class EncodeValueNode(BaseNode):
     encoding: Mapped[EncodingType] = mapped_column(Enum(EncodingType), nullable=False)
     bounds: Mapped[int] = mapped_column(nullable=False)
 
-    __mapper_args__ = { # noqa: RUF012, mypy false positive error
+    __mapper_args__ = {  # noqa: RUF012, mypy false positive error
         "polymorphic_identity": NodeType.ENCODE
     }
 
@@ -140,7 +140,7 @@ class PrepareStateNode(BaseNode):
     )
     size: Mapped[int] = mapped_column(nullable=False)
 
-    __mapper_args__ = { # noqa: RUF012, mypy false positive error
+    __mapper_args__ = {  # noqa: RUF012, mypy false positive error
         "polymorphic_identity": NodeType.PREPARE
     }
 
@@ -157,6 +157,6 @@ class OperatorNode(BaseNode):
     id: Mapped[int] = mapped_column(ForeignKey("base_nodes.id"), primary_key=True)
     operator: Mapped[OperatorType] = mapped_column(Enum(OperatorType), nullable=False)
 
-    __mapper_args__ = { # noqa: RUF012, mypy false positive error
+    __mapper_args__ = {  # noqa: RUF012, mypy false positive error
         "polymorphic_identity": NodeType.OPERATOR
     }
