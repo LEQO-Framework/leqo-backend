@@ -1,11 +1,11 @@
-"""Creation of the database engine singleton class to connect and execute operation on the database."""
+"""Creation of the async database engine singleton class to connect and execute operation on the database."""
 
+import asyncio
 import os
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.enricher.models import Base
 
@@ -13,7 +13,7 @@ load_dotenv()
 
 
 class DatabaseEngine:
-    """Singleton class to manage the database engine."""
+    """Singleton class to manage the async database engine."""
 
     _instance = None
     _engine = None
@@ -25,7 +25,7 @@ class DatabaseEngine:
         return cls._instance
 
     def _initialize_engine(self) -> None:
-        """Initialize the database engine."""
+        """Initialize the async database engine."""
         try:
             url = URL.create(
                 drivername=os.environ["SQLALCHEMY_DRIVER"],
@@ -35,19 +35,28 @@ class DatabaseEngine:
                 port=int(os.environ["POSTGRES_PORT"]),
                 database=os.environ["POSTGRES_DB"],
             )
-            self._engine = create_engine(url)
-            Base.metadata.create_all(self._engine)
+            self._engine = create_async_engine(url)
+
+            asyncio.run(self.async_create_all())
         except KeyError as e:
             raise RuntimeError(f"Missing required environment variable: {e}") from e
         except Exception as e:
             raise RuntimeError(f"Failed to create the database engine: {e}") from e
 
-    def get_database_session(self) -> Session:
-        """Create and return a database session.
+    async def async_create_all(self) -> None:
+        """Create all tables in the database."""
+        if self._engine is None:
+            raise RuntimeError("Database engine has not been initialized.")
 
-        :return Session: A database session to commit things to the database
+        async with self._engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+    def get_database_session(self) -> AsyncSession:
+        """Create and return a async database session.
+
+        :return Session: A async database session to commit things to the database
         """
         try:
-            return Session(self._engine)
+            return AsyncSession(self._engine)
         except Exception as e:
             raise RuntimeError(f"Failed to create database session: {e}") from e

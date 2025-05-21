@@ -1,7 +1,8 @@
 from collections.abc import Iterable
 
 import pytest
-from sqlalchemy.orm import Session
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enricher import (
     Constraints,
@@ -16,8 +17,8 @@ from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNod
 from app.model.data_types import FloatType
 
 
-@pytest.fixture(autouse=True)
-def setup_database_data(session: Session) -> None:
+@pytest_asyncio.fixture(autouse=True)
+async def setup_database_data(session: AsyncSession) -> None:
     """
     Set up the database with test data for the PrepareStateNode.
     """
@@ -68,8 +69,7 @@ def setup_database_data(session: Session) -> None:
     )
 
     session.add_all([node1, node2, node3, node4, node5])
-    session.commit()
-    session.close()
+    await session.commit()
 
 
 def assert_enrichment(

@@ -399,7 +399,7 @@ dependencies = [
     { name = "psycopg" },
     { name = "psycopg-binary" },
     { name = "python-dotenv" },
-    { name = "sqlalchemy", extra = ["mypy"] },
+    { name = "sqlalchemy", extra = ["asyncio", "mypy"] },
 ]
 
 [package.dev-dependencies]
@@ -430,7 +430,7 @@ requires-dist = [
     { name = "psycopg", specifier = ">=3.2.6" },
     { name = "psycopg-binary", specifier = ">=3.2.6" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "sqlalchemy", extras = ["mypy"], specifier = ">=2.0.38" },
+    { name = "sqlalchemy", extras = ["asyncio", "mypy"], specifier = ">=2.0.38" },
 ]
 
 [package.metadata.requires-dev]
@@ -1192,6 +1192,9 @@ wheels = [
 ]
 
 [package.optional-dependencies]
+asyncio = [
+    { name = "greenlet" },
+]
 mypy = [
     { name = "mypy" },
 ]

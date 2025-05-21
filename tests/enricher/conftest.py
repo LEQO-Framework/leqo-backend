@@ -1,9 +1,9 @@
+import asyncio
 import os
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 
-import pytest
-from sqlalchemy import Engine
-from sqlalchemy.orm import Session
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from testcontainers.postgres import PostgresContainer
 
 from app.enricher.engine import DatabaseEngine
@@ -12,8 +12,8 @@ from app.enricher.models import Base
 postgres = PostgresContainer("postgres:16-alpine3.20")
 
 
-@pytest.fixture(scope="session", autouse=True)
-def engine() -> Generator[DatabaseEngine]:
+@pytest_asyncio.fixture(scope="session", autouse=True)
+def engine():
     """Set up the database container for the tests."""
 
     postgres.start()
@@ -31,26 +31,25 @@ def engine() -> Generator[DatabaseEngine]:
     if engine._engine is None:
         raise RuntimeError("Database engine is not initialized.")
 
-    reset_database(engine=engine._engine)
+    asyncio.run(reset_database(engine=engine._engine))
     postgres.stop()
 
 
-@pytest.fixture(scope="session", autouse=True)
-def session(engine: DatabaseEngine) -> Generator[Session]:
+@pytest_asyncio.fixture(autouse=True)
+async def session(engine: DatabaseEngine) -> AsyncGenerator[AsyncSession]:
     """Create and return a database session."""
-    try:
-        session = engine.get_database_session()
+
+    session = engine.get_database_session()
+    async with session:
         yield session
-        session.close()
-    except Exception as e:
-        raise RuntimeError(f"Failed to create database session: {e}") from e
 
 
-def reset_database(engine: Engine) -> None:
+async def reset_database(engine: AsyncEngine) -> None:
     """Reset the database by dropping all tables and recreating them."""
-
     try:
-        Base.metadata.drop_all(engine)
-        Base.metadata.create_all(engine)
+        await engine.dispose()
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
     except Exception as e:
         raise RuntimeError(f"Failed to reset the database: {e}") from e

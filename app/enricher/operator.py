@@ -34,7 +34,7 @@ class OperatorEnricherStrategy(EnricherStrategy):
     """
 
     @override
-    def _enrich_impl(
+    async def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
         if not isinstance(node, OperatorNode):
@@ -74,8 +74,8 @@ class OperatorEnricherStrategy(EnricherStrategy):
             )
         )
 
-        result_nodes = session.execute(query).scalars().all()
-        session.close()
+        async with session:
+            result_nodes = (await session.execute(query)).scalars().all()
 
         if not result_nodes:
             raise RuntimeError("No results found in the database")
