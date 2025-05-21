@@ -237,4 +237,7 @@ class ProcessorIfElse(AbstractProcessor):
         async for _ in self._enrich_internal():
             pass
 
+        if self.optimize_width is not None:
+            optimize(self.graph)
+
         return self.graph
