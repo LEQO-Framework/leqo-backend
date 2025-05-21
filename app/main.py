@@ -13,7 +13,7 @@ from fastapi.params import Depends
 from starlette.responses import PlainTextResponse, RedirectResponse
 
 from app.enricher import Enricher
-from app.enricher.if_else import IfElseEnricherStrategy
+# from app.enricher.if_else import IfElseEnricherStrategy
 from app.enricher.literals import LiteralEnricherStrategy
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.enricher.merger import MergerEnricherStrategy
@@ -46,7 +46,7 @@ def get_enricher() -> Enricher:
         MeasurementEnricherStrategy(),
         SplitterEnricherStrategy(),
         MergerEnricherStrategy(),
-        IfElseEnricherStrategy(),
+        # IfElseEnricherStrategy(),
         PassNodeEnricherStrategy(),
     )
 

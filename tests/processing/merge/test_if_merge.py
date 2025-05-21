@@ -85,7 +85,7 @@ def assert_if_merge(  # noqa: PLR0913 Too many arguments in function definition 
                 Identifier(condition_var),
                 BooleanLiteral(True),
             ),
-        ),
+        )[0],
     )
     assert normalize_qasm_string(expected) == normalize_qasm_string(actual)
 

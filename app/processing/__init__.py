@@ -8,7 +8,6 @@ from collections.abc import AsyncIterator
 from networkx.algorithms.dag import topological_sort
 
 from app.enricher import Constraints, Enricher
-from app.main import get_enricher
 from app.model.CompileRequest import CompileRequest, Edge, ImplementationNode
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
@@ -167,6 +166,7 @@ class Processor(AbstractProcessor):
 class ProcessorIfElse(AbstractProcessor):
     def __init__(
         self,
+        enricher: Enricher,
         nodes: list[FrontendNode],
         edges: list[Edge],
         if_node: tuple[ProgramNode, FrontendNode],
@@ -192,7 +192,7 @@ class ProcessorIfElse(AbstractProcessor):
                 )
             )
 
-        super().__init__(get_enricher(), graph, optimize_width, optimize_depth)
+        super().__init__(enricher, graph, optimize_width, optimize_depth)
 
     async def process(self) -> ProgramGraph:
         async for _ in self._enrich_internal():
