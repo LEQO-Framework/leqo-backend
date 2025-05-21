@@ -53,7 +53,7 @@ class OperatorEnricherStrategy(EnricherStrategy):
             )
 
         databaseEngine = DatabaseEngine()
-        session = databaseEngine._get_database_session()
+        session = databaseEngine.get_database_session()
 
         Input0 = aliased(Input)
         Input1 = aliased(Input)

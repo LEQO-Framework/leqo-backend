@@ -81,7 +81,7 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
         )
 
         databaseEngine = DatabaseEngine()
-        session = databaseEngine._get_database_session()
+        session = databaseEngine.get_database_session()
         query = (
             select(EncodeNodeTable)
             .join(Input, EncodeNodeTable.inputs)

@@ -48,7 +48,7 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
             raise ConstraintValidationException("PrepareStateNode can't have an input")
 
         databaseEngine = DatabaseEngine()
-        session = databaseEngine._get_database_session()
+        session = databaseEngine.get_database_session()
 
         no_inputs = ~exists().where(Input.node_id == PrepareStateTable.id)
         query = select(PrepareStateTable).where(

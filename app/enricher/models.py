@@ -4,9 +4,7 @@ import enum
 from typing import ClassVar
 
 from sqlalchemy import Column, Enum, ForeignKey, Integer, Text
-from sqlalchemy.orm import Mapped, declarative_base, relationship
-
-Base = declarative_base()
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class NodeType(enum.Enum):
@@ -61,6 +59,10 @@ class InputType(enum.Enum):
     QubitType = "QubitType"
 
 
+class Base(DeclarativeBase):
+    pass
+
+
 class BaseNode(Base):
     """Base class for all nodes.
 
@@ -74,11 +76,11 @@ class BaseNode(Base):
 
     __tablename__ = "base_nodes"
 
-    id = Column(Integer, primary_key=True)
-    type = Column(Enum(NodeType), nullable=False)
-    depth = Column(Integer, nullable=False)
-    width = Column(Integer, nullable=False)
-    implementation = Column(Text, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    type: Mapped[NodeType] = mapped_column(Enum(NodeType), nullable=False)
+    depth: Mapped[int] = mapped_column(nullable=False)
+    width: Mapped[int] = mapped_column(nullable=False)
+    implementation: Mapped[str] = mapped_column(Text, nullable=False)
 
     inputs: Mapped[list["Input"]] = relationship(
         "Input", back_populates="node", cascade="all, delete-orphan"
@@ -95,11 +97,11 @@ class Input(Base):
 
     __tablename__ = "inputs"
 
-    id = Column(Integer, primary_key=True)
-    index = Column(Integer, nullable=False)
-    type = Column(Enum(InputType), nullable=False)
-    size = Column(Integer, nullable=True)
-    node_id = Column(Integer, ForeignKey("base_nodes.id"), nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    index: Mapped[int] = mapped_column(nullable=False)
+    type: Mapped[InputType] = mapped_column(Enum(InputType), nullable=False)
+    size: Mapped[int | None] = mapped_column(nullable=True)
+    node_id: Mapped[int] = mapped_column(ForeignKey("base_nodes.id"), nullable=False)
 
     node: Mapped[BaseNode] = relationship("BaseNode", back_populates="inputs")
 
@@ -114,9 +116,9 @@ class EncodeValueNode(BaseNode):
 
     __tablename__ = "encode_nodes"
 
-    id = Column(Integer, ForeignKey("base_nodes.id"), primary_key=True)
-    encoding = Column(Enum(EncodingType), nullable=False)
-    bounds = Column(Integer, nullable=False)
+    id: Mapped[int] = mapped_column(ForeignKey("base_nodes.id"), primary_key=True)
+    encoding: Mapped[EncodingType] = mapped_column(Enum(EncodingType), nullable=False)
+    bounds: Mapped[int] = mapped_column(nullable=False)
 
     __mapper_args__: ClassVar[dict[str, object]] = {
         "polymorphic_identity": NodeType.ENCODE
@@ -133,9 +135,9 @@ class PrepareStateNode(BaseNode):
 
     __tablename__ = "prepare_nodes"
 
-    id = Column(Integer, ForeignKey("base_nodes.id"), primary_key=True)
-    quantum_state = Column(Enum(QuantumStateType), nullable=False)
-    size = Column(Integer, nullable=False)
+    id: Mapped[int] = mapped_column(ForeignKey("base_nodes.id"), primary_key=True)
+    quantum_state: Mapped[QuantumStateType] = mapped_column(Enum(QuantumStateType), nullable=False)
+    size: Mapped[int] = mapped_column(nullable=False)
 
     __mapper_args__: ClassVar[dict[str, object]] = {
         "polymorphic_identity": NodeType.PREPARE
@@ -151,8 +153,8 @@ class OperatorNode(BaseNode):
 
     __tablename__ = "operator_nodes"
 
-    id = Column(Integer, ForeignKey("base_nodes.id"), primary_key=True)
-    operator = Column(Enum(OperatorType), nullable=False)
+    id: Mapped[int] = mapped_column(ForeignKey("base_nodes.id"), primary_key=True)
+    operator: Mapped[OperatorType] = mapped_column(Enum(OperatorType), nullable=False)
 
     __mapper_args__: ClassVar[dict[str, object]] = {
         "polymorphic_identity": NodeType.OPERATOR
