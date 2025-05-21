@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 from networkx.algorithms.dag import topological_sort
 
 from app.enricher import Constraints, Enricher
-from app.model.CompileRequest import CompileRequest, Edge, ImplementationNode, PassNode
+from app.model.CompileRequest import CompileRequest, Edge, ImplementationNode
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
@@ -75,10 +75,8 @@ class AbstractProcessor(ABC):
         return requested_inputs
 
     async def _enrich_internal(
-        self, pre_enriched: dict[ProgramNode, ProcessedProgramNode] | None = None
+        self,
     ) -> AsyncIterator[tuple[ProgramNode, ImplementationNode]]:
-        pre_enriched = {} if pre_enriched is None else pre_enriched
-
         for target_node in topological_sort(self.graph):
             assert self.graph.node_data.get(target_node) is None
 
@@ -87,28 +85,19 @@ class AbstractProcessor(ABC):
             _, frontend_node = not_none(
                 self.lookup.get(target_node.name), "Lookup should contain all nodes"
             )
-            if target_node in pre_enriched:
-                processed_node = pre_enriched[target_node]
-                enriched_node = ImplementationNode(
-                    id=target_node.name,
-                    implementation=leqo_dumps(
-                        processed_node.implementation
-                    ),  # this is useless, but our data-model needs it
-                )
-            else:
-                enriched_node = await self.enricher.enrich(
-                    frontend_node,
-                    Constraints(
-                        requested_inputs,
-                        optimizeWidth=self.optimize_width is not None,
-                        optimizeDepth=self.optimize_depth is not None,
-                    ),
-                )
-                processed_node = preprocess(target_node, enriched_node.implementation)
-                size_cast(
-                    processed_node,
-                    {index: type.bit_size for index, type in requested_inputs.items()},
-                )
+            enriched_node = await self.enricher.enrich(
+                frontend_node,
+                Constraints(
+                    requested_inputs,
+                    optimizeWidth=self.optimize_width is not None,
+                    optimizeDepth=self.optimize_depth is not None,
+                ),
+            )
+            processed_node = preprocess(target_node, enriched_node.implementation)
+            size_cast(
+                processed_node,
+                {index: type.bit_size for index, type in requested_inputs.items()},
+            )
             self.graph.node_data[target_node] = processed_node
 
             yield target_node, enriched_node
@@ -183,8 +172,6 @@ class Processor(AbstractProcessor):
 
 
 class ProcessorIfElse(AbstractProcessor):
-    pre_enriched: dict[ProgramNode, ProcessedProgramNode]
-
     def __init__(
         self,
         enricher: Enricher,
@@ -216,14 +203,10 @@ class ProcessorIfElse(AbstractProcessor):
                 )
             )
 
-        self.pre_enriched = {}
-        for program_node, _, processed_node in [if_nodes, endif_nodes]:
-            self.pre_enriched[program_node] = processed_node
-
         super().__init__(graph, lookup, enricher, optimize_width, optimize_depth)
 
     async def process(self) -> ProgramGraph:
-        async for _ in self._enrich_internal(self.pre_enriched):
+        async for _ in self._enrich_internal():
             pass
 
         return self.graph

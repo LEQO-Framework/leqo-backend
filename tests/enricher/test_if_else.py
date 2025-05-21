@@ -2,10 +2,32 @@ import asyncio
 
 from app.enricher import Constraints
 from app.enricher.if_else import IfElseEnricherStrategy, get_pass_node_impl
-from app.model.CompileRequest import Edge, GateNode, IfThenElseNode, NestedBlock
+from app.model.CompileRequest import (
+    Edge,
+    IfThenElseNode,
+    ImplementationNode,
+    NestedBlock,
+)
 from app.model.data_types import IntType, QubitType
 from app.openqasm3.printer import leqo_dumps
 from app.processing.utils import normalize_qasm_string
+
+h_impl = """
+OPENQASM 3.1;
+@leqo.input 0
+qubit[1] q;
+h q;
+@leqo.output 0
+let _out = q;
+"""
+x_impl = """
+OPENQASM 3.1;
+@leqo.input 0
+qubit[1] q;
+x q;
+@leqo.output 0
+let _out = q;
+"""
 
 
 def assert_if_else_enrichment(
@@ -39,14 +61,14 @@ def test_basic() -> None:
             id="if-node",
             condition="a == 3",
             thenBlock=NestedBlock(
-                nodes=[GateNode(id="h-node", gate="h")],
+                nodes=[ImplementationNode(id="h-node", implementation=h_impl)],
                 edges=[
                     Edge(source=("h-node", 0), target=("if-node", 0)),
                     Edge(source=("if-node", 0), target=("h-node", 0)),
                 ],
             ),
             elseBlock=NestedBlock(
-                nodes=[GateNode(id="x-node", gate="x")],
+                nodes=[ImplementationNode(id="x-node", implementation=x_impl)],
                 edges=[
                     Edge(source=("x-node", 0), target=("if-node", 0)),
                     Edge(source=("if-node", 0), target=("x-node", 0)),

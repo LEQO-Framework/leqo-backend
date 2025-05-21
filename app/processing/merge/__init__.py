@@ -114,6 +114,7 @@ def merge_if_nodes(
     :param condition: The condition to use in the generated :class:`openqasm3.ast.BranchingStatement`.
     """
     endif_node_from_else = deepcopy(endif_node)
+    then_graph.node_data[endif_node.raw] = endif_node
     else_graph.node_data[endif_node.raw] = endif_node_from_else
 
     reg_name = f"leqo_{if_node.id.hex}_{IF_REG_NAME}"
