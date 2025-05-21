@@ -23,7 +23,6 @@ from app.openqasm3.ast import CommentStatement
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     ClassicalIOInstance,
-    ProcessedProgramNode,
     ProgramGraph,
     ProgramNode,
 )
@@ -101,6 +100,7 @@ def merge_if_nodes(
         This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-else,
         meaning they can not pass there value to the **endif_node**, which is outside.
         This would be required for classical outputs to work.
+        However, classical input can be used.
 
     - The **endif_node** from both **then_graph** and **else_graph** need to match.
         This not only true for the size of the outputs, but also for the order of the used qubit ids.
@@ -126,14 +126,9 @@ def merge_if_nodes(
     else_size = connect_qubits(else_graph, reg_name, if_node)
 
     if endif_node != endif_node_in_else:
-        # TODO: in the future, this should do something smarter
+        # NOTE: in the future, this should do something smarter
         msg = "Future Work: output of 'then' does not match with output of 'else'"
         raise NotImplementedError(msg)
-
-    for input in endif_node.io.inputs.values():
-        if isinstance(input, ClassicalIOInstance):
-            msg = "Future Work: if-else can't have classical output."
-            raise NotImplementedError(msg)
 
     all_statements = cast_to_program(
         RemoveAnnotationTransformer(inputs=False, outputs=True).visit(

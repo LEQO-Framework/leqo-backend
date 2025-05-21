@@ -39,14 +39,14 @@ TARGET_QASM_VERSION = "3.1"  # circular import if imported from converter
 
 
 class SimpleRenameTransformer(LeqoTransformer[None]):
-    renamings: dict[str, str]
+    renames: dict[str, str]
 
     def __init__(self, renamings: dict[str, str]) -> None:
         super().__init__()
-        self.renamings = renamings
+        self.renames = renamings
 
     def visit_Identifier(self, node: Identifier) -> Identifier:
-        node.name = self.renamings.get(node.name, node.name)
+        node.name = self.renames.get(node.name, node.name)
         return node
 
 
@@ -135,6 +135,11 @@ class IfElseEnricherStrategy(EnricherStrategy):
         then_graph, else_graph = tuple(graphs)
 
         condition = parse_condition(node.condition)
+        renames = {}
+        for identifier, index in constraints.frontend_name_to_index.items():
+            renames[identifier] = then_graph.node_data[if_node].io.inputs[index].name
+        condition = SimpleRenameTransformer(renames).visit(condition)
+
         implementation, out_size = merge_if_nodes(
             if_node,
             endif_node,

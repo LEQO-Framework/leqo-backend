@@ -8,7 +8,7 @@ from app.model.CompileRequest import (
     ImplementationNode,
     NestedBlock,
 )
-from app.model.data_types import IntType, QubitType
+from app.model.data_types import BitType, IntType, QubitType
 from app.openqasm3.printer import leqo_dumps
 from app.processing.utils import stem_qasm_string
 
@@ -60,32 +60,38 @@ def test_basic() -> None:
     assert_if_else_enrichment(
         IfThenElseNode(
             id="if-node",
-            condition="a == 3",
+            condition="b == 3",
             thenBlock=NestedBlock(
                 nodes=[ImplementationNode(id="h-node", implementation=h_impl)],
                 edges=[
-                    Edge(source=("h-node", 0), target=("if-node", 0)),
-                    Edge(source=("if-node", 0), target=("h-node", 0)),
+                    Edge(source=("h-node", 0), target=("if-node", 1)),
+                    Edge(source=("if-node", 1), target=("h-node", 0)),
                 ],
             ),
             elseBlock=NestedBlock(
                 nodes=[ImplementationNode(id="x-node", implementation=x_impl)],
                 edges=[
-                    Edge(source=("x-node", 0), target=("if-node", 0)),
-                    Edge(source=("if-node", 0), target=("x-node", 0)),
+                    Edge(source=("x-node", 0), target=("if-node", 1)),
+                    Edge(source=("if-node", 1), target=("x-node", 0)),
                 ],
             ),
         ),
         Constraints(
-            requested_inputs={0: QubitType(1)}, optimizeWidth=False, optimizeDepth=False
+            requested_inputs={0: BitType(1), 1: QubitType(1)},
+            optimizeWidth=False,
+            optimizeDepth=False,
+            frontend_name_to_index={"b": 0},
         ),
         """
         OPENQASM 3.1;
         @leqo.input 0
-        qubit[1] leqo_pass_node_declaration_0;
+        bit[1] leqo_pass_node_declaration_0;
         let leqo_pass_node_alias_0 = leqo_pass_node_declaration_0;
-        let leqo_if_reg = leqo_pass_node_declaration_0;
-        if (a == 3) {
+        @leqo.input 1
+        qubit[1] leqo_pass_node_declaration_1;
+        let leqo_pass_node_alias_1 = leqo_pass_node_declaration_1;
+        let leqo_if_reg = leqo_pass_node_declaration_1;
+        if (leqo_pass_node_declaration_0 == 3) {
           let leqo_q = leqo_if_reg[{0}];
           h leqo_q;
           let leqo__out = leqo_q;
@@ -94,8 +100,11 @@ def test_basic() -> None:
           x leqo_q;
           let leqo__out = leqo_q;
         }
-        let leqo_pass_node_declaration_0 = leqo_if_reg[{0}];
+        bit[1] leqo_pass_node_declaration_0;
         @leqo.output 0
         let leqo_pass_node_alias_0 = leqo_pass_node_declaration_0;
+        let leqo_pass_node_declaration_1 = leqo_if_reg[{0}];
+        @leqo.output 1
+        let leqo_pass_node_alias_1 = leqo_pass_node_declaration_1;
         """,
     )

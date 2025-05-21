@@ -8,13 +8,16 @@ from collections.abc import AsyncIterator
 from networkx.algorithms.dag import topological_sort
 
 from app.enricher import Constraints, Enricher
-from app.model.CompileRequest import CompileRequest, Edge, ImplementationNode
+from app.model.CompileRequest import (
+    CompileRequest,
+    Edge,
+    ImplementationNode,
+)
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
 from app.processing.graph import (
     IOConnection,
-    ProcessedProgramNode,
     ProgramGraph,
     ProgramNode,
 )
@@ -32,6 +35,18 @@ class AbstractProcessor(ABC):
     optimize_width: int | None
     optimize_depth: int | None
     enricher: Enricher
+    frontend_name_to_index: dict[str, dict[str, int]]
+
+    @staticmethod
+    def get_frontend_name_to_index(
+        nodes: list[FrontendNode], edges: list[Edge]
+    ) -> dict[str, dict[str, int]]:
+        frontend_name_to_index: dict[str, dict[str, int]] = {n.id: {} for n in nodes}
+        for edge in edges:
+            if edge.identifier is not None:
+                target_id, index = edge.target
+                frontend_name_to_index[target_id][edge.identifier] = index
+        return frontend_name_to_index
 
     def __init__(
         self,
@@ -40,12 +55,14 @@ class AbstractProcessor(ABC):
         enricher: Enricher,
         optimize_width: int | None,
         optimize_depth: int | None,
+        frontend_name_to_index: dict[str, dict[str, int]],
     ):
         self.enricher = enricher
         self.graph = graph
         self.lookup = lookup
         self.optimize_width = optimize_width
         self.optimize_depth = optimize_depth
+        self.frontend_name_to_index = frontend_name_to_index
 
     def _resolve_inputs(self, target_node: ProgramNode) -> dict[int, LeqoSupportedType]:
         requested_inputs: dict[int, LeqoSupportedType] = {}
@@ -91,6 +108,9 @@ class AbstractProcessor(ABC):
                     requested_inputs,
                     optimizeWidth=self.optimize_width is not None,
                     optimizeDepth=self.optimize_depth is not None,
+                    frontend_name_to_index=self.frontend_name_to_index[
+                        frontend_node.id
+                    ],
                 ),
             )
             processed_node = preprocess(target_node, enriched_node.implementation)
@@ -134,6 +154,7 @@ class Processor(AbstractProcessor):
             enricher,
             request.metadata.optimizeWidth,
             request.metadata.optimizeDepth,
+            self.get_frontend_name_to_index(request.nodes, request.edges),
         )
 
     async def enrich(self) -> AsyncIterator[ImplementationNode]:
@@ -203,7 +224,14 @@ class ProcessorIfElse(AbstractProcessor):
                 )
             )
 
-        super().__init__(graph, lookup, enricher, optimize_width, optimize_depth)
+        super().__init__(
+            graph,
+            lookup,
+            enricher,
+            optimize_width,
+            optimize_depth,
+            self.get_frontend_name_to_index(nodes, edges),
+        )
 
     async def process(self) -> ProgramGraph:
         async for _ in self._enrich_internal():
