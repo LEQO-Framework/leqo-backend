@@ -16,7 +16,6 @@ from openqasm3.ast import (
 )
 
 from app import main
-from app.converter.qasm_converter import TARGET_QASM_VERSION
 from app.enricher import (
     Constraints,
     EnricherStrategy,
@@ -35,6 +34,8 @@ from app.processing import ProcessorIfElse
 from app.processing.condition import parse_condition
 from app.processing.graph import ProgramGraph, ProgramNode
 from app.processing.merge import merge_if_nodes
+
+TARGET_QASM_VERSION = "3.1"  # circular import if imported from converter
 
 
 class SimpleRenameTransformer(LeqoTransformer[None]):
