@@ -10,7 +10,7 @@ from app.model.CompileRequest import (
 )
 from app.model.data_types import IntType, QubitType
 from app.openqasm3.printer import leqo_dumps
-from app.processing.utils import normalize_qasm_string
+from app.processing.utils import stem_qasm_string
 
 h_impl = """
 OPENQASM 3.1;
@@ -34,7 +34,8 @@ def assert_if_else_enrichment(
     node: IfThenElseNode, constraints: Constraints, expected: str
 ) -> None:
     actual = next(iter(asyncio.run(IfElseEnricherStrategy().enrich(node, constraints))))
-    assert normalize_qasm_string(expected) == normalize_qasm_string(
+    print(actual.enriched_node.implementation)
+    assert stem_qasm_string(expected) == stem_qasm_string(
         actual.enriched_node.implementation
     )
 
@@ -52,7 +53,7 @@ def test_pass_node_impl() -> None:
         @leqo.output 1
         let pass_node_alias_1 = pass_node_declaration_1;
         """
-    assert normalize_qasm_string(expected) == normalize_qasm_string(leqo_dumps(actual))
+    assert stem_qasm_string(expected) == stem_qasm_string(leqo_dumps(actual))
 
 
 def test_basic() -> None:
@@ -78,5 +79,23 @@ def test_basic() -> None:
         Constraints(
             requested_inputs={0: QubitType(1)}, optimizeWidth=False, optimizeDepth=False
         ),
-        "hi",
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[1] leqo_pass_node_declaration_0;
+        let leqo_pass_node_alias_0 = leqo_pass_node_declaration_0;
+        let leqo_if_reg = leqo_pass_node_declaration_0;
+        if (a == 3) {
+          let leqo_q = leqo_if_reg[{0}];
+          h leqo_q;
+          let leqo__out = leqo_q;
+        } else {
+          let leqo_q = leqo_if_reg[{0}];
+          x leqo_q;
+          let leqo__out = leqo_q;
+        }
+        let leqo_pass_node_declaration_0 = leqo_if_reg[{0}];
+        @leqo.output 0
+        let leqo_pass_node_alias_0 = leqo_pass_node_declaration_0;
+        """,
     )
