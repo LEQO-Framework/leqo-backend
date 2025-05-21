@@ -22,7 +22,6 @@ from openqasm3.ast import (
 from app.openqasm3.ast import CommentStatement
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
-    ClassicalIOInstance,
     ProgramGraph,
     ProgramNode,
 )

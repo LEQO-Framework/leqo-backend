@@ -2,7 +2,6 @@
 OpenQasm data-types that are supported by the leqo-backend.
 """
 
-from abc import ABC
 from dataclasses import dataclass
 
 from openqasm3.ast import BitType as AstBitType
@@ -32,7 +31,7 @@ class QubitType:
 
 
 @dataclass(frozen=True)
-class ClassicalType(ABC):
+class ClassicalType:
     """
     Base class for classical data types.
     """
