@@ -1,7 +1,6 @@
 """Database schema to store and query node implementations."""
 
 import enum
-from typing import ClassVar
 
 from sqlalchemy import Enum, ForeignKey, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -86,7 +85,7 @@ class BaseNode(Base):
         "Input", back_populates="node", cascade="all, delete-orphan"
     )
 
-    __mapper_args__: ClassVar[dict[str, object]] = {
+    __mapper_args__ = {  # noqa: RUF012, mypy false positive error
         "polymorphic_on": type,
         "polymorphic_identity": "base_nodes",
     }
@@ -120,7 +119,7 @@ class EncodeValueNode(BaseNode):
     encoding: Mapped[EncodingType] = mapped_column(Enum(EncodingType), nullable=False)
     bounds: Mapped[int] = mapped_column(nullable=False)
 
-    __mapper_args__: ClassVar[dict[str, object]] = {
+    __mapper_args__ = { # noqa: RUF012, mypy false positive error
         "polymorphic_identity": NodeType.ENCODE
     }
 
@@ -141,7 +140,7 @@ class PrepareStateNode(BaseNode):
     )
     size: Mapped[int] = mapped_column(nullable=False)
 
-    __mapper_args__: ClassVar[dict[str, object]] = {
+    __mapper_args__ = { # noqa: RUF012, mypy false positive error
         "polymorphic_identity": NodeType.PREPARE
     }
 
@@ -158,6 +157,6 @@ class OperatorNode(BaseNode):
     id: Mapped[int] = mapped_column(ForeignKey("base_nodes.id"), primary_key=True)
     operator: Mapped[OperatorType] = mapped_column(Enum(OperatorType), nullable=False)
 
-    __mapper_args__: ClassVar[dict[str, object]] = {
+    __mapper_args__ = { # noqa: RUF012, mypy false positive error
         "polymorphic_identity": NodeType.OPERATOR
     }
