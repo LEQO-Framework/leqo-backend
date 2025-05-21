@@ -3,7 +3,7 @@
 import enum
 from typing import ClassVar
 
-from sqlalchemy import Column, Enum, ForeignKey, Integer, Text
+from sqlalchemy import Enum, ForeignKey, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -136,7 +136,9 @@ class PrepareStateNode(BaseNode):
     __tablename__ = "prepare_nodes"
 
     id: Mapped[int] = mapped_column(ForeignKey("base_nodes.id"), primary_key=True)
-    quantum_state: Mapped[QuantumStateType] = mapped_column(Enum(QuantumStateType), nullable=False)
+    quantum_state: Mapped[QuantumStateType] = mapped_column(
+        Enum(QuantumStateType), nullable=False
+    )
     size: Mapped[int] = mapped_column(nullable=False)
 
     __mapper_args__: ClassVar[dict[str, object]] = {

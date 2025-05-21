@@ -44,13 +44,13 @@ def session(engine: DatabaseEngine) -> Generator[Session]:
         session.close()
     except Exception as e:
         raise RuntimeError(f"Failed to create database session: {e}") from e
-    
+
 
 def reset_database(engine: Engine) -> None:
-        """Reset the database by dropping all tables and recreating them."""
-        
-        try:
-            Base.metadata.drop_all(engine)
-            Base.metadata.create_all(engine)
-        except Exception as e:
-            raise RuntimeError(f"Failed to reset the database: {e}") from e
+    """Reset the database by dropping all tables and recreating them."""
+
+    try:
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
+    except Exception as e:
+        raise RuntimeError(f"Failed to reset the database: {e}") from e
