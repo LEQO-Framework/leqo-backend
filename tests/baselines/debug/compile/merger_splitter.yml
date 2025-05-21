@@ -1,7 +1,6 @@
 request: |
   {
     "metadata": {
-      "id": "flow-1747766436532",
       "version": "1.0.0",
       "name": "My Model",
       "description": "This is a model.",
