@@ -87,8 +87,8 @@ def graph_to_statements(
 
 
 def merge_if_nodes(
-    if_node: ProcessedProgramNode,
-    endif_node: ProcessedProgramNode,
+    if_node_raw: ProgramNode,
+    endif_node_raw: ProgramNode,
     then_graph: ProgramGraph,
     else_graph: ProgramGraph,
     condition: Expression,
@@ -113,15 +113,19 @@ def merge_if_nodes(
     :param else_graph: The sub-graph for the **else** case.
     :param condition: The condition to use in the generated :class:`openqasm3.ast.BranchingStatement`.
     """
-    endif_node_from_else = deepcopy(endif_node)
-    then_graph.node_data[endif_node.raw] = endif_node
-    else_graph.node_data[endif_node.raw] = endif_node_from_else
+    if_node = then_graph.node_data[if_node_raw]
+    endif_node = then_graph.node_data[endif_node_raw]
+    assert if_node == else_graph.node_data[if_node_raw]
+    assert endif_node == else_graph.node_data[endif_node_raw]
+
+    endif_node_in_else = deepcopy(endif_node)
+    else_graph.node_data[endif_node_raw] = endif_node_in_else
 
     reg_name = f"leqo_{if_node.id.hex}_{IF_REG_NAME}"
     then_size = connect_qubits(then_graph, reg_name, if_node)
     else_size = connect_qubits(else_graph, reg_name, if_node)
 
-    if endif_node != endif_node_from_else:
+    if endif_node != endif_node_in_else:
         # TODO: in the future, this should do something smarter
         msg = "Future Work: output of 'then' does not match with output of 'else'"
         raise NotImplementedError(msg)

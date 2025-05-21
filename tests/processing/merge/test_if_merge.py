@@ -76,8 +76,8 @@ def assert_if_merge(  # noqa: PLR0913 Too many arguments in function definition 
     else_graph = manual_to_graph(else_manual, if_node, endif_node)
     actual = dumps(
         merge_if_nodes(
-            if_node,
-            endif_node,
+            if_node.raw,
+            endif_node.raw,
             then_graph,
             else_graph,
             BinaryExpression(

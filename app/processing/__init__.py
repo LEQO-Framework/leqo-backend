@@ -177,8 +177,8 @@ class ProcessorIfElse(AbstractProcessor):
         enricher: Enricher,
         nodes: list[FrontendNode],
         edges: list[Edge],
-        if_nodes: tuple[ProgramNode, FrontendNode, ProcessedProgramNode],
-        endif_nodes: tuple[ProgramNode, FrontendNode, ProcessedProgramNode],
+        if_nodes: tuple[ProgramNode, FrontendNode],
+        endif_nodes: tuple[ProgramNode, FrontendNode],
         optimize_width: int | None,
         optimize_depth: int | None,
     ):
@@ -191,7 +191,7 @@ class ProcessorIfElse(AbstractProcessor):
                 lookup[frontend_node.id] = (program_node, frontend_node)
                 graph.add_node(program_node)
 
-        for program_node, frontend_node, _ in [if_nodes, endif_nodes]:
+        for program_node, frontend_node in [if_nodes, endif_nodes]:
             lookup[frontend_node.id] = (program_node, frontend_node)
             graph.add_node(program_node)
 
