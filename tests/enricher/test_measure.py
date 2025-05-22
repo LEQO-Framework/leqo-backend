@@ -36,6 +36,8 @@ async def test_simple_measurement() -> None:
         bit[3] result = measure q[{0, 1, 2}];
         @leqo.output 0
         let out = result;
+        @leqo.output 1
+        let qubit_out = q;
         """,
     )
 
@@ -61,6 +63,8 @@ async def test_less_indices() -> None:
         bit[1] result = measure q[{1}];
         @leqo.output 0
         let out = result;
+        @leqo.output 1
+        let qubit_out = q;
         """,
     )
 
