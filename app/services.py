@@ -26,6 +26,7 @@ from app.enricher.models import Base
 from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.enricher.splitter import SplitterEnricherStrategy
+from app.utils import not_none
 
 
 @asynccontextmanager
@@ -54,7 +55,7 @@ async def use_leqo_db() -> AsyncGenerator[AsyncEngine]:
         await engine.dispose()
 
 
-engine_singleton: AsyncEngine = None
+engine_singleton: AsyncEngine | None = None
 
 
 @asynccontextmanager
@@ -77,7 +78,7 @@ def get_db_engine() -> AsyncEngine:
     Only available when called during leqo_lifespan.
     """
 
-    return engine_singleton
+    return not_none(engine_singleton, "DataBase not initialized")
 
 
 def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enricher:
