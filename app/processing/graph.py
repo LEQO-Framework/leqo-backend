@@ -157,7 +157,6 @@ class IOInfo:
 
     :param inputs: Maps input-index to (Qubit/Classical)IOInstance.
     :param outputs: Maps output-index to (Qubit/Classical)IOInstance.
-    :param qubits: Store qubit info via QubitIOInfo.
     """
 
     inputs: dict[int, QubitIOInstance | ClassicalIOInstance] = field(
