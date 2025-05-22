@@ -81,6 +81,8 @@ expected_result: |
   bit[1] leqo_e44596937aebc50e456acb997a1ea5c8_result = measure leqo_e44596937aebc50e456acb997a1ea5c8_q[{0}];
   @leqo.output 0
   let leqo_e44596937aebc50e456acb997a1ea5c8_out = leqo_e44596937aebc50e456acb997a1ea5c8_result;
+  @leqo.output 1
+  let leqo_e44596937aebc50e456acb997a1ea5c8_qubit_out = leqo_e44596937aebc50e456acb997a1ea5c8_q;
   /* End node newNode8 */
   /* Start node newNode7 */
   @leqo.input 0
@@ -88,6 +90,8 @@ expected_result: |
   bit[1] leqo_9c7e7804e46df792310f94d64d6a39b7_result = measure leqo_9c7e7804e46df792310f94d64d6a39b7_q[{0}];
   @leqo.output 0
   let leqo_9c7e7804e46df792310f94d64d6a39b7_out = leqo_9c7e7804e46df792310f94d64d6a39b7_result;
+  @leqo.output 1
+  let leqo_9c7e7804e46df792310f94d64d6a39b7_qubit_out = leqo_9c7e7804e46df792310f94d64d6a39b7_q;
   /* End node newNode7 */
   /* Start node newNode6 */
   @leqo.input 0
@@ -95,4 +99,6 @@ expected_result: |
   bit[1] leqo_15fec8f7041f6c01a5a27e5e97bb84e8_result = measure leqo_15fec8f7041f6c01a5a27e5e97bb84e8_q[{0}];
   @leqo.output 0
   let leqo_15fec8f7041f6c01a5a27e5e97bb84e8_out = leqo_15fec8f7041f6c01a5a27e5e97bb84e8_result;
+  @leqo.output 1
+  let leqo_15fec8f7041f6c01a5a27e5e97bb84e8_qubit_out = leqo_15fec8f7041f6c01a5a27e5e97bb84e8_q;
   /* End node newNode6 */
