@@ -13,7 +13,7 @@ from fastapi.params import Depends
 from starlette.responses import PlainTextResponse, RedirectResponse
 
 from app.model.CompileRequest import ImplementationNode
-from app.model.StatusBody import Progress, StatusBody, StatusType
+from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import Processor
 
 app = FastAPI()
@@ -29,7 +29,7 @@ app.add_middleware(
 )
 
 # FIXME: these should live in the database
-states: dict[UUID, StatusBody] = {}
+states: dict[UUID, StatusResponse] = {}
 results: dict[UUID, str] = {}
 
 
@@ -42,7 +42,7 @@ def compile(
     """
 
     uuid: UUID = uuid4()
-    states[uuid] = StatusBody(
+    states[uuid] = StatusResponse(
         uuid=uuid,
         status=StatusType.IN_PROGRESS,
         createdAt=datetime.now(UTC),
@@ -55,7 +55,7 @@ def compile(
 
 
 @app.get("/status/{uuid}")
-def status(uuid: UUID) -> StatusBody:
+def status(uuid: UUID) -> StatusResponse:
     """
     Fetch status of a compile request.
     """
@@ -99,8 +99,8 @@ async def process_request(uuid: UUID, processor: Processor) -> None:
     except Exception as exception:
         result_str = str(exception) or type(exception).__name__
 
-    old_state: StatusBody = states[uuid]
-    states[uuid] = StatusBody(
+    old_state: StatusResponse = states[uuid]
+    states[uuid] = StatusResponse(
         uuid=old_state.uuid,
         status=status,
         createdAt=old_state.createdAt,

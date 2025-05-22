@@ -30,7 +30,7 @@ class Progress(BaseModel):
     currentStep: str
 
 
-class StatusBody(BaseModel):
+class StatusResponse(BaseModel):
     """
     Models the status of a process.
     """
