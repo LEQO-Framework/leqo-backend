@@ -13,7 +13,7 @@ postgres = PostgresContainer("postgres:16-alpine3.20")
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-def engine():
+def engine():  # type: ignore[no-untyped-def]
     """Set up the database container for the tests."""
 
     postgres.start()
