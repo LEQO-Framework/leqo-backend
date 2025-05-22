@@ -29,25 +29,13 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import ClassicalType, LeqoSupportedType, QubitType
 from app.openqasm3.printer import leqo_dumps
-from app.openqasm3.visitor import LeqoTransformer
+from app.openqasm3.rename import simple_rename
 from app.processing import ProcessorIfElse
 from app.processing.condition import parse_condition
 from app.processing.graph import ProgramGraph, ProgramNode
 from app.processing.merge import merge_if_nodes
 
 TARGET_QASM_VERSION = "3.1"  # circular import if imported from converter
-
-
-class SimpleRenameTransformer(LeqoTransformer[None]):
-    renames: dict[str, str]
-
-    def __init__(self, renamings: dict[str, str]) -> None:
-        super().__init__()
-        self.renames = renamings
-
-    def visit_Identifier(self, node: Identifier) -> Identifier:
-        node.name = self.renames.get(node.name, node.name)
-        return node
 
 
 def get_pass_node_impl(requested_inputs: dict[int, LeqoSupportedType]) -> Program:
@@ -138,7 +126,7 @@ class IfElseEnricherStrategy(EnricherStrategy):
         renames = {}
         for identifier, index in constraints.frontend_name_to_index.items():
             renames[identifier] = then_graph.node_data[if_node].io.inputs[index].name
-        condition = SimpleRenameTransformer(renames).visit(condition)
+        condition = simple_rename(condition, renames)
 
         implementation, out_size = merge_if_nodes(
             if_node,
