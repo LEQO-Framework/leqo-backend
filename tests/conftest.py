@@ -1,6 +1,9 @@
+import asyncio
 import os
+import sys
 from collections.abc import AsyncGenerator
 
+import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from testcontainers.postgres import PostgresContainer
@@ -8,6 +11,18 @@ from testcontainers.postgres import PostgresContainer
 from app.services import use_leqo_db
 
 postgres = PostgresContainer("postgres:16-alpine3.20")
+
+
+@pytest.fixture(scope="session")
+def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
+    """
+    Ensure we use the old `WindowsSelectorEventLoopPolicy` on windows
+    as the postgresql driver cannot work with the modern `ProactorEventLoop`.
+    """
+
+    if sys.platform == "win32":
+        return asyncio.WindowsSelectorEventLoopPolicy()
+    return asyncio.DefaultEventLoopPolicy()
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True, loop_scope="session")
