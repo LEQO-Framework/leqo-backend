@@ -18,7 +18,6 @@ class StatusType(StrEnum):
     IN_PROGRESS = "in progress"
     FAILED = "failed"
     COMPLETED = "completed"
-    UNKNOWN = "unknown"
 
 
 class Progress(BaseModel):
@@ -30,7 +29,7 @@ class Progress(BaseModel):
     currentStep: str
 
 
-class StatusBody(BaseModel):
+class StatusResponse(BaseModel):
     """
     Models the status of a process.
     """
