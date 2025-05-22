@@ -1,0 +1,98 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "qubit" },
+      { "id": "newNode1", "type": "qubit" },
+      { "id": "newNode2", "type": "qubit" },
+      { "id": "newNode3", "type": "merger", "numberInputs": "3" },
+      { "id": "newNode5", "type": "splitter", "numberOutputs": "3" },
+      { "id": "newNode6", "type": "measure", "indices": [0] },
+      { "id": "newNode7", "type": "measure", "indices": [0] },
+      { "id": "newNode8", "type": "measure", "indices": [0] }
+    ],
+    "edges": [
+      { "source": ["newNode5", 2], "target": ["newNode8", 0] },
+      { "source": ["newNode5", 1], "target": ["newNode7", 0] },
+      {
+        "source": ["newNode5", 0],
+        "target": ["newNode6", 0],
+        "identifier": null,
+        "size": 1
+      },
+      {
+        "source": ["newNode3", 0],
+        "target": ["newNode5", 0],
+        "identifier": null,
+        "size": 1
+      },
+      { "source": ["newNode2", 0], "target": ["newNode3", 2] },
+      { "source": ["newNode0", 0], "target": ["newNode3", 1] },
+      { "source": ["newNode1", 0], "target": ["newNode3", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |
+  OPENQASM 3.1;
+  qubit[3] leqo_reg;
+  /* Start node newNode0 */
+  let leqo_6e67025eb787359c6a2d3dbc87b61bff_literal = leqo_reg[{0}];
+  @leqo.output 0
+  let leqo_6e67025eb787359c6a2d3dbc87b61bff_out = leqo_6e67025eb787359c6a2d3dbc87b61bff_literal;
+  /* End node newNode0 */
+  /* Start node newNode1 */
+  let leqo_36d29f43e886ae559c1d8d85bdabf31b_literal = leqo_reg[{1}];
+  @leqo.output 0
+  let leqo_36d29f43e886ae559c1d8d85bdabf31b_out = leqo_36d29f43e886ae559c1d8d85bdabf31b_literal;
+  /* End node newNode1 */
+  /* Start node newNode2 */
+  let leqo_e49eca7b4941664a57975ae68ebf886c_literal = leqo_reg[{2}];
+  @leqo.output 0
+  let leqo_e49eca7b4941664a57975ae68ebf886c_out = leqo_e49eca7b4941664a57975ae68ebf886c_literal;
+  /* End node newNode2 */
+  /* Start node newNode3 */
+  @leqo.input 0
+  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_0 = leqo_reg[{1}];
+  @leqo.input 1
+  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_1 = leqo_reg[{0}];
+  @leqo.input 2
+  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_2 = leqo_reg[{2}];
+  @leqo.output 0
+  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_output = leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_0 ++ leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_1 ++ leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_2;
+  /* End node newNode3 */
+  /* Start node newNode5 */
+  @leqo.input 0
+  let leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_input = leqo_reg[{1, 0, 2}];
+  @leqo.output 0
+  let leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_output_0 = leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_input[{0}];
+  @leqo.output 1
+  let leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_output_1 = leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_input[{1}];
+  @leqo.output 2
+  let leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_output_2 = leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_input[{2}];
+  /* End node newNode5 */
+  /* Start node newNode8 */
+  @leqo.input 0
+  let leqo_e44596937aebc50e456acb997a1ea5c8_q = leqo_reg[{2}];
+  bit[1] leqo_e44596937aebc50e456acb997a1ea5c8_result = measure leqo_e44596937aebc50e456acb997a1ea5c8_q[{0}];
+  @leqo.output 0
+  let leqo_e44596937aebc50e456acb997a1ea5c8_out = leqo_e44596937aebc50e456acb997a1ea5c8_result;
+  /* End node newNode8 */
+  /* Start node newNode7 */
+  @leqo.input 0
+  let leqo_9c7e7804e46df792310f94d64d6a39b7_q = leqo_reg[{0}];
+  bit[1] leqo_9c7e7804e46df792310f94d64d6a39b7_result = measure leqo_9c7e7804e46df792310f94d64d6a39b7_q[{0}];
+  @leqo.output 0
+  let leqo_9c7e7804e46df792310f94d64d6a39b7_out = leqo_9c7e7804e46df792310f94d64d6a39b7_result;
+  /* End node newNode7 */
+  /* Start node newNode6 */
+  @leqo.input 0
+  let leqo_15fec8f7041f6c01a5a27e5e97bb84e8_q = leqo_reg[{1}];
+  bit[1] leqo_15fec8f7041f6c01a5a27e5e97bb84e8_result = measure leqo_15fec8f7041f6c01a5a27e5e97bb84e8_q[{0}];
+  @leqo.output 0
+  let leqo_15fec8f7041f6c01a5a27e5e97bb84e8_out = leqo_15fec8f7041f6c01a5a27e5e97bb84e8_result;
+  /* End node newNode6 */

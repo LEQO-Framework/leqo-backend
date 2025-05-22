@@ -1,0 +1,66 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "qubit" },
+      { "id": "newNode1", "type": "qubit" },
+      { "id": "newNode2", "type": "qubit" },
+      { "id": "newNode3", "type": "merger", "numberInputs": "3" },
+      {
+        "id": "newNode5",
+        "type": "implementation",
+        "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[5] q;"
+      }
+    ],
+    "edges": [
+      {
+        "source": ["newNode3", 0],
+        "target": ["newNode5", 0],
+        "identifier": null,
+        "size": 1
+      },
+      { "source": ["newNode2", 0], "target": ["newNode3", 2] },
+      { "source": ["newNode1", 0], "target": ["newNode3", 1] },
+      { "source": ["newNode0", 0], "target": ["newNode3", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |
+  OPENQASM 3.1;
+  qubit[5] leqo_reg;
+  /* Start node newNode0 */
+  let leqo_6e67025eb787359c6a2d3dbc87b61bff_literal = leqo_reg[{0}];
+  @leqo.output 0
+  let leqo_6e67025eb787359c6a2d3dbc87b61bff_out = leqo_6e67025eb787359c6a2d3dbc87b61bff_literal;
+  /* End node newNode0 */
+  /* Start node newNode1 */
+  let leqo_36d29f43e886ae559c1d8d85bdabf31b_literal = leqo_reg[{1}];
+  @leqo.output 0
+  let leqo_36d29f43e886ae559c1d8d85bdabf31b_out = leqo_36d29f43e886ae559c1d8d85bdabf31b_literal;
+  /* End node newNode1 */
+  /* Start node newNode2 */
+  let leqo_e49eca7b4941664a57975ae68ebf886c_literal = leqo_reg[{2}];
+  @leqo.output 0
+  let leqo_e49eca7b4941664a57975ae68ebf886c_out = leqo_e49eca7b4941664a57975ae68ebf886c_literal;
+  /* End node newNode2 */
+  /* Start node newNode3 */
+  @leqo.input 0
+  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_0 = leqo_reg[{0}];
+  @leqo.input 1
+  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_1 = leqo_reg[{1}];
+  @leqo.input 2
+  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_2 = leqo_reg[{2}];
+  @leqo.output 0
+  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_output = leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_0 ++ leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_1 ++ leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_2;
+  /* End node newNode3 */
+  /* Start node newNode5 */
+  @leqo.input 0
+  let leqo_09889f2ae966ce580f8bf3805fe62c4b_q_0 = leqo_reg[{0, 1, 2}];
+  let leqo_09889f2ae966ce580f8bf3805fe62c4b_q_1 = leqo_reg[{3, 4}];
+  let leqo_09889f2ae966ce580f8bf3805fe62c4b_q = leqo_09889f2ae966ce580f8bf3805fe62c4b_q_0 ++ leqo_09889f2ae966ce580f8bf3805fe62c4b_q_1;
+  /* End node newNode5 */

@@ -3,7 +3,9 @@ Provides the core logic of the backend.
 """
 
 from collections.abc import AsyncIterator
+from typing import Annotated
 
+from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
 
 from app.enricher import Constraints, Enricher
@@ -17,6 +19,7 @@ from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
 from app.processing.size_casting import size_cast
+from app.services import NodeIdFactory, get_enricher, get_node_id_factory
 from app.utils import not_none
 
 
@@ -30,14 +33,21 @@ class Processor:
     lookup: dict[str, tuple[ProgramNode, FrontendNode]]
     enricher: Enricher
 
-    def __init__(self, request: CompileRequest, enricher: Enricher):
+    def __init__(
+        self,
+        request: CompileRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+        node_id_factory: Annotated[NodeIdFactory, Depends(get_node_id_factory)],
+    ) -> None:
         self.request = request
         self.enricher = enricher
         self.graph = ProgramGraph()
         self.lookup = {}
 
         for frontend_node in self.request.nodes:
-            program_node = ProgramNode(frontend_node.id)
+            program_node = ProgramNode(
+                frontend_node.id, id=node_id_factory(frontend_node.id)
+            )
             self.lookup[frontend_node.id] = (program_node, frontend_node)
             self.graph.add_node(program_node)
 
