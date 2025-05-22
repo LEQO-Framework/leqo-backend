@@ -2,7 +2,7 @@ from collections.abc import Iterable
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import (
     Constraints,
@@ -85,7 +85,7 @@ def assert_enrichment(
 
 
 @pytest.mark.asyncio
-async def test_enrich_phi_plus_prepare_state() -> None:
+async def test_enrich_phi_plus_prepare_state(engine: AsyncEngine) -> None:
     node = FrontendPrepareStateNode(
         id="1", label=None, type="prepare", quantumState="ϕ+", size=1
     )
@@ -95,12 +95,12 @@ async def test_enrich_phi_plus_prepare_state() -> None:
         optimizeWidth=True,
     )
 
-    result = await PrepareStateEnricherStrategy().enrich(node, constraints)
+    result = await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
     assert_enrichment(result, "phi_plus_impl", 1, 1)
 
 
 @pytest.mark.asyncio
-async def test_enrich_psi_plus_prepare_state() -> None:
+async def test_enrich_psi_plus_prepare_state(engine: AsyncEngine) -> None:
     node = FrontendPrepareStateNode(
         id="1", label=None, type="prepare", quantumState="ψ+", size=3
     )
@@ -110,12 +110,12 @@ async def test_enrich_psi_plus_prepare_state() -> None:
         optimizeWidth=True,
     )
 
-    result = await PrepareStateEnricherStrategy().enrich(node, constraints)
+    result = await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
     assert_enrichment(result, "psi_plus_impl", 2, 2)
 
 
 @pytest.mark.asyncio
-async def test_enrich_gzh_prepare_state() -> None:
+async def test_enrich_gzh_prepare_state(engine: AsyncEngine) -> None:
     node = FrontendPrepareStateNode(
         id="3", label=None, type="prepare", quantumState="ghz", size=6
     )
@@ -125,12 +125,12 @@ async def test_enrich_gzh_prepare_state() -> None:
         optimizeWidth=True,
     )
 
-    result = await PrepareStateEnricherStrategy().enrich(node, constraints)
+    result = await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
     assert_enrichment(result, "gzh_impl", 3, 3)
 
 
 @pytest.mark.asyncio
-async def test_enrich_superposition_prepare_state() -> None:
+async def test_enrich_superposition_prepare_state(engine: AsyncEngine) -> None:
     node = FrontendPrepareStateNode(
         id="4", label=None, type="prepare", quantumState="uniform", size=4
     )
@@ -140,12 +140,12 @@ async def test_enrich_superposition_prepare_state() -> None:
         optimizeWidth=True,
     )
 
-    result = await PrepareStateEnricherStrategy().enrich(node, constraints)
+    result = await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
     assert_enrichment(result, "superposition_impl", 4, 4)
 
 
 @pytest.mark.asyncio
-async def test_enrich_w_prepare_state() -> None:
+async def test_enrich_w_prepare_state(engine: AsyncEngine) -> None:
     node = FrontendPrepareStateNode(
         id="5", label=None, type="prepare", quantumState="w", size=9
     )
@@ -155,12 +155,12 @@ async def test_enrich_w_prepare_state() -> None:
         optimizeWidth=True,
     )
 
-    result = await PrepareStateEnricherStrategy().enrich(node, constraints)
+    result = await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
     assert_enrichment(result, "w_impl", 9, 6)
 
 
 @pytest.mark.asyncio
-async def test_enrich_custom_prepare_state() -> None:
+async def test_enrich_custom_prepare_state(engine: AsyncEngine) -> None:
     node = FrontendPrepareStateNode(
         id="1", label=None, type="prepare", quantumState="custom", size=3
     )
@@ -174,11 +174,11 @@ async def test_enrich_custom_prepare_state() -> None:
         InputValidationException,
         match=r"^Custom prepare state or size below 1 are not supported$",
     ):
-        await PrepareStateEnricherStrategy().enrich(node, constraints)
+        await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
 
 
 @pytest.mark.asyncio
-async def test_enrich_unknown_node() -> None:
+async def test_enrich_unknown_node(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
         id="1", label=None, type="encode", encoding="angle", bounds=0
     )
@@ -188,13 +188,13 @@ async def test_enrich_unknown_node() -> None:
         optimizeWidth=True,
     )
 
-    result = await PrepareStateEnricherStrategy().enrich(node, constraints)
+    result = await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
 
     assert result == []
 
 
 @pytest.mark.asyncio
-async def test_enrich_prepare_state_one_inputs() -> None:
+async def test_enrich_prepare_state_one_inputs(engine: AsyncEngine) -> None:
     node = FrontendPrepareStateNode(
         id="1", label=None, type="prepare", quantumState="ghz", size=4
     )
@@ -208,11 +208,11 @@ async def test_enrich_prepare_state_one_inputs() -> None:
         ConstraintValidationException,
         match=r"^PrepareStateNode can't have an input$",
     ):
-        await PrepareStateEnricherStrategy().enrich(node, constraints)
+        await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
 
 
 @pytest.mark.asyncio
-async def test_enrich_prepare_state_node_not_in_db() -> None:
+async def test_enrich_prepare_state_node_not_in_db(engine: AsyncEngine) -> None:
     node = FrontendPrepareStateNode(
         id="1", label=None, type="prepare", quantumState="ϕ-", size=2
     )
@@ -226,4 +226,4 @@ async def test_enrich_prepare_state_node_not_in_db() -> None:
         RuntimeError,
         match=r"^No results found in the database$",
     ):
-        await PrepareStateEnricherStrategy().enrich(node, constraints)
+        await PrepareStateEnricherStrategy(engine).enrich(node, constraints)

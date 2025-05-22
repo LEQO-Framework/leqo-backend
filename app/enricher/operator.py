@@ -5,6 +5,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Opera
 from typing import override
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.enricher import (
@@ -15,7 +16,6 @@ from app.enricher import (
     ImplementationMetaData,
     NodeUnsupportedException,
 )
-from app.enricher.engine import DatabaseEngine
 from app.enricher.models import Input, InputType, NodeType, OperatorType
 from app.enricher.models import OperatorNode as OperatorNodeTable
 from app.model.CompileRequest import (
@@ -32,6 +32,11 @@ class OperatorEnricherStrategy(EnricherStrategy):
     """
     Strategy capable of enriching :class:`~app.model.CompileRequest.OperatorNode` from a database.
     """
+
+    engine: AsyncEngine
+
+    def __init__(self, engine: AsyncEngine):
+        self.engine = engine
 
     @override
     async def _enrich_impl(
@@ -52,9 +57,6 @@ class OperatorEnricherStrategy(EnricherStrategy):
                 "OperatorNode only supports qubit types"
             )
 
-        databaseEngine = DatabaseEngine()
-        session = databaseEngine.get_database_session()
-
         Input0 = aliased(Input)
         Input1 = aliased(Input)
 
@@ -74,7 +76,7 @@ class OperatorEnricherStrategy(EnricherStrategy):
             )
         )
 
-        async with session:
+        async with AsyncSession(self.engine) as session:
             result_nodes = (await session.execute(query)).scalars().all()
 
         if not result_nodes:

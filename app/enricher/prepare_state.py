@@ -5,6 +5,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Prepa
 from typing import override
 
 from sqlalchemy import exists, select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import (
     Constraints,
@@ -15,7 +16,6 @@ from app.enricher import (
     InputValidationException,
     NodeUnsupportedException,
 )
-from app.enricher.engine import DatabaseEngine
 from app.enricher.models import Input, NodeType, QuantumStateType
 from app.enricher.models import PrepareStateNode as PrepareStateTable
 from app.model.CompileRequest import (
@@ -32,6 +32,11 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
     Strategy capable of enriching :class:`~app.model.CompileRequest.PrepareStateNode` from a database.
     """
 
+    engine: AsyncEngine
+
+    def __init__(self, engine: AsyncEngine):
+        self.engine = engine
+
     @override
     async def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
@@ -47,9 +52,6 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
         if constraints is None or len(constraints.requested_inputs) != 0:
             raise ConstraintValidationException("PrepareStateNode can't have an input")
 
-        databaseEngine = DatabaseEngine()
-        session = databaseEngine.get_database_session()
-
         no_inputs = ~exists().where(Input.node_id == PrepareStateTable.id)
         query = select(PrepareStateTable).where(
             PrepareStateTable.type == NodeType(node.type),
@@ -58,7 +60,7 @@ class PrepareStateEnricherStrategy(EnricherStrategy):
             PrepareStateTable.size == node.size,
         )
 
-        async with session:
+        async with AsyncSession(self.engine) as session:
             result_nodes = (await session.execute(query)).scalars().all()
 
         if not result_nodes:

@@ -2,7 +2,7 @@ from collections.abc import Iterable
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import (
     Constraints,
@@ -79,7 +79,7 @@ def assert_enrichment(
 
 
 @pytest.mark.asyncio
-async def test_enrich_amplitude_encode_value() -> None:
+async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -93,12 +93,12 @@ async def test_enrich_amplitude_encode_value() -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy().enrich(node, constraints)
+    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
     assert_enrichment(result, "amplitude_impl", 1, 1)
 
 
 @pytest.mark.asyncio
-async def test_enrich_angle_encode_value() -> None:
+async def test_enrich_angle_encode_value(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -112,12 +112,12 @@ async def test_enrich_angle_encode_value() -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy().enrich(node, constraints)
+    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
     assert_enrichment(result, "angle_impl", 2, 2)
 
 
 @pytest.mark.asyncio
-async def test_enrich_matrix_encode_value() -> None:
+async def test_enrich_matrix_encode_value(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -131,12 +131,12 @@ async def test_enrich_matrix_encode_value() -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy().enrich(node, constraints)
+    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
     assert_enrichment(result, "matrix_impl", 3, 3)
 
 
 @pytest.mark.asyncio
-async def test_enrich_schmidt_encode_value() -> None:
+async def test_enrich_schmidt_encode_value(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -150,12 +150,12 @@ async def test_enrich_schmidt_encode_value() -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy().enrich(node, constraints)
+    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
     assert_enrichment(result, "schmidt_impl", 4, 4)
 
 
 @pytest.mark.asyncio
-async def test_enrich_custom_encode_value() -> None:
+async def test_enrich_custom_encode_value(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -173,11 +173,11 @@ async def test_enrich_custom_encode_value() -> None:
         InputValidationException,
         match=r"^Custom encoding is not supported$",
     ):
-        await EncodeValueEnricherStrategy().enrich(node, constraints)
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
 
 @pytest.mark.asyncio
-async def test_enrich_unknown_node() -> None:
+async def test_enrich_unknown_node(engine: AsyncEngine) -> None:
     node = FrontendPrepareStateNode(
         id="1", label=None, type="prepare", quantumState="ghz", size=3
     )
@@ -187,13 +187,13 @@ async def test_enrich_unknown_node() -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy().enrich(node, constraints)
+    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
     assert result == []
 
 
 @pytest.mark.asyncio
-async def test_enrich_encode_value_two_inputs() -> None:
+async def test_enrich_encode_value_two_inputs(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -211,11 +211,11 @@ async def test_enrich_encode_value_two_inputs() -> None:
         ConstraintValidationException,
         match=r"^EncodeValueNode can only have a single input$",
     ):
-        await EncodeValueEnricherStrategy().enrich(node, constraints)
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
 
 @pytest.mark.asyncio
-async def test_enrich_encode_value_quibit_input() -> None:
+async def test_enrich_encode_value_quibit_input(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -233,11 +233,11 @@ async def test_enrich_encode_value_quibit_input() -> None:
         ConstraintValidationException,
         match=r"^EncodeValueNode only supports classical types$",
     ):
-        await EncodeValueEnricherStrategy().enrich(node, constraints)
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
 
 @pytest.mark.asyncio
-async def test_enrich_encode_value_node_not_in_db() -> None:
+async def test_enrich_encode_value_node_not_in_db(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -255,4 +255,4 @@ async def test_enrich_encode_value_node_not_in_db() -> None:
         RuntimeError,
         match=r"^No results found in the database$",
     ):
-        await EncodeValueEnricherStrategy().enrich(node, constraints)
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)

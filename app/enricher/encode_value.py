@@ -5,6 +5,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Encod
 from typing import override
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import (
     Constraints,
@@ -15,7 +16,6 @@ from app.enricher import (
     InputValidationException,
     NodeUnsupportedException,
 )
-from app.enricher.engine import DatabaseEngine
 from app.enricher.models import EncodeValueNode as EncodeNodeTable
 from app.enricher.models import EncodingType, Input, InputType, NodeType
 from app.model.CompileRequest import (
@@ -32,6 +32,11 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
     """
     Strategy capable of enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
     """
+
+    engine: AsyncEngine
+
+    def __init__(self, engine: AsyncEngine):
+        self.engine = engine
 
     def _convert_to_input_type(self, node_type: LeqoSupportedType) -> str:
         """
@@ -80,8 +85,6 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
             constraints.requested_inputs[0]
         )
 
-        databaseEngine = DatabaseEngine()
-        session = databaseEngine.get_database_session()
         query = (
             select(EncodeNodeTable)
             .join(Input, EncodeNodeTable.inputs)
@@ -95,7 +98,7 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
             )
         )
 
-        async with session:
+        async with AsyncSession(self.engine) as session:
             result_nodes = (await session.execute(query)).scalars().all()
 
         if not result_nodes:
