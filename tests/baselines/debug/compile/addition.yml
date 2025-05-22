@@ -110,4 +110,6 @@ expected_result: |
   bit[3] leqo_09889f2ae966ce580f8bf3805fe62c4b_result = measure leqo_09889f2ae966ce580f8bf3805fe62c4b_q[{0, 1, 2}];
   @leqo.output 0
   let leqo_09889f2ae966ce580f8bf3805fe62c4b_out = leqo_09889f2ae966ce580f8bf3805fe62c4b_result;
+  @leqo.output 1
+  let leqo_09889f2ae966ce580f8bf3805fe62c4b_qubit_out = leqo_09889f2ae966ce580f8bf3805fe62c4b_q;
   /* End node newNode5 */
