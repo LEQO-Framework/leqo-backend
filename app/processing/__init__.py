@@ -48,7 +48,7 @@ class AbstractProcessor(ABC):
                 frontend_name_to_index[target_id][edge.identifier] = index
         return frontend_name_to_index
 
-    def __init__(
+    def __init__(  # noqa PLR0913 Too many arguments in function definition (7 > 5)
         self,
         graph: ProgramGraph,
         lookup: dict[str, tuple[ProgramNode, FrontendNode]],
@@ -193,7 +193,7 @@ class Processor(AbstractProcessor):
 
 
 class ProcessorIfElse(AbstractProcessor):
-    def __init__(
+    def __init__(  # noqa PLR0913 Too many arguments in function definition (7 > 5)
         self,
         enricher: Enricher,
         nodes: list[FrontendNode],
