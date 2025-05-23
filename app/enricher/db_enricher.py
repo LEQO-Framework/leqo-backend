@@ -1,3 +1,7 @@
+"""
+Common baseclass for all enricher strategies that access a database.
+"""
+
 from abc import ABC, abstractmethod
 from typing import override
 
