@@ -37,7 +37,7 @@ results: dict[UUID, str] = {}
 
 
 @lru_cache
-def get_settings():
+def get_settings() -> Settings:
     """
     Get environment variables from pydantic and cache them.
     """
@@ -74,7 +74,7 @@ def post_compile(
 
 
 @app.get("/status/{uuid}")
-def status(uuid: UUID) -> StatusResponse:
+def get_status(uuid: UUID) -> StatusResponse:
     """
     Fetch status of a compile request.
     """
@@ -88,7 +88,7 @@ def status(uuid: UUID) -> StatusResponse:
 
 
 @app.get("/result/{uuid}", response_class=PlainTextResponse)
-def result(uuid: UUID) -> str:
+def get_result(uuid: UUID) -> str:
     """
     Fetch result of a compile request.
 
@@ -116,7 +116,7 @@ async def process_request(
     """
 
     status = StatusType.FAILED
-    result_code: str | None = None
+    result_code: str = ""
 
     try:
         result_code = await processor.process()
