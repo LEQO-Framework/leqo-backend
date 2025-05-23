@@ -21,20 +21,6 @@ from app.services import leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
 
-origins: list[str] = ["*"]  # ToDo: make this configurable
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# FIXME: these should live in the database
-states: dict[UUID, StatusResponse] = {}
-results: dict[UUID, str] = {}
-
 
 @lru_cache
 def get_settings() -> Settings:
@@ -43,6 +29,17 @@ def get_settings() -> Settings:
     """
 
     return Settings()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().cors_allow_origins,
+    allow_credentials=get_settings().cors_allow_credentials,
+    allow_methods=get_settings().cors_allow_methods,
+    allow_headers=get_settings().cors_allow_headers,
+)
+# FIXME: these should live in the database
+states: dict[UUID, StatusResponse] = {}
+results: dict[UUID, str] = {}
 
 
 @app.post("/compile")
