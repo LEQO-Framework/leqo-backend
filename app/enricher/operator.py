@@ -2,48 +2,42 @@
 Provides enricher strategy for enriching :class:`~app.model.CompileRequest.OperatorNode` from a database.
 """
 
-from typing import override
+from typing import cast, override
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy import Select, select
+from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.orm import aliased
 
 from app.enricher import (
     Constraints,
     ConstraintValidationException,
-    EnricherStrategy,
-    EnrichmentResult,
-    ImplementationMetaData,
-    NodeUnsupportedException,
 )
-from app.enricher.models import Input, InputType, NodeType, OperatorType
+from app.enricher.db_enricher import DataBaseEnricherStrategy
+from app.enricher.models import BaseNode, Input, InputType, NodeType, OperatorType
 from app.enricher.models import OperatorNode as OperatorNodeTable
 from app.model.CompileRequest import (
-    ImplementationNode,
-    OperatorNode,
+    Node as FrontendNode,
 )
 from app.model.CompileRequest import (
-    Node as FrontendNode,
+    OperatorNode,
 )
 from app.model.data_types import QubitType
 
 
-class OperatorEnricherStrategy(EnricherStrategy):
+class OperatorEnricherStrategy(DataBaseEnricherStrategy):
     """
     Strategy capable of enriching :class:`~app.model.CompileRequest.OperatorNode` from a database.
     """
 
-    engine: AsyncEngine
-
     def __init__(self, engine: AsyncEngine):
-        self.engine = engine
+        super().__init__(engine)
 
     @override
-    async def _enrich_impl(
+    def _generate_query(
         self, node: FrontendNode, constraints: Constraints | None
-    ) -> list[EnrichmentResult]:
+    ) -> Select[tuple[BaseNode]] | None:
         if not isinstance(node, OperatorNode):
-            return []
+            return None
 
         if constraints is None or len(constraints.requested_inputs) != 2:  # noqa: PLR2004
             raise ConstraintValidationException(
@@ -60,7 +54,8 @@ class OperatorEnricherStrategy(EnricherStrategy):
         Input0 = aliased(Input)
         Input1 = aliased(Input)
 
-        query = (
+        return cast(
+            Select[tuple[BaseNode]],
             select(OperatorNodeTable)
             .join(Input0, OperatorNodeTable.inputs)
             .join(Input1, OperatorNodeTable.inputs)
@@ -73,29 +68,5 @@ class OperatorEnricherStrategy(EnricherStrategy):
                 Input1.index == 1,
                 Input1.type == InputType.QubitType,
                 Input1.size == constraints.requested_inputs[1].reg_size,
-            )
+            ),
         )
-
-        async with AsyncSession(self.engine) as session:
-            result_nodes = (await session.execute(query)).scalars().all()
-
-        if not result_nodes:
-            raise RuntimeError("No results found in the database")
-
-        enrichment_results = []
-        for result_node in result_nodes:
-            if result_node.implementation is None:
-                raise NodeUnsupportedException(node)
-
-            enrichment_results.append(
-                EnrichmentResult(
-                    ImplementationNode(
-                        id=node.id, implementation=result_node.implementation
-                    ),
-                    ImplementationMetaData(
-                        width=result_node.width, depth=result_node.depth
-                    ),
-                )
-            )
-
-        return enrichment_results

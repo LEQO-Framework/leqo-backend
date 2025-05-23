@@ -2,25 +2,21 @@
 Provides enricher strategy for enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
 """
 
-from typing import override
+from typing import cast, override
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy import Select, select
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.enricher import (
     Constraints,
     ConstraintValidationException,
-    EnricherStrategy,
-    EnrichmentResult,
-    ImplementationMetaData,
     InputValidationException,
-    NodeUnsupportedException,
 )
+from app.enricher.db_enricher import DataBaseEnricherStrategy
+from app.enricher.models import BaseNode, EncodingType, Input, InputType, NodeType
 from app.enricher.models import EncodeValueNode as EncodeNodeTable
-from app.enricher.models import EncodingType, Input, InputType, NodeType
 from app.model.CompileRequest import (
     EncodeValueNode,
-    ImplementationNode,
 )
 from app.model.CompileRequest import (
     Node as FrontendNode,
@@ -36,15 +32,13 @@ from app.model.data_types import (
 )
 
 
-class EncodeValueEnricherStrategy(EnricherStrategy):
+class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     """
     Strategy capable of enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
     """
 
-    engine: AsyncEngine
-
     def __init__(self, engine: AsyncEngine):
-        self.engine = engine
+        super().__init__(engine)
 
     def _convert_to_input_type(self, node_type: LeqoSupportedType) -> str:
         """
@@ -67,11 +61,11 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
         return input_type
 
     @override
-    async def _enrich_impl(
+    def _generate_query(
         self, node: FrontendNode, constraints: Constraints | None
-    ) -> list[EnrichmentResult]:
+    ) -> Select[tuple[BaseNode]] | None:
         if not isinstance(node, EncodeValueNode):
-            return []
+            return None
 
         if node.encoding == "custom":
             raise InputValidationException("Custom encoding is not supported")
@@ -93,7 +87,8 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
             constraints.requested_inputs[0]
         )
 
-        query = (
+        return cast(
+            Select[tuple[BaseNode]],
             select(EncodeNodeTable)
             .join(Input, EncodeNodeTable.inputs)
             .where(
@@ -103,29 +98,5 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
                 Input.index == 0,
                 Input.type == converted_input_type,
                 Input.size == constraints.requested_inputs[0].bit_size,
-            )
+            ),
         )
-
-        async with AsyncSession(self.engine) as session:
-            result_nodes = (await session.execute(query)).scalars().all()
-
-        if not result_nodes:
-            raise RuntimeError("No results found in the database")
-
-        enrichment_results = []
-        for result_node in result_nodes:
-            if result_node.implementation is None:
-                raise NodeUnsupportedException(node)
-
-            enrichment_results.append(
-                EnrichmentResult(
-                    ImplementationNode(
-                        id=node.id, implementation=result_node.implementation
-                    ),
-                    ImplementationMetaData(
-                        width=result_node.width, depth=result_node.depth
-                    ),
-                )
-            )
-
-        return enrichment_results
