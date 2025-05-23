@@ -4,6 +4,7 @@ All fastapi endpoints available.
 
 import traceback
 from datetime import UTC, datetime
+from functools import lru_cache
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -12,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
 from starlette.responses import PlainTextResponse, RedirectResponse
 
+from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import Processor
@@ -34,9 +36,20 @@ states: dict[UUID, StatusResponse] = {}
 results: dict[UUID, str] = {}
 
 
+@lru_cache
+def get_settings():
+    """
+    Get environment variables from pydantic and cache them.
+    """
+
+    return Settings()
+
+
 @app.post("/compile")
-def compile(
-    processor: Annotated[Processor, Depends()], background_tasks: BackgroundTasks
+def post_compile(
+    processor: Annotated[Processor, Depends()],
+    background_tasks: BackgroundTasks,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> RedirectResponse:
     """
     Queue a compilation request.
@@ -49,10 +62,15 @@ def compile(
         createdAt=datetime.now(UTC),
         completedAt=None,
         progress=Progress(percentage=0, currentStep="init"),
-        result=f"/result/{uuid}",
+        result=get_result_url(uuid, settings),
     )
-    background_tasks.add_task(process_request, uuid, processor)  # ToDo: Use Celery (?)
-    return RedirectResponse(url=f"/status/{uuid}", status_code=303)
+
+    background_tasks.add_task(process_request, uuid, processor, settings)
+
+    return RedirectResponse(
+        url=f"{settings.api_protocol}://{settings.api_domain}:{settings.api_port}/status/{uuid}",
+        status_code=303,
+    )
 
 
 @app.get("/status/{uuid}")
@@ -85,7 +103,11 @@ def result(uuid: UUID) -> str:
     return results[uuid]
 
 
-async def process_request(uuid: UUID, processor: Processor) -> None:
+async def process_request(
+    uuid: UUID,
+    processor: Processor,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> None:
     """
     Process a compile request in background.
 
@@ -94,11 +116,14 @@ async def process_request(uuid: UUID, processor: Processor) -> None:
     """
 
     status = StatusType.FAILED
+    result_code: str | None = None
+
     try:
-        result_str = await processor.process()
+        result_code = await processor.process()
+        result = get_result_url(uuid, settings)
         status = StatusType.COMPLETED
     except Exception as exception:
-        result_str = str(exception) or type(exception).__name__
+        result = str(exception) or type(exception).__name__
 
     old_state: StatusResponse = states[uuid]
     states[uuid] = StatusResponse(
@@ -107,9 +132,10 @@ async def process_request(uuid: UUID, processor: Processor) -> None:
         createdAt=old_state.createdAt,
         completedAt=datetime.now(UTC),
         progress=Progress(percentage=100, currentStep="done"),
-        result=result_str,
+        result=result,
     )
-    results[uuid] = result_str
+
+    results[uuid] = result_code
 
 
 @app.post("/debug/compile", response_class=PlainTextResponse)
@@ -136,3 +162,13 @@ async def debug_enrich(
         return [x async for x in processor.enrich()]
     except Exception:
         return traceback.format_exc()
+
+
+def get_result_url(
+    uuid: UUID, settings: Annotated[Settings, Depends(get_settings)]
+) -> str:
+    """
+    Return the full URL for a result identified by its UUID.
+    """
+
+    return f"{settings.api_protocol}://{settings.api_domain}:{settings.api_port}/result/{uuid}"
