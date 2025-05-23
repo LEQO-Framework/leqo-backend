@@ -30,6 +30,7 @@ def get_settings() -> Settings:
 
     return Settings()
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_allow_origins,
