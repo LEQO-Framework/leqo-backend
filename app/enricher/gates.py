@@ -26,6 +26,7 @@ from app.model.CompileRequest import (
     Node as FrontendNode,
 )
 from app.model.data_types import QubitType as LeqoQubitType
+from app.utils import not_none
 
 
 def _validate_constraints(
@@ -41,7 +42,7 @@ def _validate_constraints(
     :return: Size of the inputs.
     """
 
-    if constraints is None:
+    if constraints is None or len(constraints.requested_inputs) != input_count:
         raise ConstraintValidationException(
             f"Gate '{name}' requires {input_count} qubits"
         )
@@ -56,12 +57,7 @@ def _validate_constraints(
 
         size = input_type.reg_size
 
-    if size is None:
-        raise ConstraintValidationException(
-            f"Gate '{name}' requires {input_count} qubits"
-        )
-
-    return size
+    return not_none(size, "Could not determine size")
 
 
 def enrich_gate(
