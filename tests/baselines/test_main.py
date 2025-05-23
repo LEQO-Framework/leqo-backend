@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from hashlib import sha1
 from pathlib import Path
 from uuid import UUID
@@ -23,7 +24,11 @@ def get_dummy_node_id_factory() -> NodeIdFactory:
 app.dependency_overrides[get_node_id_factory] = get_dummy_node_id_factory
 # endregion
 
-client = TestClient(app)
+
+@pytest.fixture(scope="session")
+def client() -> Iterator[TestClient]:
+    with TestClient(app) as client:
+        yield client
 
 
 class DebugCompileBaseline(BaseModel):
@@ -39,7 +44,7 @@ TEST_DIR = Path(__file__).parent
     "test",
     find_files(TEST_DIR / "debug" / "compile", DebugCompileBaseline),
 )
-def test_debug_compile_success(test: DebugCompileBaseline) -> None:
+def test_debug_compile_success(test: DebugCompileBaseline, client: TestClient) -> None:
     response = client.post(
         "/debug/compile",
         headers={"Content-Type": "application/json"},

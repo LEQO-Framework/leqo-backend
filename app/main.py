@@ -15,8 +15,9 @@ from starlette.responses import PlainTextResponse, RedirectResponse
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import Processor
+from app.services import leqo_lifespan
 
-app = FastAPI()
+app = FastAPI(lifespan=leqo_lifespan)
 
 origins: list[str] = ["*"]  # ToDo: make this configurable
 
