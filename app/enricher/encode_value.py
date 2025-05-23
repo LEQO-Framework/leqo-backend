@@ -25,7 +25,15 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
-from app.model.data_types import LeqoSupportedClassicalType, LeqoSupportedType
+from app.model.data_types import (
+    BitType,
+    BoolType,
+    FloatType,
+    IntType,
+    LeqoSupportedClassicalType,
+    LeqoSupportedType,
+    QubitType,
+)
 
 
 class EncodeValueEnricherStrategy(EnricherStrategy):
@@ -42,16 +50,16 @@ class EncodeValueEnricherStrategy(EnricherStrategy):
         """
         Converts the node type to the enum value of :class:`~app.enricher.models.InputType`
         """
-        match type(node_type).__name__:
-            case "IntType":
+        match node_type:
+            case IntType():
                 input_type = InputType.IntType.value
-            case "FloatType":
+            case FloatType():
                 input_type = InputType.FloatType.value
-            case "BitType":
+            case BitType():
                 input_type = InputType.BitType.value
-            case "BoolType":
+            case BoolType():
                 input_type = InputType.BoolType.value
-            case "QubitType":
+            case QubitType():
                 input_type = InputType.QubitType.value
             case _:
                 raise ConstraintValidationException(f"Unsupported input type: {input}")
