@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.enricher import Enricher
 from app.enricher.encode_value import EncodeValueEnricherStrategy
+from app.enricher.gates import GateEnricherStrategy
 from app.enricher.literals import LiteralEnricherStrategy
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.enricher.merger import MergerEnricherStrategy
@@ -90,6 +91,7 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         EncodeValueEnricherStrategy(engine),
         PrepareStateEnricherStrategy(engine),
         OperatorEnricherStrategy(engine),
+        GateEnricherStrategy(),
     )
 
 
