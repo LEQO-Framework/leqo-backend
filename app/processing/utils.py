@@ -6,6 +6,7 @@ import re
 from io import UnsupportedOperation
 from typing import TypeVar
 
+from networkx import topological_sort
 from openqasm3.ast import (
     Annotation,
     DiscreteSet,
@@ -19,12 +20,20 @@ from openqasm3.ast import (
     UnaryExpression,
 )
 
+from app.openqasm3.printer import leqo_dumps
+from app.processing.graph import ProgramGraph
+
 REMOVE_INDENT = re.compile(r"\n +", re.MULTILINE)
+REMOVE_UUID = re.compile(r"leqo_[a-z0-9]{32}", re.MULTILINE)
 
 
 def normalize_qasm_string(program: str) -> str:
     """Normalize QASM-string."""
     return REMOVE_INDENT.sub("\n", program).strip()
+
+
+def stem_qasm_string(program: str) -> str:
+    return normalize_qasm_string(REMOVE_UUID.sub("leqo", program))
 
 
 def cast_to_program(node: QASMNode | None) -> Program:
@@ -141,3 +150,18 @@ def parse_qasm_index(index: list[IndexElement], length: int) -> list[int]:
                         ]
         result = tmp
     return result
+
+
+def print_graph(graph: ProgramGraph) -> None:
+    print("\n=== Nodes ===")
+    node_index = {}
+    for i, node in enumerate(topological_sort(graph)):
+        node_index[node] = i
+        print(f"== Node {i} ==")
+        print(leqo_dumps(graph.node_data[node].implementation))
+
+    print("\n=== Edges ===")
+    for source, target in graph.edges:
+        i, j = node_index[source], node_index[target]
+        print(f"== Edge {i} -> {j} ==")
+        print(graph.edge_data[(source, target)])
