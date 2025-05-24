@@ -10,6 +10,15 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from app.openqasm3 import (
+    OneQubitGate,
+    OneQubitGateWithAngle,
+    ThreeQubitGate,
+    TwoQubitGate,
+    TwoQubitGateWithAngle,
+    TwoQubitGateWithParam,
+)
+
 
 class OptimizeSettings(ABC):
     """
@@ -93,12 +102,12 @@ class QubitNode(BaseNode):
 
 class GateNode(BaseNode):
     type: Literal["gate"] = "gate"
-    gate: Literal["cnot", "toffoli", "h", "x", "y", "z"]
+    gate: OneQubitGate | TwoQubitGate | ThreeQubitGate | Literal["cnot", "toffoli"]
 
 
 class ParameterizedGateNode(BaseNode):
     type: Literal["gate-with-param"] = "gate-with-param"
-    gate: Literal["rx", "ry", "rz"]
+    gate: OneQubitGateWithAngle | TwoQubitGateWithParam | TwoQubitGateWithAngle
     parameter: float
 
 
