@@ -1,15 +1,18 @@
-import asyncio
+import pytest
 
-from app.enricher import Constraints
-from app.enricher.if_else import IfElseEnricherStrategy, get_pass_node_impl
+from app.enricher import Enricher
 from app.model.CompileRequest import (
     Edge,
     IfThenElseNode,
     ImplementationNode,
     NestedBlock,
+    OptimizeSettings,
 )
-from app.model.data_types import BitType, IntType, QubitType
+from app.model.data_types import BitType, IntType, LeqoSupportedType, QubitType
 from app.openqasm3.printer import leqo_dumps
+from app.processing import CommonProcessor
+from app.processing.converted_graph import ConvertedProgramGraph
+from app.processing.if_else import enrich_if_else, get_pass_node_impl
 from app.processing.utils import stem_qasm_string
 
 h_impl = """
@@ -30,14 +33,27 @@ let _out = q;
 """
 
 
-def assert_if_else_enrichment(
-    node: IfThenElseNode, constraints: Constraints, expected: str
+class DummyOptimizeSettings(OptimizeSettings):
+    optimizeWidth = None
+    optimizeDepth = None
+
+
+build_graph = CommonProcessor(
+    Enricher(), ConvertedProgramGraph(), DummyOptimizeSettings()
+)._build_inner_graph
+
+
+async def assert_if_else_enrichment(
+    node: IfThenElseNode,
+    requested_inputs: dict[int, LeqoSupportedType],
+    frontend_name_to_index: dict[str, int],
+    expected: str,
 ) -> None:
-    actual = next(iter(asyncio.run(IfElseEnricherStrategy().enrich(node, constraints))))
-    print(actual.enriched_node.implementation)
-    assert stem_qasm_string(expected) == stem_qasm_string(
-        actual.enriched_node.implementation
+    enriched_node = await enrich_if_else(
+        node, requested_inputs, frontend_name_to_index, build_graph
     )
+    print(stem_qasm_string(enriched_node.implementation))
+    assert stem_qasm_string(expected) == stem_qasm_string(enriched_node.implementation)
 
 
 def test_pass_node_impl() -> None:
@@ -56,8 +72,9 @@ def test_pass_node_impl() -> None:
     assert stem_qasm_string(expected) == stem_qasm_string(leqo_dumps(actual))
 
 
-def test_basic() -> None:
-    assert_if_else_enrichment(
+@pytest.mark.asyncio
+async def test_basic() -> None:
+    await assert_if_else_enrichment(
         IfThenElseNode(
             id="if-node",
             condition="b == 3",
@@ -76,13 +93,9 @@ def test_basic() -> None:
                 ],
             ),
         ),
-        Constraints(
-            requested_inputs={0: BitType(1), 1: QubitType(1)},
-            optimizeWidth=False,
-            optimizeDepth=False,
-            frontend_name_to_index={"b": 0},
-        ),
-        """
+        requested_inputs={0: BitType(1), 1: QubitType(1)},
+        frontend_name_to_index={"b": 0},
+        expected="""\
         OPENQASM 3.1;
         @leqo.input 0
         bit[1] leqo_pass_node_declaration_0;

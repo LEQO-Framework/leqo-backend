@@ -5,7 +5,7 @@ Logic to transfer the frontend graph model into the backend graph model.
 from collections.abc import Iterable
 from typing import TypeVar
 
-from app.model.CompileRequest import Edge
+from app.model.CompileRequest import Edge, ImplementationNode
 from app.model.CompileRequest import Node as FrontendNode
 from app.processing.graph import IOConnection, ProgramGraph, ProgramNode
 
@@ -26,6 +26,13 @@ class ConvertedProgramGraph(ProgramGraph):
 
     def lookup(self, name: str) -> tuple[ProgramNode, FrontendNode] | None:
         return self.__lookup.get(name)
+
+    def insert_special_nodes(
+        self, special_nodes: list[tuple[ProgramNode, ImplementationNode]]
+    ) -> None:
+        for program_node, frontend_node in special_nodes:
+            self.__lookup[frontend_node.id] = (program_node, frontend_node)
+            self.add_node(program_node)
 
     @staticmethod
     def create(
@@ -63,5 +70,7 @@ class ConvertedProgramGraph(ProgramGraph):
                 IOConnection(
                     (self.__lookup[edge.source[0]][0], edge.source[1]),
                     (self.__lookup[edge.target[0]][0], edge.target[1]),
+                    edge.identifier,
+                    edge.size,
                 )
             )
