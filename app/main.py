@@ -12,10 +12,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
 from starlette.responses import PlainTextResponse, RedirectResponse
 
+from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import Processor
-from app.services import leqo_lifespan
+from app.services import get_result_url, get_settings, leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
 
@@ -35,8 +36,10 @@ results: dict[UUID, str] = {}
 
 
 @app.post("/compile")
-def compile(
-    processor: Annotated[Processor, Depends()], background_tasks: BackgroundTasks
+def post_compile(
+    processor: Annotated[Processor, Depends()],
+    background_tasks: BackgroundTasks,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> RedirectResponse:
     """
     Queue a compilation request.
@@ -49,14 +52,19 @@ def compile(
         createdAt=datetime.now(UTC),
         completedAt=None,
         progress=Progress(percentage=0, currentStep="init"),
-        result=f"/result/{uuid}",
+        result=get_result_url(uuid, settings),
     )
-    background_tasks.add_task(process_request, uuid, processor)  # ToDo: Use Celery (?)
-    return RedirectResponse(url=f"/status/{uuid}", status_code=303)
+
+    background_tasks.add_task(process_request, uuid, processor, settings)
+
+    return RedirectResponse(
+        url=f"{settings.api_base_url}status/{uuid}",
+        status_code=303,
+    )
 
 
 @app.get("/status/{uuid}")
-def status(uuid: UUID) -> StatusResponse:
+def get_status(uuid: UUID) -> StatusResponse:
     """
     Fetch status of a compile request.
     """
@@ -70,7 +78,7 @@ def status(uuid: UUID) -> StatusResponse:
 
 
 @app.get("/result/{uuid}", response_class=PlainTextResponse)
-def result(uuid: UUID) -> str:
+def get_result(uuid: UUID) -> str:
     """
     Fetch result of a compile request.
 
@@ -85,7 +93,11 @@ def result(uuid: UUID) -> str:
     return results[uuid]
 
 
-async def process_request(uuid: UUID, processor: Processor) -> None:
+async def process_request(
+    uuid: UUID,
+    processor: Processor,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> None:
     """
     Process a compile request in background.
 
@@ -94,11 +106,14 @@ async def process_request(uuid: UUID, processor: Processor) -> None:
     """
 
     status = StatusType.FAILED
+    result_code: str = ""
+
     try:
-        result_str = await processor.process()
+        result_code = await processor.process()
+        result = get_result_url(uuid, settings)
         status = StatusType.COMPLETED
     except Exception as exception:
-        result_str = str(exception) or type(exception).__name__
+        result = str(exception) or type(exception).__name__
 
     old_state: StatusResponse = states[uuid]
     states[uuid] = StatusResponse(
@@ -107,9 +122,10 @@ async def process_request(uuid: UUID, processor: Processor) -> None:
         createdAt=old_state.createdAt,
         completedAt=datetime.now(UTC),
         progress=Progress(percentage=100, currentStep="done"),
-        result=result_str,
+        result=result,
     )
-    results[uuid] = result_str
+
+    results[uuid] = result_code
 
 
 @app.post("/debug/compile", response_class=PlainTextResponse)
