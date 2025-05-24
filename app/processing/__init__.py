@@ -7,13 +7,19 @@ from typing import Annotated
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
+from openqasm3.ast import Program
 
 from app.enricher import Constraints, Enricher
-from app.model.CompileRequest import CompileRequest, ImplementationNode
+from app.model.CompileRequest import (
+    CompileRequest,
+    ImplementationNode,
+    OptimizeSettings,
+)
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
-from app.processing.graph import IOConnection, ProgramGraph, ProgramNode
+from app.processing.converted_graph import ConvertedProgramGraph
+from app.processing.graph import IOConnection, ProgramNode
 from app.processing.merge import merge_nodes
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
@@ -22,42 +28,27 @@ from app.processing.size_casting import size_cast
 from app.services import NodeIdFactory, get_enricher, get_node_id_factory
 from app.utils import not_none
 
+TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 
-class Processor:
+
+class CommonProcessor:
     """
-    Handles processing a :class:`~app.model.CompileRequest.CompileRequest`.
+    Handles processing a :class:`~app.processing.graph.ProgramGraph`.
     """
 
-    request: CompileRequest
-    graph: ProgramGraph
-    lookup: dict[str, tuple[ProgramNode, FrontendNode]]
+    graph: ConvertedProgramGraph
     enricher: Enricher
+    optimize: OptimizeSettings
 
     def __init__(
         self,
-        request: CompileRequest,
-        enricher: Annotated[Enricher, Depends(get_enricher)],
-        node_id_factory: Annotated[NodeIdFactory, Depends(get_node_id_factory)],
+        enricher: Enricher,
+        graph: ConvertedProgramGraph,
+        optimize_settings: OptimizeSettings,
     ) -> None:
-        self.request = request
         self.enricher = enricher
-        self.graph = ProgramGraph()
-        self.lookup = {}
-
-        for frontend_node in self.request.nodes:
-            program_node = ProgramNode(
-                frontend_node.id, id=node_id_factory(frontend_node.id)
-            )
-            self.lookup[frontend_node.id] = (program_node, frontend_node)
-            self.graph.add_node(program_node)
-
-        for edge in self.request.edges:
-            self.graph.append_edge(
-                IOConnection(
-                    (self.lookup[edge.source[0]][0], edge.source[1]),
-                    (self.lookup[edge.target[0]][0], edge.target[1]),
-                )
-            )
+        self.graph = graph
+        self.optimize = optimize_settings
 
     def _resolve_inputs(self, target_node: ProgramNode) -> dict[int, LeqoSupportedType]:
         requested_inputs: dict[int, LeqoSupportedType] = {}
@@ -95,14 +86,15 @@ class Processor:
             requested_inputs = self._resolve_inputs(target_node)
 
             _, frontend_node = not_none(
-                self.lookup.get(target_node.name), "Lookup should contain all nodes"
+                self.graph.lookup(target_node.name),
+                "Lookup should contain all nodes",
             )
             enriched_node = await self.enricher.enrich(
                 frontend_node,
                 Constraints(
                     requested_inputs,
-                    optimizeWidth=self.request.metadata.optimizeWidth is not None,
-                    optimizeDepth=self.request.metadata.optimizeDepth is not None,
+                    optimizeWidth=self.optimize.optimizeWidth is not None,
+                    optimizeDepth=self.optimize.optimizeDepth is not None,
                 ),
             )
             processed_node = preprocess(target_node, enriched_node.implementation)
@@ -113,6 +105,31 @@ class Processor:
             self.graph.node_data[target_node] = processed_node
 
             yield target_node, enriched_node
+
+    def _process_internal(self) -> Program:
+        if self.optimize.optimizeWidth is not None:
+            optimize(self.graph)
+
+        program = merge_nodes(self.graph)
+        return postprocess(program)
+
+
+class Processor(CommonProcessor):
+    """
+    Handles processing a :class:`~app.model.CompileRequest.CompileRequest`.
+    """
+
+    def __init__(
+        self,
+        request: CompileRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+        node_id_factory: Annotated[NodeIdFactory, Depends(get_node_id_factory)],
+    ) -> None:
+        graph = ConvertedProgramGraph.create(
+            request.nodes, request.edges, node_id_factory
+        )
+
+        super().__init__(enricher, graph, request.metadata)
 
     async def enrich(self) -> AsyncIterator[ImplementationNode]:
         """
@@ -141,9 +158,5 @@ class Processor:
         async for _ in self._enrich_internal():
             pass
 
-        if self.request.metadata.optimizeWidth is not None:
-            optimize(self.graph)
-
-        program = merge_nodes(self.graph)
-        program = postprocess(program)
+        program = self._process_internal()
         return leqo_dumps(program)

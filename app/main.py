@@ -17,7 +17,7 @@ from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import Processor
-from app.services import leqo_lifespan
+from app.services import get_result_url, get_settings, leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
 
@@ -66,7 +66,7 @@ def post_compile(
     background_tasks.add_task(process_request, uuid, processor, settings)
 
     return RedirectResponse(
-        url=f"{settings.api_protocol}://{settings.api_domain}:{settings.api_port}/status/{uuid}",
+        url=f"{settings.api_base_url}status/{uuid}",
         status_code=303,
     )
 

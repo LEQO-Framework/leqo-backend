@@ -2,13 +2,12 @@
 Load environment variables from the .env file.
 """
 
+from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    api_protocol: str = "http"
-    api_domain: str = "localhost"
-    api_port: int = 8000
+    api_base_url: AnyHttpUrl = AnyHttpUrl(url="http://localhost:8000/")
 
     cors_allow_origins: list[str] = ["*"]
     cors_allow_credentials: bool = True
