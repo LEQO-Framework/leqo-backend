@@ -14,6 +14,7 @@ from app.model.CompileRequest import (
     CompileRequest,
     ImplementationNode,
     OptimizeSettings,
+    RepeatNode,
 )
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
@@ -24,6 +25,7 @@ from app.processing.merge import merge_nodes
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
+from app.processing.repeat import flatten_repeat
 from app.processing.size_casting import size_cast
 from app.services import get_enricher
 from app.utils import not_none
@@ -80,7 +82,7 @@ class CommonProcessor:
     async def _enrich_internal(
         self,
     ) -> AsyncIterator[tuple[ProgramNode, ImplementationNode]]:
-        for target_node in topological_sort(self.graph):
+        for target_node in list(topological_sort(self.graph)):
             assert self.graph.node_data.get(target_node) is None
 
             requested_inputs = self._resolve_inputs(target_node)
@@ -89,6 +91,13 @@ class CommonProcessor:
                 self.graph.lookup(target_node.name),
                 "Lookup should contain all nodes",
             )
+
+            if isinstance(frontend_node, RepeatNode):
+                await flatten_repeat(
+                    self.graph, target_node, frontend_node, self._enrich_inner_graph
+                )
+                continue  # ToDo: we don't yield the nested nodes!!
+
             enriched_node = await self.enricher.enrich(
                 frontend_node,
                 Constraints(
@@ -112,6 +121,11 @@ class CommonProcessor:
 
         program = merge_nodes(self.graph)
         return postprocess(program)
+
+    async def _enrich_inner_graph(self, inner_graph: ConvertedProgramGraph) -> None:
+        processor = CommonProcessor(self.enricher, inner_graph, self.optimize)
+        async for _ in processor._enrich_internal():
+            pass
 
 
 class Processor(CommonProcessor):
