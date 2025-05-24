@@ -12,10 +12,14 @@ import asyncio
 import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from app.model.CompileRequest import ImplementationNode
-from app.model.CompileRequest import Node as FrontendNode
+from app.model.CompileRequest import (
+    ImplementationNode,
+)
+from app.model.CompileRequest import (
+    Node as FrontendNode,
+)
 from app.model.data_types import LeqoSupportedType
 from app.utils import not_none_or
 
@@ -24,12 +28,15 @@ from app.utils import not_none_or
 class Constraints:
     """
     Constraints to follow during enrichment.
+
+    :param requested_inputs: Dictionary where the key is the input index and value the type of the node.
+    :param optimizeWidth: If the width of the implementation should be optimized.
+    :param optimizeDepth: If the depth of the implementation should be optimized.
     """
 
     requested_inputs: dict[int, LeqoSupportedType]
     optimizeWidth: bool
     optimizeDepth: bool
-    frontend_name_to_index: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

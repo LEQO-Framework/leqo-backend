@@ -2,67 +2,53 @@
 Provides the core logic of the backend.
 """
 
-from abc import ABC
 from collections.abc import AsyncIterator
+from typing import Annotated
 
+from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
+from openqasm3.ast import Program
 
 from app.enricher import Constraints, Enricher
 from app.model.CompileRequest import (
     CompileRequest,
-    Edge,
     ImplementationNode,
+    OptimizeSettings,
 )
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
-from app.processing.graph import (
-    IOConnection,
-    ProgramGraph,
-    ProgramNode,
-)
+from app.processing.converted_graph import ConvertedProgramGraph
+from app.processing.graph import IOConnection, ProgramNode
 from app.processing.merge import merge_nodes
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
 from app.processing.size_casting import size_cast
+from app.services import NodeIdFactory, get_enricher, get_node_id_factory
 from app.utils import not_none
 
+TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 
-class AbstractProcessor(ABC):
-    graph: ProgramGraph
-    lookup: dict[str, tuple[ProgramNode, FrontendNode]]
-    optimize_width: int | None
-    optimize_depth: int | None
+
+class CommonProcessor:
+    """
+    Handles processing a :class:`~app.processing.graph.ProgramGraph`.
+    """
+
+    graph: ConvertedProgramGraph
     enricher: Enricher
-    frontend_name_to_index: dict[str, dict[str, int]]
+    optimize: OptimizeSettings
 
-    @staticmethod
-    def get_frontend_name_to_index(
-        nodes: list[FrontendNode], edges: list[Edge]
-    ) -> dict[str, dict[str, int]]:
-        frontend_name_to_index: dict[str, dict[str, int]] = {n.id: {} for n in nodes}
-        for edge in edges:
-            if edge.identifier is not None:
-                target_id, index = edge.target
-                frontend_name_to_index[target_id][edge.identifier] = index
-        return frontend_name_to_index
-
-    def __init__(  # noqa PLR0913 Too many arguments in function definition (7 > 5)
+    def __init__(
         self,
-        graph: ProgramGraph,
-        lookup: dict[str, tuple[ProgramNode, FrontendNode]],
         enricher: Enricher,
-        optimize_width: int | None,
-        optimize_depth: int | None,
-        frontend_name_to_index: dict[str, dict[str, int]],
-    ):
+        graph: ConvertedProgramGraph,
+        optimize_settings: OptimizeSettings,
+    ) -> None:
         self.enricher = enricher
         self.graph = graph
-        self.lookup = lookup
-        self.optimize_width = optimize_width
-        self.optimize_depth = optimize_depth
-        self.frontend_name_to_index = frontend_name_to_index
+        self.optimize = optimize_settings
 
     def _resolve_inputs(self, target_node: ProgramNode) -> dict[int, LeqoSupportedType]:
         requested_inputs: dict[int, LeqoSupportedType] = {}
@@ -100,17 +86,15 @@ class AbstractProcessor(ABC):
             requested_inputs = self._resolve_inputs(target_node)
 
             _, frontend_node = not_none(
-                self.lookup.get(target_node.name), "Lookup should contain all nodes"
+                self.graph.lookup(target_node.name),
+                "Lookup should contain all nodes",
             )
             enriched_node = await self.enricher.enrich(
                 frontend_node,
                 Constraints(
                     requested_inputs,
-                    optimizeWidth=self.optimize_width is not None,
-                    optimizeDepth=self.optimize_depth is not None,
-                    frontend_name_to_index=self.frontend_name_to_index[
-                        frontend_node.id
-                    ],
+                    optimizeWidth=self.optimize.optimizeWidth is not None,
+                    optimizeDepth=self.optimize.optimizeDepth is not None,
                 ),
             )
             processed_node = preprocess(target_node, enriched_node.implementation)
@@ -122,40 +106,30 @@ class AbstractProcessor(ABC):
 
             yield target_node, enriched_node
 
+    def _process_internal(self) -> Program:
+        if self.optimize.optimizeWidth is not None:
+            optimize(self.graph)
 
-class Processor(AbstractProcessor):
+        program = merge_nodes(self.graph)
+        return postprocess(program)
+
+
+class Processor(CommonProcessor):
     """
     Handles processing a :class:`~app.model.CompileRequest.CompileRequest`.
     """
 
-    request: CompileRequest
-
-    def __init__(self, request: CompileRequest, enricher: Enricher):
-        self.request = request
-
-        graph = ProgramGraph()
-        lookup = {}
-        for frontend_node in request.nodes:
-            program_node = ProgramNode(frontend_node.id)
-            lookup[frontend_node.id] = (program_node, frontend_node)
-            graph.add_node(program_node)
-
-        for edge in request.edges:
-            graph.append_edge(
-                IOConnection(
-                    (lookup[edge.source[0]][0], edge.source[1]),
-                    (lookup[edge.target[0]][0], edge.target[1]),
-                )
-            )
-
-        super().__init__(
-            graph,
-            lookup,
-            enricher,
-            request.metadata.optimizeWidth,
-            request.metadata.optimizeDepth,
-            self.get_frontend_name_to_index(request.nodes, request.edges),
+    def __init__(
+        self,
+        request: CompileRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+        node_id_factory: Annotated[NodeIdFactory, Depends(get_node_id_factory)],
+    ) -> None:
+        graph = ConvertedProgramGraph.create(
+            request.nodes, request.edges, node_id_factory
         )
+
+        super().__init__(enricher, graph, request.metadata)
 
     async def enrich(self) -> AsyncIterator[ImplementationNode]:
         """
@@ -184,60 +158,5 @@ class Processor(AbstractProcessor):
         async for _ in self._enrich_internal():
             pass
 
-        if self.request.metadata.optimizeWidth is not None:
-            optimize(self.graph)
-
-        program = merge_nodes(self.graph)
-        program = postprocess(program)
+        program = self._process_internal()
         return leqo_dumps(program)
-
-
-class ProcessorIfElse(AbstractProcessor):
-    def __init__(  # noqa PLR0913 Too many arguments in function definition (7 > 5)
-        self,
-        enricher: Enricher,
-        nodes: list[FrontendNode],
-        edges: list[Edge],
-        if_nodes: tuple[ProgramNode, FrontendNode],
-        endif_nodes: tuple[ProgramNode, FrontendNode],
-        optimize_width: int | None,
-        optimize_depth: int | None,
-    ):
-        graph = ProgramGraph()
-
-        lookup = {}
-        for frontend_node in nodes:
-            if frontend_node not in (if_nodes[1], endif_nodes[1]):
-                program_node = ProgramNode(frontend_node.id)
-                lookup[frontend_node.id] = (program_node, frontend_node)
-                graph.add_node(program_node)
-
-        for program_node, frontend_node in [if_nodes, endif_nodes]:
-            lookup[frontend_node.id] = (program_node, frontend_node)
-            graph.add_node(program_node)
-
-        for edge in edges:
-            graph.append_edge(
-                IOConnection(
-                    (lookup[edge.source[0]][0], edge.source[1]),
-                    (lookup[edge.target[0]][0], edge.target[1]),
-                )
-            )
-
-        super().__init__(
-            graph,
-            lookup,
-            enricher,
-            optimize_width,
-            optimize_depth,
-            self.get_frontend_name_to_index(nodes, edges),
-        )
-
-    async def process(self) -> ProgramGraph:
-        async for _ in self._enrich_internal():
-            pass
-
-        if self.optimize_width is not None:
-            optimize(self.graph)
-
-        return self.graph

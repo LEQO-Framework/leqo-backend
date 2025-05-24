@@ -84,6 +84,7 @@ class MeasurementEnricherStrategy(EnricherStrategy):
                         ),
                     ),
                     leqo_output("out", 0, Identifier("result")),
+                    leqo_output("qubit_out", 1, Identifier("q")),
                 ],
             ),
             ImplementationMetaData(width=0, depth=1),
