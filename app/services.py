@@ -5,6 +5,7 @@ Contains services that are available via fastapi dependency injection.
 import os
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -17,6 +18,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from app.config import Settings
 from app.enricher import Enricher
 from app.enricher.encode_value import EncodeValueEnricherStrategy
 from app.enricher.gates import GateEnricherStrategy
@@ -103,3 +105,22 @@ def get_node_id_factory() -> NodeIdFactory:
         return uuid4()
 
     return node_id_factory
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """
+    Get environment variables from pydantic and cache them.
+    """
+
+    return Settings()
+
+
+def get_result_url(
+    uuid: UUID, settings: Annotated[Settings, Depends(get_settings)]
+) -> str:
+    """
+    Return the full URL for a result identified by its UUID.
+    """
+
+    return f"{settings.api_base_url}result/{uuid}"

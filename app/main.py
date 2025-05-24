@@ -4,7 +4,6 @@ All fastapi endpoints available.
 
 import traceback
 from datetime import UTC, datetime
-from functools import lru_cache
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -17,7 +16,7 @@ from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import Processor
-from app.services import leqo_lifespan
+from app.services import get_result_url, get_settings, leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
 
@@ -34,15 +33,6 @@ app.add_middleware(
 # FIXME: these should live in the database
 states: dict[UUID, StatusResponse] = {}
 results: dict[UUID, str] = {}
-
-
-@lru_cache
-def get_settings() -> Settings:
-    """
-    Get environment variables from pydantic and cache them.
-    """
-
-    return Settings()
 
 
 @app.post("/compile")
@@ -68,7 +58,7 @@ def post_compile(
     background_tasks.add_task(process_request, uuid, processor, settings)
 
     return RedirectResponse(
-        url=f"{settings.api_protocol}://{settings.api_domain}:{settings.api_port}/status/{uuid}",
+        url=f"{settings.api_base_url}status/{uuid}",
         status_code=303,
     )
 
@@ -162,13 +152,3 @@ async def debug_enrich(
         return [x async for x in processor.enrich()]
     except Exception:
         return traceback.format_exc()
-
-
-def get_result_url(
-    uuid: UUID, settings: Annotated[Settings, Depends(get_settings)]
-) -> str:
-    """
-    Return the full URL for a result identified by its UUID.
-    """
-
-    return f"{settings.api_protocol}://{settings.api_domain}:{settings.api_port}/result/{uuid}"
