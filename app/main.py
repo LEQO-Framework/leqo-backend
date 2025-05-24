@@ -4,7 +4,6 @@ All fastapi endpoints available.
 
 import traceback
 from datetime import UTC, datetime
-from functools import lru_cache
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -21,16 +20,6 @@ from app.services import get_result_url, get_settings, leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
 
-
-@lru_cache
-def get_settings() -> Settings:
-    """
-    Get environment variables from pydantic and cache them.
-    """
-
-    return Settings()
-
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_allow_origins,
@@ -38,6 +27,7 @@ app.add_middleware(
     allow_methods=get_settings().cors_allow_methods,
     allow_headers=get_settings().cors_allow_headers,
 )
+
 # FIXME: these should live in the database
 states: dict[UUID, StatusResponse] = {}
 results: dict[UUID, str] = {}
@@ -160,13 +150,3 @@ async def debug_enrich(
         return [x async for x in processor.enrich()]
     except Exception:
         return traceback.format_exc()
-
-
-def get_result_url(
-    uuid: UUID, settings: Annotated[Settings, Depends(get_settings)]
-) -> str:
-    """
-    Return the full URL for a result identified by its UUID.
-    """
-
-    return f"{settings.api_protocol}://{settings.api_domain}:{settings.api_port}/result/{uuid}"
