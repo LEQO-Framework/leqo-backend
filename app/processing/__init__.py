@@ -3,7 +3,7 @@ Provides the core logic of the backend.
 """
 
 from collections.abc import AsyncIterator
-from typing import Annotated, TypeVar
+from typing import Annotated
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
@@ -11,16 +11,15 @@ from openqasm3.ast import Program
 
 from app.enricher import Constraints, Enricher
 from app.model.CompileRequest import (
-    BaseNode,
     CompileRequest,
-    Edge,
     ImplementationNode,
     OptimizeSettings,
 )
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
-from app.processing.graph import IOConnection, ProgramGraph, ProgramNode
+from app.processing.converted_graph import ConvertedProgramGraph
+from app.processing.graph import IOConnection, ProgramNode
 from app.processing.merge import merge_nodes
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
@@ -29,38 +28,7 @@ from app.processing.size_casting import size_cast
 from app.services import NodeIdFactory, get_enricher, get_node_id_factory
 from app.utils import not_none
 
-TBaseNode_co = TypeVar("TBaseNode_co", bound=BaseNode, covariant=True)
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
-
-
-def create_program_graph(
-    nodes: list[TBaseNode_co],
-    edges: list[Edge],
-    lookup: dict[str, tuple[ProgramNode, TBaseNode_co]],
-    node_id_factory: NodeIdFactory,
-) -> ProgramGraph:
-    """
-    Transfers the frontend graph model into the backend graph model.
-    """
-
-    graph = ProgramGraph()
-
-    for frontend_node in nodes:
-        program_node = ProgramNode(
-            frontend_node.id, id=node_id_factory(frontend_node.id)
-        )
-        lookup[frontend_node.id] = (program_node, frontend_node)
-        graph.add_node(program_node)
-
-    for edge in edges:
-        graph.append_edge(
-            IOConnection(
-                (lookup[edge.source[0]][0], edge.source[1]),
-                (lookup[edge.target[0]][0], edge.target[1]),
-            )
-        )
-
-    return graph
 
 
 class CommonProcessor:
@@ -68,21 +36,18 @@ class CommonProcessor:
     Handles processing a :class:`~app.processing.graph.ProgramGraph`.
     """
 
-    graph: ProgramGraph
-    lookup: TLookup
+    graph: ConvertedProgramGraph
     enricher: Enricher
     optimize: OptimizeSettings
 
     def __init__(
         self,
         enricher: Enricher,
-        graph: ProgramGraph,
-        lookup: TLookup,
+        graph: ConvertedProgramGraph,
         optimize_settings: OptimizeSettings,
     ) -> None:
         self.enricher = enricher
         self.graph = graph
-        self.lookup = lookup
         self.optimize = optimize_settings
 
     def _resolve_inputs(self, target_node: ProgramNode) -> dict[int, LeqoSupportedType]:
@@ -121,7 +86,8 @@ class CommonProcessor:
             requested_inputs = self._resolve_inputs(target_node)
 
             _, frontend_node = not_none(
-                self.lookup.get(target_node.name), "Lookup should contain all nodes"
+                self.graph.lookup(target_node.name),
+                "Lookup should contain all nodes",
             )
             enriched_node = await self.enricher.enrich(
                 frontend_node,
@@ -159,12 +125,11 @@ class Processor(CommonProcessor):
         enricher: Annotated[Enricher, Depends(get_enricher)],
         node_id_factory: Annotated[NodeIdFactory, Depends(get_node_id_factory)],
     ) -> None:
-        lookup: TLookup = {}
-        graph = create_program_graph(
-            request.nodes, request.edges, lookup, node_id_factory
+        graph = ConvertedProgramGraph.create(
+            request.nodes, request.edges, node_id_factory
         )
 
-        super().__init__(enricher, graph, lookup, request.metadata)
+        super().__init__(enricher, graph, request.metadata)
 
     async def enrich(self) -> AsyncIterator[ImplementationNode]:
         """
