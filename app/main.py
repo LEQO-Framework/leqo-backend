@@ -20,14 +20,12 @@ from app.services import get_result_url, get_settings, leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
 
-origins: list[str] = ["*"]  # ToDo: make this configurable
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=get_settings().cors_allow_origins,
+    allow_credentials=get_settings().cors_allow_credentials,
+    allow_methods=get_settings().cors_allow_methods,
+    allow_headers=get_settings().cors_allow_headers,
 )
 
 # FIXME: these should live in the database
