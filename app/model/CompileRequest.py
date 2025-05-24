@@ -5,12 +5,22 @@ It provides classes to model metadata, node data, and the complete compile reque
 
 from __future__ import annotations
 
+from abc import ABC
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
 
-class MetaData(BaseModel):
+class OptimizeSettings(ABC):
+    """
+    Optimization settings for a :class:`CompileRequest`.
+    """
+
+    optimizeWidth: int | None
+    optimizeDepth: int | None
+
+
+class MetaData(BaseModel, OptimizeSettings):
     """
     Models the metadata of a compile request.
     """
@@ -23,7 +33,7 @@ class MetaData(BaseModel):
     optimizeDepth: Annotated[int, Field(gt=0)] | None = None
 
 
-class _BaseNode(BaseModel):
+class BaseNode(BaseModel):
     """
     Models a node within a compile request.
     """
@@ -32,7 +42,7 @@ class _BaseNode(BaseModel):
     label: str | None = None
 
 
-class ImplementationNode(_BaseNode):
+class ImplementationNode(BaseNode):
     """
     Special node that holds just an implementation.
     This is used in case the user manually enters an implementation in the frontend.
@@ -43,29 +53,29 @@ class ImplementationNode(_BaseNode):
 
 
 # region Boundary Nodes
-class EncodeValueNode(_BaseNode):
+class EncodeValueNode(BaseNode):
     type: Literal["encode"] = "encode"
     encoding: Literal["amplitude", "angle", "basis", "custom", "matrix", "schmidt"]
     bounds: int = Field(ge=0, default=0, le=1)
 
 
-class PrepareStateNode(_BaseNode):
+class PrepareStateNode(BaseNode):
     type: Literal["prepare"] = "prepare"
     quantumState: Literal["ϕ+", "ϕ-", "ψ+", "ψ-", "custom", "ghz", "uniform", "w"]
     size: int = Field(gt=0)
 
 
-class SplitterNode(_BaseNode):
+class SplitterNode(BaseNode):
     type: Literal["splitter"] = "splitter"
     numberOutputs: int = Field(ge=2)
 
 
-class MergerNode(_BaseNode):
+class MergerNode(BaseNode):
     type: Literal["merger"] = "merger"
     numberInputs: int = Field(ge=2)
 
 
-class MeasurementNode(_BaseNode):
+class MeasurementNode(BaseNode):
     type: Literal["measure"] = "measure"
     indices: list[Annotated[int, Field(ge=0)]]
 
@@ -76,40 +86,40 @@ BoundaryNode = (
 # endregion
 
 
-class QubitNode(_BaseNode):
+class QubitNode(BaseNode):
     type: Literal["qubit"] = "qubit"
     size: int = Field(default=1, ge=1)
 
 
-class GateNode(_BaseNode):
+class GateNode(BaseNode):
     type: Literal["gate"] = "gate"
     gate: Literal["cnot", "toffoli", "h", "x", "y", "z"]
 
 
-class ParameterizedGateNode(_BaseNode):
+class ParameterizedGateNode(BaseNode):
     type: Literal["gate-with-param"] = "gate-with-param"
     gate: Literal["rx", "ry", "rz"]
     parameter: float
 
 
 # region Literals
-class BitLiteralNode(_BaseNode):
+class BitLiteralNode(BaseNode):
     type: Literal["bit"] = "bit"
     value: Literal[0, 1]
 
 
-class BoolLiteralNode(_BaseNode):
+class BoolLiteralNode(BaseNode):
     type: Literal["bool"] = "bool"
     value: bool
 
 
-class IntLiteralNode(_BaseNode):
+class IntLiteralNode(BaseNode):
     type: Literal["int"] = "int"
     bitSize: int = Field(default=32, ge=1)
     value: int
 
 
-class FloatLiteralNode(_BaseNode):
+class FloatLiteralNode(BaseNode):
     type: Literal["float"] = "float"
     bitSize: int = Field(default=32, ge=1)
     value: float
@@ -119,7 +129,7 @@ LiteralNode = BitLiteralNode | BoolLiteralNode | IntLiteralNode | FloatLiteralNo
 # endregion
 
 
-class AncillaNode(_BaseNode):
+class AncillaNode(BaseNode):
     type: Literal["ancilla"] = "ancilla"
     size: int = Field(default=1, ge=1)
 
@@ -130,14 +140,14 @@ class NestedBlock(BaseModel):
     edges: list[Edge]
 
 
-class IfThenElseNode(_BaseNode):
+class IfThenElseNode(BaseNode):
     type: Literal["if-then-else"] = "if-then-else"
     condition: str
     thenBlock: NestedBlock
     elseBlock: NestedBlock
 
 
-class RepeatNode(_BaseNode):
+class RepeatNode(BaseNode):
     type: Literal["repeat"] = "repeat"
     iterations: int = Field(gt=0)
     block: NestedBlock
@@ -147,7 +157,7 @@ ControlFlowNode = IfThenElseNode | RepeatNode
 # endregion
 
 
-class OperatorNode(_BaseNode):
+class OperatorNode(BaseNode):
     type: Literal["operator"] = "operator"
     operator: Literal[
         "+",
