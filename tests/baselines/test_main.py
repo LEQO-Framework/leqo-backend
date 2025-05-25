@@ -1,28 +1,12 @@
 from collections.abc import Iterator
-from hashlib import sha1
 from pathlib import Path
-from uuid import UUID
 
 import pytest
 from pydantic import BaseModel
 from starlette.testclient import TestClient
 
 from app.main import app
-from app.services import NodeIdFactory, get_node_id_factory
 from tests.baselines import find_files
-
-
-# region service overrides
-def get_dummy_node_id_factory() -> NodeIdFactory:
-    def dummy_node_id_factory(node_id: str) -> UUID:
-        node_id_hash = sha1(node_id.encode()).digest()
-        return UUID(bytes=node_id_hash[:16])
-
-    return dummy_node_id_factory
-
-
-app.dependency_overrides[get_node_id_factory] = get_dummy_node_id_factory
-# endregion
 
 
 @pytest.fixture(scope="session")

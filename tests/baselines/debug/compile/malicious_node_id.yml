@@ -16,7 +16,7 @@ expected_result: |
   OPENQASM 3.1;
   qubit[1] leqo_reg;
   /* Start node This is a very bad, node id!*\/ */
-  let leqo_b5640068cdb914dbec339916631a74d0_literal = leqo_reg[{0}];
+  let leqo_9bcbc1bc8bc353bbbe1c53bb5f426c41_literal = leqo_reg[{0}];
   @leqo.output 0
-  let leqo_b5640068cdb914dbec339916631a74d0_out = leqo_b5640068cdb914dbec339916631a74d0_literal;
+  let leqo_9bcbc1bc8bc353bbbe1c53bb5f426c41_out = leqo_9bcbc1bc8bc353bbbe1c53bb5f426c41_literal;
   /* End node This is a very bad, node id!*\/ */

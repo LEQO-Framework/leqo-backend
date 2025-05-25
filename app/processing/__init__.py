@@ -25,7 +25,7 @@ from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
 from app.processing.size_casting import size_cast
-from app.services import NodeIdFactory, get_enricher, get_node_id_factory
+from app.services import get_enricher
 from app.utils import not_none
 
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
@@ -123,11 +123,8 @@ class Processor(CommonProcessor):
         self,
         request: CompileRequest,
         enricher: Annotated[Enricher, Depends(get_enricher)],
-        node_id_factory: Annotated[NodeIdFactory, Depends(get_node_id_factory)],
     ) -> None:
-        graph = ConvertedProgramGraph.create(
-            request.nodes, request.edges, node_id_factory
-        )
+        graph = ConvertedProgramGraph.create(request.nodes, request.edges)
 
         super().__init__(enricher, graph, request.metadata)
 
