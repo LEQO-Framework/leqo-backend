@@ -69,11 +69,7 @@ async def enrich_if_else(
     requested_inputs: dict[int, LeqoSupportedType],
     frontend_name_to_index: dict[str, int],
     build_graph: Callable[
-        [
-            Iterable[FrontendNode],
-            Iterable[Edge],
-            list[tuple[ProgramNode, ImplementationNode]],
-        ],
+        [Iterable[FrontendNode], Iterable[Edge]],
         Coroutine[Any, Any, ConvertedProgramGraph],
     ],
 ) -> ImplementationNode:
@@ -99,14 +95,10 @@ async def enrich_if_else(
                 edge.target = (endif_front_node.id, edge.target[1])
 
     then_graph = await build_graph(
-        node.thenBlock.nodes,
-        node.thenBlock.edges,
-        [(if_node, if_front_node), (endif_node, endif_front_node)],
+        (*node.thenBlock.nodes, if_front_node, endif_front_node), node.thenBlock.edges
     )
     else_graph = await build_graph(
-        node.elseBlock.nodes,
-        node.elseBlock.edges,
-        [(if_node, if_front_node), (endif_node, endif_front_node)],
+        (*node.elseBlock.nodes, if_front_node, endif_front_node), node.elseBlock.edges
     )
 
     condition = parse_condition(node.condition)

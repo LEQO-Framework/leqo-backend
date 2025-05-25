@@ -135,13 +135,9 @@ class CommonProcessor:
         return postprocess(program)
 
     async def _build_inner_graph(
-        self,
-        nodes: Iterable[FrontendNode],
-        edges: Iterable[Edge],
-        special_nodes: list[tuple[ProgramNode, ImplementationNode]],
+        self, nodes: Iterable[FrontendNode], edges: Iterable[Edge]
     ) -> ConvertedProgramGraph:
         graph = ConvertedProgramGraph()
-        graph.insert_special_nodes(special_nodes)
         graph.insert(nodes, edges)
 
         processor = CommonProcessor(self.enricher, graph, self.optimize)
