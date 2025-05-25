@@ -29,6 +29,7 @@ from app.processing.condition import parse_condition
 from app.processing.converted_graph import ConvertedProgramGraph
 from app.processing.graph import ProgramNode
 from app.processing.merge import merge_if_nodes
+from app.processing.post import postprocess
 
 TARGET_QASM_VERSION = "3.1"  # circular import if imported from converter
 
@@ -120,6 +121,7 @@ async def enrich_if_else(
         else_graph,
         condition,
     )
+    implementation = postprocess(implementation)
     return ImplementationNode(
         id=node.id,
         implementation=leqo_dumps(implementation),
