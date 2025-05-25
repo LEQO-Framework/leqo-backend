@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
-from uuid import UUID, uuid4
+from uuid import UUID, uuid5
 
 from networkx import DiGraph
 from openqasm3.ast import Program
@@ -20,6 +20,8 @@ from app.model.data_types import (
 
 QubitIDs = list[int]
 
+LeqoNamespace = UUID("1378f1f9-b705-404b-be6a-d1b3e29236d7")
+
 
 @dataclass(frozen=True)
 class ProgramNode:
@@ -32,9 +34,25 @@ class ProgramNode:
     """
 
     name: str
-    label: str | None = None
-    is_ancilla_node: bool = False
-    id: UUID = field(default_factory=uuid4)
+    label: str | None
+    is_ancilla_node: bool
+    id: UUID
+
+    def __init__(
+        self,
+        name: str,
+        label: str | None = None,
+        is_ancilla_node: bool = False,
+        id: UUID | None = None,
+    ) -> None:
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "label", label)
+        object.__setattr__(self, "is_ancilla_node", is_ancilla_node)
+        object.__setattr__(
+            self,
+            "id",
+            id if id is not None else uuid5(LeqoNamespace, self.name),
+        )
 
 
 @dataclass(frozen=True)

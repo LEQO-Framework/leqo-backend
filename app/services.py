@@ -3,11 +3,11 @@ Contains services that are available via fastapi dependency injection.
 """
 
 import os
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import Annotated
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -95,16 +95,6 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         OperatorEnricherStrategy(engine),
         GateEnricherStrategy(),
     )
-
-
-NodeIdFactory = Callable[[str], UUID]
-
-
-def get_node_id_factory() -> NodeIdFactory:
-    def node_id_factory(_node_id: str) -> UUID:
-        return uuid4()
-
-    return node_id_factory
 
 
 @lru_cache

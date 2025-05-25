@@ -41,64 +41,64 @@ expected_result: |
   OPENQASM 3.1;
   qubit[3] leqo_reg;
   /* Start node newNode0 */
-  let leqo_6e67025eb787359c6a2d3dbc87b61bff_literal = leqo_reg[{0}];
+  let leqo_a802199cae985ea28977fed1a6977cfe_literal = leqo_reg[{0}];
   @leqo.output 0
-  let leqo_6e67025eb787359c6a2d3dbc87b61bff_out = leqo_6e67025eb787359c6a2d3dbc87b61bff_literal;
+  let leqo_a802199cae985ea28977fed1a6977cfe_out = leqo_a802199cae985ea28977fed1a6977cfe_literal;
   /* End node newNode0 */
   /* Start node newNode1 */
-  let leqo_36d29f43e886ae559c1d8d85bdabf31b_literal = leqo_reg[{1}];
+  let leqo_15b97591d2d252d4932c57137d560388_literal = leqo_reg[{1}];
   @leqo.output 0
-  let leqo_36d29f43e886ae559c1d8d85bdabf31b_out = leqo_36d29f43e886ae559c1d8d85bdabf31b_literal;
+  let leqo_15b97591d2d252d4932c57137d560388_out = leqo_15b97591d2d252d4932c57137d560388_literal;
   /* End node newNode1 */
   /* Start node newNode2 */
-  let leqo_e49eca7b4941664a57975ae68ebf886c_literal = leqo_reg[{2}];
+  let leqo_44e2e1b30b905cfcac7970c851f892df_literal = leqo_reg[{2}];
   @leqo.output 0
-  let leqo_e49eca7b4941664a57975ae68ebf886c_out = leqo_e49eca7b4941664a57975ae68ebf886c_literal;
+  let leqo_44e2e1b30b905cfcac7970c851f892df_out = leqo_44e2e1b30b905cfcac7970c851f892df_literal;
   /* End node newNode2 */
   /* Start node newNode3 */
   @leqo.input 0
-  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_0 = leqo_reg[{1}];
+  let leqo_86fcd33a58435474a455551021ccead2_merger_input_0 = leqo_reg[{1}];
   @leqo.input 1
-  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_1 = leqo_reg[{0}];
+  let leqo_86fcd33a58435474a455551021ccead2_merger_input_1 = leqo_reg[{0}];
   @leqo.input 2
-  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_2 = leqo_reg[{2}];
+  let leqo_86fcd33a58435474a455551021ccead2_merger_input_2 = leqo_reg[{2}];
   @leqo.output 0
-  let leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_output = leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_0 ++ leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_1 ++ leqo_8471e5a5ddce05fcb2016b7ccdb863e9_merger_input_2;
+  let leqo_86fcd33a58435474a455551021ccead2_merger_output = leqo_86fcd33a58435474a455551021ccead2_merger_input_0 ++ leqo_86fcd33a58435474a455551021ccead2_merger_input_1 ++ leqo_86fcd33a58435474a455551021ccead2_merger_input_2;
   /* End node newNode3 */
   /* Start node newNode5 */
   @leqo.input 0
-  let leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_input = leqo_reg[{1, 0, 2}];
+  let leqo_9b2131a3791a54a0a2d2bfa278c28719_splitter_input = leqo_reg[{1, 0, 2}];
   @leqo.output 0
-  let leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_output_0 = leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_input[{0}];
+  let leqo_9b2131a3791a54a0a2d2bfa278c28719_splitter_output_0 = leqo_9b2131a3791a54a0a2d2bfa278c28719_splitter_input[{0}];
   @leqo.output 1
-  let leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_output_1 = leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_input[{1}];
+  let leqo_9b2131a3791a54a0a2d2bfa278c28719_splitter_output_1 = leqo_9b2131a3791a54a0a2d2bfa278c28719_splitter_input[{1}];
   @leqo.output 2
-  let leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_output_2 = leqo_09889f2ae966ce580f8bf3805fe62c4b_splitter_input[{2}];
+  let leqo_9b2131a3791a54a0a2d2bfa278c28719_splitter_output_2 = leqo_9b2131a3791a54a0a2d2bfa278c28719_splitter_input[{2}];
   /* End node newNode5 */
   /* Start node newNode8 */
   @leqo.input 0
-  let leqo_e44596937aebc50e456acb997a1ea5c8_q = leqo_reg[{2}];
-  bit[1] leqo_e44596937aebc50e456acb997a1ea5c8_result = measure leqo_e44596937aebc50e456acb997a1ea5c8_q[{0}];
+  let leqo_1a72e598ede85db691b60668a9ec4c7c_q = leqo_reg[{2}];
+  bit[1] leqo_1a72e598ede85db691b60668a9ec4c7c_result = measure leqo_1a72e598ede85db691b60668a9ec4c7c_q[{0}];
   @leqo.output 0
-  let leqo_e44596937aebc50e456acb997a1ea5c8_out = leqo_e44596937aebc50e456acb997a1ea5c8_result;
+  let leqo_1a72e598ede85db691b60668a9ec4c7c_out = leqo_1a72e598ede85db691b60668a9ec4c7c_result;
   @leqo.output 1
-  let leqo_e44596937aebc50e456acb997a1ea5c8_qubit_out = leqo_e44596937aebc50e456acb997a1ea5c8_q;
+  let leqo_1a72e598ede85db691b60668a9ec4c7c_qubit_out = leqo_1a72e598ede85db691b60668a9ec4c7c_q;
   /* End node newNode8 */
   /* Start node newNode7 */
   @leqo.input 0
-  let leqo_9c7e7804e46df792310f94d64d6a39b7_q = leqo_reg[{0}];
-  bit[1] leqo_9c7e7804e46df792310f94d64d6a39b7_result = measure leqo_9c7e7804e46df792310f94d64d6a39b7_q[{0}];
+  let leqo_05eee16145e55a09b21915a860aadb70_q = leqo_reg[{0}];
+  bit[1] leqo_05eee16145e55a09b21915a860aadb70_result = measure leqo_05eee16145e55a09b21915a860aadb70_q[{0}];
   @leqo.output 0
-  let leqo_9c7e7804e46df792310f94d64d6a39b7_out = leqo_9c7e7804e46df792310f94d64d6a39b7_result;
+  let leqo_05eee16145e55a09b21915a860aadb70_out = leqo_05eee16145e55a09b21915a860aadb70_result;
   @leqo.output 1
-  let leqo_9c7e7804e46df792310f94d64d6a39b7_qubit_out = leqo_9c7e7804e46df792310f94d64d6a39b7_q;
+  let leqo_05eee16145e55a09b21915a860aadb70_qubit_out = leqo_05eee16145e55a09b21915a860aadb70_q;
   /* End node newNode7 */
   /* Start node newNode6 */
   @leqo.input 0
-  let leqo_15fec8f7041f6c01a5a27e5e97bb84e8_q = leqo_reg[{1}];
-  bit[1] leqo_15fec8f7041f6c01a5a27e5e97bb84e8_result = measure leqo_15fec8f7041f6c01a5a27e5e97bb84e8_q[{0}];
+  let leqo_2aeb065e13885b9890b98b91aaaf7dde_q = leqo_reg[{1}];
+  bit[1] leqo_2aeb065e13885b9890b98b91aaaf7dde_result = measure leqo_2aeb065e13885b9890b98b91aaaf7dde_q[{0}];
   @leqo.output 0
-  let leqo_15fec8f7041f6c01a5a27e5e97bb84e8_out = leqo_15fec8f7041f6c01a5a27e5e97bb84e8_result;
+  let leqo_2aeb065e13885b9890b98b91aaaf7dde_out = leqo_2aeb065e13885b9890b98b91aaaf7dde_result;
   @leqo.output 1
-  let leqo_15fec8f7041f6c01a5a27e5e97bb84e8_qubit_out = leqo_15fec8f7041f6c01a5a27e5e97bb84e8_q;
+  let leqo_2aeb065e13885b9890b98b91aaaf7dde_qubit_out = leqo_2aeb065e13885b9890b98b91aaaf7dde_q;
   /* End node newNode6 */
