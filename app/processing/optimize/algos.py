@@ -1,7 +1,9 @@
 """Optimization algorithms.
 
 Following task has to be solved:
+
 Given:
+
 - set of nodes, each node has:
     - amount of required reusable ancilla qubits
     - amount of required dirty ancilla qubits
@@ -9,13 +11,16 @@ Given:
     - amount of returned dirty ancilla qubits
     - amount of returned 'reusable if uncomputed, else dirty' qubits
 - set of connections between these nodes
+
 Wanted:
+
 - set of ancilla edges that reuse dirty/reusable ancillas
     - topological sort has to be possible after!
 - dict that tells whether to uncompute a given node
 - optimize on minimal amount of required qubits (that could not be satisfied via ancilla connections)
 
 Note on ancilla qubit types:
+
 - returned reusable qubits can be used as required dirty and required reusable
 - returned dirty qubits can be used as required dirty
 - returned uncomputable can be used as:
@@ -61,6 +66,7 @@ class NoPred(OptimizationAlgo):
     Other Algorithms should inherit from this and only override the heuristic methods.
 
     Basic idea:
+
     1. Create a set of all nodes that have no predecessor,
         they could be the start of our topological sort.
     2. Keep track of the resources the already fixed nodes have: dirty, uncomputable, reusable
@@ -282,8 +288,10 @@ class NoPredCheckNeedDiffScore(NoPred):
 
     Check need strategy:
     All possible nodes are divided in one of two categories:
+
     1. satisfied: the requirement of that node are satisfied by the available resources
     2. unsatisfied: the requirement of that node can't be satisfied
+
     We always prefer nodes that are in the first category.
 
     Diff score:
