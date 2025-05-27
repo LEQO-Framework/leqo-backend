@@ -1,4 +1,7 @@
-"""Post-process merged QASM-Program."""
+"""Post-process merged QASM-Program.
+
+Currently, this does only sort imports.
+"""
 
 from openqasm3.ast import Program
 

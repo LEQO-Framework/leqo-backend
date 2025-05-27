@@ -1,4 +1,4 @@
-"""Connect input/output by modifying the AST based on IOInfo."""
+"""Connect input/output by modifying the AST based on :class:`~app.processing.graph.IOInfo`."""
 
 from dataclasses import dataclass
 from io import UnsupportedOperation
@@ -31,9 +31,9 @@ from app.processing.graph import (
 
 @dataclass(frozen=True, order=True)
 class SingleQubit:
-    """Give an qubit a unique ID in the whole program.
+    """Give an qubit a unique ID in the whole graph.
 
-    :param section_id: UUID of the section qubit occurred in.
+    :param section_id: UUID of the section the qubit occurred in.
     :param id_in_section: Qubit id based on declaration order in section.
     """
 
@@ -42,7 +42,7 @@ class SingleQubit:
 
 
 class ApplyConnectionsTransformer(LeqoTransformer[None]):
-    """Replace qubit declaration and classical inputs with alias.
+    """Replace qubit declarations and classical inputs with alias.
 
     :param section_id: The UUID of the currently visited section.
     :param io_info: The IOInfo for the current section.
@@ -121,7 +121,19 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         return result
 
 
-class Connections:
+class _Connections:
+    """Helper class for creating connections in a graph.
+
+    Not intended to be constructed by hand,
+    usage over :class:`app.processing.merging.connections.connect_qubits`
+
+    :param graph: The graph to modify in-place.
+    :param global_reg_name: The name of the qubit reg to use in aliases.
+    :param input: Optional input node: don't modify it + ids in the order of the declarations in this node.
+    :param equiv_classes: Equivalence classes of qubits based on connections.
+    :classical_input_to_output: Specify classical connections via identifier mapping: input -> output
+    """
+
     graph: ProgramGraph
     global_reg_name: str
     input: ProcessedProgramNode | None
@@ -146,12 +158,6 @@ class Connections:
         global_reg_name: str,
         input: ProcessedProgramNode | None = None,
     ) -> None:
-        """Construct Connections.
-
-        :param graph: The graph to modify in-place.
-        :param global_reg_name: The name of the qubit reg to use in aliases.
-        :param input: Optional input node: don't modify it + ids in the order of the declarations in this node.
-        """
         self.graph = graph
         self.global_reg_name = global_reg_name
         self.input = input
@@ -165,7 +171,7 @@ class Connections:
         src_sec_id: UUID,
         target_sec_id: UUID,
     ) -> None:
-        """Merge qubit equivalance classes of connected qubits."""
+        """Merge qubit equivalence classes of connected qubits."""
         output_size, input_size = len(output.ids), len(input.ids)
         if output_size != input_size:
             msg = dedent(f"""\
@@ -266,6 +272,14 @@ class Connections:
     def collect_qubit_to_reg_with_input(
         self,
     ) -> tuple[dict[SingleQubit, int], int]:
+        """Construct global reg indexes from equivalence classes with input-node.
+
+        Create a unique index for every equivalence class and let all qubits inside point to it.
+        And we want the indexes of the qubits in the input-node to be in ascending order (based on declarations).
+        This is important, as we want to construct the reg from that declarations.
+
+        :return: Dict mapping qubits-ids to reg-index and total size of the reg.
+        """
         if self.input is None:
             raise RuntimeError
 
@@ -299,6 +313,12 @@ class Connections:
     def collect_qubit_to_reg_without_input(
         self,
     ) -> tuple[dict[SingleQubit, int], int]:
+        """Construct global reg indexes from equivalence classes without input-node.
+
+        Create a unique index for every equivalence class and let all qubits inside point to it.
+
+        :return: Dict mapping qubits-ids to reg-index and total size of the reg.
+        """
         if self.input is not None:
             raise RuntimeError
 
@@ -333,7 +353,7 @@ class Connections:
 
         for nd in self.graph.nodes():
             if self.input is not None and self.input.raw == nd:
-                continue
+                continue  # don't modify the input-node!
             node = self.graph.get_data_node(nd)
             ApplyConnectionsTransformer(
                 node.id,
@@ -361,4 +381,4 @@ def connect_qubits(
     :param input: Optional input node: don't modify it + ids in the order of the declarations in this node.
     :return: Size of the global qubit register.
     """
-    return Connections(graph, global_reg_name, input).apply()
+    return _Connections(graph, global_reg_name, input).apply()
