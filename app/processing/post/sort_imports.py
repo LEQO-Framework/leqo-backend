@@ -3,11 +3,14 @@
 from openqasm3.ast import Include, Program
 from openqasm3.visitor import QASMTransformer
 
+from app.processing.utils import cast_to_program
+
 
 class SortImportsTransformer(QASMTransformer[None]):
-    """Unique imports at the front.
+    """Create unique imports at the top.
 
     Makes following changes:
+
     - remove duplicate imports
     - move imports at the top
     """
@@ -27,11 +30,6 @@ class SortImportsTransformer(QASMTransformer[None]):
 
     def visit_Program(self, node: Program) -> Program:
         """Execute a normal (generic) visit, then add removed imports back."""
-        program = self.generic_visit(node)
-        if not isinstance(program, Program):
-            msg = (
-                f"SortImportsTransformer: generic_visit returned non-Program: {program}"
-            )
-            raise TypeError(msg)
+        program = cast_to_program(self.generic_visit(node))
         program.statements = list(self.seen.values()) + program.statements
         return program

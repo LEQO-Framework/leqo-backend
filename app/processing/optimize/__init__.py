@@ -1,4 +1,4 @@
-"""Optimize the modelled graph by adding additional ancilla connections and decide whether to uncompute."""
+"""Optimize the modeled graph by adding additional ancilla connections and decide whether to uncompute."""
 
 from copy import deepcopy
 
@@ -10,6 +10,8 @@ from app.processing.optimize.algos import NoPredCheckNeedDiffScore
 
 
 class ApplyUncomputeTransformer(LeqoTransformer[None]):
+    """Enable or remove uncompute-blocks in visited AST."""
+
     enable: bool
 
     def __init__(self, enable: bool) -> None:
