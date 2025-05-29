@@ -137,8 +137,7 @@ class CommonProcessor:
     async def _build_inner_graph(
         self, nodes: Iterable[FrontendNode], edges: Iterable[Edge]
     ) -> ConvertedProgramGraph:
-        graph = ConvertedProgramGraph()
-        graph.insert(nodes, edges)
+        graph = ConvertedProgramGraph.create(nodes, edges)
 
         processor = CommonProcessor(self.enricher, graph, self.optimize)
         async for _ in processor._enrich_internal():

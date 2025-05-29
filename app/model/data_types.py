@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from openqasm3.ast import BitType as AstBitType
 from openqasm3.ast import BoolType as AstBoolType
-from openqasm3.ast import ClassicalType as AstClassicalType
 from openqasm3.ast import FloatType as AstFloatType
 from openqasm3.ast import IntegerLiteral
 from openqasm3.ast import IntType as AstIntType
@@ -35,9 +34,6 @@ class ClassicalType:
     """
     Base class for classical data types.
     """
-
-    def to_ast(self) -> AstClassicalType:
-        raise NotImplementedError()
 
 
 @dataclass(frozen=True)
