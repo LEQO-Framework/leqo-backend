@@ -63,5 +63,7 @@ class ConvertedProgramGraph(ProgramGraph):
                 IOConnection(
                     (self.__lookup[edge.source[0]][0], edge.source[1]),
                     (self.__lookup[edge.target[0]][0], edge.target[1]),
+                    edge.identifier,
+                    edge.size,
                 )
             )

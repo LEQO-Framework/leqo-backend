@@ -61,6 +61,8 @@ class IOConnection:
 
     source: tuple[ProgramNode, int]
     target: tuple[ProgramNode, int]
+    identifier: str | None = None
+    size: int | None = None
 
 
 @dataclass()
