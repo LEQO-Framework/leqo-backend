@@ -26,7 +26,7 @@ from app.model.CompileRequest import (
     Node as FrontendNode,
 )
 from app.model.data_types import QubitType as LeqoQubitType
-from app.openqasm3 import (
+from app.openqasm3.stdgates import (
     OneQubitGate,
     OneQubitGateWithAngle,
     ThreeQubitGate,
@@ -172,6 +172,9 @@ class GateEnricherStrategy(EnricherStrategy):
             return enrich_gate(
                 node, constraints, node.gate, 2, FloatLiteral(node.parameter)
             )
+
+        # Gates with generic params are currently handled exactly like gates with angles
+        # In the future we might want to handle them different though
 
         if node.gate in get_args(TwoQubitGateWithParam):
             return enrich_gate(

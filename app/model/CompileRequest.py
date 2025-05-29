@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from app.openqasm3 import (
+from app.openqasm3.stdgates import (
     OneQubitGate,
     OneQubitGateWithAngle,
     ThreeQubitGate,
