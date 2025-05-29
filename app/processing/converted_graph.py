@@ -8,7 +8,6 @@ from typing import TypeVar
 from app.model.CompileRequest import Edge
 from app.model.CompileRequest import Node as FrontendNode
 from app.processing.graph import IOConnection, ProgramGraph, ProgramNode
-from app.services import NodeIdFactory
 
 TBaseNode = TypeVar("TBaseNode", bound=FrontendNode)
 
@@ -19,13 +18,11 @@ class ConvertedProgramGraph(ProgramGraph):
     """
 
     __lookup: dict[str, tuple[ProgramNode, FrontendNode]]
-    node_id_factory: NodeIdFactory
 
-    def __init__(self, node_id_factory: NodeIdFactory) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
         self.__lookup = {}
-        self.node_id_factory = node_id_factory
 
     def lookup(self, name: str) -> tuple[ProgramNode, FrontendNode] | None:
         return self.__lookup.get(name)
@@ -34,18 +31,16 @@ class ConvertedProgramGraph(ProgramGraph):
     def create(
         nodes: Iterable[TBaseNode],
         edges: Iterable[Edge],
-        node_id_factory: NodeIdFactory,
     ) -> "ConvertedProgramGraph":
         """
         Transfers the frontend graph model into the backend graph model.
 
         :param nodes: Frontend nodes to map.
         :param edges: Frontend edges to map.
-        :param node_id_factory: Function that creates unique node names.
         :return: The internal graph model.
         """
 
-        graph = ConvertedProgramGraph(node_id_factory)
+        graph = ConvertedProgramGraph()
         graph.insert(nodes, edges)
         return graph
 
@@ -59,9 +54,7 @@ class ConvertedProgramGraph(ProgramGraph):
         """
 
         for frontend_node in nodes:
-            program_node = ProgramNode(
-                frontend_node.id, id=self.node_id_factory(frontend_node.id)
-            )
+            program_node = ProgramNode(frontend_node.id)
             self.__lookup[frontend_node.id] = (program_node, frontend_node)
             self.add_node(program_node)
 
