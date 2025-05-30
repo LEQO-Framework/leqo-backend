@@ -79,15 +79,17 @@ if TYPE_CHECKING:
 else:
     ProgramGraphBase = DiGraph
 
+TEdgeData = dict[
+    tuple[ProgramNode, ProgramNode],
+    list[IOConnection | AncillaConnection],
+]
+
 
 class ProgramGraph(ProgramGraphBase):
     """Internal representation of the program graph."""
 
     node_data: dict[ProgramNode, ProcessedProgramNode]
-    edge_data: dict[
-        tuple[ProgramNode, ProgramNode],
-        list[IOConnection | AncillaConnection],
-    ]
+    edge_data: TEdgeData
 
     def __init__(self) -> None:
         super().__init__()
@@ -119,6 +121,18 @@ class ProgramGraph(ProgramGraphBase):
         target: ProgramNode,
     ) -> list[IOConnection | AncillaConnection]:
         return self.edge_data[(source, target)]
+
+    def get_connections(
+        self,
+        node: ProgramNode,
+        in_edges: TEdgeData,
+        out_edges: TEdgeData,
+    ) -> None:
+        for source in self.predecessors(node):
+            in_edges[(source, node)] = self.edge_data[(source, node)]
+
+        for target in self.successors(node):
+            out_edges[(node, target)] = self.edge_data[(node, target)]
 
 
 @dataclass()
