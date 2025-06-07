@@ -36,7 +36,7 @@ class BitType(ClassicalType):
         return BitType(size)
 
     def to_ast(self) -> AstBitType:
-        return AstBitType(IntegerLiteral(self.bit_size))
+        return AstBitType(None if self.size is None else IntegerLiteral(self.size))
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ class IntType(ClassicalType):
         return IntType(DEFAULT_INT_SIZE if size is None else size)
 
     def to_ast(self) -> AstIntType:
-        return AstIntType(IntegerLiteral(self.bit_size))
+        return AstIntType(IntegerLiteral(self.size))
 
 
 @dataclass(frozen=True)
@@ -83,7 +83,7 @@ class FloatType(ClassicalType):
         return FloatType(DEFAULT_FLOAT_SIZE if size is None else size)
 
     def to_ast(self) -> AstFloatType:
-        return AstFloatType(IntegerLiteral(self.bit_size))
+        return AstFloatType(IntegerLiteral(self.size))
 
 
 LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType
