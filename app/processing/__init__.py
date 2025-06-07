@@ -183,6 +183,23 @@ class Processor(CommonProcessor):
         async for _, enriched_node in self._enrich_internal():
             yield enriched_node
 
+    async def enrich_all(self) -> list[ImplementationNode]:
+        result_list: list[ImplementationNode] = []
+
+        for enriched in [x async for x in self.enrich()]:
+            if isinstance(enriched, ParsedImplementationNode):
+                result_list.append(
+                    ImplementationNode(
+                        id=enriched.id,
+                        label=enriched.label,
+                        implementation=leqo_dumps(enriched.implementation),
+                    )
+                )
+            else:
+                result_list.append(enriched)
+
+        return result_list
+
     async def process(self) -> str:
         """
         Process the :class:`~app.model.CompileRequest`.
