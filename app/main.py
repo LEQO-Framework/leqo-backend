@@ -13,8 +13,10 @@ from fastapi.params import Depends
 from starlette.responses import PlainTextResponse, RedirectResponse
 
 from app.config import Settings
+from app.enricher import ParsedImplementationNode
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
+from app.openqasm3.printer import leqo_dumps
 from app.processing import Processor
 from app.services import get_result_url, get_settings, leqo_lifespan
 
@@ -147,6 +149,18 @@ async def debug_enrich(
     """
 
     try:
-        return [x async for x in processor.enrich()]
+        result = []
+        for enriched in [x async for x in processor.enrich()]:
+            if isinstance(enriched, ParsedImplementationNode):
+                result.append(
+                    ImplementationNode(
+                        id=enriched.id,
+                        label=enriched.label,
+                        implementation=leqo_dumps(enriched.implementation),
+                    )
+                )
+            else:
+                result.append(enriched)
+        return result
     except Exception:
         return traceback.format_exc()
