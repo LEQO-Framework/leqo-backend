@@ -33,6 +33,15 @@ from app.processing.post import postprocess
 
 
 def get_pass_node_impl(requested_inputs: dict[int, LeqoSupportedType]) -> Program:
+    """Generate implementation for a so called pass node.
+
+    The pass node just returns all input it gets as outputs.
+    Similar to the python pass statement, it does not modify them.
+    This is used as border nodes of the if-then-else.
+
+    :param requested_inputs: The inputs to generate this from.
+    :return: The implementation as an AST.
+    """
     statements: list[Statement | Pragma] = []
 
     out_size = 0
@@ -72,10 +81,14 @@ async def enrich_if_else(
         Coroutine[Any, Any, ConvertedProgramGraph],
     ],
 ) -> ImplementationNode:
-    """
-    Generate implementation for if node.
-    """
+    """Generate implementation for if-then-else-node.
 
+    :param node: The IfThenElseNode to generate the implementation for.
+    :param requested_inputs: The inputs into that IfThenElseNode.
+    :param frontend_name_to_index: Dict that points names used in frontend to inputs indexes.
+    :param build_graph: Dependency injection for getting enrichments of the nested graphs.
+    :return: The generated implementation.
+    """
     parent_id = ProgramNode(node.id).id
 
     pass_node_impl = leqo_dumps(get_pass_node_impl(requested_inputs))
