@@ -22,6 +22,8 @@ from openqasm3.ast import (
 from app.openqasm3.ast import CommentStatement
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
+    ClassicalIOInstance,
+    IOConnection,
     ProgramGraph,
     ProgramNode,
 )
@@ -116,6 +118,20 @@ def merge_if_nodes(
     endif_node = then_graph.node_data[endif_node_raw]
     assert if_node == else_graph.node_data[if_node_raw]
     assert endif_node == else_graph.node_data[endif_node_raw]
+
+    forbidden_classic_input_indexes = [
+        k for k, v in endif_node.io.inputs.items() if isinstance(v, ClassicalIOInstance)
+    ]
+
+    for graph in (then_graph, else_graph):
+        for e in graph.in_edges(endif_node.raw):
+            for edge in graph.edge_data[e]:
+                if (
+                    isinstance(edge, IOConnection)
+                    and edge.target[1] in forbidden_classic_input_indexes
+                ):
+                    msg = "Future Work: can't return classical output from if-then-else node"
+                    raise NotImplementedError(msg)
 
     endif_node_in_else = deepcopy(endif_node)
     else_graph.node_data[endif_node_raw] = endif_node_in_else
