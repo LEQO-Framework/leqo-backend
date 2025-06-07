@@ -64,7 +64,7 @@ def graph_to_statements(
     if_node: ProgramNode,
     endif_node: ProgramNode,
 ) -> list[Statement]:
-    """Concatenate nodes from graph via topological_sort and remove annotations.
+    """Concatenate nodes from the graph via topological_sort and remove annotations.
 
     **if_node** and **endif_node** need to be skipped here.
     """
@@ -93,22 +93,22 @@ def merge_if_nodes(
     else_graph: ProgramGraph,
     condition: Expression,
 ) -> Program:
-    """Construct single Program with a :class:`openqasm3.ast.BranchingStatement` from two sub-graphs.
+    """Construct a single program with a :class:`openqasm3.ast.BranchingStatement` from two sub-graphs.
 
     There are two known limitations of this implementation:
 
     - Classical outputs are not supported.
         This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-else,
-        meaning they can not pass there value to the **endif_node**, which is outside.
+        meaning they can not pass their value to the **endif_node**, which is outside.
         This would be required for classical outputs to work.
         It might be possible in the future to declare the outputs at the top (in the if-node) and initialize them inside the arms.
-        However, this does not fit very well into our code and classical have almost no support in Qiskit anyway.
+        However, this does not fit into our code very well, and classicals have almost no support in Qiskit anyway.
 
     - The **endif_node** from both **then_graph** and **else_graph** need to match.
-        This not only true for the size of the outputs, but also for the order of the used qubit ids.
-        The problem is very fundamental, as it comes from using a single big qubit reg at the top.
+        This is not only true for the size of the outputs but also for the order of the used qubit IDs.
+        The problem is very fundamental, as it comes from using a single big qubit register at the top.
         So the outputs need to have the same underling reg-index in both arms.
-        A work around might be to swap the qubits via gates.
+        A workaround might be to swap the qubits via gates.
 
     :param if_node: The border node that leads into the if-else.
         This node has to be in both **then_graph** and **else_graph**.
