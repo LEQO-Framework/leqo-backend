@@ -5,11 +5,12 @@ Logic to transfer the frontend graph model into the backend graph model.
 from collections.abc import Iterable
 from typing import TypeVar
 
+from app.enricher import ParsedImplementationNode
 from app.model.CompileRequest import Edge
 from app.model.CompileRequest import Node as FrontendNode
 from app.processing.graph import IOConnection, ProgramGraph, ProgramNode
 
-TBaseNode = TypeVar("TBaseNode", bound=FrontendNode)
+TBaseNode = TypeVar("TBaseNode", bound=FrontendNode | ParsedImplementationNode)
 
 
 class ConvertedProgramGraph(ProgramGraph):
@@ -17,14 +18,16 @@ class ConvertedProgramGraph(ProgramGraph):
     Internal graph model with support for frontend node lookup.
     """
 
-    __lookup: dict[str, tuple[ProgramNode, FrontendNode]]
+    __lookup: dict[str, tuple[ProgramNode, FrontendNode | ParsedImplementationNode]]
 
     def __init__(self) -> None:
         super().__init__()
 
         self.__lookup = {}
 
-    def lookup(self, name: str) -> tuple[ProgramNode, FrontendNode] | None:
+    def lookup(
+        self, name: str
+    ) -> tuple[ProgramNode, FrontendNode | ParsedImplementationNode] | None:
         return self.__lookup.get(name)
 
     @staticmethod

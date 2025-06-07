@@ -58,10 +58,9 @@ async def assert_if_else_enrichment(
     enriched_node = await enrich_if_else(
         node, requested_inputs, frontend_name_to_index, build_graph
     )
-    print(enriched_node.implementation)
-    assert normalize_qasm_string(expected) == normalize_qasm_string(
-        enriched_node.implementation
-    )
+    impl = leqo_dumps(enriched_node.implementation)
+    print(impl)
+    assert normalize_qasm_string(expected) == normalize_qasm_string(impl)
 
 
 def test_pass_node_impl() -> None:

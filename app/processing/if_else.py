@@ -5,6 +5,7 @@ this module calls this function and handles the extensive pre- and postprocessin
 """
 
 from collections.abc import Callable, Coroutine, Iterable
+from copy import deepcopy
 from typing import Any
 
 from openqasm3.ast import (
@@ -23,16 +24,15 @@ from openqasm3.ast import (
 from openqasm3.parser import parse
 
 from app.converter import qasm_converter
+from app.enricher import ParsedImplementationNode
 from app.model.CompileRequest import (
     Edge,
     IfThenElseNode,
-    ImplementationNode,
 )
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
 from app.model.data_types import ClassicalType, LeqoSupportedType, QubitType
-from app.openqasm3.printer import leqo_dumps
 from app.openqasm3.rename import simple_rename
 from app.processing.converted_graph import ConvertedProgramGraph
 from app.processing.graph import ProgramNode
@@ -96,10 +96,10 @@ async def enrich_if_else(
     requested_inputs: dict[int, LeqoSupportedType],
     frontend_name_to_index: dict[str, int],
     build_graph: Callable[
-        [Iterable[FrontendNode], Iterable[Edge]],
+        [Iterable[FrontendNode | ParsedImplementationNode], Iterable[Edge]],
         Coroutine[Any, Any, ConvertedProgramGraph],
     ],
-) -> ImplementationNode:
+) -> ParsedImplementationNode:
     """Generate implementation for if-then-else-node.
 
     :param node: The IfThenElseNode to generate the implementation for.
@@ -110,13 +110,17 @@ async def enrich_if_else(
     """
     parent_id = ProgramNode(node.id).id
 
-    pass_node_impl = leqo_dumps(get_pass_node_impl(requested_inputs))
+    pass_node_impl = get_pass_node_impl(requested_inputs)
     if_id = f"leqo_{parent_id.hex}_if"
     if_node = ProgramNode(if_id)
-    if_front_node = ImplementationNode(id=if_id, implementation=pass_node_impl)
+    if_front_node = ParsedImplementationNode(
+        id=if_id, implementation=deepcopy(pass_node_impl)
+    )
     endif_id = f"leqo_{parent_id.hex}_endif"
     endif_node = ProgramNode(endif_id)
-    endif_front_node = ImplementationNode(id=endif_id, implementation=pass_node_impl)
+    endif_front_node = ParsedImplementationNode(
+        id=endif_id, implementation=pass_node_impl
+    )
 
     for nested_block in (node.thenBlock, node.elseBlock):
         for edge in nested_block.edges:
@@ -126,7 +130,8 @@ async def enrich_if_else(
                 edge.target = (endif_front_node.id, edge.target[1])
 
     then_graph = await build_graph(
-        (*node.thenBlock.nodes, if_front_node, endif_front_node), node.thenBlock.edges
+        (*node.thenBlock.nodes, deepcopy(if_front_node), deepcopy(endif_front_node)),
+        node.thenBlock.edges,
     )
     else_graph = await build_graph(
         (*node.elseBlock.nodes, if_front_node, endif_front_node), node.elseBlock.edges
@@ -138,7 +143,7 @@ async def enrich_if_else(
         renames[identifier] = then_graph.node_data[if_node].io.inputs[index].name
     condition = simple_rename(condition, renames)
 
-    implementation, out_size = merge_if_nodes(
+    implementation, _out_size = merge_if_nodes(
         if_node,
         endif_node,
         then_graph,
@@ -146,7 +151,7 @@ async def enrich_if_else(
         condition,
     )
     implementation = postprocess(implementation)
-    return ImplementationNode(
+    return ParsedImplementationNode(
         id=node.id,
-        implementation=leqo_dumps(implementation),
+        implementation=implementation,
     )

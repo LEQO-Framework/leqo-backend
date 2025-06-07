@@ -105,7 +105,9 @@ class CommonProcessor:
                 "Lookup should contain all nodes",
             )
             if isinstance(frontend_node, IfThenElseNode):
-                enriched_node = await enrich_if_else(
+                enriched_node: (
+                    ImplementationNode | ParsedImplementationNode
+                ) = await enrich_if_else(
                     frontend_node,
                     requested_inputs,
                     frontend_name_to_index,
@@ -137,7 +139,9 @@ class CommonProcessor:
         return postprocess(program)
 
     async def _build_inner_graph(
-        self, nodes: Iterable[FrontendNode], edges: Iterable[Edge]
+        self,
+        nodes: Iterable[FrontendNode | ParsedImplementationNode],
+        edges: Iterable[Edge],
     ) -> ConvertedProgramGraph:
         graph = ConvertedProgramGraph.create(nodes, edges)
 
