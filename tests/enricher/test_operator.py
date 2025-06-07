@@ -1,5 +1,3 @@
-from collections.abc import Iterable
-
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
@@ -7,13 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from app.enricher import (
     Constraints,
     ConstraintValidationException,
-    EnrichmentResult,
 )
 from app.enricher.models import Input, InputType, NodeType, OperatorNode, OperatorType
 from app.enricher.operator import OperatorEnricherStrategy
 from app.model.CompileRequest import OperatorNode as FrontendOperatorNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
 from app.model.data_types import FloatType, QubitType
+from tests.enricher.utils import assert_enrichments
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -82,18 +80,6 @@ async def setup_database_data(session: AsyncSession) -> None:
     await session.commit()
 
 
-def assert_enrichment(
-    enrichment_result: Iterable[EnrichmentResult],
-    expected_implementation: str,
-    expected_width: int,
-    expected_depth: int,
-) -> None:
-    for result in enrichment_result:
-        assert result.enriched_node.implementation == expected_implementation
-        assert result.meta_data.width == expected_width
-        assert result.meta_data.depth == expected_depth
-
-
 @pytest.mark.asyncio
 async def test_enrich_plus_operator(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator="+")
@@ -104,7 +90,7 @@ async def test_enrich_plus_operator(engine: AsyncEngine) -> None:
     )
 
     result = await OperatorEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichment(result, "addition_impl", 2, 1)
+    assert_enrichments(result, "addition_impl", 2, 1)
 
 
 @pytest.mark.asyncio
@@ -117,7 +103,7 @@ async def test_enrich_multiplication_operator(engine: AsyncEngine) -> None:
     )
 
     result = await OperatorEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichment(result, "multiplication_impl", 2, 2)
+    assert_enrichments(result, "multiplication_impl", 2, 2)
 
 
 @pytest.mark.asyncio
@@ -130,7 +116,7 @@ async def test_enrich_OR_operator(engine: AsyncEngine) -> None:
     )
 
     result = await OperatorEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichment(result, "or_impl", 3, 3)
+    assert_enrichments(result, "or_impl", 3, 3)
 
 
 @pytest.mark.asyncio
@@ -143,7 +129,7 @@ async def test_enrich_greater_operator(engine: AsyncEngine) -> None:
     )
 
     result = await OperatorEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichment(result, "greater_than_impl", 4, 3)
+    assert_enrichments(result, "greater_than_impl", 4, 3)
 
 
 @pytest.mark.asyncio
@@ -156,7 +142,7 @@ async def test_enrich_min_operator(engine: AsyncEngine) -> None:
     )
 
     result = await OperatorEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichment(result, "minimum_impl", 5, 4)
+    assert_enrichments(result, "minimum_impl", 5, 4)
 
 
 @pytest.mark.asyncio

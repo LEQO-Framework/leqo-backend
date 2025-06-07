@@ -1,5 +1,3 @@
-from collections.abc import Iterable
-
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
@@ -7,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from app.enricher import (
     Constraints,
     ConstraintValidationException,
-    EnrichmentResult,
     InputValidationException,
 )
 from app.enricher.encode_value import EncodeValueEnricherStrategy
@@ -21,6 +18,7 @@ from app.enricher.models import (
 from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
 from app.model.data_types import BitType, BoolType, FloatType, IntType, QubitType
+from tests.enricher.utils import assert_enrichments
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -66,18 +64,6 @@ async def setup_database_data(session: AsyncSession) -> None:
     await session.commit()
 
 
-def assert_enrichment(
-    enrichment_result: Iterable[EnrichmentResult],
-    expected_implementation: str,
-    expected_width: int,
-    expected_depth: int,
-) -> None:
-    for result in enrichment_result:
-        assert result.enriched_node.implementation == expected_implementation
-        assert result.meta_data.width == expected_width
-        assert result.meta_data.depth == expected_depth
-
-
 @pytest.mark.asyncio
 async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
@@ -94,7 +80,7 @@ async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
     )
 
     result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichment(result, "amplitude_impl", 1, 1)
+    assert_enrichments(result, "amplitude_impl", 1, 1)
 
 
 @pytest.mark.asyncio
@@ -113,7 +99,7 @@ async def test_enrich_angle_encode_value(engine: AsyncEngine) -> None:
     )
 
     result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichment(result, "angle_impl", 2, 2)
+    assert_enrichments(result, "angle_impl", 2, 2)
 
 
 @pytest.mark.asyncio
@@ -132,7 +118,7 @@ async def test_enrich_matrix_encode_value(engine: AsyncEngine) -> None:
     )
 
     result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichment(result, "matrix_impl", 3, 3)
+    assert_enrichments(result, "matrix_impl", 3, 3)
 
 
 @pytest.mark.asyncio
@@ -151,7 +137,7 @@ async def test_enrich_schmidt_encode_value(engine: AsyncEngine) -> None:
     )
 
     result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichment(result, "schmidt_impl", 4, 4)
+    assert_enrichments(result, "schmidt_impl", 4, 4)
 
 
 @pytest.mark.asyncio

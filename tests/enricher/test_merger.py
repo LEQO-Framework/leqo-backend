@@ -1,5 +1,3 @@
-from textwrap import dedent
-
 import pytest
 
 from app.enricher import (
@@ -9,18 +7,11 @@ from app.enricher import (
 )
 from app.enricher.merger import MergerEnricherStrategy
 from app.model.CompileRequest import (
-    ImplementationNode,
     IntLiteralNode,
     MergerNode,
 )
 from app.model.data_types import IntType, QubitType
-
-
-def assert_enrichment(
-    enriched_node: ImplementationNode, id: str, implementation: str
-) -> None:
-    assert enriched_node.id == id
-    assert enriched_node.implementation == dedent(implementation)
+from tests.enricher.utils import assert_enrichment
 
 
 @pytest.mark.asyncio
