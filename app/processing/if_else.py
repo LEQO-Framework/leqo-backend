@@ -13,7 +13,7 @@ from openqasm3.ast import (
     Statement,
 )
 
-from app.converter.qasm_converter import TARGET_QASM_VERSION
+from app.converter import qasm_converter
 from app.model.CompileRequest import (
     Edge,
     IfThenElseNode,
@@ -69,7 +69,7 @@ def get_pass_node_impl(requested_inputs: dict[int, LeqoSupportedType]) -> Progra
         alias.annotations = [Annotation("leqo.output", str(index))]
         statements.append(alias)
 
-    return Program(statements, version=TARGET_QASM_VERSION)
+    return Program(statements, version=qasm_converter.TARGET_QASM_VERSION)
 
 
 async def enrich_if_else(
