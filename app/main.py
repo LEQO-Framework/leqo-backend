@@ -18,10 +18,8 @@ from starlette.responses import (
 )
 
 from app.config import Settings
-from app.enricher import ParsedImplementationNode
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
-from app.openqasm3.printer import leqo_dumps
 from app.processing import Processor
 from app.services import get_result_url, get_settings, leqo_lifespan
 
@@ -129,6 +127,7 @@ async def process_compile_request(
 
     :param uuid: ID of the compile request
     :param processor: Processor for this request
+    :param settings: Settings from .env file
     """
 
     status: StatusType = StatusType.FAILED
@@ -166,24 +165,14 @@ async def process_enrich_request(
 
     :param uuid: ID of the compile request
     :param processor: Processor for this request
+    :param settings: Settings from .env file
     """
 
     status: StatusType = StatusType.FAILED
     completedAt: datetime | None = None
-    result_list: list[ImplementationNode] = []
 
     try:
-        for enriched in [x async for x in processor.enrich()]:
-            if isinstance(enriched, ParsedImplementationNode):
-                result_list.append(
-                    ImplementationNode(
-                        id=enriched.id,
-                        label=enriched.label,
-                        implementation=leqo_dumps(enriched.implementation),
-                    )
-                )
-            else:
-                result_list.append(enriched)
+        results[uuid] = await processor.enrich_all()
 
         result_url = get_result_url(uuid, settings)
         status = StatusType.COMPLETED
@@ -201,11 +190,9 @@ async def process_enrich_request(
         result=result_url,
     )
 
-    results[uuid] = result_list
-
 
 @app.post("/debug/compile", response_class=PlainTextResponse)
-async def debug_post_compile(processor: Annotated[Processor, Depends()]) -> str:
+async def post_debug_compile(processor: Annotated[Processor, Depends()]) -> str:
     """
     Compiles the request to an openqasm3 program in one request.
     No redirects and no polling of different endpoints needed.
@@ -220,7 +207,7 @@ async def debug_post_compile(processor: Annotated[Processor, Depends()]) -> str:
 
 
 @app.post("/debug/enrich")
-async def debug_post_enrich(
+async def post_debug_enrich(
     processor: Annotated[Processor, Depends()],
 ) -> list[ImplementationNode] | str:
     """
@@ -231,18 +218,6 @@ async def debug_post_enrich(
     """
 
     try:
-        result: list[ImplementationNode] = []
-        for enriched in [x async for x in processor.enrich()]:
-            if isinstance(enriched, ParsedImplementationNode):
-                result.append(
-                    ImplementationNode(
-                        id=enriched.id,
-                        label=enriched.label,
-                        implementation=leqo_dumps(enriched.implementation),
-                    )
-                )
-            else:
-                result.append(enriched)
-        return result
+        return await processor.enrich_all()
     except Exception:
         return traceback.format_exc()
