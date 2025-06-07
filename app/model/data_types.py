@@ -2,6 +2,12 @@
 
 from dataclasses import dataclass
 
+from openqasm3.ast import BitType as AstBitType
+from openqasm3.ast import BoolType as AstBoolType
+from openqasm3.ast import FloatType as AstFloatType
+from openqasm3.ast import IntegerLiteral
+from openqasm3.ast import IntType as AstIntType
+
 DEFAULT_INT_SIZE = 32
 DEFAULT_FLOAT_SIZE = 32
 BOOL_BIT_SIZE = 1
@@ -29,6 +35,9 @@ class BitType(ClassicalType):
     def with_size(size: int | None) -> "BitType":
         return BitType(size)
 
+    def to_ast(self) -> AstBitType:
+        return AstBitType(IntegerLiteral(self.bit_size))
+
 
 @dataclass(frozen=True)
 class BoolType(ClassicalType):
@@ -45,6 +54,9 @@ class BoolType(ClassicalType):
 
         return BoolType()
 
+    def to_ast(self) -> AstBoolType:
+        return AstBoolType()
+
 
 @dataclass(frozen=True)
 class IntType(ClassicalType):
@@ -56,6 +68,9 @@ class IntType(ClassicalType):
     def with_size(size: int | None) -> "IntType":
         return IntType(DEFAULT_INT_SIZE if size is None else size)
 
+    def to_ast(self) -> AstIntType:
+        return AstIntType(IntegerLiteral(self.bit_size))
+
 
 @dataclass(frozen=True)
 class FloatType(ClassicalType):
@@ -66,6 +81,9 @@ class FloatType(ClassicalType):
     @staticmethod
     def with_size(size: int | None) -> "FloatType":
         return FloatType(DEFAULT_FLOAT_SIZE if size is None else size)
+
+    def to_ast(self) -> AstFloatType:
+        return AstFloatType(IntegerLiteral(self.bit_size))
 
 
 LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType

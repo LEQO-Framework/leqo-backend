@@ -541,7 +541,7 @@ def test_raise_on_invalid_uncompute_expr() -> None:
     with pytest.raises(
         UnsupportedOperation,
         match=re.escape(
-            "Unsupported: invalid expression in uncompute-annotated if-else-block: BooleanLiteral(span=Span(start_line=5, start_column=8, end_line=5, end_column=8), value=True)",
+            "Unsupported: invalid expression in uncompute-annotated if-then-else-block: BooleanLiteral(span=Span(start_line=5, start_column=8, end_line=5, end_column=8), value=True)",
         ),
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -578,7 +578,7 @@ def test_raise_on_else_in_uncompute() -> None:
     """
     with pytest.raises(
         UnsupportedOperation,
-        match="Unsupported: uncompute-annotated if-else-block has else-block",
+        match="Unsupported: uncompute-annotated if-then-else-block has else-block",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
 

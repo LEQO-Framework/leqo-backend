@@ -184,7 +184,9 @@ class Enricher:
             return None
 
     async def enrich(
-        self, node: FrontendNode, constraints: Constraints | None
+        self,
+        node: FrontendNode | ParsedImplementationNode,
+        constraints: Constraints | None,
     ) -> ImplementationNode | ParsedImplementationNode:
         """
         Enrich the given :class:`~app.model.CompileRequest.Node` according to the specified :class:`~app.enricher.Constraints`.
@@ -197,7 +199,7 @@ class Enricher:
         :raises ExceptionGroup: If no strategy could generate an implementation.
         """
 
-        if isinstance(node, ImplementationNode):
+        if isinstance(node, ImplementationNode | ParsedImplementationNode):
             return node
 
         results: list[EnrichmentResult] = []

@@ -1,0 +1,99 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "qubit" },
+      {
+        "id": "newNode1",
+        "type": "gate",
+        "gate": "h"
+      },
+      { "id": "newNode2", "type": "measure", "indices": [0] },
+      {
+        "id": "newNode3",
+        "type": "if-then-else",
+        "condition": "x == 1",
+        "thenBlock": {
+          "nodes": [
+            {
+              "id": "newNode4",
+              "type": "gate",
+              "gate": "x"
+            }
+          ],
+          "edges": [
+            { "source": ["newNode4", 0], "target": ["newNode3", 1] },
+            { "source": ["newNode3", 1], "target": ["newNode4", 0] }
+          ]
+        },
+        "elseBlock": {
+          "nodes": [],
+          "edges": [{ "source": ["newNode3", 1], "target": ["newNode3", 1] }]
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": ["newNode2", 0],
+        "target": ["newNode3", 0],
+        "identifier": "x"
+      },
+      {
+        "source": ["newNode2", 1],
+        "target": ["newNode3", 1]
+      },
+      { "source": ["newNode1", 0], "target": ["newNode2", 0] },
+      { "source": ["newNode0", 0], "target": ["newNode1", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |
+  OPENQASM 3.1;
+  include "stdgates.inc";
+  qubit[1] leqo_reg;
+  /* Start node newNode0 */
+  let leqo_a802199cae985ea28977fed1a6977cfe_literal = leqo_reg[{0}];
+  @leqo.output 0
+  let leqo_a802199cae985ea28977fed1a6977cfe_out = leqo_a802199cae985ea28977fed1a6977cfe_literal;
+  /* End node newNode0 */
+  /* Start node newNode1 */
+  @leqo.input 0
+  let leqo_15b97591d2d252d4932c57137d560388_q0 = leqo_reg[{0}];
+  h leqo_15b97591d2d252d4932c57137d560388_q0;
+  @leqo.output 0
+  let leqo_15b97591d2d252d4932c57137d560388_q0_out = leqo_15b97591d2d252d4932c57137d560388_q0;
+  /* End node newNode1 */
+  /* Start node newNode2 */
+  @leqo.input 0
+  let leqo_44e2e1b30b905cfcac7970c851f892df_q = leqo_reg[{0}];
+  bit[1] leqo_44e2e1b30b905cfcac7970c851f892df_result = measure leqo_44e2e1b30b905cfcac7970c851f892df_q[{0}];
+  @leqo.output 0
+  let leqo_44e2e1b30b905cfcac7970c851f892df_out = leqo_44e2e1b30b905cfcac7970c851f892df_result;
+  @leqo.output 1
+  let leqo_44e2e1b30b905cfcac7970c851f892df_qubit_out = leqo_44e2e1b30b905cfcac7970c851f892df_q;
+  /* End node newNode2 */
+  /* Start node newNode3 */
+  @leqo.input 0
+  let leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_pass_node_declaration_0 = leqo_44e2e1b30b905cfcac7970c851f892df_out;
+  let leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_pass_node_alias_0 = leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_pass_node_declaration_0;
+  @leqo.input 1
+  let leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_pass_node_declaration_1 = leqo_reg[{0}];
+  let leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_pass_node_alias_1 = leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_pass_node_declaration_1;
+  let leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_if_reg = leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_pass_node_declaration_1;
+  if (leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_pass_node_declaration_0 == 1) {
+    let leqo_86fcd33a58435474a455551021ccead2_leqo_d67adc3fd7245579afa7dc4430b1b59b_q0 = leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_if_reg[{0}];
+    x leqo_86fcd33a58435474a455551021ccead2_leqo_d67adc3fd7245579afa7dc4430b1b59b_q0;
+    let leqo_86fcd33a58435474a455551021ccead2_leqo_d67adc3fd7245579afa7dc4430b1b59b_q0_out = leqo_86fcd33a58435474a455551021ccead2_leqo_d67adc3fd7245579afa7dc4430b1b59b_q0;
+  }
+  bit[1] leqo_86fcd33a58435474a455551021ccead2_leqo_12bf1ffd4f1e57d4afa6ff1212ce18f8_pass_node_declaration_0;
+  @leqo.output 0
+  let leqo_86fcd33a58435474a455551021ccead2_leqo_12bf1ffd4f1e57d4afa6ff1212ce18f8_pass_node_alias_0 = leqo_86fcd33a58435474a455551021ccead2_leqo_12bf1ffd4f1e57d4afa6ff1212ce18f8_pass_node_declaration_0;
+  let leqo_86fcd33a58435474a455551021ccead2_leqo_12bf1ffd4f1e57d4afa6ff1212ce18f8_pass_node_declaration_1 = leqo_86fcd33a58435474a455551021ccead2_leqo_60cf95e736765c5f9c1db9da1f0b37f0_if_reg[{0}];
+  @leqo.output 1
+  let leqo_86fcd33a58435474a455551021ccead2_leqo_12bf1ffd4f1e57d4afa6ff1212ce18f8_pass_node_alias_1 = leqo_86fcd33a58435474a455551021ccead2_leqo_12bf1ffd4f1e57d4afa6ff1212ce18f8_pass_node_declaration_1;
+  /* End node newNode3 */

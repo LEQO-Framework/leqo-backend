@@ -156,19 +156,17 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             match annotation.keyword:
                 case "leqo.uncompute":
                     if uncompute:
-                        msg = (
-                            "Unsupported: two uncompute annotations over if-else-block"
-                        )
+                        msg = "Unsupported: two uncompute annotations over if-then-else-block"
                         raise UnsupportedOperation(msg)
                     if (
                         annotation.command is not None
                         and annotation.command.strip() != ""
                     ):
-                        msg = f"Unsupported: found {annotation.command} over uncompute annotation over if-else-block"
+                        msg = f"Unsupported: found {annotation.command} over uncompute annotation over if-then-else-block"
                         raise UnsupportedOperation(msg)
                     uncompute = True
                 case "leqo.input" | "leqo.dirty" | "leqo.output" | "leqo.reusable":
-                    msg = f"Unsupported: {annotation.keyword} annotations over BranchingStatement if-else-block"
+                    msg = f"Unsupported: {annotation.keyword} annotations over BranchingStatement if-then-else-block"
                     raise UnsupportedOperation(msg)
         return uncompute
 
@@ -366,7 +364,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         return self.generic_visit(node)
 
     def visit_BranchingStatement(self, node: BranchingStatement) -> QASMNode:
-        """Parse if-else-block and their corresponding uncompute annotations."""
+        """Parse if-then-else-block and their corresponding uncompute annotations."""
         uncompute = self.get_branching_annotation_info(node.annotations)
         if not uncompute:
             return self.generic_visit(node)
@@ -374,10 +372,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             msg = "Unsupported: nested uncompute blocks"
             raise UnsupportedOperation(msg)
         if not isinstance(node.condition, BooleanLiteral) or node.condition.value:
-            msg = f"Unsupported: invalid expression in uncompute-annotated if-else-block: {node.condition}"
+            msg = f"Unsupported: invalid expression in uncompute-annotated if-then-else-block: {node.condition}"
             raise UnsupportedOperation(msg)
         if len(node.else_block) > 0:
-            msg = "Unsupported: uncompute-annotated if-else-block has else-block"
+            msg = "Unsupported: uncompute-annotated if-then-else-block has else-block"
             raise UnsupportedOperation(msg)
         self.__in_uncompute = True
         result = self.generic_visit(node)
