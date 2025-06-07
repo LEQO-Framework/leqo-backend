@@ -30,7 +30,7 @@ async def test_splitter_normal_cases() -> None:
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=2)},
+                requested_inputs={0: QubitType(size=2)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
@@ -56,7 +56,7 @@ async def test_splitter_normal_cases() -> None:
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=3),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=3)},
+                requested_inputs={0: QubitType(size=3)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
@@ -129,7 +129,7 @@ async def test_splitter_too_many_inputs() -> None:
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=1), 1: QubitType(reg_size=1)},
+                requested_inputs={0: QubitType(size=1), 1: QubitType(size=1)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
@@ -165,7 +165,7 @@ async def test_splitter_invalid_register_size() -> None:
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=0)},
+                requested_inputs={0: QubitType(size=0)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
@@ -173,7 +173,7 @@ async def test_splitter_invalid_register_size() -> None:
 
 
 @pytest.mark.asyncio
-async def test_splitter_number_of_outputs_neq_reg_size() -> None:
+async def test_splitter_number_of_outputs_neq_size() -> None:
     strategy = SplitterEnricherStrategy()
 
     with pytest.raises(
@@ -183,7 +183,7 @@ async def test_splitter_number_of_outputs_neq_reg_size() -> None:
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=3)},
+                requested_inputs={0: QubitType(size=3)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),

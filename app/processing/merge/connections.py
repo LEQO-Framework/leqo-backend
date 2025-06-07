@@ -166,21 +166,21 @@ class Connections:
         target_sec_id: UUID,
     ) -> None:
         """Merge qubit equivalance classes of connected qubits."""
-        output_ids, input_ids = output.ids, input.ids
         output_type, input_type = output.type, input.type
         if output_type != input_type:
             msg = f"Unsupported: Mismatched types in IOConnection {output_type} != {input_type}"
             raise UnsupportedOperation(msg)
-        if isinstance(output_ids, list) and isinstance(input_ids, list):
-            for s_id, t_id in zip(output.ids, input.ids, strict=True):
-                source_qubit = SingleQubit(src_sec_id, s_id)
-                target_qubit = SingleQubit(target_sec_id, t_id)
-                # merge sets and let all qubits point to that set
-                merged_equiv = self.equiv_classes[source_qubit]
-                merged_equiv.update(self.equiv_classes[target_qubit])
-                for qubit in self.equiv_classes[target_qubit]:
-                    # we don't need to update qubits in source_qubit-set, because we change in-place
-                    self.equiv_classes[qubit] = merged_equiv
+        output_ids = output.ids if isinstance(output.ids, list) else [output.ids]
+        input_ids = input.ids if isinstance(input.ids, list) else [input.ids]
+        for s_id, t_id in zip(output_ids, input_ids, strict=True):
+            source_qubit = SingleQubit(src_sec_id, s_id)
+            target_qubit = SingleQubit(target_sec_id, t_id)
+            # merge sets and let all qubits point to that set
+            merged_equiv = self.equiv_classes[source_qubit]
+            merged_equiv.update(self.equiv_classes[target_qubit])
+            for qubit in self.equiv_classes[target_qubit]:
+                # we don't need to update qubits in source_qubit-set, because we change in-place
+                self.equiv_classes[qubit] = merged_equiv
 
     def handle_classical_connection(
         self,

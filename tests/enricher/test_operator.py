@@ -98,7 +98,7 @@ def assert_enrichment(
 async def test_enrich_plus_operator(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator="+")
     constraints = Constraints(
-        requested_inputs={0: QubitType(reg_size=2), 1: QubitType(reg_size=3)},
+        requested_inputs={0: QubitType(size=2), 1: QubitType(size=3)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -111,7 +111,7 @@ async def test_enrich_plus_operator(engine: AsyncEngine) -> None:
 async def test_enrich_multiplication_operator(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator="*")
     constraints = Constraints(
-        requested_inputs={0: QubitType(reg_size=1), 1: QubitType(reg_size=4)},
+        requested_inputs={0: QubitType(size=1), 1: QubitType(size=4)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -124,7 +124,7 @@ async def test_enrich_multiplication_operator(engine: AsyncEngine) -> None:
 async def test_enrich_OR_operator(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator="|")
     constraints = Constraints(
-        requested_inputs={0: QubitType(reg_size=4), 1: QubitType(reg_size=3)},
+        requested_inputs={0: QubitType(size=4), 1: QubitType(size=3)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -137,7 +137,7 @@ async def test_enrich_OR_operator(engine: AsyncEngine) -> None:
 async def test_enrich_greater_operator(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator=">")
     constraints = Constraints(
-        requested_inputs={0: QubitType(reg_size=5), 1: QubitType(reg_size=4)},
+        requested_inputs={0: QubitType(size=5), 1: QubitType(size=4)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -150,7 +150,7 @@ async def test_enrich_greater_operator(engine: AsyncEngine) -> None:
 async def test_enrich_min_operator(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator="min")
     constraints = Constraints(
-        requested_inputs={0: QubitType(reg_size=5), 1: QubitType(reg_size=6)},
+        requested_inputs={0: QubitType(size=5), 1: QubitType(size=6)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -165,7 +165,7 @@ async def test_enrich_unknown_node(engine: AsyncEngine) -> None:
         id="1", label=None, type="prepare", quantumState="ghz", size=3
     )
     constraints = Constraints(
-        requested_inputs={0: FloatType(bit_size=32)},
+        requested_inputs={0: FloatType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -179,7 +179,7 @@ async def test_enrich_unknown_node(engine: AsyncEngine) -> None:
 async def test_enrich_operator_one_inputs(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator="!=")
     constraints = Constraints(
-        requested_inputs={0: QubitType(reg_size=7)},
+        requested_inputs={0: QubitType(size=7)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -195,7 +195,7 @@ async def test_enrich_operator_one_inputs(engine: AsyncEngine) -> None:
 async def test_enrich_operator_classical_input(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator="==")
     constraints = Constraints(
-        requested_inputs={0: FloatType(bit_size=32), 1: FloatType(bit_size=32)},
+        requested_inputs={0: FloatType(size=32), 1: FloatType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -211,7 +211,7 @@ async def test_enrich_operator_classical_input(engine: AsyncEngine) -> None:
 async def test_enrich_operator_node_not_in_db(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator="&")
     constraints = Constraints(
-        requested_inputs={0: QubitType(reg_size=5), 1: QubitType(reg_size=6)},
+        requested_inputs={0: QubitType(size=5), 1: QubitType(size=6)},
         optimizeDepth=True,
         optimizeWidth=True,
     )

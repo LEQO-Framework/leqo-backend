@@ -252,14 +252,20 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
         """Parse qubit-declarations and their corresponding input/dirty annotations."""
         name = node.qubit.name
-        reg_size = expr_to_int(node.size) if node.size is not None else 1
+        reg_size = expr_to_int(node.size) if node.size is not None else None
         input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
 
-        qubit_ids = []
-        for _ in range(reg_size):
-            qubit_ids.append(self.__next_qubit_id)
+        if reg_size is None:
+            qubit_ids: int | list[int] = self.__next_qubit_id
             self.__next_qubit_id += 1
-        self.qubit.declaration_to_ids[name] = qubit_ids
+        else:
+            qubit_ids = []
+            for _ in range(reg_size):
+                qubit_ids.append(self.__next_qubit_id)
+                self.__next_qubit_id += 1
+        self.qubit.declaration_to_ids[name] = (
+            qubit_ids if isinstance(qubit_ids, list) else [qubit_ids]
+        )
 
         info = QubitIOInstance(name, qubit_ids)
         self.__name_to_info[name] = info
@@ -270,9 +276,14 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             self.__found_input_ids.add(input_id)
             self.io.inputs[input_id] = info
         elif dirty:
-            self.qubit.required_dirty_ids.extend(qubit_ids)
-        else:  # non-input and non-dirty
+            if isinstance(qubit_ids, list):
+                self.qubit.required_dirty_ids.extend(qubit_ids)
+            else:
+                self.qubit.required_dirty_ids.append(qubit_ids)
+        elif isinstance(qubit_ids, list):
             self.qubit.required_reusable_ids.extend(qubit_ids)
+        else:
+            self.qubit.required_reusable_ids.append(qubit_ids)
 
         return self.generic_visit(node)
 

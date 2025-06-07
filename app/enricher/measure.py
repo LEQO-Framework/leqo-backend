@@ -56,7 +56,8 @@ class MeasurementEnricherStrategy(EnricherStrategy):
                 "Measurements can only have a qubit input"
             )
 
-        input_size = constraints.requested_inputs[0].reg_size
+        input_size = constraints.requested_inputs[0].size
+        input_size = 1 if input_size is None else input_size
 
         out_of_range_indices = [i for i in node.indices if i < 0 or i >= input_size]
         if any(out_of_range_indices):

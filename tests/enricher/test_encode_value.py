@@ -88,7 +88,7 @@ async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
         bounds=1,
     )
     constraints = Constraints(
-        requested_inputs={0: FloatType(bit_size=32)},
+        requested_inputs={0: FloatType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -126,7 +126,7 @@ async def test_enrich_matrix_encode_value(engine: AsyncEngine) -> None:
         bounds=1,
     )
     constraints = Constraints(
-        requested_inputs={0: BitType(bit_size=32)},
+        requested_inputs={0: BitType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -164,7 +164,7 @@ async def test_enrich_custom_encode_value(engine: AsyncEngine) -> None:
         bounds=1,
     )
     constraints = Constraints(
-        requested_inputs={0: FloatType(bit_size=32)},
+        requested_inputs={0: FloatType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -182,7 +182,7 @@ async def test_enrich_unknown_node(engine: AsyncEngine) -> None:
         id="1", label=None, type="prepare", quantumState="ghz", size=3
     )
     constraints = Constraints(
-        requested_inputs={0: FloatType(bit_size=32)},
+        requested_inputs={0: FloatType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -202,7 +202,7 @@ async def test_enrich_encode_value_two_inputs(engine: AsyncEngine) -> None:
         bounds=0,
     )
     constraints = Constraints(
-        requested_inputs={0: FloatType(bit_size=32), 1: IntType(size=32)},
+        requested_inputs={0: FloatType(size=32), 1: IntType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -224,7 +224,7 @@ async def test_enrich_encode_value_quibit_input(engine: AsyncEngine) -> None:
         bounds=1,
     )
     constraints = Constraints(
-        requested_inputs={0: QubitType(reg_size=1)},
+        requested_inputs={0: QubitType(size=1)},
         optimizeDepth=True,
         optimizeWidth=True,
     )

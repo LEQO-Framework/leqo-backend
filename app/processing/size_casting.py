@@ -222,12 +222,12 @@ class SizeCastTransformer(LeqoTransformer[None]):
                     AliasStatement(
                         target=Identifier(old_name),
                         value=Concatenation(
-                            Identifier(new_input_name),
                             Identifier(
-                                new_dummy_name
+                                new_input_name
                                 if bit_reg1_name is None
                                 else bit_reg1_name
                             ),
+                            Identifier(new_dummy_name),
                         ),
                     )
                 )

@@ -183,7 +183,7 @@ async def test_enrich_unknown_node(engine: AsyncEngine) -> None:
         id="1", label=None, type="encode", encoding="angle", bounds=0
     )
     constraints = Constraints(
-        requested_inputs={0: FloatType(bit_size=32)},
+        requested_inputs={0: FloatType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -199,7 +199,7 @@ async def test_enrich_prepare_state_one_inputs(engine: AsyncEngine) -> None:
         id="1", label=None, type="prepare", quantumState="ghz", size=4
     )
     constraints = Constraints(
-        requested_inputs={0: FloatType(bit_size=32)},
+        requested_inputs={0: FloatType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
