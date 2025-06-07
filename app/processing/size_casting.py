@@ -307,7 +307,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
         self.processed.qubit.declaration_to_ids.pop(old_name)
         self.processed.qubit.declaration_to_ids[new_input_name] = new_input_ids
         self.processed.qubit.declaration_to_ids[new_ancilla_name] = new_ancilla_ids
-        self.processed.qubit.required_reusable_ids.extend(new_ancilla_ids)
+        self.processed.qubit.clean_ids.extend(new_ancilla_ids)
         ioinstance.name = new_input_name
         ioinstance.ids = new_input_ids
 
