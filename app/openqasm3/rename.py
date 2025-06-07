@@ -30,6 +30,6 @@ def simple_rename(node: TNode, renamings: dict[str, str]) -> TNode:
 
     :param node: The node to rename variables in
     :param renamings: The variables to rename
-    :return: The transformed nodec
+    :return: The transformed node
     """
     return _SimpleRenameTransformer(renamings).visit(node)  # type: ignore
