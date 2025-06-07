@@ -3,8 +3,9 @@ This module defines the data models for the status of a compile request.
 It provides classes to model progress, status, and associated timestamps.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Self
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -40,3 +41,14 @@ class StatusResponse(BaseModel):
     completedAt: datetime | None
     progress: Progress | None
     result: str | None
+
+    @classmethod
+    def init_status(cls, uuid: UUID) -> Self:
+        return cls(
+            uuid=uuid,
+            status=StatusType.IN_PROGRESS,
+            createdAt=datetime.now(UTC),
+            completedAt=None,
+            progress=Progress(percentage=0, currentStep="init"),
+            result=None,
+        )
