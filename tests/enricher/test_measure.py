@@ -2,12 +2,12 @@ import pytest
 
 from app.enricher import (
     Constraints,
-    InputValidationException,
     ConstraintValidationException,
+    InputValidationException,
 )
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.model.CompileRequest import MeasurementNode
-from app.model.data_types import QubitType, IntType
+from app.model.data_types import IntType, QubitType
 from tests.enricher.utils import assert_enrichment
 
 
@@ -74,7 +74,8 @@ async def test_exactly_one_input_1() -> None:
 
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
-        ConstraintValidationException, match="^Measurements can only have a single input$"
+        ConstraintValidationException,
+        match="^Measurements can only have a single input$",
     ):
         await strategy.enrich(node, constraints)
 
@@ -83,12 +84,15 @@ async def test_exactly_one_input_1() -> None:
 async def test_exactly_one_input_2() -> None:
     node = MeasurementNode(id="nodeId", indices=[0, 5])
     constraints = Constraints(
-        requested_inputs={0: QubitType(3), 1: QubitType(4)}, optimizeWidth=False, optimizeDepth=False
+        requested_inputs={0: QubitType(3), 1: QubitType(4)},
+        optimizeWidth=False,
+        optimizeDepth=False,
     )
 
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
-        ConstraintValidationException, match="^Measurements can only have a single input$"
+        ConstraintValidationException,
+        match="^Measurements can only have a single input$",
     ):
         await strategy.enrich(node, constraints)
 
@@ -102,7 +106,8 @@ async def test_qubit_type_input() -> None:
 
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
-        ConstraintValidationException, match="^Measurements can only have a qubit type input$"
+        ConstraintValidationException,
+        match="^Measurements can only have a qubit type input$",
     ):
         await strategy.enrich(node, constraints)
 

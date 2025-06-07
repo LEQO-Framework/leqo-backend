@@ -57,9 +57,7 @@ class MeasurementEnricherStrategy(EnricherStrategy):
             )
 
         if len(node.indices) < 1:
-            raise InputValidationException(
-                "Measurements must have at least one index"
-            )
+            raise InputValidationException("Measurements must have at least one index")
 
         input_size = constraints.requested_inputs[0].reg_size
 
