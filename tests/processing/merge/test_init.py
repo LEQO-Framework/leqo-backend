@@ -94,7 +94,7 @@ def test_complex_merge() -> None:
         @leqo.output 0
         let _out0 = q[0:2];
         @leqo.output 1
-        let _out1 = q[3];
+        let _out1 = q[{3}];
         """,
         """
         OPENQASM 3.1;
@@ -124,7 +124,7 @@ def test_complex_merge() -> None:
     @leqo.output 0
     let leqo_node0__out0 = leqo_node0_q[0:2];
     @leqo.output 1
-    let leqo_node0__out1 = leqo_node0_q[3];
+    let leqo_node0__out1 = leqo_node0_q[{3}];
     /* End node 0 */
     /* Start node 1 */
     @leqo.input 0

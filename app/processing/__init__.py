@@ -127,7 +127,7 @@ class CommonProcessor:
             processed_node = preprocess(target_node, enriched_node.implementation)
             size_cast(
                 processed_node,
-                {index: type.bit_size for index, type in requested_inputs.items()},
+                {index: type.size for index, type in requested_inputs.items()},
             )
             self.graph.node_data[target_node] = processed_node
 

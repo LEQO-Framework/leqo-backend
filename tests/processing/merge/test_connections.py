@@ -1,3 +1,4 @@
+import re
 from io import UnsupportedOperation
 
 import pytest
@@ -400,7 +401,7 @@ def test_complex() -> None:
         qubit[2] c1_q0;
         qubit[1] c1_q1;
         @leqo.output 0
-        let _out_c1_0 = c1_q0[0] ++ c1_q1;
+        let _out_c1_0 = c1_q0[{0}] ++ c1_q1;
         """,
         """
         @leqo.input 0
@@ -438,7 +439,7 @@ def test_complex() -> None:
         let c1_q0 = leqo_reg[{0, 1}];
         let c1_q1 = leqo_reg[{4}];
         @leqo.output 0
-        let _out_c1_0 = c1_q0[0] ++ c1_q1;
+        let _out_c1_0 = c1_q0[{0}] ++ c1_q1;
         """,
         """
         @leqo.input 0
@@ -470,7 +471,9 @@ def test_raise_on_mismatched_qubit_size() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="^Unsupported: Mismatched sizes in IOConnection of type qubits-register\n\noutput _out has size 1\ninput c1_q0 has size 100$",
+        match=re.escape(
+            "Unsupported: Mismatched types in IOConnection QubitType(size=1) != QubitType(size=100)"
+        ),
     ):
         assert_connections(inputs, [], connections)
 
@@ -514,7 +517,7 @@ def test_raise_on_mismatched_classic_type() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(bit_size=32\\)\ninput c1_b0 has type BoolType\\(\\)$",
+        match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(size=32\\)\ninput c1_b0 has type BoolType\\(\\)$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -536,7 +539,7 @@ def test_raise_on_mismatched_classic_size() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(bit_size=16\\)\ninput c1_i0 has type IntType\\(bit_size=32\\)$",
+        match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(size=16\\)\ninput c1_i0 has type IntType\\(size=32\\)$",
     ):
         assert_connections(inputs, [], connections)
 

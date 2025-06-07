@@ -147,7 +147,7 @@ def test_removed_uncompute() -> None:
         """,
         """
         @leqo.input 0
-        qubit[1] c1_q0;
+        qubit c1_q0;
         """,
     ]
     io_connections = [((0, 0), (1, 0))]
@@ -158,7 +158,7 @@ def test_removed_uncompute() -> None:
     @leqo.output 0
     let _out = c0_q0[0];
     @leqo.input 0
-    let c1_q0 = leqo_reg[{0}];
+    let c1_q0 = leqo_reg[0];
     """
     assert_optimize(before, expected, io_connections)
 
@@ -216,7 +216,7 @@ def test_simple_find_best_sort() -> None:
         @leqo.input 0
         qubit[5]  c2_q0;
         @leqo.output 0
-        let c2_out0 = c2_q0[0];
+        let c2_out0 = c2_q0[{0}];
 
         @leqo.reusable
         let _reuse = c2_q0[1:4];
@@ -246,7 +246,7 @@ def test_simple_find_best_sort() -> None:
     @leqo.input 0
     let c2_q0 = leqo_reg[{1, 2, 3, 4, 5}];
     @leqo.output 0
-    let c2_out0 = c2_q0[0];
+    let c2_out0 = c2_q0[{0}];
     @leqo.reusable
     let _reuse = c2_q0[1:4];
     @leqo.input 0

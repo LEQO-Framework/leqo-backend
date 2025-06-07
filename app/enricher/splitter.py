@@ -46,9 +46,9 @@ class SplitterEnricherStrategy(EnricherStrategy):
                 f"Invalid input type: expected QubitType, got {type(input).__name__}."
             )
 
-        reg_size = input.reg_size
+        reg_size = input.size
 
-        if reg_size < 1:
+        if reg_size is None or reg_size < 1:
             raise ConstraintValidationException(
                 f"Invalid register size: {reg_size}. Must be >= 1."
             )

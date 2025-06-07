@@ -72,10 +72,12 @@ def get_pass_node_impl(requested_inputs: dict[int, LeqoSupportedType]) -> Progra
         declaration: QubitDeclaration | ClassicalDeclaration
         match input_type:
             case QubitType():
-                out_size += input_type.reg_size
+                out_size += 1 if input_type.size is None else input_type.size
                 declaration = QubitDeclaration(
                     declaration_identifier,
-                    IntegerLiteral(input_type.reg_size),
+                    None
+                    if input_type.size is None
+                    else IntegerLiteral(input_type.size),
                 )
             case ClassicalType():
                 declaration = ClassicalDeclaration(

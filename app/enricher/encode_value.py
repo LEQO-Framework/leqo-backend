@@ -97,6 +97,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 EncodeNodeTable.bounds == node.bounds,
                 Input.index == 0,
                 Input.type == converted_input_type,
-                Input.size == constraints.requested_inputs[0].bit_size,
+                Input.size == constraints.requested_inputs[0].size,
             ),
         )

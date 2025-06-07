@@ -166,16 +166,13 @@ class Connections:
         target_sec_id: UUID,
     ) -> None:
         """Merge qubit equivalance classes of connected qubits."""
-        output_size, input_size = len(output.ids), len(input.ids)
-        if output_size != input_size:
-            msg = dedent(f"""\
-                Unsupported: Mismatched sizes in IOConnection of type qubits-register
-
-                output {output.name} has size {output_size}
-                input {input.name} has size {input_size}
-                """)
+        output_type, input_type = output.type, input.type
+        if output_type != input_type:
+            msg = f"Unsupported: Mismatched types in IOConnection {output_type} != {input_type}"
             raise UnsupportedOperation(msg)
-        for s_id, t_id in zip(output.ids, input.ids, strict=True):
+        output_ids = output.ids if isinstance(output.ids, list) else [output.ids]
+        input_ids = input.ids if isinstance(input.ids, list) else [input.ids]
+        for s_id, t_id in zip(output_ids, input_ids, strict=True):
             source_qubit = SingleQubit(src_sec_id, s_id)
             target_qubit = SingleQubit(target_sec_id, t_id)
             # merge sets and let all qubits point to that set
