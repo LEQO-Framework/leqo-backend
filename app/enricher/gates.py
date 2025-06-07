@@ -4,6 +4,7 @@ Provides enricher strategy for gate nodes
  * :class:`~app.model.CompileRequest.ParameterizedGateNode`
 """
 
+from io import UnsupportedOperation
 from typing import get_args, override
 
 from openqasm3.ast import Expression, FloatLiteral, Identifier, Include, QuantumGate
@@ -34,12 +35,11 @@ from app.openqasm3.stdgates import (
     TwoQubitGateWithAngle,
     TwoQubitGateWithParam,
 )
-from app.utils import not_none
 
 
 def _validate_constraints(
     constraints: Constraints | None, name: str, input_count: int
-) -> int:
+) -> int | None:
     """
     Validate constraints for gate implementations.
     Ensures the constraints contain `input_count` qubit inputs with the same size.
@@ -55,17 +55,23 @@ def _validate_constraints(
             f"Gate '{name}' requires {input_count} qubits"
         )
 
+    found_size = False
     size: int | None = None
     for _, input_type in constraints.requested_inputs.items():
         if not isinstance(input_type, LeqoQubitType):
             raise ConstraintValidationException("Gate may only have qubit inputs")
 
-        if size is not None and size != input_type.reg_size:
+        if size is not None and size != input_type.size:
             raise ConstraintValidationException("Gate inputs must be of equal size")
 
-        size = input_type.reg_size
+        found_size = True
+        size = input_type.size
 
-    return not_none(size, "Could not determine size")
+    if not found_size:
+        msg = "Could not determine size"
+        raise UnsupportedOperation(msg)
+
+    return size
 
 
 def enrich_gate(

@@ -1,6 +1,4 @@
-"""
-OpenQasm data-types that are supported by the leqo-backend.
-"""
+"""OpenQasm data-types that are supported by the leqo-backend."""
 
 from dataclasses import dataclass
 
@@ -10,62 +8,49 @@ from openqasm3.ast import FloatType as AstFloatType
 from openqasm3.ast import IntegerLiteral
 from openqasm3.ast import IntType as AstIntType
 
-DEFAULT_BIT_SIZE = 1
 DEFAULT_INT_SIZE = 32
 DEFAULT_FLOAT_SIZE = 32
-BOOL_BIT_SIZE = 1
+BOOL_SIZE = 1
 
 
 @dataclass(frozen=True)
 class QubitType:
-    """
-    A single qubit or qubit register.
-    """
+    """A single qubit or qubit register."""
 
-    reg_size: int
-
-    @property
-    def bit_size(self) -> int:
-        return self.reg_size
+    size: int | None
 
 
 @dataclass(frozen=True)
 class ClassicalType:
-    """
-    Base class for classical data types.
-    """
+    """Base class for classical data types."""
 
 
 @dataclass(frozen=True)
 class BitType(ClassicalType):
-    """
-    A single bit or bit-array.
-    """
+    """A single bit or bit-array."""
 
-    bit_size: int
+    size: int | None
 
     @staticmethod
-    def with_bit_size(bit_size: int) -> "BitType":
-        return BitType(bit_size)
+    def with_size(size: int | None) -> "BitType":
+        return BitType(size)
 
     def to_ast(self) -> AstBitType:
-        return AstBitType(IntegerLiteral(self.bit_size))
+        return AstBitType(None if self.size is None else IntegerLiteral(self.size))
 
 
 @dataclass(frozen=True)
 class BoolType(ClassicalType):
-    """
-    A single boolean or boolean register.
-    """
+    """A single boolean."""
 
     @property
-    def bit_size(self) -> int:
-        return BOOL_BIT_SIZE
+    def size(self) -> int:
+        return BOOL_SIZE
 
     @staticmethod
-    def with_bit_size(bit_size: int) -> "BoolType":
-        if bit_size != BOOL_BIT_SIZE:
-            raise ValueError(f"bit_size must be {BOOL_BIT_SIZE}")
+    def with_size(size: int | None) -> "BoolType":
+        if size is not None and size != BOOL_SIZE:
+            raise ValueError(f"size must be {BOOL_SIZE}")
 
         return BoolType()
 
@@ -75,34 +60,30 @@ class BoolType(ClassicalType):
 
 @dataclass(frozen=True)
 class IntType(ClassicalType):
-    """
-    An integer with size in bits.
-    """
+    """An integer with size in bits."""
 
-    bit_size: int
+    size: int
 
     @staticmethod
-    def with_bit_size(bit_size: int) -> "IntType":
-        return IntType(bit_size)
+    def with_size(size: int | None) -> "IntType":
+        return IntType(DEFAULT_INT_SIZE if size is None else size)
 
     def to_ast(self) -> AstIntType:
-        return AstIntType(IntegerLiteral(self.bit_size))
+        return AstIntType(IntegerLiteral(self.size))
 
 
 @dataclass(frozen=True)
 class FloatType(ClassicalType):
-    """
-    A float with size in bits.
-    """
+    """A float with size in bits."""
 
-    bit_size: int
+    size: int
 
     @staticmethod
-    def with_bit_size(bit_size: int) -> "FloatType":
-        return FloatType(bit_size)
+    def with_size(size: int | None) -> "FloatType":
+        return FloatType(DEFAULT_FLOAT_SIZE if size is None else size)
 
     def to_ast(self) -> AstFloatType:
-        return AstFloatType(IntegerLiteral(self.bit_size))
+        return AstFloatType(IntegerLiteral(self.size))
 
 
 LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType

@@ -26,7 +26,7 @@ def test_simple_input() -> None:
         ),
         QubitInfo(
             declaration_to_ids={"q": [0, 1, 2]},
-            returned_dirty_ids=[0, 1, 2],
+            entangled_ids=[0, 1, 2],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -47,7 +47,7 @@ def test_output_simple() -> None:
         ),
         QubitInfo(
             declaration_to_ids={"q": [0, 1, 2]},
-            required_reusable_ids=[0, 1, 2],
+            clean_ids=[0, 1, 2],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -68,8 +68,8 @@ def test_output_indexed() -> None:
         ),
         QubitInfo(
             declaration_to_ids={"q": [0, 1, 2]},
-            required_reusable_ids=[0, 1, 2],
-            returned_dirty_ids=[2],
+            clean_ids=[0, 1, 2],
+            entangled_ids=[2],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -88,9 +88,9 @@ def test_reusable() -> None:
         IOInfo(),
         QubitInfo(
             declaration_to_ids={"q": [0, 1, 2]},
-            required_reusable_ids=[0, 1, 2],
-            returned_reusable_ids=[0, 1],
-            returned_dirty_ids=[2],
+            clean_ids=[0, 1, 2],
+            reusable_ids=[0, 1],
+            entangled_ids=[2],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -112,9 +112,9 @@ def test_reusable_in_uncompute() -> None:
         IOInfo(),
         QubitInfo(
             declaration_to_ids={"q": [0, 1, 2]},
-            required_reusable_ids=[0, 1, 2],
-            returned_uncomputable_ids=[0, 1],
-            returned_dirty_ids=[2],
+            clean_ids=[0, 1, 2],
+            uncomputable_ids=[0, 1],
+            entangled_ids=[2],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -131,8 +131,8 @@ def test_dirty() -> None:
         IOInfo(),
         QubitInfo(
             declaration_to_ids={"q": [0, 1, 2]},
-            required_dirty_ids=[0, 1, 2],
-            returned_dirty_ids=[0, 1, 2],
+            dirty_ids=[0, 1, 2],
+            entangled_ids=[0, 1, 2],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -162,11 +162,11 @@ def test_empty_index() -> None:
     """
     expected = (
         IOInfo(
-            inputs={0: QubitIOInstance("q", [0])},
+            inputs={0: QubitIOInstance("q", 0)},
         ),
         QubitInfo(
             declaration_to_ids={"q": [0]},
-            returned_dirty_ids=[0],
+            entangled_ids=[0],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -185,8 +185,8 @@ def test_classical_ignored() -> None:
         IOInfo(),
         QubitInfo(
             declaration_to_ids={"q": [0, 1]},
-            required_reusable_ids=[0, 1],
-            returned_dirty_ids=[0, 1],
+            clean_ids=[0, 1],
+            entangled_ids=[0, 1],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -200,7 +200,7 @@ def test_output_concatenation() -> None:
     qubit[2] q1;
 
     @leqo.output 0
-    let a = q0[0] ++ q1[0];
+    let a = q0[{0}] ++ q1[{0}];
     """
     expected = (
         IOInfo(
@@ -211,8 +211,8 @@ def test_output_concatenation() -> None:
                 "q0": [0, 1],
                 "q1": [2, 3],
             },
-            required_reusable_ids=[0, 1, 2, 3],
-            returned_dirty_ids=[1, 3],
+            clean_ids=[0, 1, 2, 3],
+            entangled_ids=[1, 3],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -226,7 +226,7 @@ def test_output_big_concatenation() -> None:
     qubit[2] q1;
 
     @leqo.output 0
-    let a = q0[0] ++ q1[0] ++ q0[1];
+    let a = q0[{0}] ++ q1[{0}] ++ q0[{1}];
     """
     expected = (
         IOInfo(
@@ -237,8 +237,8 @@ def test_output_big_concatenation() -> None:
                 "q0": [0, 1],
                 "q1": [2, 3],
             },
-            required_reusable_ids=[0, 1, 2, 3],
-            returned_dirty_ids=[3],
+            clean_ids=[0, 1, 2, 3],
+            entangled_ids=[3],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -261,9 +261,9 @@ def test_alias_chain() -> None:
         IOInfo(),
         QubitInfo(
             declaration_to_ids={"q": [0, 1, 2, 3, 4]},
-            required_reusable_ids=[0, 1, 2, 3, 4],
-            returned_reusable_ids=[3],
-            returned_dirty_ids=[0, 1, 2, 4],
+            clean_ids=[0, 1, 2, 3, 4],
+            reusable_ids=[3],
+            entangled_ids=[0, 1, 2, 4],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -283,9 +283,9 @@ def test_input_index_weird_order() -> None:
     expected = (
         IOInfo(
             inputs={
-                0: QubitIOInstance("q0", [1]),
-                1: QubitIOInstance("q1", [0]),
-                2: QubitIOInstance("q2", [2]),
+                0: QubitIOInstance("q0", 1),
+                1: QubitIOInstance("q1", 0),
+                2: QubitIOInstance("q2", 2),
             },
         ),
         QubitInfo(
@@ -294,7 +294,7 @@ def test_input_index_weird_order() -> None:
                 "q0": [1],
                 "q2": [2],
             },
-            returned_dirty_ids=[0, 1, 2],
+            entangled_ids=[0, 1, 2],
         ),
     )
     actual = (IOInfo(), QubitInfo())
@@ -345,9 +345,9 @@ def test_all() -> None:
     let a = q1[{4, 3, 2, 1, 0}];
 
     @leqo.output 0
-    let _out0 = q0[0] ++ q1[0];
+    let _out0 = q0[{0}] ++ q1[{0}];
     @leqo.output 1
-    let _out1 = q0[1] ++ a[1]; // a[1] == q1[3]
+    let _out1 = q0[{1}] ++ a[{1}]; // a[1] == q1[3]
     @leqo.output 2
     let _out2 = i;
 
@@ -378,10 +378,10 @@ def test_all() -> None:
                 "q1": [5, 6, 7, 8, 9],
                 "q2": [10],
             },
-            required_dirty_ids=[10],
-            returned_reusable_ids=[2, 3, 4],
-            returned_uncomputable_ids=[9],
-            returned_dirty_ids=[6, 7, 10],
+            dirty_ids=[10],
+            reusable_ids=[2, 3, 4],
+            uncomputable_ids=[9],
+            entangled_ids=[6, 7, 10],
         ),
     )
     actual = (IOInfo(), QubitInfo())
