@@ -57,7 +57,26 @@ class MeasurementEnricherStrategy(EnricherStrategy):
             )
 
         input_size = constraints.requested_inputs[0].size
-        input_size = 1 if input_size is None else input_size
+        if input_size is None:
+            if node.indices not in ([], [0]):
+                msg = "Single qubit can only be measured with [] or [0] indices"
+                raise InputValidationException(msg)
+            return EnrichmentResult(
+                implementation(
+                    node,
+                    [
+                        leqo_input("q", 0, input_size),
+                        ClassicalDeclaration(
+                            BitType(),
+                            Identifier("result"),
+                            QuantumMeasurement(Identifier("q")),
+                        ),
+                        leqo_output("out", 0, Identifier("result")),
+                        leqo_output("qubit_out", 1, Identifier("q")),
+                    ],
+                ),
+                ImplementationMetaData(width=0, depth=1),
+            )
 
         out_of_range_indices = [i for i in node.indices if i < 0 or i >= input_size]
         if any(out_of_range_indices):

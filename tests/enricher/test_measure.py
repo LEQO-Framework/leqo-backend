@@ -70,6 +70,60 @@ async def test_less_indices() -> None:
 
 
 @pytest.mark.asyncio
+async def test_measure_single_qubit() -> None:
+    node = MeasurementNode(id="nodeId", indices=[0])
+    constraints = Constraints(
+        requested_inputs={0: QubitType(None)}, optimizeWidth=False, optimizeDepth=False
+    )
+
+    strategy = MeasurementEnricherStrategy()
+    result = list(await strategy.enrich(node, constraints))
+
+    assert len(result) == 1
+    assert_enrichment(
+        result[0].enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit q;
+        bit result = measure q;
+        @leqo.output 0
+        let out = result;
+        @leqo.output 1
+        let qubit_out = q;
+        """,
+    )
+
+
+@pytest.mark.asyncio
+async def test_measure_single_qubit_with_empty_indices() -> None:
+    node = MeasurementNode(id="nodeId", indices=[])
+    constraints = Constraints(
+        requested_inputs={0: QubitType(None)}, optimizeWidth=False, optimizeDepth=False
+    )
+
+    strategy = MeasurementEnricherStrategy()
+    result = list(await strategy.enrich(node, constraints))
+
+    assert len(result) == 1
+    assert_enrichment(
+        result[0].enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit q;
+        bit result = measure q;
+        @leqo.output 0
+        let out = result;
+        @leqo.output 1
+        let qubit_out = q;
+        """,
+    )
+
+
+@pytest.mark.asyncio
 async def test_index_out_of_range_1() -> None:
     node = MeasurementNode(id="nodeId", indices=[0, 1, 2, 3])
     constraints = Constraints(
