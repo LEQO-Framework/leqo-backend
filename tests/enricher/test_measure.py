@@ -1,18 +1,10 @@
-from textwrap import dedent
-
 import pytest
 
 from app.enricher import Constraints, InputValidationException
 from app.enricher.measure import MeasurementEnricherStrategy
-from app.model.CompileRequest import ImplementationNode, MeasurementNode
+from app.model.CompileRequest import MeasurementNode
 from app.model.data_types import QubitType
-
-
-def assert_enrichment(
-    enriched_node: ImplementationNode, id: str, implementation: str
-) -> None:
-    assert enriched_node.id == id
-    assert enriched_node.implementation == dedent(implementation)
+from tests.enricher.utils import assert_enrichment
 
 
 @pytest.mark.asyncio

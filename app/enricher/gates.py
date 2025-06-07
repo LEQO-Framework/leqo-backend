@@ -4,7 +4,7 @@ Provides enricher strategy for gate nodes
  * :class:`~app.model.CompileRequest.ParameterizedGateNode`
 """
 
-from typing import override
+from typing import get_args, override
 
 from openqasm3.ast import Expression, FloatLiteral, Identifier, Include, QuantumGate
 
@@ -26,6 +26,14 @@ from app.model.CompileRequest import (
     Node as FrontendNode,
 )
 from app.model.data_types import QubitType as LeqoQubitType
+from app.openqasm3.stdgates import (
+    OneQubitGate,
+    OneQubitGateWithAngle,
+    ThreeQubitGate,
+    TwoQubitGate,
+    TwoQubitGateWithAngle,
+    TwoQubitGateWithParam,
+)
 from app.utils import not_none
 
 
@@ -129,27 +137,24 @@ class GateEnricherStrategy(EnricherStrategy):
         Generate implementation for gates without parameters.
         """
 
-        match node.gate:
-            case "cnot":
-                return enrich_gate(node, constraints, "cx", 2)
+        if node.gate in get_args(OneQubitGate):
+            return enrich_gate(node, constraints, node.gate, 1)
 
-            case "toffoli":
-                return enrich_gate(node, constraints, "ccx", 3)
+        if node.gate in get_args(TwoQubitGate):
+            return enrich_gate(node, constraints, node.gate, 2)
 
-            case "h":
-                return enrich_gate(node, constraints, "h", 1)
+        if node.gate in get_args(ThreeQubitGate):
+            return enrich_gate(node, constraints, node.gate, 3)
 
-            case "x":
-                return enrich_gate(node, constraints, "x", 1)
+        # to prevent breaking changes
 
-            case "y":
-                return enrich_gate(node, constraints, "y", 1)
+        if node.gate == "cnot":
+            return enrich_gate(node, constraints, "cx", 2)
 
-            case "z":
-                return enrich_gate(node, constraints, "z", 1)
+        if node.gate == "toffoli":
+            return enrich_gate(node, constraints, "ccx", 3)
 
-            case _:
-                raise NodeUnsupportedException(node)
+        raise NodeUnsupportedException(node)
 
     def _enrich_parameterized_gate(
         self, node: ParameterizedGateNode, constraints: Constraints | None
@@ -158,21 +163,22 @@ class GateEnricherStrategy(EnricherStrategy):
         Generate implementation for gates with parameters.
         """
 
-        match node.gate:
-            case "rx":
-                return enrich_gate(
-                    node, constraints, "rx", 1, FloatLiteral(node.parameter)
-                )
+        if node.gate in get_args(OneQubitGateWithAngle):
+            return enrich_gate(
+                node, constraints, node.gate, 1, FloatLiteral(node.parameter)
+            )
 
-            case "ry":
-                return enrich_gate(
-                    node, constraints, "ry", 1, FloatLiteral(node.parameter)
-                )
+        if node.gate in get_args(TwoQubitGateWithAngle):
+            return enrich_gate(
+                node, constraints, node.gate, 2, FloatLiteral(node.parameter)
+            )
 
-            case "rz":
-                return enrich_gate(
-                    node, constraints, "rz", 1, FloatLiteral(node.parameter)
-                )
+        # Gates with generic params are currently handled exactly like gates with angles
+        # In the future we might want to handle them different though
 
-            case _:
-                raise NodeUnsupportedException(node)
+        if node.gate in get_args(TwoQubitGateWithParam):
+            return enrich_gate(
+                node, constraints, node.gate, 2, FloatLiteral(node.parameter)
+            )
+
+        raise NodeUnsupportedException(node)

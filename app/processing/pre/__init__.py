@@ -18,14 +18,14 @@ def preprocess(
 ) -> ProcessedProgramNode:
     """Run an openqasm3 snippet through the preprocessing pipeline.
 
-    :param program: A valid openqasm3 program (as AST) to preprocess.
-    :param section_info: MetaData of the section to preprocess.
+    :param node: The node to preprocess.
+    :param implementation: A valid OpenQASM 2/3 implementation for that node.
     :return: The preprocessed program.
     """
-    if isinstance(implementation, str):
-        ast = leqo_parse(implementation)
-    else:
+    if isinstance(implementation, Program):
         ast = implementation
+    else:
+        ast = leqo_parse(implementation)
     ast = RenameRegisterTransformer().visit(ast, node.id)
     ast = cast_to_program(InliningTransformer().visit(ast))
 

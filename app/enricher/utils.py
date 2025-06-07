@@ -14,13 +14,13 @@ from openqasm3.ast import (
     Statement,
 )
 
-from app.model.CompileRequest import ImplementationNode, Node
-from app.openqasm3.printer import leqo_dumps
+from app.enricher import ParsedImplementationNode
+from app.model.CompileRequest import Node
 
 
 def implementation(
     node: Node, statements: list[Statement | Pragma]
-) -> ImplementationNode:
+) -> ParsedImplementationNode:
     """
     Creates an :class:`~app.model.CompileRequest.ImplementationNode` from partial syntax tree.
 
@@ -29,7 +29,7 @@ def implementation(
     """
 
     program = Program(statements, version="3.1")
-    return ImplementationNode(id=node.id, implementation=leqo_dumps(program))
+    return ParsedImplementationNode(id=node.id, implementation=program)
 
 
 def leqo_input(name: str, index: int, size: int) -> QubitDeclaration:

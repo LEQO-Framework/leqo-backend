@@ -9,7 +9,7 @@ from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
 from openqasm3.ast import Program
 
-from app.enricher import Constraints, Enricher
+from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
     CompileRequest,
     Edge,
@@ -91,7 +91,9 @@ class CommonProcessor:
 
     async def _enrich_internal(
         self,
-    ) -> AsyncIterator[tuple[ProgramNode, ImplementationNode]]:
+    ) -> AsyncIterator[
+        tuple[ProgramNode, ImplementationNode | ParsedImplementationNode]
+    ]:
         for target_node in topological_sort(self.graph):
             assert self.graph.node_data.get(target_node) is None
 
@@ -163,7 +165,9 @@ class Processor(CommonProcessor):
 
         super().__init__(enricher, graph, request.metadata)
 
-    async def enrich(self) -> AsyncIterator[ImplementationNode]:
+    async def enrich(
+        self,
+    ) -> AsyncIterator[ImplementationNode | ParsedImplementationNode]:
         """
         Enriches the :class:`~app.model.CompileRequest`.
 
