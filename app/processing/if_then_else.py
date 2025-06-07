@@ -44,6 +44,9 @@ def parse_condition(value: str) -> Expression:
     """Parse condition used in if-then-else.
 
     It uses a simple wrapper to leverage the parser provided by openqasm3.
+
+    :param value: condition string from the frontend
+    :return: parsed expression in AST
     """
     if_then_else_ast = parse(f"if({value}) {{}}").statements[0]
     if not isinstance(if_then_else_ast, BranchingStatement):

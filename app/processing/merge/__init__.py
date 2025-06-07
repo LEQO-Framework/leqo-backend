@@ -117,6 +117,8 @@ def merge_if_nodes(
         :raises NotImplementedError:
         - If the circuit attempts to return classical output from the if-then-else structure.
         - If the outputs of the **then_graph** and **else_graph** do not match in size or qubit ordering.
+
+    :return: merged program and total amount of qubits used (for global/if reg)
     """
     if_node = then_graph.node_data[if_node_raw]
     endif_node = then_graph.node_data[endif_node_raw]
