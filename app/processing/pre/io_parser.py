@@ -55,7 +55,11 @@ from app.utils import not_none_or, opt_call
 
 
 class ParseAnnotationsVisitor(LeqoTransformer[None]):
-    """Non-modifying visitor to parse io info."""
+    """Non-modifying visitor to parse leqo annotations.
+
+    :param io: The :class:`app.processing.graph.IOInfo` to be modified in-place.
+    :param qubit: The :class:`app.processing.graph.QubitInfo` to be modified in-place.
+    """
 
     __next_qubit_id: int
     __name_to_info: dict[str, QubitIOInstance | ClassicalIOInstance]
@@ -66,11 +70,6 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     qubit: QubitInfo
 
     def __init__(self, io: IOInfo, qubit: QubitInfo) -> None:
-        """Construct the ParseAnnotationsVisitor.
-
-        :param io: The IOInfo to be modified in-place.
-        :param qubit: The QubitInfo to be modified in-place.
-        """
         super().__init__()
         self.io = io
         self.qubit = qubit

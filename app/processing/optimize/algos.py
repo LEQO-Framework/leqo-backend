@@ -1,7 +1,9 @@
 """Optimization algorithms.
 
 Following task has to be solved:
+
 Given:
+
 - set of nodes, each node has:
     - amount of required reusable ancilla qubits
     - amount of required dirty ancilla qubits
@@ -9,13 +11,16 @@ Given:
     - amount of returned dirty ancilla qubits
     - amount of returned 'reusable if uncomputed, else dirty' qubits
 - set of connections between these nodes
+
 Wanted:
+
 - set of ancilla edges that reuse dirty/reusable ancillas
     - topological sort has to be possible after!
 - dict that tells whether to uncompute a given node
 - optimize on minimal amount of required qubits (that could not be satisfied via ancilla connections)
 
 Note on ancilla qubit types:
+
 - returned reusable qubits can be used as required dirty and required reusable
 - returned dirty qubits can be used as required dirty
 - returned uncomputable can be used as:
@@ -39,7 +44,7 @@ class OptimizationAlgo(ABC):
     """Abstract parent of optimization algorithms.
 
     - Specify the interface.
-    - Handle explicit set new ancilla qubits.
+    - Handle special user-required ancilla nodes.
     """
 
     graph: ProgramGraph
@@ -61,21 +66,21 @@ class NoPred(OptimizationAlgo):
     Other Algorithms should inherit from this and only override the heuristic methods.
 
     Basic idea:
-    1. Create a set of all nodes that have no predecessor,
-        they could be the start of our topological sort.
+
+    1. Create a set of all nodes that have no predecessor
     2. Keep track of the resources the already fixed nodes have: dirty, uncomputable, reusable
-        - currently there is nothing of any resource
+        - all initialized to zero
     3. While the set is not empty:
         1. Choose one node from this set.
-            - how to choose is the hard part that has to be done via heuristic.
+            - how to choose is the hard part that has to be done via heuristic
         2. Remove all edges from this node.
         3. Check for new nodes without predecessors, add them to the set.
         4. Try to satisfy the requirements of the current node via the available resources.
             - Add ancilla edges here
             - Possibility to uncompute in previous nodes
-            - Need heuristic: What nodes to uncompute first?
+            - Needs heuristic: What nodes to uncompute first?
         5. Add the resources this node gives to the available resources.
-    4. (Optional): Raise error if there are nodes that where not processed.
+    4. (Optional): Raise error if there are nodes that were not processed.
         - This would mean that the graph has no topological sort.
 
     :param ancilla_edges: ancilla edges to return
@@ -116,6 +121,9 @@ class NoPred(OptimizationAlgo):
     def remove_node(self, node: ProcessedProgramNode) -> list[ProcessedProgramNode]:
         """(Virtually) remove node from graph.
 
+        Don't remove the node itself, but all connections outgoing from him.
+        It is not possible that the node is incoming edges (invariant of this algo).
+
         :param node: The node to remove.
         :return: Nodes that have no predecessor because of this.
         """
@@ -131,6 +139,7 @@ class NoPred(OptimizationAlgo):
         """Remove and return the next nopred node.
 
         This is a dummy implementation!
+        Overwrite this method is sub-classes.
 
         :return: Chosen node.
         """
@@ -139,7 +148,7 @@ class NoPred(OptimizationAlgo):
     def pop_uncomputable(self) -> ProcessedProgramNode:
         """Remove and return the next node to be uncomputed.
 
-        Chooses the node with the fewest uncomputable qubits, i.e., the cheapest to uncompute.
+        Chooses the node with the fewest uncomputable qubits, i.e. the cheapest to uncompute.
 
         :return: Chosen node.
         """
@@ -259,7 +268,10 @@ class NoPred(OptimizationAlgo):
 
     @override
     def compute(self) -> tuple[list[AncillaConnection], dict[ProgramNode, bool]]:
-        """Compute ancillas and uncomputes based on no-pred."""
+        """Execute the optimization.
+
+        :return: Added ancilla edges and dict specifying whether to uncomute nodes.
+        """
         while len(self.nopred) > 0:
             self.current_node = self.pop_nopred()
             self.nopred.extend(self.remove_node(self.current_node))
@@ -282,8 +294,10 @@ class NoPredCheckNeedDiffScore(NoPred):
 
     Check need strategy:
     All possible nodes are divided in one of two categories:
+
     1. satisfied: the requirement of that node are satisfied by the available resources
     2. unsatisfied: the requirement of that node can't be satisfied
+
     We always prefer nodes that are in the first category.
 
     Diff score:
