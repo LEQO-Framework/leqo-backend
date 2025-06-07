@@ -13,6 +13,7 @@ from openqasm3.ast import (
     Statement,
 )
 
+from app.converter.qasm_converter import TARGET_QASM_VERSION
 from app.model.CompileRequest import (
     Edge,
     IfThenElseNode,
@@ -29,8 +30,6 @@ from app.processing.converted_graph import ConvertedProgramGraph
 from app.processing.graph import ProgramNode
 from app.processing.merge import merge_if_nodes
 from app.processing.post import postprocess
-
-TARGET_QASM_VERSION = "3.1"  # circular import if imported from converter
 
 
 def get_pass_node_impl(requested_inputs: dict[int, LeqoSupportedType]) -> Program:
