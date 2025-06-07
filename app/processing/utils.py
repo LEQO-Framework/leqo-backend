@@ -120,13 +120,18 @@ def parse_range_definition(range_def: RangeDefinition, length: int) -> list[int]
     return list(range(start, end, step))
 
 
-def parse_qasm_index(index: list[IndexElement], length: int) -> list[int]:
-    """Parse list of qasm3 indexes and returns them as a list of integers.
+def parse_qasm_index(index: list[IndexElement], length: int) -> list[int] | int:
+    """Parse list of qasm3 indexes.
 
+    This can return either a single index or a subset of them.
     Multiple indexes are applied iteratively (as qiskit also does it).
     """
-    result = list(range(length))
+    result: list[int] | int = list(range(length))
+    tmp: list[int] | int
     for subindex in index:
+        if not isinstance(result, list):
+            msg = "Unsupported: Can't further index single instance."
+            raise UnsupportedOperation(msg)
         match subindex:
             case DiscreteSet():
                 indecies = [expr_to_int(expr) for expr in subindex.values]
@@ -137,7 +142,7 @@ def parse_qasm_index(index: list[IndexElement], length: int) -> list[int]:
                     raise TypeError(msg)
                 match subindex[0]:
                     case Expression():
-                        tmp = [result[expr_to_int(subindex[0])]]
+                        tmp = result[expr_to_int(subindex[0])]
                     case RangeDefinition():
                         tmp = [
                             result[i]

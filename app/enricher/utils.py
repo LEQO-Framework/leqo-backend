@@ -32,7 +32,7 @@ def implementation(
     return ParsedImplementationNode(id=node.id, implementation=program)
 
 
-def leqo_input(name: str, index: int, size: int) -> QubitDeclaration:
+def leqo_input(name: str, index: int, size: int | None) -> QubitDeclaration:
     """
     Creates a qubit input declaration.
 
@@ -41,7 +41,9 @@ def leqo_input(name: str, index: int, size: int) -> QubitDeclaration:
     :param size: Size of the input (in qubits)
     """
 
-    result = QubitDeclaration(Identifier(name), IntegerLiteral(size))
+    result = QubitDeclaration(
+        Identifier(name), None if size is None else IntegerLiteral(size)
+    )
     result.annotations = [Annotation("leqo.input", f"{index}")]
     return result
 
