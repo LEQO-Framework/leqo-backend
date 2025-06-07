@@ -113,6 +113,10 @@ def merge_if_nodes(
     :param then_graph: The sub-graph for the **then** case.
     :param else_graph: The sub-graph for the **else** case.
     :param condition: The condition to use in the generated :class:`openqasm3.ast.BranchingStatement`.
+    
+        :raises NotImplementedError:
+        - If the circuit attempts to return classical output from the if-then-else structure.
+        - If the outputs of the **then_graph** and **else_graph** do not match in size or qubit ordering.
     """
     if_node = then_graph.node_data[if_node_raw]
     endif_node = then_graph.node_data[endif_node_raw]
