@@ -101,7 +101,7 @@ def merge_if_nodes(
         This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-then-else,
         meaning they can not pass there value to the **endif_node**, which is outside.
         This would be required for classical outputs to work.
-        However, classical input can be used.
+        However, classical inputs can be used.
 
     - The **endif_node** from both **then_graph** and **else_graph** need to match.
         This not only true for the size of the outputs, but also for the order of the used qubit ids.
