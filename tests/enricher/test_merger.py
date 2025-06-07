@@ -228,7 +228,7 @@ async def test_merger_invalid_input_type() -> None:
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=1), 1: IntType(bit_size=32)},
+                requested_inputs={0: QubitType(reg_size=1), 1: IntType(size=32)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),

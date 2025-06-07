@@ -107,7 +107,7 @@ async def test_enrich_angle_encode_value(engine: AsyncEngine) -> None:
         bounds=0,
     )
     constraints = Constraints(
-        requested_inputs={0: IntType(bit_size=32)},
+        requested_inputs={0: IntType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -202,7 +202,7 @@ async def test_enrich_encode_value_two_inputs(engine: AsyncEngine) -> None:
         bounds=0,
     )
     constraints = Constraints(
-        requested_inputs={0: FloatType(bit_size=32), 1: IntType(bit_size=32)},
+        requested_inputs={0: FloatType(bit_size=32), 1: IntType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
@@ -246,7 +246,7 @@ async def test_enrich_encode_value_node_not_in_db(engine: AsyncEngine) -> None:
         bounds=1,
     )
     constraints = Constraints(
-        requested_inputs={0: IntType(bit_size=32)},
+        requested_inputs={0: IntType(size=32)},
         optimizeDepth=True,
         optimizeWidth=True,
     )

@@ -71,13 +71,13 @@ class SizeCastTransformer(LeqoTransformer[None]):
     """
 
     processed: ProcessedProgramNode
-    requested_sizes: dict[int, int]
+    requested_sizes: dict[int, int | None]
     name_factory: CreateUnseenNamesVisitor
 
     def __init__(
         self,
         processed: ProcessedProgramNode,
-        requested_sizes: dict[int, int],
+        requested_sizes: dict[int, int | None],
         name_factory: CreateUnseenNamesVisitor,
     ) -> None:
         super().__init__()
@@ -94,11 +94,16 @@ class SizeCastTransformer(LeqoTransformer[None]):
         return None
 
     @staticmethod
-    def raise_on_cast_to_bigger(
+    def raise_if_cast_to_bigger(
+        requested: int | None,
+        actual: int | None,
         ioinstance: QubitIOInstance | ClassicalIOInstance,
     ) -> None:
-        msg = f"Try to make {ioinstance} bigger, only smaller is possible."
-        raise UnsupportedOperation(msg)
+        if (requested is not None and actual is None) or (
+            requested is not None and actual is not None and requested > actual
+        ):
+            msg = f"Try to make {ioinstance} bigger, only smaller is possible."
+            raise UnsupportedOperation(msg)
 
     def visit_ClassicalDeclaration(
         self,
@@ -141,22 +146,26 @@ class SizeCastTransformer(LeqoTransformer[None]):
             raise RuntimeError(msg)
 
         requested = self.requested_sizes[index]
-        actual = ioinstance.type.bit_size
-        if requested > actual:
-            self.raise_on_cast_to_bigger(ioinstance)
+        actual = ioinstance.type.size
+        self.raise_if_cast_to_bigger(requested, actual, ioinstance)
 
         if requested == actual:
             return node
+        assert actual is not None
 
         old_name = node.identifier.name
         new_input_name = self.name_factory.generate_new_name(node.identifier.name)
 
         # update IO-Info in-place
         ioinstance.name = new_input_name
-        ioinstance.type = ioinstance.type.with_bit_size(requested)
+        ioinstance.type = ioinstance.type.with_size(requested)
 
         match node.type:
             case IntType() | FloatType():
+                if requested is None:
+                    msg = "can't cast int/float to None"
+                    raise UnsupportedOperation(msg)
+
                 # create new declaration with old name + size pointing to new
                 new_input_node = ClassicalDeclaration(
                     type=deepcopy(node.type),
@@ -174,28 +183,56 @@ class SizeCastTransformer(LeqoTransformer[None]):
                 ]
 
             case BitType():
+                statements: list[QASMNode] = []
+
                 # modify old node in-place (keep annotations)
                 node.identifier.name = new_input_name
-                node.type = BitType(IntegerLiteral(requested))
+                node.type = BitType(
+                    None if requested is None else IntegerLiteral(requested)
+                )
+                statements.append(node)
+
+                # if casting from array -> single: intermediate bit reg with size 1 is needed
+                bit_reg1_name: str | None = None
+                if requested is None:
+                    bit_reg1_name = self.name_factory.generate_new_name(
+                        node.identifier.name
+                    )
+                    statements.append(
+                        ClassicalDeclaration(
+                            BitType(IntegerLiteral(1)),
+                            Identifier(bit_reg1_name),
+                            Identifier(new_input_name),
+                        )
+                    )
+                    requested = 1
 
                 # create new dummy node for remaining bits
                 new_dummy_name = self.name_factory.generate_new_name(old_name)
-                new_dummy_node = ClassicalDeclaration(
-                    BitType(IntegerLiteral(actual - requested)),
-                    Identifier(new_dummy_name),
-                    None,
+                statements.append(
+                    ClassicalDeclaration(
+                        BitType(IntegerLiteral(actual - requested)),
+                        Identifier(new_dummy_name),
+                        None,
+                    )
                 )
 
                 # create alias with old name pointing to concatenation
-                new_alias = AliasStatement(
-                    target=Identifier(old_name),
-                    value=Concatenation(
-                        Identifier(new_input_name),
-                        Identifier(new_dummy_name),
-                    ),
+                statements.append(
+                    AliasStatement(
+                        target=Identifier(old_name),
+                        value=Concatenation(
+                            Identifier(new_input_name),
+                            Identifier(
+                                new_dummy_name
+                                if bit_reg1_name is None
+                                else bit_reg1_name
+                            ),
+                        ),
+                    )
                 )
 
-                return [node, new_dummy_node, new_alias]
+                return statements
 
     def visit_QubitDeclaration(
         self,
@@ -223,13 +260,24 @@ class SizeCastTransformer(LeqoTransformer[None]):
 
         requested = self.requested_sizes[index]
         ids = ioinstance.ids
-        actual = len(ids)
+        actual = len(ids) if isinstance(ids, list) else None
 
-        if requested > actual:
-            self.raise_on_cast_to_bigger(ioinstance)
+        self.raise_if_cast_to_bigger(requested, actual, ioinstance)
 
         if requested == actual:
             return node
+        assert actual is not None
+        assert isinstance(ids, list)
+
+        if requested is None:
+            msg = """\
+            Future Warning: Can't cast qubit-reg to single qubit.
+
+            This is because it is not possible to build a qubit-reg out of single qubits,
+            neither in Qiskit nor via the openqasm3 lib.
+            In the future, this might work, then it should be handled similar to classic bits.
+            """
+            raise NotImplementedError(msg)
 
         old_name = node.qubit.name
         new_input_name = self.name_factory.generate_new_name(old_name)
@@ -266,7 +314,9 @@ class SizeCastTransformer(LeqoTransformer[None]):
         return [node, new_ancilla_node, new_alias]
 
 
-def size_cast(node: ProcessedProgramNode, requested_sizes: dict[int, int]) -> None:
+def size_cast(
+    node: ProcessedProgramNode, requested_sizes: dict[int, int | None]
+) -> None:
     """Reduce the size of inputs in a node.
 
     :param node: The node to be modified in-place.

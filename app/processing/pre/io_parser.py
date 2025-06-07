@@ -26,7 +26,6 @@ from openqasm3.ast import (
 )
 
 from app.model.data_types import (
-    DEFAULT_BIT_SIZE,
     DEFAULT_FLOAT_SIZE,
     DEFAULT_INT_SIZE,
     LeqoSupportedType,
@@ -194,18 +193,27 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                         return None
                     case QubitIOInstance():
                         qubit_ids = source.ids
+                        if not isinstance(qubit_ids, list):
+                            msg = "Unsupported: Can't Index single qubit (non reg)"
+                            raise UnsupportedOperation(msg)
                         indices = parse_qasm_index([value.index], len(qubit_ids))
-                        return QubitIOInstance(name, [source.ids[i] for i in indices])
+                        return QubitIOInstance(
+                            name,
+                            [qubit_ids[i] for i in indices]
+                            if isinstance(indices, list)
+                            else qubit_ids[indices],
+                        )
                     case ClassicalIOInstance():
                         if isinstance(source.type, LeqoBitType):
+                            source_size = source.type.size
+                            if source_size is None:
+                                msg = "Unsupported: Can't Index single bit (non array)"
+                                raise UnsupportedOperation(msg)
+                            result = parse_qasm_index([value.index], source_size)
                             return ClassicalIOInstance(
                                 name,
                                 LeqoBitType(
-                                    len(
-                                        parse_qasm_index(
-                                            [value.index], source.type.bit_size
-                                        ),
-                                    )
+                                    len(result) if isinstance(result, list) else None
                                 ),
                             )
                         msg = f"Unsupported: Can't handle indexed {source.type}"
@@ -220,15 +228,21 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 rhs = self.__alias_expr_to_new_info(name, value.rhs)
                 match lhs, rhs:
                     case QubitIOInstance(ids=li), QubitIOInstance(ids=ri):
+                        if not (isinstance(li, list) and isinstance(ri, list)):
+                            msg = "Unsupported: Can't concatenate single qubits."
+                            raise UnsupportedOperation(msg)
                         return QubitIOInstance(name, li + ri)
                     case ClassicalIOInstance(), ClassicalIOInstance():
-                        if isinstance(lhs.type, LeqoBitType) and isinstance(
-                            rhs.type, LeqoBitType
+                        if (
+                            isinstance(lhs.type, LeqoBitType)
+                            and isinstance(rhs.type, LeqoBitType)
+                            and lhs.type.size is not None
+                            and rhs.type.size is not None
                         ):
                             return ClassicalIOInstance(
-                                name, LeqoBitType(lhs.type.bit_size + rhs.type.bit_size)
+                                name, LeqoBitType(lhs.type.size + rhs.type.size)
                             )
-                        msg = f"Unsupported: Can't handle concatenation of non-bit types: {lhs.type} {rhs.type}"
+                        msg = f"Unsupported: Can't concatenate non-bit-array types: {lhs.type} {rhs.type}"
                         raise UnsupportedOperation(msg)
                 return None
             case _:
@@ -274,9 +288,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         leqo_type: LeqoSupportedType
         match node.type:
             case BitType():
-                leqo_type = LeqoBitType(
-                    not_none_or(opt_call(expr_to_int, node.type.size), DEFAULT_BIT_SIZE)
-                )
+                leqo_type = LeqoBitType(opt_call(expr_to_int, node.type.size))
             case IntType():
                 leqo_type = LeqoIntType(
                     not_none_or(opt_call(expr_to_int, node.type.size), DEFAULT_INT_SIZE)
@@ -331,9 +343,14 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 msg = f"Unsupported: reusable annotation over classical {info.name}"
                 raise UnsupportedOperation(msg)
             if self.__in_uncompute:
-                self.qubit.returned_uncomputable_ids.extend(info.ids)
-            else:
+                if isinstance(info.ids, list):
+                    self.qubit.returned_uncomputable_ids.extend(info.ids)
+                else:
+                    self.qubit.returned_uncomputable_ids.append(info.ids)
+            elif isinstance(info.ids, list):
                 self.qubit.returned_reusable_ids.extend(info.ids)
+            else:
+                self.qubit.returned_reusable_ids.append(info.ids)
 
         return self.generic_visit(node)
 
@@ -387,7 +404,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 raise UnsupportedOperation(msg) from None
         for output in self.io.outputs.values():
             if isinstance(output, QubitIOInstance):
-                for qubit_id in output.ids:
+                output_ids = (
+                    output.ids if isinstance(output.ids, list) else [output.ids]
+                )
+                for qubit_id in output_ids:
                     try:
                         returned_dirty.remove(qubit_id)
                     except KeyError:

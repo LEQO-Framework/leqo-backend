@@ -18,6 +18,7 @@ from app.model.data_types import (
     QubitType as LeqoQubitType,
 )
 
+QubitID = int
 QubitIDs = list[int]
 
 LeqoNamespace = UUID("1378f1f9-b705-404b-be6a-d1b3e29236d7")
@@ -162,11 +163,11 @@ class QubitIOInstance:
     """
 
     name: str
-    ids: QubitIDs
+    ids: QubitID | QubitIDs
 
     @property
     def type(self) -> LeqoQubitType:
-        return LeqoQubitType(len(self.ids))
+        return LeqoQubitType(len(self.ids) if isinstance(self.ids, list) else None)
 
 
 @dataclass()

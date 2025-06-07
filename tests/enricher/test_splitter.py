@@ -147,7 +147,7 @@ async def test_splitter_invalid_input_type() -> None:
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),
             constraints=Constraints(
-                requested_inputs={0: IntType(bit_size=32)},
+                requested_inputs={0: IntType(size=32)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
