@@ -53,8 +53,11 @@ class MeasurementEnricherStrategy(EnricherStrategy):
 
         if not isinstance(constraints.requested_inputs[0], QubitType):
             raise ConstraintValidationException(
-                "Measurements can only have a qubit input"
+                "Measurements can only have a qubit type input"
             )
+
+        if len(node.indices) < 1:
+            raise InputValidationException("Measurements must have at least one index")
 
         input_size = constraints.requested_inputs[0].reg_size
 
