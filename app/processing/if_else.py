@@ -1,3 +1,9 @@
+"""Enrich the if-then-else node.
+
+The core logic is in :func:`app.processing.merge.merge_if_nodes`,
+this module calls this function and handles the extensive pre- and postprocessing.
+"""
+
 from collections.abc import Callable, Coroutine, Iterable
 from typing import Any
 
