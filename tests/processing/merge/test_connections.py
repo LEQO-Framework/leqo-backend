@@ -564,7 +564,7 @@ def test_raise_two_classical_outputs_into_one_input() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="^Unsupported: Multiply inputs into classical\n\nBoth _out0 and _out1\nare input to c2_i0 but only one is allowed.$",
+        match="^Unsupported: Multiple inputs into classical\n\nBoth _out0 and _out1\nare input to c2_i0 but only one is allowed.$",
     ):
         assert_connections(inputs, [], connections)
 
