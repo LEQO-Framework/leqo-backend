@@ -24,16 +24,11 @@ from app.openqasm3.printer import leqo_dumps
 from app.processing.graph import ProgramGraph
 
 REMOVE_INDENT = re.compile(r"\n +", re.MULTILINE)
-REMOVE_UUID = re.compile(r"leqo_[a-z0-9]{32}", re.MULTILINE)
 
 
 def normalize_qasm_string(program: str) -> str:
     """Normalize QASM-string."""
     return REMOVE_INDENT.sub("\n", program).strip()
-
-
-def stem_qasm_string(program: str) -> str:
-    return normalize_qasm_string(REMOVE_UUID.sub("leqo", program))
 
 
 def cast_to_program(node: QASMNode | None) -> Program:
