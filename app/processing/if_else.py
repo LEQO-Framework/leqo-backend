@@ -10,7 +10,9 @@ from typing import Any
 from openqasm3.ast import (
     AliasStatement,
     Annotation,
+    BranchingStatement,
     ClassicalDeclaration,
+    Expression,
     Identifier,
     IntegerLiteral,
     Pragma,
@@ -18,6 +20,7 @@ from openqasm3.ast import (
     QubitDeclaration,
     Statement,
 )
+from openqasm3.parser import parse
 
 from app.converter import qasm_converter
 from app.model.CompileRequest import (
@@ -31,11 +34,21 @@ from app.model.CompileRequest import (
 from app.model.data_types import ClassicalType, LeqoSupportedType, QubitType
 from app.openqasm3.printer import leqo_dumps
 from app.openqasm3.rename import simple_rename
-from app.processing.condition import parse_condition
 from app.processing.converted_graph import ConvertedProgramGraph
 from app.processing.graph import ProgramNode
 from app.processing.merge import merge_if_nodes
 from app.processing.post import postprocess
+
+
+def parse_condition(value: str) -> Expression:
+    """Parse condition used in if-then-else.
+
+    It uses a simple wrapper to leverage the parser provided by openqasm3.
+    """
+    if_else_ast = parse(f"if({value}) {{}}").statements[0]
+    if not isinstance(if_else_ast, BranchingStatement):
+        raise RuntimeError()
+    return if_else_ast.condition
 
 
 def get_pass_node_impl(requested_inputs: dict[int, LeqoSupportedType]) -> Program:
