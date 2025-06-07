@@ -22,7 +22,7 @@ from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
 from app.processing.converted_graph import ConvertedProgramGraph
 from app.processing.graph import IOConnection, ProgramNode
-from app.processing.if_else import enrich_if_else
+from app.processing.if_then_else import enrich_if_then_else
 from app.processing.merge import merge_nodes
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
@@ -107,7 +107,7 @@ class CommonProcessor:
             if isinstance(frontend_node, IfThenElseNode):
                 enriched_node: (
                     ImplementationNode | ParsedImplementationNode
-                ) = await enrich_if_else(
+                ) = await enrich_if_then_else(
                     frontend_node,
                     requested_inputs,
                     frontend_name_to_index,

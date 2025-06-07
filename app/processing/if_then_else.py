@@ -45,10 +45,10 @@ def parse_condition(value: str) -> Expression:
 
     It uses a simple wrapper to leverage the parser provided by openqasm3.
     """
-    if_else_ast = parse(f"if({value}) {{}}").statements[0]
-    if not isinstance(if_else_ast, BranchingStatement):
+    if_then_else_ast = parse(f"if({value}) {{}}").statements[0]
+    if not isinstance(if_then_else_ast, BranchingStatement):
         raise RuntimeError()
-    return if_else_ast.condition
+    return if_then_else_ast.condition
 
 
 def get_pass_node_impl(requested_inputs: dict[int, LeqoSupportedType]) -> Program:
@@ -91,7 +91,7 @@ def get_pass_node_impl(requested_inputs: dict[int, LeqoSupportedType]) -> Progra
     return Program(statements, version=qasm_converter.TARGET_QASM_VERSION)
 
 
-async def enrich_if_else(
+async def enrich_if_then_else(
     node: IfThenElseNode,
     requested_inputs: dict[int, LeqoSupportedType],
     frontend_name_to_index: dict[str, int],

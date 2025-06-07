@@ -80,7 +80,7 @@ def graph_to_statements(
         )
         for statement in implementation.statements:
             if isinstance(statement, Pragma):
-                msg = f"Can't handle pragma inside if-else: {statement}"
+                msg = f"Can't handle pragma inside if-then-else: {statement}"
                 raise UnsupportedOperation(msg)
             result.append(statement)
     return result
@@ -98,7 +98,7 @@ def merge_if_nodes(
     There are two known limitations of this implementation:
 
     - Classical outputs are not supported.
-        This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-else,
+        This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-then-else,
         meaning they can not pass there value to the **endif_node**, which is outside.
         This would be required for classical outputs to work.
         However, classical input can be used.
@@ -106,9 +106,9 @@ def merge_if_nodes(
     - The **endif_node** from both **then_graph** and **else_graph** need to match.
         This not only true for the size of the outputs, but also for the order of the used qubit ids.
 
-    :param if_node: The border node that leads into the if-else.
+    :param if_node: The border node that leads into the if-then-else.
         This node has to be in both **then_graph** and **else_graph**.
-    :param endif_node: The border node that leads out of the if-else.
+    :param endif_node: The border node that leads out of the if-then-else.
         This node has to be in both **then_graph** and **else_graph**.
     :param then_graph: The sub-graph for the **then** case.
     :param else_graph: The sub-graph for the **else** case.

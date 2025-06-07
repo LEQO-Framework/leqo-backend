@@ -18,7 +18,7 @@ from app.model.data_types import (
 from app.openqasm3.printer import leqo_dumps
 from app.processing import CommonProcessor
 from app.processing.converted_graph import ConvertedProgramGraph
-from app.processing.if_else import enrich_if_else, get_pass_node_impl
+from app.processing.if_then_else import enrich_if_then_else, get_pass_node_impl
 from app.processing.utils import normalize_qasm_string
 
 H_IMPL = """
@@ -49,13 +49,13 @@ build_graph = CommonProcessor(
 )._build_inner_graph
 
 
-async def assert_if_else_enrichment(
+async def assert_if_then_else_enrichment(
     node: IfThenElseNode,
     requested_inputs: dict[int, LeqoSupportedType],
     frontend_name_to_index: dict[str, int],
     expected: str,
 ) -> None:
-    enriched_node = await enrich_if_else(
+    enriched_node = await enrich_if_then_else(
         node, requested_inputs, frontend_name_to_index, build_graph
     )
     impl = leqo_dumps(enriched_node.implementation)
@@ -91,7 +91,7 @@ def test_pass_node_impl() -> None:
 
 @pytest.mark.asyncio
 async def test_basic() -> None:
-    await assert_if_else_enrichment(
+    await assert_if_then_else_enrichment(
         IfThenElseNode(
             id="if-node",
             condition="b == 3",
@@ -142,7 +142,7 @@ async def test_basic() -> None:
 
 @pytest.mark.asyncio
 async def test_complex_condition() -> None:
-    await assert_if_else_enrichment(
+    await assert_if_then_else_enrichment(
         IfThenElseNode(
             id="if-node",
             condition="a == 1 && (b < 1 || b >= 10) && c != 0",
