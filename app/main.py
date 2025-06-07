@@ -2,23 +2,19 @@
 All fastapi endpoints available.
 """
 
-import json
 import traceback
-from copy import deepcopy
 from datetime import UTC, datetime
-from typing import Annotated, Union, List
+from typing import Annotated
 from uuid import UUID, uuid4
 
-from anyio import sleep
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
 from starlette.responses import (
+    JSONResponse,
     PlainTextResponse,
     RedirectResponse,
-    JSONResponse,
-    Response,
 )
 
 from app.config import Settings
