@@ -76,8 +76,8 @@ def assert_if_merge(  # noqa: PLR0913 Too many arguments in function definition 
     else_graph = manual_to_graph(else_manual, if_node, endif_node)
     actual = dumps(
         merge_if_nodes(
-            if_node,
-            endif_node,
+            if_node.raw,
+            endif_node.raw,
             then_graph,
             else_graph,
             BinaryExpression(
@@ -85,7 +85,7 @@ def assert_if_merge(  # noqa: PLR0913 Too many arguments in function definition 
                 Identifier(condition_var),
                 BooleanLiteral(True),
             ),
-        ),
+        )[0],
     )
     assert normalize_qasm_string(expected) == normalize_qasm_string(actual)
 
@@ -584,45 +584,6 @@ def test_big_concatenation() -> None:
     )
 
 
-def test_future_work_classic_output() -> None:
-    with pytest.raises(
-        NotImplementedError,
-        match="Future Work: if-else can't have classical output.",
-    ):
-        assert_if_merge(
-            """
-            OPENQASM 3.1;
-            @leqo.input 0
-            bit if_b;
-            @leqo.output 0
-            let if_o0 = if_b;
-            """,
-            """
-            OPENQASM 3.1;
-            @leqo.input 0
-            bit endif_b;
-            @leqo.output 0
-            let endif_o0 = endif_b;
-            """,
-            (
-                [],
-                [
-                    ((0, 0), (1, 0)),
-                ],
-                [],
-            ),
-            (
-                [],
-                [
-                    ((0, 0), (1, 0)),
-                ],
-                [],
-            ),
-            "b",
-            "not solved what the output should be.",
-        )
-
-
 def test_future_work_endif_mismatch() -> None:
     with pytest.raises(
         NotImplementedError,
@@ -674,6 +635,129 @@ def test_future_work_endif_mismatch() -> None:
             "b",
             "not solved what the output should be.",
         )
+
+
+def test_future_work_classic_output() -> None:
+    with pytest.raises(
+        NotImplementedError,
+        match="Future Work: can't return classical output from if-then-else node",
+    ):
+        assert_if_merge(
+            """
+            OPENQASM 3.1;
+            @leqo.input 0
+            int if_i;
+            @leqo.output 0
+            let if_o0 = if_i;
+            """,
+            """
+            OPENQASM 3.1;
+            @leqo.input 0
+            int endif_i;
+            @leqo.output 0
+            let endif_o0 = endif_i;
+            """,
+            (
+                [
+                    """
+                    OPENQASM 3.1;
+                    @leqo.input 0
+                    int t0_i;
+                    t0_i = t0_i + 1;
+                    @leqo.output 0
+                    let for_endif_o0 = t0_i;
+                    """,
+                ],
+                [
+                    ((0, 0), (1, 0)),
+                    ((1, 0), (2, 0)),
+                ],
+                [],
+            ),
+            (
+                [
+                    """
+                    OPENQASM 3.1;
+                    @leqo.input 0
+                    int e0_i;
+                    e0_i = e0_i + 2;
+                    @leqo.output 0
+                    let for_endif_o0 = e0_i;
+                    """,
+                ],
+                [
+                    ((0, 0), (1, 0)),
+                    ((1, 0), (2, 0)),
+                ],
+                [],
+            ),
+            "b",
+            "not solved what the output should be.",
+        )
+
+
+def test_unconnected_classical_output_ignored() -> None:
+    assert_if_merge(
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        int if_i;
+        @leqo.output 0
+        let if_o0 = if_i;
+        """,
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        int endif_i;
+        @leqo.output 0
+        let endif_o0 = endif_i;
+        """,
+        (
+            [
+                """
+                OPENQASM 3.1;
+                @leqo.input 0
+                int t0_i;
+                t0_i = t0_i + 1;
+                """,
+            ],
+            [
+                ((0, 0), (1, 0)),
+            ],
+            [],
+        ),
+        (
+            [
+                """
+                OPENQASM 3.1;
+                @leqo.input 0
+                int e0_i;
+                e0_i = e0_i + 2;
+                """,
+            ],
+            [
+                ((0, 0), (1, 0)),
+            ],
+            [],
+        ),
+        "b",
+        """
+        OPENQASM 3.1;
+        @leqo.input 0
+        int if_i;
+        let if_o0 = if_i;
+        if (b == true) {
+          let t0_i = if_o0;
+          t0_i = t0_i + 1;
+        } else {
+          let e0_i = if_o0;
+          e0_i = e0_i + 2;
+        }
+        int endif_i;
+        @leqo.output 0
+        let endif_o0 = endif_i;
+        """,
+    )
 
 
 def test_complexer() -> None:

@@ -23,7 +23,7 @@ from app.openqasm3.ast import CommentStatement
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     ClassicalIOInstance,
-    ProcessedProgramNode,
+    IOConnection,
     ProgramGraph,
     ProgramNode,
 )
@@ -80,55 +80,76 @@ def graph_to_statements(
         )
         for statement in implementation.statements:
             if isinstance(statement, Pragma):
-                msg = f"Can't handle pragma inside if-else: {statement}"
+                msg = f"Can't handle pragma inside if-then-else: {statement}"
                 raise UnsupportedOperation(msg)
             result.append(statement)
     return result
 
 
 def merge_if_nodes(
-    if_node: ProcessedProgramNode,
-    endif_node: ProcessedProgramNode,
+    if_node_raw: ProgramNode,
+    endif_node_raw: ProgramNode,
     then_graph: ProgramGraph,
     else_graph: ProgramGraph,
     condition: Expression,
-) -> Program:
+) -> tuple[Program, int]:
     """Construct single Program with a :class:`openqasm3.ast.BranchingStatement` from two sub-graphs.
 
     There are two known limitations of this implementation:
 
     - Classical outputs are not supported.
-        This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-else,
+        This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-then-else,
         meaning they can not pass there value to the **endif_node**, which is outside.
         This would be required for classical outputs to work.
+        However, classical inputs can be used.
 
     - The **endif_node** from both **then_graph** and **else_graph** need to match.
         This not only true for the size of the outputs, but also for the order of the used qubit ids.
 
-    :param if_node: The border node that leads into the if-else.
+    :param if_node: The border node that leads into the if-then-else.
         This node has to be in both **then_graph** and **else_graph**.
-    :param endif_node: The border node that leads out of the if-else.
+    :param endif_node: The border node that leads out of the if-then-else.
         This node has to be in both **then_graph** and **else_graph**.
     :param then_graph: The sub-graph for the **then** case.
     :param else_graph: The sub-graph for the **else** case.
     :param condition: The condition to use in the generated :class:`openqasm3.ast.BranchingStatement`.
+
+        :raises NotImplementedError:
+        - If the circuit attempts to return classical output from the if-then-else structure.
+        - If the outputs of the **then_graph** and **else_graph** do not match in size or qubit ordering.
+
+    :return: merged program and total amount of qubits used (for global/if reg)
     """
-    endif_node_from_else = deepcopy(endif_node)
-    else_graph.node_data[endif_node.raw] = endif_node_from_else
+    if_node = then_graph.node_data[if_node_raw]
+    endif_node = then_graph.node_data[endif_node_raw]
+    assert if_node == else_graph.node_data[if_node_raw]
+    assert endif_node == else_graph.node_data[endif_node_raw]
+
+    forbidden_classic_input_indexes = [
+        k for k, v in endif_node.io.inputs.items() if isinstance(v, ClassicalIOInstance)
+    ]
+
+    for graph in (then_graph, else_graph):
+        for e in graph.in_edges(endif_node.raw):
+            for edge in graph.edge_data[e]:
+                if (
+                    isinstance(edge, IOConnection)
+                    and edge.target[1] in forbidden_classic_input_indexes
+                ):
+                    msg = "Future Work: can't return classical output from if-then-else node"
+                    raise NotImplementedError(msg)
+
+    endif_node_in_else = deepcopy(endif_node)
+    else_graph.node_data[endif_node_raw] = endif_node_in_else
 
     reg_name = f"leqo_{if_node.id.hex}_{IF_REG_NAME}"
     then_size = connect_qubits(then_graph, reg_name, if_node)
     else_size = connect_qubits(else_graph, reg_name, if_node)
 
-    if endif_node != endif_node_from_else:
-        # TODO: in the future, this should do something smarter
+    if endif_node != endif_node_in_else:
+        # NOTE: in the future, this should do something smarter
         msg = "Future Work: output of 'then' does not match with output of 'else'"
         raise NotImplementedError(msg)
-
-    for input in endif_node.io.inputs.values():
-        if isinstance(input, ClassicalIOInstance):
-            msg = "Future Work: if-else can't have classical output."
-            raise NotImplementedError(msg)
 
     all_statements = cast_to_program(
         RemoveAnnotationTransformer(inputs=False, outputs=True).visit(
@@ -172,7 +193,7 @@ def merge_if_nodes(
             ),
         ).statements,
     )
-    return Program(all_statements, version=OPENQASM_VERSION)
+    return Program(all_statements, version=OPENQASM_VERSION), required_size
 
 
 def merge_nodes(graph: ProgramGraph) -> Program:
