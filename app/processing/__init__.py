@@ -56,7 +56,7 @@ class CommonProcessor:
     def _resolve_inputs(
         self,
         target_node: ProgramNode,
-        frontend_name_to_index: dict[str, int],
+        frontend_name_to_index: dict[str, int] | None = None,
     ) -> dict[int, LeqoSupportedType]:
         requested_inputs: dict[int, LeqoSupportedType] = {}
         for source_node in self.graph.predecessors(target_node):
@@ -82,7 +82,7 @@ class CommonProcessor:
                 input_index = edge.target[1]
                 requested_inputs[input_index] = output.type
 
-                if edge.identifier is None:
+                if edge.identifier is None or frontend_name_to_index is None:
                     continue
 
                 frontend_name_to_index[edge.identifier] = input_index
@@ -97,14 +97,15 @@ class CommonProcessor:
         for target_node in topological_sort(self.graph):
             assert self.graph.node_data.get(target_node) is None
 
-            frontend_name_to_index: dict[str, int] = {}
-            requested_inputs = self._resolve_inputs(target_node, frontend_name_to_index)
-
             _, frontend_node = not_none(
                 self.graph.lookup(target_node.name),
                 "Lookup should contain all nodes",
             )
             if isinstance(frontend_node, IfThenElseNode):
+                frontend_name_to_index: dict[str, int] = {}
+                requested_inputs = self._resolve_inputs(
+                    target_node, frontend_name_to_index
+                )
                 enriched_node: (
                     ImplementationNode | ParsedImplementationNode
                 ) = await enrich_if_then_else(
@@ -114,6 +115,7 @@ class CommonProcessor:
                     self._build_inner_graph,
                 )
             else:
+                requested_inputs = self._resolve_inputs(target_node)
                 enriched_node = await self.enricher.enrich(
                     frontend_node,
                     Constraints(
