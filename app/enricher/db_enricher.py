@@ -15,9 +15,9 @@ from app.enricher import (
     ImplementationMetaData,
     NodeUnsupportedException,
 )
-from app.enricher.models import BaseNode
 from app.model.CompileRequest import ImplementationNode
 from app.model.CompileRequest import Node as FrontendNode
+from app.model.database_model import BaseNode
 
 
 class DataBaseEnricherStrategy(EnricherStrategy, ABC):

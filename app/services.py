@@ -25,10 +25,10 @@ from app.enricher.gates import GateEnricherStrategy
 from app.enricher.literals import LiteralEnricherStrategy
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.enricher.merger import MergerEnricherStrategy
-from app.enricher.models import Base
 from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.enricher.splitter import SplitterEnricherStrategy
+from app.model.database_model import Base
 from app.utils import not_none
 
 

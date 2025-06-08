@@ -13,8 +13,6 @@ from app.enricher import (
     InputValidationException,
 )
 from app.enricher.db_enricher import DataBaseEnricherStrategy
-from app.enricher.models import BaseNode, EncodingType, Input, InputType, NodeType
-from app.enricher.models import EncodeValueNode as EncodeNodeTable
 from app.model.CompileRequest import (
     EncodeValueNode,
 )
@@ -30,6 +28,8 @@ from app.model.data_types import (
     LeqoSupportedType,
     QubitType,
 )
+from app.model.database_model import BaseNode, EncodingType, Input, InputType, NodeType
+from app.model.database_model import EncodeValueNode as EncodeNodeTable
 
 
 class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):

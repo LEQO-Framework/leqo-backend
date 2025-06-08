@@ -13,8 +13,6 @@ from app.enricher import (
     ConstraintValidationException,
 )
 from app.enricher.db_enricher import DataBaseEnricherStrategy
-from app.enricher.models import BaseNode, Input, InputType, NodeType, OperatorType
-from app.enricher.models import OperatorNode as OperatorNodeTable
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
@@ -22,6 +20,8 @@ from app.model.CompileRequest import (
     OperatorNode,
 )
 from app.model.data_types import QubitType
+from app.model.database_model import BaseNode, Input, InputType, NodeType, OperatorType
+from app.model.database_model import OperatorNode as OperatorNodeTable
 
 
 class OperatorEnricherStrategy(DataBaseEnricherStrategy):
