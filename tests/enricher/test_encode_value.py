@@ -8,16 +8,16 @@ from app.enricher import (
     InputValidationException,
 )
 from app.enricher.encode_value import EncodeValueEnricherStrategy
-from app.enricher.models import (
+from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
+from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
+from app.model.data_types import BitType, BoolType, FloatType, IntType, QubitType
+from app.model.database_model import (
     EncodeValueNode,
     EncodingType,
     Input,
     InputType,
     NodeType,
 )
-from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
-from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
-from app.model.data_types import BitType, BoolType, FloatType, IntType, QubitType
 from tests.enricher.utils import assert_enrichments
 
 

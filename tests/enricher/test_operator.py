@@ -6,11 +6,17 @@ from app.enricher import (
     Constraints,
     ConstraintValidationException,
 )
-from app.enricher.models import Input, InputType, NodeType, OperatorNode, OperatorType
 from app.enricher.operator import OperatorEnricherStrategy
 from app.model.CompileRequest import OperatorNode as FrontendOperatorNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
 from app.model.data_types import FloatType, QubitType
+from app.model.database_model import (
+    Input,
+    InputType,
+    NodeType,
+    OperatorNode,
+    OperatorType,
+)
 from tests.enricher.utils import assert_enrichments
 
 
