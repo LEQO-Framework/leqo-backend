@@ -21,7 +21,7 @@ from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import EnrichingProcessor, MergingProcessor
-from app.services import get_result_url, get_settings, leqo_lifespan
+from app.services import get_db_engine, get_result_url, get_settings, leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
 
@@ -37,9 +37,10 @@ app.add_middleware(
 states: dict[UUID, StatusResponse] = {}
 results: dict[UUID, str | list[ImplementationNode]] = {}
 
+engine = get_db_engine()
 
 @app.post("/compile")
-def post_compile(
+async def post_compile(
     processor: Annotated[
         MergingProcessor, Depends(MergingProcessor.from_compile_request)
     ],
@@ -51,7 +52,8 @@ def post_compile(
     """
 
     uuid: UUID = uuid4()
-    states[uuid] = StatusResponse.init_status(uuid)
+    statusResponse = StatusResponse.init_status(uuid)
+    await statusResponse.addStatusResponseToDB(engine)
 
     background_tasks.add_task(process_compile_request, uuid, processor, settings)
 
@@ -74,7 +76,8 @@ async def post_enrich(
     """
 
     uuid: UUID = uuid4()
-    states[uuid] = StatusResponse.init_status(uuid)
+    statusResponse = StatusResponse.init_status(uuid)
+    await statusResponse.addStatusResponseToDB(engine)
 
     background_tasks.add_task(process_enrich_request, uuid, processor, settings)
 
@@ -112,7 +115,7 @@ def get_result(uuid: UUID) -> PlainTextResponse | JSONResponse:
         raise HTTPException(
             status_code=404, detail=f"No compile request with uuid '{uuid}' found."
         )
-
+    # Database retrival needed.
     result = results[uuid]
 
     if isinstance(result, str):
