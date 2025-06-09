@@ -26,8 +26,8 @@ from app.processing.graph import (
     ProgramGraph,
     ProgramNode,
 )
-from app.processing.if_then_else import enrich_if_then_else
 from app.processing.merge import merge_nodes
+from app.processing.nested.if_then_else import enrich_if_then_else
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
