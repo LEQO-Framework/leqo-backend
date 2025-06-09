@@ -11,6 +11,7 @@ from app.model.data_types import LeqoSupportedType
 from app.processing.frontend_graph import FrontendGraph
 from app.processing.graph import ProcessedProgramNode, ProgramGraph, ProgramNode
 from app.processing.nested.utils import generate_pass_node_implementation
+from app.processing.utils import print_frontend_graph
 
 
 async def unroll_repeat(
@@ -64,7 +65,8 @@ async def unroll_repeat(
             else:
                 iter_edge.target = (new_id(target_id), iter_edge.target[1])
             result.append_edge(iter_edge)
-            prev_id = exit_node.id
+
+        prev_id = exit_node.id
 
     result.rename_nodes({exit_node.id: node.id})
 

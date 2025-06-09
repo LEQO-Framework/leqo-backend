@@ -1,12 +1,10 @@
 import pytest
 
-from app.enricher import Enricher
 from app.model.CompileRequest import (
     Edge,
     IfThenElseNode,
     ImplementationNode,
     NestedBlock,
-    OptimizeSettings,
 )
 from app.model.data_types import (
     BitType,
@@ -15,37 +13,9 @@ from app.model.data_types import (
     QubitType,
 )
 from app.openqasm3.printer import leqo_dumps
-from app.processing import CommonProcessor
-from app.processing.frontend_graph import FrontendGraph
 from app.processing.nested.if_then_else import enrich_if_then_else
 from app.processing.utils import normalize_qasm_string
-
-H_IMPL = """
-OPENQASM 3.1;
-@leqo.input 0
-qubit[1] q;
-h q;
-@leqo.output 0
-let _out = q;
-"""
-X_IMPL = """
-OPENQASM 3.1;
-@leqo.input 0
-qubit[1] q;
-x q;
-@leqo.output 0
-let _out = q;
-"""
-
-
-class DummyOptimizeSettings(OptimizeSettings):
-    optimizeWidth = None
-    optimizeDepth = None
-
-
-build_graph = CommonProcessor(
-    Enricher(), FrontendGraph(), DummyOptimizeSettings()
-)._build_inner_graph
+from tests.processing.nested.utils import H_IMPL, X_IMPL, build_graph
 
 
 async def assert_if_then_else_enrichment(
