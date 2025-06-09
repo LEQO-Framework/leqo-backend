@@ -3,6 +3,7 @@ Provides the core logic of the backend.
 """
 
 from collections.abc import AsyncIterator
+from copy import deepcopy
 from typing import Annotated
 
 from fastapi import Depends
@@ -118,6 +119,10 @@ class CommonProcessor:
                     requested_inputs,
                     self._build_inner_graph,
                 )
+                size_cast(
+                    processed_node,
+                    {index: type.size for index, type in requested_inputs.items()},
+                )
                 for n in sub_graph.nodes:
                     self.graph.append_node(sub_graph.node_data[n])
                 for e in sub_graph.edges:
@@ -148,7 +153,7 @@ class CommonProcessor:
                         ),
                     )
                 processed_node = preprocess(
-                    ProgramNode(node), enriched_node.implementation
+                    ProgramNode(node), deepcopy(enriched_node.implementation)
                 )
                 size_cast(
                     processed_node,
