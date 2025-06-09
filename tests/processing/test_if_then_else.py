@@ -17,7 +17,7 @@ from app.model.data_types import (
 )
 from app.openqasm3.printer import leqo_dumps
 from app.processing import CommonProcessor
-from app.processing.converted_graph import ConvertedProgramGraph
+from app.processing.frontend_graph import FrontendGraph
 from app.processing.if_then_else import enrich_if_then_else, get_pass_node_impl
 from app.processing.utils import normalize_qasm_string
 
@@ -45,7 +45,7 @@ class DummyOptimizeSettings(OptimizeSettings):
 
 
 build_graph = CommonProcessor(
-    Enricher(), ConvertedProgramGraph(), DummyOptimizeSettings()
+    Enricher(), FrontendGraph(), DummyOptimizeSettings()
 )._build_inner_graph
 
 

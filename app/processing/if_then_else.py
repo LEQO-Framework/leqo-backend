@@ -34,8 +34,7 @@ from app.model.CompileRequest import (
 )
 from app.model.data_types import ClassicalType, LeqoSupportedType, QubitType
 from app.openqasm3.rename import simple_rename
-from app.processing.converted_graph import ConvertedProgramGraph
-from app.processing.graph import ProgramNode
+from app.processing.graph import ProgramGraph, ProgramNode
 from app.processing.merge import merge_if_nodes
 from app.processing.post import postprocess
 
@@ -102,7 +101,7 @@ async def enrich_if_then_else(
     frontend_name_to_index: dict[str, int],
     build_graph: Callable[
         [Iterable[FrontendNode | ParsedImplementationNode], Iterable[Edge]],
-        Coroutine[Any, Any, ConvertedProgramGraph],
+        Coroutine[Any, Any, ProgramGraph],
     ],
 ) -> ParsedImplementationNode:
     """Generate implementation for if-then-else-node.

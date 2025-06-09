@@ -7,7 +7,6 @@ from typing import Annotated
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
-from openqasm3.ast import Program
 
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
@@ -20,8 +19,13 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
-from app.processing.converted_graph import ConvertedProgramGraph
-from app.processing.graph import IOConnection, ProgramNode
+from app.processing.frontend_graph import FrontendGraph
+from app.processing.graph import (
+    IOConnection,
+    ProcessedProgramNode,
+    ProgramGraph,
+    ProgramNode,
+)
 from app.processing.if_then_else import enrich_if_then_else
 from app.processing.merge import merge_nodes
 from app.processing.optimize import optimize
@@ -39,44 +43,45 @@ class CommonProcessor:
     Handles processing a :class:`~app.processing.graph.ProgramGraph`.
     """
 
-    graph: ConvertedProgramGraph
+    frontend_graph: FrontendGraph
+    graph: ProgramGraph
     enricher: Enricher
     optimize: OptimizeSettings
+    frontend_to_processed: dict[str, ProcessedProgramNode]
 
     def __init__(
         self,
         enricher: Enricher,
-        graph: ConvertedProgramGraph,
+        frontend_graph: FrontendGraph,
         optimize_settings: OptimizeSettings,
     ) -> None:
         self.enricher = enricher
-        self.graph = graph
+        self.frontend_graph = frontend_graph
         self.optimize = optimize_settings
+        self.graph = ProgramGraph()
+        self.frontend_to_processed = {}
 
     def _resolve_inputs(
         self,
-        target_node: ProgramNode,
+        target_node: str,
         frontend_name_to_index: dict[str, int] | None = None,
     ) -> dict[int, LeqoSupportedType]:
         requested_inputs: dict[int, LeqoSupportedType] = {}
-        for source_node in self.graph.predecessors(target_node):
+        for source_node in self.frontend_graph.predecessors(target_node):
             source_node_data = not_none(
-                self.graph.node_data.get(source_node),
-                f"Node '{source_node.name}' should already be enriched",
+                self.frontend_to_processed.get(source_node),
+                f"Node '{source_node}' should already be enriched",
             )
 
             for edge in not_none(
-                self.graph.edge_data.get((source_node, target_node)),
+                self.frontend_graph.edge_data.get((source_node, target_node)),
                 "Edge should exist",
             ):
-                if not isinstance(edge, IOConnection):
-                    continue
-
                 output_index = edge.source[1]
                 output = source_node_data.io.outputs.get(output_index)
                 if output is None:  # https://github.com/python/mypy/issues/17383
                     raise Exception(
-                        f"Node '{source_node.name}' does not define an output with index {output_index}"
+                        f"Node '{source_node}' does not define an output with index {output_index}"
                     )
 
                 input_index = edge.target[1]
@@ -89,23 +94,15 @@ class CommonProcessor:
 
         return requested_inputs
 
-    async def _enrich_internal(
+    async def enrich(
         self,
-    ) -> AsyncIterator[
-        tuple[ProgramNode, ImplementationNode | ParsedImplementationNode]
-    ]:
-        for target_node in topological_sort(self.graph):
-            assert self.graph.node_data.get(target_node) is None
+    ) -> AsyncIterator[ImplementationNode | ParsedImplementationNode]:
+        for node in topological_sort(self.frontend_graph):
+            frontend_node = self.frontend_graph.node_data[node]
 
-            _, frontend_node = not_none(
-                self.graph.lookup(target_node.name),
-                "Lookup should contain all nodes",
-            )
             if isinstance(frontend_node, IfThenElseNode):
                 frontend_name_to_index: dict[str, int] = {}
-                requested_inputs = self._resolve_inputs(
-                    target_node, frontend_name_to_index
-                )
+                requested_inputs = self._resolve_inputs(node, frontend_name_to_index)
                 enriched_node: (
                     ImplementationNode | ParsedImplementationNode
                 ) = await enrich_if_then_else(
@@ -115,7 +112,7 @@ class CommonProcessor:
                     self._build_inner_graph,
                 )
             else:
-                requested_inputs = self._resolve_inputs(target_node)
+                requested_inputs = self._resolve_inputs(node)
                 enriched_node = await self.enricher.enrich(
                     frontend_node,
                     Constraints(
@@ -124,37 +121,44 @@ class CommonProcessor:
                         optimizeDepth=self.optimize.optimizeDepth is not None,
                     ),
                 )
-            processed_node = preprocess(target_node, enriched_node.implementation)
+            processed_node = preprocess(ProgramNode(node), enriched_node.implementation)
             size_cast(
                 processed_node,
                 {index: type.size for index, type in requested_inputs.items()},
             )
-            self.graph.node_data[target_node] = processed_node
+            self.frontend_to_processed[node] = processed_node
+            self.graph.append_node(processed_node)
+            for pred in self.frontend_graph.predecessors(node):
+                for edge in self.frontend_graph.edge_data[(pred, node)]:
+                    self.graph.append_edge(
+                        IOConnection(
+                            (
+                                self.frontend_to_processed[edge.source[0]].raw,
+                                edge.source[1],
+                            ),
+                            (processed_node.raw, edge.target[1]),
+                            edge.identifier,
+                            edge.size,
+                        )
+                    )
 
-            yield target_node, enriched_node
-
-    def _process_internal(self) -> Program:
-        if self.optimize.optimizeWidth is not None:
-            optimize(self.graph)
-
-        program = merge_nodes(self.graph)
-        return postprocess(program)
+            yield enriched_node
 
     async def _build_inner_graph(
         self,
         nodes: Iterable[FrontendNode | ParsedImplementationNode],
         edges: Iterable[Edge],
-    ) -> ConvertedProgramGraph:
-        graph = ConvertedProgramGraph.create(nodes, edges)
-
-        processor = CommonProcessor(self.enricher, graph, self.optimize)
-        async for _ in processor._enrich_internal():
+    ) -> ProgramGraph:
+        processor = CommonProcessor(
+            self.enricher, FrontendGraph.create(nodes, edges), self.optimize
+        )
+        async for _ in processor.enrich():
             pass
 
         if self.optimize.optimizeWidth is not None:
             optimize(self.graph)
 
-        return graph
+        return processor.graph
 
 
 class Processor(CommonProcessor):
@@ -167,21 +171,9 @@ class Processor(CommonProcessor):
         request: CompileRequest,
         enricher: Annotated[Enricher, Depends(get_enricher)],
     ) -> None:
-        graph = ConvertedProgramGraph.create(request.nodes, request.edges)
+        graph = FrontendGraph.create(request.nodes, request.edges)
 
         super().__init__(enricher, graph, request.metadata)
-
-    async def enrich(
-        self,
-    ) -> AsyncIterator[ImplementationNode | ParsedImplementationNode]:
-        """
-        Enriches the :class:`~app.model.CompileRequest`.
-
-        :return: Iteration of enriched nodes.
-        """
-
-        async for _, enriched_node in self._enrich_internal():
-            yield enriched_node
 
     async def enrich_all(self) -> list[ImplementationNode]:
         result_list: list[ImplementationNode] = []
@@ -214,8 +206,10 @@ class Processor(CommonProcessor):
         """
 
         # Enrich all nodes
-        async for _ in self._enrich_internal():
+        async for _ in self.enrich():
             pass
 
-        program = self._process_internal()
-        return leqo_dumps(program)
+        if self.optimize.optimizeWidth is not None:
+            optimize(self.graph)
+
+        return leqo_dumps(postprocess(merge_nodes(self.graph)))
