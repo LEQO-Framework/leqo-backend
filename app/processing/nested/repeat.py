@@ -11,7 +11,6 @@ from app.model.data_types import LeqoSupportedType
 from app.processing.frontend_graph import FrontendGraph
 from app.processing.graph import ProcessedProgramNode, ProgramGraph, ProgramNode
 from app.processing.nested.utils import generate_pass_node_implementation
-from app.processing.utils import print_frontend_graph
 
 
 async def unroll_repeat(
