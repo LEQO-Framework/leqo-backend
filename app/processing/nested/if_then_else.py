@@ -4,7 +4,7 @@ The core logic is in :func:`app.processing.merge.merge_if_nodes`,
 this module calls this function and handles the extensive pre- and postprocessing.
 """
 
-from collections.abc import Callable, Coroutine, Iterable
+from collections.abc import Callable, Coroutine
 from copy import deepcopy
 from typing import Any
 
@@ -16,14 +16,11 @@ from openqasm3.parser import parse
 
 from app.enricher import ParsedImplementationNode
 from app.model.CompileRequest import (
-    Edge,
     IfThenElseNode,
-)
-from app.model.CompileRequest import (
-    Node as FrontendNode,
 )
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.rename import simple_rename
+from app.processing.frontend_graph import FrontendGraph
 from app.processing.graph import ProgramGraph, ProgramNode
 from app.processing.merge import merge_if_nodes
 from app.processing.nested.utils import generate_pass_node_implementation
@@ -49,7 +46,7 @@ async def enrich_if_then_else(
     requested_inputs: dict[int, LeqoSupportedType],
     frontend_name_to_index: dict[str, int],
     build_graph: Callable[
-        [Iterable[FrontendNode | ParsedImplementationNode], Iterable[Edge]],
+        [FrontendGraph],
         Coroutine[Any, Any, ProgramGraph],
     ],
 ) -> ParsedImplementationNode:
@@ -83,11 +80,20 @@ async def enrich_if_then_else(
                 edge.target = (endif_front_node.id, edge.target[1])
 
     then_graph = await build_graph(
-        (*node.thenBlock.nodes, deepcopy(if_front_node), deepcopy(endif_front_node)),
-        node.thenBlock.edges,
+        FrontendGraph.create(
+            (
+                *node.thenBlock.nodes,
+                deepcopy(if_front_node),
+                deepcopy(endif_front_node),
+            ),
+            node.thenBlock.edges,
+        )
     )
     else_graph = await build_graph(
-        (*node.elseBlock.nodes, if_front_node, endif_front_node), node.elseBlock.edges
+        FrontendGraph.create(
+            (*node.elseBlock.nodes, if_front_node, endif_front_node),
+            node.elseBlock.edges,
+        )
     )
 
     condition = parse_condition(node.condition)

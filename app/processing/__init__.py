@@ -2,7 +2,7 @@
 Provides the core logic of the backend.
 """
 
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends
@@ -11,10 +11,10 @@ from networkx.algorithms.dag import topological_sort
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
     CompileRequest,
-    Edge,
     IfThenElseNode,
     ImplementationNode,
     OptimizeSettings,
+    RepeatNode,
 )
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
@@ -28,6 +28,7 @@ from app.processing.graph import (
 )
 from app.processing.merge import merge_nodes
 from app.processing.nested.if_then_else import enrich_if_then_else
+from app.processing.nested.repeat import unroll_repeat
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
@@ -100,34 +101,52 @@ class CommonProcessor:
         for node in topological_sort(self.frontend_graph):
             frontend_node = self.frontend_graph.node_data[node]
 
-            if isinstance(frontend_node, IfThenElseNode):
-                frontend_name_to_index: dict[str, int] = {}
-                requested_inputs = self._resolve_inputs(node, frontend_name_to_index)
-                enriched_node: (
-                    ImplementationNode | ParsedImplementationNode
-                ) = await enrich_if_then_else(
+            if isinstance(frontend_node, RepeatNode):
+                requested_inputs = self._resolve_inputs(node)
+                processed_node, exit_node, sub_graph = await unroll_repeat(
                     frontend_node,
                     requested_inputs,
-                    frontend_name_to_index,
                     self._build_inner_graph,
                 )
+                for n in sub_graph.nodes:
+                    self.graph.append_node(sub_graph.node_data[n])
+                for e in sub_graph.edges:
+                    self.graph.append_edges(*sub_graph.edge_data[e])
+                self.frontend_to_processed[node] = exit_node
             else:
-                requested_inputs = self._resolve_inputs(node)
-                enriched_node = await self.enricher.enrich(
-                    frontend_node,
-                    Constraints(
+                if isinstance(frontend_node, IfThenElseNode):
+                    frontend_name_to_index: dict[str, int] = {}
+                    requested_inputs = self._resolve_inputs(
+                        node, frontend_name_to_index
+                    )
+                    enriched_node: (
+                        ImplementationNode | ParsedImplementationNode
+                    ) = await enrich_if_then_else(
+                        frontend_node,
                         requested_inputs,
-                        optimizeWidth=self.optimize.optimizeWidth is not None,
-                        optimizeDepth=self.optimize.optimizeDepth is not None,
-                    ),
+                        frontend_name_to_index,
+                        self._build_inner_graph,
+                    )
+                else:
+                    requested_inputs = self._resolve_inputs(node)
+                    enriched_node = await self.enricher.enrich(
+                        frontend_node,
+                        Constraints(
+                            requested_inputs,
+                            optimizeWidth=self.optimize.optimizeWidth is not None,
+                            optimizeDepth=self.optimize.optimizeDepth is not None,
+                        ),
+                    )
+                processed_node = preprocess(
+                    ProgramNode(node), enriched_node.implementation
                 )
-            processed_node = preprocess(ProgramNode(node), enriched_node.implementation)
-            size_cast(
-                processed_node,
-                {index: type.size for index, type in requested_inputs.items()},
-            )
-            self.frontend_to_processed[node] = processed_node
-            self.graph.append_node(processed_node)
+                size_cast(
+                    processed_node,
+                    {index: type.size for index, type in requested_inputs.items()},
+                )
+                self.frontend_to_processed[node] = processed_node
+                self.graph.append_node(processed_node)
+
             for pred in self.frontend_graph.predecessors(node):
                 for edge in self.frontend_graph.edge_data[(pred, node)]:
                     self.graph.append_edge(
@@ -144,14 +163,8 @@ class CommonProcessor:
 
             yield enriched_node
 
-    async def _build_inner_graph(
-        self,
-        nodes: Iterable[FrontendNode | ParsedImplementationNode],
-        edges: Iterable[Edge],
-    ) -> ProgramGraph:
-        processor = CommonProcessor(
-            self.enricher, FrontendGraph.create(nodes, edges), self.optimize
-        )
+    async def _build_inner_graph(self, frontend_graph: FrontendGraph) -> ProgramGraph:
+        processor = CommonProcessor(self.enricher, frontend_graph, self.optimize)
         async for _ in processor.enrich():
             pass
 
