@@ -1,52 +1,21 @@
 import pytest
 
-from app.enricher import Enricher
 from app.model.CompileRequest import (
     Edge,
     IfThenElseNode,
     ImplementationNode,
     NestedBlock,
-    OptimizeSettings,
 )
 from app.model.data_types import (
     BitType,
-    BoolType,
     IntType,
     LeqoSupportedType,
     QubitType,
 )
 from app.openqasm3.printer import leqo_dumps
-from app.processing import CommonProcessor
-from app.processing.converted_graph import ConvertedProgramGraph
-from app.processing.if_then_else import enrich_if_then_else, get_pass_node_impl
+from app.processing.nested.if_then_else import enrich_if_then_else
 from app.processing.utils import normalize_qasm_string
-
-H_IMPL = """
-OPENQASM 3.1;
-@leqo.input 0
-qubit[1] q;
-h q;
-@leqo.output 0
-let _out = q;
-"""
-X_IMPL = """
-OPENQASM 3.1;
-@leqo.input 0
-qubit[1] q;
-x q;
-@leqo.output 0
-let _out = q;
-"""
-
-
-class DummyOptimizeSettings(OptimizeSettings):
-    optimizeWidth = None
-    optimizeDepth = None
-
-
-build_graph = CommonProcessor(
-    Enricher(), ConvertedProgramGraph(), DummyOptimizeSettings()
-)._build_inner_graph
+from tests.processing.nested.utils import H_IMPL, X_IMPL, build_graph
 
 
 async def assert_if_then_else_enrichment(
@@ -61,32 +30,6 @@ async def assert_if_then_else_enrichment(
     impl = leqo_dumps(enriched_node.implementation)
     print(impl)
     assert normalize_qasm_string(expected) == normalize_qasm_string(impl)
-
-
-def test_pass_node_impl() -> None:
-    actual = get_pass_node_impl(
-        {0: QubitType(3), 1: IntType(32), 2: BitType(4), 3: BoolType()}
-    )
-    expected = """
-        OPENQASM 3.1;
-        @leqo.input 0
-        qubit[3] pass_node_declaration_0;
-        @leqo.output 0
-        let pass_node_alias_0 = pass_node_declaration_0;
-        @leqo.input 1
-        int[32] pass_node_declaration_1;
-        @leqo.output 1
-        let pass_node_alias_1 = pass_node_declaration_1;
-        @leqo.input 2
-        bit[4] pass_node_declaration_2;
-        @leqo.output 2
-        let pass_node_alias_2 = pass_node_declaration_2;
-        @leqo.input 3
-        bool pass_node_declaration_3;
-        @leqo.output 3
-        let pass_node_alias_3 = pass_node_declaration_3;
-        """
-    assert normalize_qasm_string(expected) == normalize_qasm_string(leqo_dumps(actual))
 
 
 @pytest.mark.asyncio

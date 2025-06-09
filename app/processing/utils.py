@@ -6,7 +6,6 @@ import re
 from io import UnsupportedOperation
 from typing import TypeVar
 
-from networkx import topological_sort
 from openqasm3.ast import (
     Annotation,
     DiscreteSet,
@@ -21,6 +20,7 @@ from openqasm3.ast import (
 )
 
 from app.openqasm3.printer import leqo_dumps
+from app.processing.frontend_graph import FrontendGraph
 from app.processing.graph import ProgramGraph
 
 REMOVE_INDENT = re.compile(r"\n +", re.MULTILINE)
@@ -152,13 +152,27 @@ def parse_qasm_index(index: list[IndexElement], length: int) -> list[int] | int:
     return result
 
 
-def print_graph(graph: ProgramGraph) -> None:
+def print_program_graph(graph: ProgramGraph) -> None:
     print("\n=== Nodes ===")
     node_index = {}
-    for i, node in enumerate(topological_sort(graph)):
+    for i, node in enumerate(graph.nodes):
         node_index[node] = i
         print(f"== Node {i} ==")
         print(leqo_dumps(graph.node_data[node].implementation))
+
+    print("\n=== Edges ===")
+    for source, target in graph.edges:
+        i, j = node_index[source], node_index[target]
+        print(f"== Edge {i} -> {j} ==")
+        print(graph.edge_data[(source, target)])
+
+
+def print_frontend_graph(graph: FrontendGraph) -> None:
+    print("\n=== Nodes ===")
+    node_index = {}
+    for i, node in enumerate(graph.nodes):
+        node_index[node] = i
+        print(f"Node {i}: {node} with {graph.node_data[node]}")
 
     print("\n=== Edges ===")
     for source, target in graph.edges:
