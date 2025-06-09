@@ -41,7 +41,11 @@ TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 
 class CommonProcessor:
     """
-    Handles processing a :class:`~app.processing.graph.ProgramGraph`.
+    Process a :class:`app.processing.frontend_graph.FrontendGraph` to a :class:`~app.processing.graph.ProgramGraph`.
+
+    :param enricher: The enricher to use to get node implementations
+    :frontend_graph: The graph to process
+    :optimize_settings: Specify how to optimize the result
     """
 
     frontend_graph: FrontendGraph
@@ -67,6 +71,9 @@ class CommonProcessor:
         target_node: str,
         frontend_name_to_index: dict[str, int] | None = None,
     ) -> dict[int, LeqoSupportedType]:
+        """
+        Get inputs of current node from previous processed nodes.
+        """
         requested_inputs: dict[int, LeqoSupportedType] = {}
         for source_node in self.frontend_graph.predecessors(target_node):
             source_node_data = not_none(
@@ -98,6 +105,9 @@ class CommonProcessor:
     async def enrich(
         self,
     ) -> AsyncIterator[ImplementationNode | ParsedImplementationNode]:
+        """
+        Yield enriched and processed nodes in a topological sort.
+        """
         for node in topological_sort(self.frontend_graph):
             frontend_node = self.frontend_graph.node_data[node]
 
@@ -164,6 +174,14 @@ class CommonProcessor:
             yield enriched_node
 
     async def _build_inner_graph(self, frontend_graph: FrontendGraph) -> ProgramGraph:
+        """
+        Convert :class:`app.processing.frontend_graph.FrontendGraph` to :class:`~app.processing.graph.ProgramGraph`.
+
+        This is used as dependency injection for nested nodes.
+
+        :param frontend_graph: The graph to transform
+        :return: the enriched + preprocessed graph
+        """
         processor = CommonProcessor(self.enricher, frontend_graph, self.optimize)
         async for _ in processor.enrich():
             pass
@@ -217,8 +235,6 @@ class Processor(CommonProcessor):
 
         :return: The final QASM program as a string.
         """
-
-        # Enrich all nodes
         async for _ in self.enrich():
             pass
 

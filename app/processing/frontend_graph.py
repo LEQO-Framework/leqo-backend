@@ -68,6 +68,7 @@ class FrontendGraph(FrontendGraphBase):
         nodes: Iterable[TBaseNode],
         edges: Iterable[Edge],
     ) -> FrontendGraph:
+        """Build graph from nodes + edges."""
         graph = FrontendGraph()
         for node in nodes:
             graph.append_node(node)

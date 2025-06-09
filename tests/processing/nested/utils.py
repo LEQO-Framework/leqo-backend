@@ -1,4 +1,5 @@
 from app.enricher import Enricher
+from app.enricher.gates import GateEnricherStrategy
 from app.model.CompileRequest import OptimizeSettings
 from app.processing import CommonProcessor
 from app.processing.frontend_graph import FrontendGraph
@@ -27,5 +28,9 @@ class DummyOptimizeSettings(OptimizeSettings):
 
 
 build_graph = CommonProcessor(
-    Enricher(), FrontendGraph(), DummyOptimizeSettings()
+    Enricher(
+        GateEnricherStrategy(),
+    ),
+    FrontendGraph(),
+    DummyOptimizeSettings(),
 )._build_inner_graph

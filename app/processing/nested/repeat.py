@@ -21,7 +21,13 @@ async def unroll_repeat(
         Coroutine[Any, Any, ProgramGraph],
     ],
 ) -> tuple[ProcessedProgramNode, ProcessedProgramNode, ProgramGraph]:
-    if node.iterations < 1:
+    """Unroll and enrich the repeat node.
+
+    :param node: The node to enrich
+    :param requested_inputs: The inputs for that node
+    :return: The unrolled + enriched graph and the border nodes of this graph
+    """
+    if node.iterations < 1:  # should have been checked by fastapi
         msg = f"RepeatNode can't have {node.iterations} < 1 iterations."
         raise UnsupportedOperation(msg)
 
