@@ -357,5 +357,4 @@ An uncompute block is marked explicitly, as shown below:
     // @leqo.uncompute end
 
 .. note::
-    * Every line of the uncompute block must start with ``//``
-    * A uncompute block must start with ``// @leqo.uncompute start`` and end with ``// @leqo.uncompute end``
+    A uncompute block must start with ``// @leqo.uncompute start`` and end with ``// @leqo.uncompute end``
