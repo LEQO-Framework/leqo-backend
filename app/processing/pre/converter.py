@@ -16,7 +16,7 @@ and integrating necessary gate definitions from external libraries.
 
 .. warning::
 
-   **Custom gates only for OpenQASM 2.x** CustomOpenqamsLib's have no effect if the code is already OpenQASM 3.x.
+   **Custom gates only for OpenQASM 2.x** CustomOpenqasmLib's have no effect if the code is already OpenQASM 3.x.
 
 ..note::
     **Used OpenQASM version: 3.1** If the code is OpenQASM 2.x, it will be converted
@@ -58,7 +58,7 @@ LIB_REPLACEMENTS = {"qelib1.inc": "stdgates.inc"}
 TARGET_QASM_VERSION = "3.1"
 
 
-class CustomOpenqamsLib:
+class CustomOpenqasmLib:
     """Encapsulates an OpenQASM 3.x-compatible gate library for custom gate resolution.
 
     Used to provide gate definitions (e.g., from qelib1.inc) that can be injected into
@@ -95,7 +95,7 @@ class ApplyCustomGates(LeqoTransformer[None]):
     3. Inserts required gate definitions and imports into the AST.
     """
 
-    libs: dict[str, CustomOpenqamsLib]
+    libs: dict[str, CustomOpenqasmLib]
     lib_replacements: dict[str, str]
     gates: dict[str, QuantumGateDefinition]
     require_gates: set[str]
@@ -103,7 +103,7 @@ class ApplyCustomGates(LeqoTransformer[None]):
 
     def __init__(
         self,
-        custom_libs: dict[str, CustomOpenqamsLib],
+        custom_libs: dict[str, CustomOpenqasmLib],
         lib_replacements: dict[str, str],
     ) -> None:
         """Initialize the visitor with libraries and replacement rules.
@@ -166,32 +166,34 @@ class QASMConverter:
     """Main interface for converting OpenQASM 2.x into OpenQASM 3.1 ASTs.
 
     If the input code is already in OpenQASM 3.x, it is returned as-is (after parsing).
-    Custom libraries for legacy gates can be provided via `CustomOpenqamsLib` and will be
+    Custom libraries for legacy gates can be provided via `CustomOpenqasmLib` and will be
     injected automatically.
     """
 
-    custom_libs: dict[str, CustomOpenqamsLib]
+    custom_libs: dict[str, CustomOpenqasmLib]
 
-    def add_custom_gate_lib(self, lib: CustomOpenqamsLib) -> None:
+    def add_custom_gate_lib(self, lib: CustomOpenqasmLib) -> None:
         """Append custom lib to internal data.
 
         :param lib: The custom gate library to add.
         """
         self.custom_libs[lib.name] = lib
 
-    def __init__(self, custom_libs: list[CustomOpenqamsLib] | None = None) -> None:
+    def __init__(self, custom_libs: list[CustomOpenqasmLib] | None = None) -> None:
         """Initialize the QASMConverter with optional external OpenQASM files for unsupported gates.
 
-        :param custom_libs: List of CustomOpenqamsLib's containing additional gate definitions.
+        :param custom_libs: List of CustomOpenqasmLib's containing additional gate definitions.
         """
         self.custom_libs = {}
         if custom_libs is not None:
             for lib in custom_libs:
                 self.add_custom_gate_lib(lib)
         with (
-            Path(__file__).absolute().parent / "qasm_lib" / "qasm3_qelib1.qasm"
+            Path(__file__).absolute().parent
+            / "qasm_lib_for_converter"
+            / "qasm3_qelib1.qasm"
         ).open() as f:
-            self.add_custom_gate_lib(CustomOpenqamsLib("qelib1.inc", f.read()))
+            self.add_custom_gate_lib(CustomOpenqasmLib("qelib1.inc", f.read()))
 
     def parse_to_qasm3(self, qasm2_code: str) -> Program:
         """Convert entire OpenQASM 2.x code to OpenQASM 3.1 AST or return parsed OpenQASM 3.x. directly
@@ -242,3 +244,17 @@ class QASMConverter:
         return cast_to_program(
             ApplyCustomGates(self.custom_libs, LIB_REPLACEMENTS).visit(result),
         )
+
+
+def parse_to_openqasm3(
+    code: str,
+    custom_libs: list[CustomOpenqasmLib] | None = None,
+) -> Program:
+    """Parse an OpenQASM 2.x/3.x string to an equivalent OpenQASM 3.1 AST.
+
+    :param code: The code-string to be parsed and converted if required.
+    :param custom_libs: An optional list of custom provided libraries. "qelib1.inc" is builtin.
+    :return: The converted/parsed OpenQASM 3.1 AST.
+    """
+    custom_libs = [] if custom_libs is None else custom_libs
+    return QASMConverter(custom_libs).parse_to_qasm3(code)
