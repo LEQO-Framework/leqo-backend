@@ -114,6 +114,23 @@ The annotation specifies the index of the corresponding input.
     @leqo.input 0
     qubit someName;
 
+OpenQASM 2
+~~~~~~~~~~
+
+Input annotations in OpenQASM 2 are expressed using comment syntax:
+
+.. code-block:: openqasm2
+    :linenos:
+
+    // @leqo.input 0
+    qreg someName;
+
+    // @leqo.input 1
+    qreg someOtherName[3];
+
+.. note::
+    All constraints mentioned above for OpenQASM 3 also apply here
+
 .. _input-memory-layout:
 
 Memory Layout
@@ -182,6 +199,24 @@ The annotation specifies the index of the corresponding output.
     Even if the ouput alias is not used in code, an alias must be defined to mark qubits as linking qubits.
     The identifier is insignificant.
 
+OpenQASM 2
+~~~~~~~~~~
+
+OpenQASM 2 does not support aliases.
+As a result, output annotations must include both the annotation and alias in comments:
+
+.. code-block:: openqasm2
+    :linenos:
+
+    qreg a[4];
+    qreg b[3];
+
+    // @leqo.output 0
+    // let outputQubits = a[0:2] ++ b[{1, 2}];
+
+.. note::
+    All constraints mentioned above for OpenQASM 3 also apply here
+
 .. _reusable-qubit-annotation:
 
 Reusable Ancillae
@@ -216,6 +251,20 @@ To do so, one can declare an alias to the reusable qubits.
     Even if the reusable alias is not used in code, an alias must be defined to mark qubits as reusable.
     The identifier is insignificant.
 
+OpenQASM 2
+~~~~~~~~~~
+
+As with outputs, reusable annotations must be fully written as comments:
+
+.. code-block:: openqasm2
+    :linenos:
+
+    // @leqo.reusable
+    // let ancillaOut = a[0];
+
+.. note::
+    All constraints mentioned above for OpenQASM 3 also apply here
+
 Entangled & Dirty Ancillae
 --------------------------
 If qubits are used within a snippet and are not annotated with either ``@leqo.output`` or ``@leqo.reusable``,
@@ -246,6 +295,20 @@ To use dirty ancillae within a snippet, the programmer must explicitly opt in by
     @leqo.dirty
     qubit[<<length>>] dirtyAncillaArray;
 
+OpenQASM 2
+~~~~~~~~~~
+
+Dirty qubits in OpenQASM 2 follow the same pattern with standalone comments:
+
+.. code-block:: openqasm2
+    :linenos:
+
+    // @leqo.dirty
+    qreg dirtyTemp[2];
+
+.. note::
+    All constraints mentioned above for OpenQASM 3 also apply here
+
 Uncomputation
 -------------
 When modified clean ancillae or linking qubits can be uncomputed, the programmer may provide an explicit uncomputation block to allow for safe reuse of those qubits.
@@ -273,26 +336,25 @@ A qubit annotated with ``@leqo.reusable`` within such a block is referred to as 
 
     @leqo.uncompute
     if (false) {
-        // some uncompute operation
+        h reusable1; // some uncompute operation
 
         @leqo.reusable
-        let reusable1 = dirtyAncilla1
+        let reusable1 = dirtyAncilla1;
     }
 
-QASM 2
-~~~~~~
+OpenQASM 2
+~~~~~~~~~~
 An uncompute block is marked explicitly, as shown below:
 
 .. code-block:: openqasm2
     :linenos:
 
     // @leqo.uncompute start
-    // someUncomputeOperation
-    //
+    h reusable1; // some uncompute operation
+    
     // @leqo.reusable
-    // let reusable1 = dirtyAncilla1
+    // let reusable1 = dirtyAncilla1;
     // @leqo.uncompute end
 
 .. note::
-    * Every line of the uncompute block must start with ``//``
-    * A uncompute block must start with ``// @leqo.uncompute start`` and end with ``// @leqo.uncompute end``
+    A uncompute block must start with ``// @leqo.uncompute start`` and end with ``// @leqo.uncompute end``
