@@ -274,6 +274,7 @@ class EnrichingProcessor(CommonProcessor):
                         implementation=leqo_dumps(enriched.implementation),
                     )
                 )
+                yield enriched_node
 
             processed_node = preprocess(ProgramNode(node), enriched_node.implementation)
             size_cast(
@@ -281,8 +282,6 @@ class EnrichingProcessor(CommonProcessor):
                 {index: type.size for index, type in requested_inputs.items()},
             )
             self.frontend_to_processed[node] = processed_node
-
-            yield enriched_node
 
     async def enrich_all(self) -> list[ImplementationNode]:
         return [x async for x in self.enrich()]
