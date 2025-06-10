@@ -233,17 +233,32 @@ class EnrichingProcessor(CommonProcessor):
             ),
         )
 
+    def _process_node(
+        self,
+        enriched_node: ImplementationNode,
+        requested_inputs: dict[int, LeqoSupportedType],
+    ) -> None:
+        processed_node = preprocess(
+            ProgramNode(enriched_node.id), enriched_node.implementation
+        )
+        size_cast(
+            processed_node,
+            {index: type.size for index, type in requested_inputs.items()},
+        )
+        self.frontend_to_processed[enriched_node.id] = processed_node
+
     async def _enrich_inner_block(
         self, node: FrontendNode, block: NestedBlock
     ) -> AsyncIterator[ImplementationNode]:
         """Yield enrichments for nodes in inner block."""
         frontend_graph = FrontendGraph.create([*block.nodes, node], block.edges)
-        for pred in frontend_graph.predecessors(node.id):
-            frontend_graph.remove_edge(node.id, pred)
+        for pred in list(frontend_graph.predecessors(node.id)):
+            frontend_graph.remove_edge(pred, node.id)
 
         processor = EnrichingProcessor(self.enricher, frontend_graph, self.optimize)
-        async for enrichment in processor.enrich():
-            yield enrichment
+        async for enriched_node in processor.enrich():
+            if enriched_node.id != node.id:
+                yield enriched_node
 
     async def enrich(
         self,
@@ -253,46 +268,43 @@ class EnrichingProcessor(CommonProcessor):
             frontend_node = self.frontend_graph.node_data[node]
             requested_inputs = self._resolve_inputs(node)
 
-            if isinstance(frontend_node, RepeatNode):
-                enriched_node = self._get_dummy_enrichment(node, requested_inputs)
-                async for enrichment in self._enrich_inner_block(
-                    enriched_node, frontend_node.block
-                ):
-                    yield enrichment
-            elif isinstance(frontend_node, IfThenElseNode):
-                enriched_node = self._get_dummy_enrichment(node, requested_inputs)
-                for block in (frontend_node.thenBlock, frontend_node.elseBlock):
-                    async for enrichment in self._enrich_inner_block(
-                        enriched_node, block
+            match frontend_node:
+                case RepeatNode():
+                    border_node = self._get_dummy_enrichment(node, requested_inputs)
+                    self._process_node(border_node, requested_inputs)
+                    async for enriched_node in self._enrich_inner_block(
+                        border_node, frontend_node.block
                     ):
-                        yield enrichment
-            else:
-                requested_inputs = self._resolve_inputs(node)
-                enriched = await self.enricher.enrich(
-                    frontend_node,
-                    Constraints(
-                        requested_inputs,
-                        optimizeWidth=self.optimize.optimizeWidth is not None,
-                        optimizeDepth=self.optimize.optimizeDepth is not None,
-                    ),
-                )
-                enriched_node = (
-                    enriched
-                    if isinstance(enriched, ImplementationNode)
-                    else ImplementationNode(
-                        id=enriched.id,
-                        label=enriched.label,
-                        implementation=leqo_dumps(enriched.implementation),
+                        yield enriched_node
+                case IfThenElseNode():
+                    border_node = self._get_dummy_enrichment(node, requested_inputs)
+                    self._process_node(border_node, requested_inputs)
+                    for block in (frontend_node.thenBlock, frontend_node.elseBlock):
+                        async for enriched_node in self._enrich_inner_block(
+                            border_node, block
+                        ):
+                            yield enriched_node
+                case _:
+                    requested_inputs = self._resolve_inputs(node)
+                    enriched = await self.enricher.enrich(
+                        frontend_node,
+                        Constraints(
+                            requested_inputs,
+                            optimizeWidth=self.optimize.optimizeWidth is not None,
+                            optimizeDepth=self.optimize.optimizeDepth is not None,
+                        ),
                     )
-                )
-                yield enriched_node
-
-            processed_node = preprocess(ProgramNode(node), enriched_node.implementation)
-            size_cast(
-                processed_node,
-                {index: type.size for index, type in requested_inputs.items()},
-            )
-            self.frontend_to_processed[node] = processed_node
+                    enriched_node = (
+                        enriched
+                        if isinstance(enriched, ImplementationNode)
+                        else ImplementationNode(
+                            id=enriched.id,
+                            label=enriched.label,
+                            implementation=leqo_dumps(enriched.implementation),
+                        )
+                    )
+                    self._process_node(enriched_node, requested_inputs)
+                    yield enriched_node
 
     async def enrich_all(self) -> list[ImplementationNode]:
         """Get list of all enrichments."""

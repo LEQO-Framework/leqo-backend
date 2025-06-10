@@ -1,0 +1,81 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "qubit" },
+      {
+        "id": "newNode1",
+        "type": "gate",
+        "gate": "h"
+      },
+      { "id": "newNode2", "type": "measure", "indices": [0] },
+      {
+        "id": "newNode3",
+        "type": "if-then-else",
+        "condition": "x == 1",
+        "thenBlock": {
+          "nodes": [
+            {
+              "id": "newNode4",
+              "type": "gate",
+              "gate": "x"
+            }
+          ],
+          "edges": [
+            { "source": ["newNode4", 0], "target": ["newNode3", 1] },
+            { "source": ["newNode3", 1], "target": ["newNode4", 0] }
+          ]
+        },
+        "elseBlock": {
+          "nodes": [],
+          "edges": [{ "source": ["newNode3", 1], "target": ["newNode3", 1] }]
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": ["newNode2", 0],
+        "target": ["newNode3", 0],
+        "identifier": "x"
+      },
+      {
+        "source": ["newNode2", 1],
+        "target": ["newNode3", 1]
+      },
+      { "source": ["newNode1", 0], "target": ["newNode2", 0] },
+      { "source": ["newNode0", 0], "target": ["newNode1", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |
+  [
+    {
+      "id": "newNode0",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+    },
+    {
+      "id": "newNode1",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nh q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    },
+    {
+      "id": "newNode2",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[1] q;\nbit[1] result = measure q[{0}];\n@leqo.output 0\nlet out = result;\n@leqo.output 1\nlet qubit_out = q;\n"
+    },
+    {
+      "id": "newNode4",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nx q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    }
+  ]

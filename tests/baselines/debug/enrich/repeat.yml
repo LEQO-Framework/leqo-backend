@@ -1,0 +1,79 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "Repeat",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "q0", "type": "qubit" },
+      { "id": "q1", "type": "qubit" },
+      { "id": "int", "type": "int", "value": 42 },
+      {
+        "id": "repeat",
+        "type": "repeat",
+        "iterations": 3,
+        "block": {
+          "nodes": [
+            { "id": "h", "type": "gate", "gate": "h" },
+            { "id": "h2", "type": "gate", "gate": "h" }
+          ],
+          "edges": [
+            { "source": ["repeat", 0], "target": ["h", 0] },
+            { "source": ["h", 0], "target": ["repeat", 1] },
+            { "source": ["repeat", 1], "target": ["h2", 0] },
+            { "source": ["h2", 0], "target": ["repeat", 0] },
+            { "source": ["repeat", 2], "target": ["repeat", 2] }
+          ]
+        }
+      },
+      { "id": "h3", "type": "gate", "gate": "h" }
+    ],
+    "edges": [
+      { "source": ["q0", 0], "target": ["repeat", 0] },
+      { "source": ["q1", 0], "target": ["repeat", 1] },
+      { "source": ["int", 0], "target": ["repeat", 2] },
+      { "source": ["repeat", 0], "target": ["h3", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |
+  [
+    {
+      "id": "q0",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+    },
+    {
+      "id": "q1",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+    },
+    {
+      "id": "int",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nint[32] literal = 42;\n@leqo.output 0\nlet out = literal;\n"
+    },
+    {
+      "id": "h",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nh q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    },
+    {
+      "id": "h2",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nh q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    },
+    {
+      "id": "h3",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nh q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    }
+  ]

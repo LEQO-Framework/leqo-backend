@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -7,6 +8,10 @@ from starlette.testclient import TestClient
 
 from app.main import app
 from tests.baselines import find_files
+
+
+def prettify_json(s: str) -> str:
+    return json.dumps(json.loads(s), indent=2)
 
 
 @pytest.fixture(scope="session")
@@ -39,4 +44,23 @@ def test_debug_compile_success(test: DebugCompileBaseline, client: TestClient) -
 
     # Check body first to see why the status_code assertion may fail
     assert response.text == test.expected_result
+    assert response.status_code == test.expected_status
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(TEST_DIR / "debug" / "enrich", DebugCompileBaseline),
+)
+def test_debug_enrich_success(test: DebugCompileBaseline, client: TestClient) -> None:
+    response = client.post(
+        "/debug/enrich",
+        headers={"Content-Type": "application/json"},
+        content=test.request,
+    )
+
+    pretty_text = prettify_json(response.text)
+    print(pretty_text)
+
+    # Check body first to see why the status_code assertion may fail
+    assert pretty_text == prettify_json(test.expected_result)
     assert response.status_code == test.expected_status
