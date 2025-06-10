@@ -29,6 +29,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinxcontrib.openapi",
     "autoapi.extension",
+    "sphinxcontrib.mermaid",
 ]
 
 # https://sphinx-autoapi.readthedocs.io/en/latest/reference/config.html

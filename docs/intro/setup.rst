@@ -1,0 +1,46 @@
+Setup
+=====
+
+The LEQO-Backend is provided as a docker-image to allow for a simple setup.
+
+To get started install `Docker Compose <https://docs.docker.com/compose/install/>`_ and follow the instructions below.
+
+#. Create a directory for your project
+    .. code-block:: shell
+
+        mkdir leqo
+        cd leqo
+
+#. Create a `compose.yml` file
+    .. code-block:: yaml
+
+        name: LEQO
+        services:
+            backend-db:
+                image: postgres:latest
+                environment:
+                    POSTGRES_USER: leqo
+                    POSTGRES_PASSWORD: secure_password
+            backend:
+                image: ghcr.io/leqo-framework/leqo-backend:main
+                environment:
+                    POSTGRES_USER: leqo
+                    POSTGRES_PASSWORD: secure_password
+                    POSTGRES_DB: qasm
+                    POSTGRES_PORT: 5432
+                    POSTGRES_HOST: backend-db
+                    SQLALCHEMY_DRIVER: postgresql+psycopg
+                ports:
+                    - 127.0.0.1:8000:80
+            frontend:
+                image: ghcr.io/leqo-framework/low-code-modeler:main
+                ports:
+                    - 127.0.0.1:80:4242
+
+#. Start project
+    .. code-block:: shell
+
+        docker compose up -d
+
+#. Open frontend in the browser
+    `localhost:80 <http://127.0.0.1:80>`_
