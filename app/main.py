@@ -20,7 +20,7 @@ from starlette.responses import (
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
-from app.processing import Processor
+from app.processing import EnrichmentProcessor, Processor
 from app.services import get_result_url, get_settings, leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
@@ -61,7 +61,7 @@ def post_compile(
 
 @app.post("/enrich")
 async def post_enrich(
-    processor: Annotated[Processor, Depends()],
+    processor: Annotated[EnrichmentProcessor, Depends()],
     background_tasks: BackgroundTasks,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> RedirectResponse:
@@ -157,7 +157,7 @@ async def process_compile_request(
 
 async def process_enrich_request(
     uuid: UUID,
-    processor: Processor,
+    processor: EnrichmentProcessor,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
     """
@@ -208,7 +208,7 @@ async def post_debug_compile(processor: Annotated[Processor, Depends()]) -> str:
 
 @app.post("/debug/enrich")
 async def post_debug_enrich(
-    processor: Annotated[Processor, Depends()],
+    processor: Annotated[EnrichmentProcessor, Depends()],
 ) -> list[ImplementationNode] | str:
     """
     Enriches all nodes in the compile request in one request.
