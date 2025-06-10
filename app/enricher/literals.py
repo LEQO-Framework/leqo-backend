@@ -27,7 +27,6 @@ from app.enricher import (
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
-    NodeUnsupportedException,
 )
 from app.enricher.utils import implementation, leqo_output
 from app.model.CompileRequest import (
@@ -48,7 +47,7 @@ class LiteralEnricherStrategy(EnricherStrategy):
     """
 
     @override
-    def _enrich_impl(
+    def _enrich_impl(  # noqa PLR0911 Too many return statements
         self, node: FrontendNode, constraints: Constraints | None
     ) -> EnrichmentResult | list[EnrichmentResult]:
         if constraints is not None and len(constraints.requested_inputs) != 0:
@@ -132,4 +131,4 @@ class LiteralEnricherStrategy(EnricherStrategy):
                     ),
                     ImplementationMetaData(width=0, depth=1),
                 )
-        raise NodeUnsupportedException(node)
+        return []
