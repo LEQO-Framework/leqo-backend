@@ -7,11 +7,11 @@ from app.enricher import (
     ConstraintValidationException,
     InputValidationException,
 )
-from app.enricher.models import NodeType, PrepareStateNode, QuantumStateType
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
 from app.model.data_types import FloatType
+from app.model.database_model import NodeType, PrepareStateNode, QuantumStateType
 from tests.enricher.utils import assert_enrichments
 
 
