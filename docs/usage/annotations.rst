@@ -350,8 +350,8 @@ An uncompute block is marked explicitly, as shown below:
     :linenos:
 
     // @leqo.uncompute start
-    // someUncomputeOperation
-    //
+    h reusable1; // some uncompute operation
+    
     // @leqo.reusable
     // let reusable1 = dirtyAncilla1;
     // @leqo.uncompute end
