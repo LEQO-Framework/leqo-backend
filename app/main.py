@@ -20,7 +20,7 @@ from starlette.responses import (
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
-from app.processing import Processor
+from app.processing import EnrichingProcessor, MergingProcessor
 from app.services import get_result_url, get_settings, leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
@@ -40,7 +40,9 @@ results: dict[UUID, str | list[ImplementationNode]] = {}
 
 @app.post("/compile")
 def post_compile(
-    processor: Annotated[Processor, Depends()],
+    processor: Annotated[
+        MergingProcessor, Depends(MergingProcessor.from_compile_request)
+    ],
     background_tasks: BackgroundTasks,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> RedirectResponse:
@@ -61,7 +63,9 @@ def post_compile(
 
 @app.post("/enrich")
 async def post_enrich(
-    processor: Annotated[Processor, Depends()],
+    processor: Annotated[
+        EnrichingProcessor, Depends(EnrichingProcessor.from_compile_request)
+    ],
     background_tasks: BackgroundTasks,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> RedirectResponse:
@@ -119,7 +123,7 @@ def get_result(uuid: UUID) -> PlainTextResponse | JSONResponse:
 
 async def process_compile_request(
     uuid: UUID,
-    processor: Processor,
+    processor: MergingProcessor,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
     """
@@ -157,7 +161,7 @@ async def process_compile_request(
 
 async def process_enrich_request(
     uuid: UUID,
-    processor: Processor,
+    processor: EnrichingProcessor,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
     """
@@ -192,7 +196,11 @@ async def process_enrich_request(
 
 
 @app.post("/debug/compile", response_class=PlainTextResponse)
-async def post_debug_compile(processor: Annotated[Processor, Depends()]) -> str:
+async def post_debug_compile(
+    processor: Annotated[
+        MergingProcessor, Depends(MergingProcessor.from_compile_request)
+    ],
+) -> str:
     """
     Compiles the request to an openqasm3 program in one request.
     No redirects and no polling of different endpoints needed.
@@ -208,7 +216,9 @@ async def post_debug_compile(processor: Annotated[Processor, Depends()]) -> str:
 
 @app.post("/debug/enrich")
 async def post_debug_enrich(
-    processor: Annotated[Processor, Depends()],
+    processor: Annotated[
+        EnrichingProcessor, Depends(EnrichingProcessor.from_compile_request)
+    ],
 ) -> list[ImplementationNode] | str:
     """
     Enriches all nodes in the compile request in one request.

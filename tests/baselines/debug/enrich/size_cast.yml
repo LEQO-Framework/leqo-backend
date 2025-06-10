@@ -1,0 +1,65 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "qubit" },
+      { "id": "newNode1", "type": "qubit" },
+      { "id": "newNode2", "type": "qubit" },
+      { "id": "newNode3", "type": "merger", "numberInputs": "3" },
+      {
+        "id": "newNode5",
+        "type": "implementation",
+        "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[5] q;"
+      }
+    ],
+    "edges": [
+      {
+        "source": ["newNode3", 0],
+        "target": ["newNode5", 0],
+        "identifier": null,
+        "size": 1
+      },
+      { "source": ["newNode2", 0], "target": ["newNode3", 2] },
+      { "source": ["newNode1", 0], "target": ["newNode3", 1] },
+      { "source": ["newNode0", 0], "target": ["newNode3", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |
+  [
+    {
+      "id": "newNode0",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+    },
+    {
+      "id": "newNode1",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+    },
+    {
+      "id": "newNode2",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+    },
+    {
+      "id": "newNode3",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[1] merger_input_0;\n@leqo.input 1\nqubit[1] merger_input_1;\n@leqo.input 2\nqubit[1] merger_input_2;\n@leqo.output 0\nlet merger_output = merger_input_0 ++ merger_input_1 ++ merger_input_2;\n"
+    },
+    {
+      "id": "newNode5",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[5] q;"
+    }
+  ]

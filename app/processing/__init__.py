@@ -1,9 +1,10 @@
-"""
-Provides the core logic of the backend.
-"""
+"""Provides the core logic of the backend."""
+
+from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from copy import deepcopy
+from io import UnsupportedOperation
 from typing import Annotated
 
 from fastapi import Depends
@@ -14,6 +15,7 @@ from app.model.CompileRequest import (
     CompileRequest,
     IfThenElseNode,
     ImplementationNode,
+    NestedBlock,
     OptimizeSettings,
     RepeatNode,
 )
@@ -30,6 +32,7 @@ from app.processing.graph import (
 from app.processing.merge import merge_nodes
 from app.processing.nested.if_then_else import enrich_if_then_else
 from app.processing.nested.repeat import unroll_repeat
+from app.processing.nested.utils import generate_pass_node_implementation
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
@@ -41,8 +44,7 @@ TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 
 
 class CommonProcessor:
-    """
-    Process a :class:`app.processing.frontend_graph.FrontendGraph` to a :class:`~app.processing.graph.ProgramGraph`.
+    """Process a :class:`app.processing.frontend_graph.FrontendGraph`.
 
     :param enricher: The enricher to use to get node implementations
     :frontend_graph: The graph to process
@@ -72,9 +74,7 @@ class CommonProcessor:
         target_node: str,
         frontend_name_to_index: dict[str, int] | None = None,
     ) -> dict[int, LeqoSupportedType]:
-        """
-        Get inputs of current node from previous processed nodes.
-        """
+        """Get inputs of current node from previous processed nodes."""
         requested_inputs: dict[int, LeqoSupportedType] = {}
         for source_node in self.frontend_graph.predecessors(target_node):
             source_node_data = not_none(
@@ -89,9 +89,8 @@ class CommonProcessor:
                 output_index = edge.source[1]
                 output = source_node_data.io.outputs.get(output_index)
                 if output is None:  # https://github.com/python/mypy/issues/17383
-                    raise Exception(
-                        f"Node '{source_node}' does not define an output with index {output_index}"
-                    )
+                    msg = f"Node '{source_node}' does not define an output with index {output_index}"
+                    raise UnsupportedOperation(msg)
 
                 input_index = edge.target[1]
                 requested_inputs[input_index] = output.type
@@ -103,12 +102,20 @@ class CommonProcessor:
 
         return requested_inputs
 
-    async def enrich(
-        self,
-    ) -> AsyncIterator[ImplementationNode | ParsedImplementationNode]:
-        """
-        Yield enriched and processed nodes in a topological sort.
-        """
+
+class MergingProcessor(CommonProcessor):
+    """Process request with the whole pipeline."""
+
+    @staticmethod
+    def from_compile_request(
+        request: CompileRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+    ) -> MergingProcessor:
+        graph = FrontendGraph.create(request.nodes, request.edges)
+        return MergingProcessor(enricher, graph, request.metadata)
+
+    async def process_nodes(self) -> None:
+        """Process graph by enriching and preprocessing the nodes."""
         for node in topological_sort(self.frontend_graph):
             frontend_node = self.frontend_graph.node_data[node]
 
@@ -176,61 +183,24 @@ class CommonProcessor:
                         )
                     )
 
-            yield enriched_node
-
     async def _build_inner_graph(self, frontend_graph: FrontendGraph) -> ProgramGraph:
-        """
-        Convert :class:`app.processing.frontend_graph.FrontendGraph` to :class:`~app.processing.graph.ProgramGraph`.
+        """Convert :class:`app.processing.frontend_graph.FrontendGraph` to :class:`~app.processing.graph.ProgramGraph`.
 
         This is used as dependency injection for nested nodes.
 
         :param frontend_graph: The graph to transform
         :return: the enriched + preprocessed graph
         """
-        processor = CommonProcessor(self.enricher, frontend_graph, self.optimize)
-        async for _ in processor.enrich():
-            pass
+        processor = MergingProcessor(self.enricher, frontend_graph, self.optimize)
+        await processor.process_nodes()
 
         if self.optimize.optimizeWidth is not None:
             optimize(self.graph)
 
         return processor.graph
 
-
-class Processor(CommonProcessor):
-    """
-    Handles processing a :class:`~app.model.CompileRequest.CompileRequest`.
-    """
-
-    def __init__(
-        self,
-        request: CompileRequest,
-        enricher: Annotated[Enricher, Depends(get_enricher)],
-    ) -> None:
-        graph = FrontendGraph.create(request.nodes, request.edges)
-
-        super().__init__(enricher, graph, request.metadata)
-
-    async def enrich_all(self) -> list[ImplementationNode]:
-        result_list: list[ImplementationNode] = []
-
-        for enriched in [x async for x in self.enrich()]:
-            if isinstance(enriched, ParsedImplementationNode):
-                result_list.append(
-                    ImplementationNode(
-                        id=enriched.id,
-                        label=enriched.label,
-                        implementation=leqo_dumps(enriched.implementation),
-                    )
-                )
-            else:
-                result_list.append(enriched)
-
-        return result_list
-
     async def process(self) -> str:
-        """
-        Process the :class:`~app.model.CompileRequest`.
+        """Process the :class:`~app.model.CompileRequest`.
 
         #. Enrich frontend nodes.
         #. :meth:`~app.processing.pre.preprocess` frontend nodes.
@@ -240,10 +210,108 @@ class Processor(CommonProcessor):
 
         :return: The final QASM program as a string.
         """
-        async for _ in self.enrich():
-            pass
+        await self.process_nodes()
 
         if self.optimize.optimizeWidth is not None:
             optimize(self.graph)
 
         return leqo_dumps(postprocess(merge_nodes(self.graph)))
+
+
+class EnrichingProcessor(CommonProcessor):
+    """Return enrichment for all nodes."""
+
+    @staticmethod
+    def from_compile_request(
+        request: CompileRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+    ) -> EnrichingProcessor:
+        graph = FrontendGraph.create(request.nodes, request.edges)
+        return EnrichingProcessor(enricher, graph, request.metadata)
+
+    def _get_dummy_enrichment(
+        self, node_id: str, requested_inputs: dict[int, LeqoSupportedType]
+    ) -> ImplementationNode:
+        return ImplementationNode(
+            id=node_id,
+            implementation=leqo_dumps(
+                generate_pass_node_implementation(requested_inputs)
+            ),
+        )
+
+    def _process_node(
+        self,
+        enriched_node: ImplementationNode,
+        requested_inputs: dict[int, LeqoSupportedType],
+    ) -> None:
+        processed_node = preprocess(
+            ProgramNode(enriched_node.id), enriched_node.implementation
+        )
+        size_cast(
+            processed_node,
+            {index: type.size for index, type in requested_inputs.items()},
+        )
+        self.frontend_to_processed[enriched_node.id] = processed_node
+
+    async def _enrich_inner_block(
+        self, node: FrontendNode, block: NestedBlock
+    ) -> AsyncIterator[ImplementationNode]:
+        """Yield enrichments for nodes in inner block."""
+        frontend_graph = FrontendGraph.create([*block.nodes, node], block.edges)
+        for pred in list(frontend_graph.predecessors(node.id)):
+            frontend_graph.remove_edge(pred, node.id)
+
+        processor = EnrichingProcessor(self.enricher, frontend_graph, self.optimize)
+        async for enriched_node in processor.enrich():
+            if enriched_node.id != node.id:
+                yield enriched_node
+
+    async def enrich(
+        self,
+    ) -> AsyncIterator[ImplementationNode]:
+        """Yield enrichment of nodes."""
+        for node in topological_sort(self.frontend_graph):
+            frontend_node = self.frontend_graph.node_data[node]
+            requested_inputs = self._resolve_inputs(node)
+
+            match frontend_node:
+                case RepeatNode():
+                    border_node = self._get_dummy_enrichment(node, requested_inputs)
+                    self._process_node(border_node, requested_inputs)
+                    async for enriched_node in self._enrich_inner_block(
+                        border_node, frontend_node.block
+                    ):
+                        yield enriched_node
+                case IfThenElseNode():
+                    border_node = self._get_dummy_enrichment(node, requested_inputs)
+                    self._process_node(border_node, requested_inputs)
+                    for block in (frontend_node.thenBlock, frontend_node.elseBlock):
+                        async for enriched_node in self._enrich_inner_block(
+                            border_node, block
+                        ):
+                            yield enriched_node
+                case _:
+                    requested_inputs = self._resolve_inputs(node)
+                    enriched = await self.enricher.enrich(
+                        frontend_node,
+                        Constraints(
+                            requested_inputs,
+                            optimizeWidth=self.optimize.optimizeWidth is not None,
+                            optimizeDepth=self.optimize.optimizeDepth is not None,
+                        ),
+                    )
+                    enriched_node = (
+                        enriched
+                        if isinstance(enriched, ImplementationNode)
+                        else ImplementationNode(
+                            id=enriched.id,
+                            label=enriched.label,
+                            implementation=leqo_dumps(enriched.implementation),
+                        )
+                    )
+                    self._process_node(enriched_node, requested_inputs)
+                    yield enriched_node
+
+    async def enrich_all(self) -> list[ImplementationNode]:
+        """Get list of all enrichments."""
+        return [x async for x in self.enrich()]

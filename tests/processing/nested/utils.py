@@ -1,7 +1,7 @@
 from app.enricher import Enricher
 from app.enricher.gates import GateEnricherStrategy
 from app.model.CompileRequest import OptimizeSettings
-from app.processing import CommonProcessor
+from app.processing import MergingProcessor
 from app.processing.frontend_graph import FrontendGraph
 
 H_IMPL = """
@@ -27,7 +27,7 @@ class DummyOptimizeSettings(OptimizeSettings):
     optimizeDepth = None
 
 
-build_graph = CommonProcessor(
+build_graph = MergingProcessor(
     Enricher(
         GateEnricherStrategy(),
     ),
