@@ -208,7 +208,7 @@ class MergingProcessor(CommonProcessor):
         return leqo_dumps(postprocess(merge_nodes(self.graph)))
 
 
-class Processor(MergingProcessor):
+class MergingProcessorService(MergingProcessor):
     """Handles processing a :class:`~app.model.CompileRequest.CompileRequest`."""
 
     def __init__(
@@ -311,7 +311,7 @@ class EnrichingProcessor(CommonProcessor):
         return [x async for x in self.enrich()]
 
 
-class EnrichmentProcessor(EnrichingProcessor):
+class EnrichingProcessorService(EnrichingProcessor):
     """Handles processing a :class:`~app.model.CompileRequest.CompileRequest`."""
 
     def __init__(
