@@ -1,4 +1,4 @@
-"""Convert **OpenQASM 2.x/3.x** code into an **OpenQASM 3.x** AST.
+"""Convert **OpenQASM 2.x/3.x** code into an **OpenQASM 3.1** AST.
 
 The conversion process includes handling unsupported gates, transforming obsolete syntax
 and integrating necessary gate definitions from external libraries.
@@ -7,7 +7,7 @@ and integrating necessary gate definitions from external libraries.
 
    **Comment Removal:** All single-line (`//`)
    and multi-line (`/* */`) comments will be **permanently removed** during the conversion process.
-   Ensure that important notes or documentation within the QASM code are backed up separately.
+   Ensure that important notes or documentation within the OpenQASM code are backed up separately.
 
 .. warning::
 
@@ -26,9 +26,9 @@ and integrating necessary gate definitions from external libraries.
 Key Features
 ------------
 
-- **Automated QASM Conversion**: Seamlessly converts QASM 2.x code into valid QASM 3.1 format.
+- **Automated OpenQASM Conversion**: Seamlessly converts OpenQASM 2.x code into valid OpenQASM 3.1 format.
 - **Unsupported Gate Management**: Detects and provides definitions for gates specified in "qelib1.inc".
-- **Library Integration**: Incorporates additional QASM gate definitions from provided strings.
+- **Library Integration**: Incorporates additional OpenQASM gate definitions from provided strings.
 """
 
 import re
@@ -59,14 +59,17 @@ TARGET_QASM_VERSION = "3.1"
 
 
 class CustomOpenqamsLib:
-    """OpenQASM3 library for providing gates used in OpenQASM2.x."""
+    """Encapsulates an OpenQASM 3.x-compatible gate library for custom gate resolution.
+
+    Used to provide gate definitions (e.g., from qelib1.inc) that can be injected into
+    converted OpenQASM 2.x code. Only gate definitions (`QuantumGateDefinition`) are retained."""
 
     name: str
     content: str
     gates: list[QuantumGateDefinition]
 
     def __init__(self, name: str, content: str) -> None:
-        """Construct CustomOpenqamsLib.
+        """Initialize the custom gate library
 
         :param name: The name of the module.
         :param content: The custom gate definitions in OpenQASM 3.x as string.
@@ -84,7 +87,13 @@ class QASMConversionError(Exception):
 
 
 class ApplyCustomGates(LeqoTransformer[None]):
-    """Visitor to replace gates provided by custom libraries."""
+    """AST visitor that injects custom gate definitions and filters include statements.
+
+    This visitor:
+    1. Tracks which gate definitions from the custom libs are actually used.
+    2. Replaces outdated `include` directives (e.g., `qelib1.inc`) if provided as custom libs.
+    3. Inserts required gate definitions and imports into the AST.
+    """
 
     libs: dict[str, CustomOpenqamsLib]
     lib_replacements: dict[str, str]
@@ -97,10 +106,10 @@ class ApplyCustomGates(LeqoTransformer[None]):
         custom_libs: dict[str, CustomOpenqamsLib],
         lib_replacements: dict[str, str],
     ) -> None:
-        """Construct ApplyCustomGates.
+        """Initialize the visitor with libraries and replacement rules.
 
-        :param custom_libs: Dictionary of custom libs to use.
-        :param lib_replacements: lib-names to be replaced inside include statements (e.g. qelib1.inc -> stdgates.inc)
+        :param custom_libs: Dictionary of custom libraries with gate definitions.
+        :param lib_replacements: Mapping of include lib-names to replacements (e.g. qelib1.inc -> stdgates.inc)
         """
         super().__init__()
         self.libs = custom_libs
@@ -113,8 +122,21 @@ class ApplyCustomGates(LeqoTransformer[None]):
         self.require_gates = set()
         self.includes = {}
 
+    def visit_QuantumGate(self, node: QuantumGate) -> QASMNode:
+        """Search for usages of custom declared gates.
+
+        :param node: Quantum gate AST node.
+        """
+        name = node.name.name
+        if name in self.gates:
+            self.require_gates.add(name)
+        return self.generic_visit(node)
+
     def visit_Include(self, node: Include) -> None:
-        """Remove and store required includes, possible modify via lib_replacements."""
+        """Remove and store required includes, possible modify via lib_replacements.
+
+        :param node: The include node from the OpenQASM AST.
+        """
         name = node.filename
         if name in self.lib_replacements:
             node.filename = self.lib_replacements[name]
@@ -122,19 +144,14 @@ class ApplyCustomGates(LeqoTransformer[None]):
         elif name not in self.libs:
             self.includes[name] = node
 
-    def visit_QuantumGate(self, node: QuantumGate) -> QASMNode:
-        """Search for usages of custom declared gates."""
-        name = node.name.name
-        if name in self.gates:
-            self.require_gates.add(name)
-        return self.generic_visit(node)
-
     def visit_Program(self, node: Program) -> QASMNode:
         """Apply the visitor.
 
         1. Remove imports + gather info
         2. Add required (possible imports) back
         3. Insert definitions of custom gates
+
+        :return: The modified program node with injected gates and imports.
         """
         self.generic_visit(node)
         node.statements = (
@@ -146,16 +163,24 @@ class ApplyCustomGates(LeqoTransformer[None]):
 
 
 class QASMConverter:
-    """Convert QASM 2.x code to QASM 3.1 AST or return parsed OpenQASM 3.x. directly"""
+    """Main interface for converting OpenQASM 2.x into OpenQASM 3.1 ASTs.
+
+    If the input code is already in OpenQASM 3.x, it is returned as-is (after parsing).
+    Custom libraries for legacy gates can be provided via `CustomOpenqamsLib` and will be
+    injected automatically.
+    """
 
     custom_libs: dict[str, CustomOpenqamsLib]
 
     def add_custom_gate_lib(self, lib: CustomOpenqamsLib) -> None:
-        """Append custom lib to internal data."""
+        """Append custom lib to internal data.
+
+        :param lib: The custom gate library to add.
+        """
         self.custom_libs[lib.name] = lib
 
     def __init__(self, custom_libs: list[CustomOpenqamsLib] | None = None) -> None:
-        """Initialize the QASMConverter with optional external QASM files for unsupported gates.
+        """Initialize the QASMConverter with optional external OpenQASM files for unsupported gates.
 
         :param custom_libs: List of CustomOpenqamsLib's containing additional gate definitions.
         """
@@ -169,25 +194,25 @@ class QASMConverter:
             self.add_custom_gate_lib(CustomOpenqamsLib("qelib1.inc", f.read()))
 
     def parse_to_qasm3(self, qasm2_code: str) -> Program:
-        """Convert entire QASM 2.x code to QASM 3.1 AST or return parsed OpenQASM 3.x. directly
+        """Convert entire OpenQASM 2.x code to OpenQASM 3.1 AST or return parsed OpenQASM 3.x. directly
 
-        Warning: All comments present in the given QASM code will be removed!!!
+        Warning: All comments present in the given OpenQASM code will be removed!!!
 
-        This method processes a QASM 2.x/3.x program, transforming it into valid QASM 3.x.
+        This method processes a OpenQASM 2.x/3.x program, transforming it into valid OpenQASM 3.x.
         The conversion process includes the following steps:
 
-        1. Check for opaque, raise error if there
+        1. Check for opaque, raise error when found
         2. Parse into AST
         3. If version 3.x, return AST
-        4. If neither version 3.x or 2.x, raise error
+        4. If neither version 3.x nor 2.x, raise error
         5. Set version 3.1
         6. Include gates from custom libs, replace/remove obsolete imports
 
-        :param qasm2_code: A string containing QASM 2.x/3.x code to be converted.
+        :param qasm2_code: A string containing OpenQASM 2.x/3.x code to be converted.
 
         :return: AST in OpenQASM 3.x format.
 
-        :raises QASMConversionError: If any line contains an unsupported QASM version or library or opaque was used.
+        :raises QASMConversionError: If any line contains an unsupported OpenQASM version, library or opaque was used.
         """
         opaque = OPAQUE_STATEMENT_PATTERN.findall(qasm2_code)
         if len(opaque) != 0:
