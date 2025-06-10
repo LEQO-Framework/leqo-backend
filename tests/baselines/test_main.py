@@ -9,6 +9,8 @@ from starlette.testclient import TestClient
 from app.main import app
 from tests.baselines import find_files
 
+SUCCESS_CODE = 200
+
 
 def prettify_json(s: str) -> str:
     return json.dumps(json.loads(s), indent=2)
@@ -20,7 +22,7 @@ def client() -> Iterator[TestClient]:
         yield client
 
 
-class DebugCompileBaseline(BaseModel):
+class DebugBaseline(BaseModel):
     request: str
     expected_status: int
     expected_result: str
@@ -31,9 +33,9 @@ TEST_DIR = Path(__file__).parent
 
 @pytest.mark.parametrize(
     "test",
-    find_files(TEST_DIR / "debug" / "compile", DebugCompileBaseline),
+    find_files(TEST_DIR / "debug" / "compile", DebugBaseline),
 )
-def test_debug_compile_success(test: DebugCompileBaseline, client: TestClient) -> None:
+def test_debug_compile(test: DebugBaseline, client: TestClient) -> None:
     response = client.post(
         "/debug/compile",
         headers={"Content-Type": "application/json"},
@@ -49,9 +51,9 @@ def test_debug_compile_success(test: DebugCompileBaseline, client: TestClient) -
 
 @pytest.mark.parametrize(
     "test",
-    find_files(TEST_DIR / "debug" / "enrich", DebugCompileBaseline),
+    find_files(TEST_DIR / "debug" / "enrich", DebugBaseline),
 )
-def test_debug_enrich_success(test: DebugCompileBaseline, client: TestClient) -> None:
+def test_debug_enrich(test: DebugBaseline, client: TestClient) -> None:
     response = client.post(
         "/debug/enrich",
         headers={"Content-Type": "application/json"},
@@ -60,7 +62,7 @@ def test_debug_enrich_success(test: DebugCompileBaseline, client: TestClient) ->
 
     assert response.status_code == test.expected_status
 
-    if response.status_code == 200:
+    if response.status_code == SUCCESS_CODE:
         pretty_text = prettify_json(response.text)
         print(pretty_text)
         assert pretty_text == prettify_json(test.expected_result)
