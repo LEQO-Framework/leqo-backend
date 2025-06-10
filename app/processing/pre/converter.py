@@ -164,7 +164,9 @@ class QASMConverter:
             for lib in custom_libs:
                 self.add_custom_gate_lib(lib)
         with (
-            Path(__file__).absolute().parent / "qasm_lib" / "qasm3_qelib1.qasm"
+            Path(__file__).absolute().parent
+            / "qasm_lib_for_converter"
+            / "qasm3_qelib1.qasm"
         ).open() as f:
             self.add_custom_gate_lib(CustomOpenqasmLib("qelib1.inc", f.read()))
 
@@ -217,3 +219,17 @@ class QASMConverter:
         return cast_to_program(
             ApplyCustomGates(self.custom_libs, LIB_REPLACEMENTS).visit(result),
         )
+
+
+def parse_to_openqasm3(
+    code: str,
+    custom_libs: list[CustomOpenqasmLib] | None = None,
+) -> Program:
+    """Parse an Openqasm2.x/3.x string to an equivalent Openqasm3.1 AST.
+
+    :param code: The code-string to be parsed and converted if required.
+    :param custom_libs: An optional list of custom provided libraries. "qelib1.inc" is builtin.
+    :return: The converted/parsed Openqasm 3 AST.
+    """
+    custom_libs = [] if custom_libs is None else custom_libs
+    return QASMConverter(custom_libs).parse_to_qasm3(code)
