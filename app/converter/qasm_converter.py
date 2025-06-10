@@ -1,4 +1,4 @@
-"""Convert **OpenQASM 2.x/3.x** code into an **OpenQASM 3.1** AST.
+"""Convert **OpenQASM 2.x/3.x** code into an **OpenQASM 3.x** AST.
 
 The conversion process includes handling unsupported gates, transforming obsolete syntax
 and integrating necessary gate definitions from external libraries.
@@ -26,9 +26,9 @@ and integrating necessary gate definitions from external libraries.
 Key Features
 ------------
 
-- **Automated OpenQASM Conversion**: Seamlessly converts OpenQASM 2.x code into valid OpenQASM 3.1 format.
+- **Automated QASM Conversion**: Seamlessly converts QASM 2.x code into valid QASM 3.1 format.
 - **Unsupported Gate Management**: Detects and provides definitions for gates specified in "qelib1.inc".
-- **Library Integration**: Incorporates additional OpenQASM gate definitions from provided strings.
+- **Library Integration**: Incorporates additional QASM gate definitions from provided strings.
 """
 
 import re
@@ -59,10 +59,7 @@ TARGET_QASM_VERSION = "3.1"
 
 
 class CustomOpenqamsLib:
-    """Encapsulates an OpenQASM 3.x-compatible gate library for custom gate resolution.
-
-    Used to provide gate definitions (e.g., from qelib1.inc) that can be injected into
-    converted OpenQASM 2.x code. Only gate definitions (`QuantumGateDefinition`) are retained."""
+    """OpenQASM3 library for providing gates used in OpenQASM2.x."""
 
     name: str
     content: str
