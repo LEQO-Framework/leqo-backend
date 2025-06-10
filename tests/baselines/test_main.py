@@ -58,9 +58,11 @@ def test_debug_enrich_success(test: DebugCompileBaseline, client: TestClient) ->
         content=test.request,
     )
 
-    pretty_text = prettify_json(response.text)
-    print(pretty_text)
-
-    # Check body first to see why the status_code assertion may fail
-    assert pretty_text == prettify_json(test.expected_result)
     assert response.status_code == test.expected_status
+
+    if response.status_code == 200:
+        pretty_text = prettify_json(response.text)
+        print(pretty_text)
+        assert pretty_text == prettify_json(test.expected_result)
+    else:
+        assert response.text == test.expected_result
