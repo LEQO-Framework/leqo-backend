@@ -16,7 +16,7 @@ and integrating necessary gate definitions from external libraries.
 
 .. warning::
 
-   **Custom gates only for OpenQASM 2.x** CustomOpenqamsLib's have no effect if the code is already OpenQASM 3.x.
+   **Custom gates only for OpenQASM 2.x** CustomOpenqasmLib's have no effect if the code is already OpenQASM 3.x.
 
 ..note::
     **Used OpenQASM version: 3.1** If the code is OpenQASM 2.x, it will be converted
@@ -58,7 +58,7 @@ LIB_REPLACEMENTS = {"qelib1.inc": "stdgates.inc"}
 TARGET_QASM_VERSION = "3.1"
 
 
-class CustomOpenqamsLib:
+class CustomOpenqasmLib:
     """OpenQASM3 library for providing gates used in OpenQASM2.x."""
 
     name: str
@@ -66,7 +66,7 @@ class CustomOpenqamsLib:
     gates: list[QuantumGateDefinition]
 
     def __init__(self, name: str, content: str) -> None:
-        """Construct CustomOpenqamsLib.
+        """Construct CustomOpenqasmLib.
 
         :param name: The name of the module.
         :param content: The custom gate definitions in OpenQASM 3.x as string.
@@ -86,7 +86,7 @@ class QASMConversionError(Exception):
 class ApplyCustomGates(LeqoTransformer[None]):
     """Visitor to replace gates provided by custom libraries."""
 
-    libs: dict[str, CustomOpenqamsLib]
+    libs: dict[str, CustomOpenqasmLib]
     lib_replacements: dict[str, str]
     gates: dict[str, QuantumGateDefinition]
     require_gates: set[str]
@@ -94,7 +94,7 @@ class ApplyCustomGates(LeqoTransformer[None]):
 
     def __init__(
         self,
-        custom_libs: dict[str, CustomOpenqamsLib],
+        custom_libs: dict[str, CustomOpenqasmLib],
         lib_replacements: dict[str, str],
     ) -> None:
         """Construct ApplyCustomGates.
@@ -148,16 +148,16 @@ class ApplyCustomGates(LeqoTransformer[None]):
 class QASMConverter:
     """Convert QASM 2.x code to QASM 3.1 AST or return parsed OpenQASM 3.x. directly"""
 
-    custom_libs: dict[str, CustomOpenqamsLib]
+    custom_libs: dict[str, CustomOpenqasmLib]
 
-    def add_custom_gate_lib(self, lib: CustomOpenqamsLib) -> None:
+    def add_custom_gate_lib(self, lib: CustomOpenqasmLib) -> None:
         """Append custom lib to internal data."""
         self.custom_libs[lib.name] = lib
 
-    def __init__(self, custom_libs: list[CustomOpenqamsLib] | None = None) -> None:
+    def __init__(self, custom_libs: list[CustomOpenqasmLib] | None = None) -> None:
         """Initialize the QASMConverter with optional external QASM files for unsupported gates.
 
-        :param custom_libs: List of CustomOpenqamsLib's containing additional gate definitions.
+        :param custom_libs: List of CustomOpenqasmLib's containing additional gate definitions.
         """
         self.custom_libs = {}
         if custom_libs is not None:
@@ -166,7 +166,7 @@ class QASMConverter:
         with (
             Path(__file__).absolute().parent / "qasm_lib" / "qasm3_qelib1.qasm"
         ).open() as f:
-            self.add_custom_gate_lib(CustomOpenqamsLib("qelib1.inc", f.read()))
+            self.add_custom_gate_lib(CustomOpenqasmLib("qelib1.inc", f.read()))
 
     def parse_to_qasm3(self, qasm2_code: str) -> Program:
         """Convert entire QASM 2.x code to QASM 3.1 AST or return parsed OpenQASM 3.x. directly

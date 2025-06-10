@@ -1,11 +1,11 @@
 from openqasm3.ast import Program
 
-from app.converter.qasm_converter import CustomOpenqamsLib, QASMConverter
+from app.converter.qasm_converter import CustomOpenqasmLib, QASMConverter
 
 
 def parse_to_openqasm3(
     code: str,
-    custom_libs: list[CustomOpenqamsLib] | None = None,
+    custom_libs: list[CustomOpenqasmLib] | None = None,
 ) -> Program:
     """Parse an Openqasm2.x/3.x string to an equivalent Openqasm3.1 AST.
 
