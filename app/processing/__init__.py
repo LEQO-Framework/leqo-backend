@@ -221,14 +221,6 @@ class Processor(MergingProcessor):
 class EnrichingProcessor(CommonProcessor):
     """Return enrichment for all nodes in a :class:`~app.model.CompileRequest.CompileRequest`."""
 
-    async def _enrich_inner_block(
-        self, block: NestedBlock
-    ) -> AsyncIterator[ImplementationNode]:
-        frontend_graph = FrontendGraph.create(block.nodes, block.edges)
-        processor = EnrichingProcessor(self.enricher, frontend_graph, self.optimize)
-        async for enrichment in processor.enrich():
-            yield enrichment
-
     def _get_dummy_enrichment(
         self, node_id: str, requested_inputs: dict[int, LeqoSupportedType]
     ) -> ImplementationNode:
@@ -239,6 +231,17 @@ class EnrichingProcessor(CommonProcessor):
             ),
         )
 
+    async def _enrich_inner_block(
+        self, node: FrontendNode, block: NestedBlock
+    ) -> AsyncIterator[ImplementationNode]:
+        frontend_graph = FrontendGraph.create([*block.nodes, node], block.edges)
+        for pred in frontend_graph.predecessors(node.id):
+            frontend_graph.remove_edge(node.id, pred)
+
+        processor = EnrichingProcessor(self.enricher, frontend_graph, self.optimize)
+        async for enrichment in processor.enrich():
+            yield enrichment
+
     async def enrich(
         self,
     ) -> AsyncIterator[ImplementationNode]:
@@ -247,14 +250,18 @@ class EnrichingProcessor(CommonProcessor):
             requested_inputs = self._resolve_inputs(node)
 
             if isinstance(frontend_node, RepeatNode):
-                async for enrichment in self._enrich_inner_block(frontend_node.block):
+                enriched_node = self._get_dummy_enrichment(node, requested_inputs)
+                async for enrichment in self._enrich_inner_block(
+                    enriched_node, frontend_node.block
+                ):
                     yield enrichment
-                enriched_node = self._get_dummy_enrichment(node, requested_inputs)
             elif isinstance(frontend_node, IfThenElseNode):
-                for block in (frontend_node.thenBlock, frontend_node.elseBlock):
-                    async for enrichment in self._enrich_inner_block(block):
-                        yield enrichment
                 enriched_node = self._get_dummy_enrichment(node, requested_inputs)
+                for block in (frontend_node.thenBlock, frontend_node.elseBlock):
+                    async for enrichment in self._enrich_inner_block(
+                        enriched_node, block
+                    ):
+                        yield enrichment
             else:
                 requested_inputs = self._resolve_inputs(node)
                 enriched = await self.enricher.enrich(
