@@ -1,5 +1,7 @@
 """Provides the core logic of the backend."""
 
+from __future__ import annotations
+
 from collections.abc import AsyncIterator
 from copy import deepcopy
 from io import UnsupportedOperation
@@ -104,6 +106,14 @@ class CommonProcessor:
 class MergingProcessor(CommonProcessor):
     """Process request with the whole pipeline."""
 
+    @staticmethod
+    def from_compile_request(
+        request: CompileRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+    ) -> MergingProcessor:
+        graph = FrontendGraph.create(request.nodes, request.edges)
+        return MergingProcessor(enricher, graph, request.metadata)
+
     async def process_nodes(self) -> None:
         """Process graph by enriching and preprocessing the nodes."""
         for node in topological_sort(self.frontend_graph):
@@ -206,18 +216,6 @@ class MergingProcessor(CommonProcessor):
             optimize(self.graph)
 
         return leqo_dumps(postprocess(merge_nodes(self.graph)))
-
-
-class MergingProcessorService(MergingProcessor):
-    """Handles processing a :class:`~app.model.CompileRequest.CompileRequest`."""
-
-    def __init__(
-        self,
-        request: CompileRequest,
-        enricher: Annotated[Enricher, Depends(get_enricher)],
-    ) -> None:
-        graph = FrontendGraph.create(request.nodes, request.edges)
-        super().__init__(enricher, graph, request.metadata)
 
 
 class EnrichingProcessor(CommonProcessor):
