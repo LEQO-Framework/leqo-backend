@@ -221,6 +221,14 @@ class MergingProcessor(CommonProcessor):
 class EnrichingProcessor(CommonProcessor):
     """Return enrichment for all nodes."""
 
+    @staticmethod
+    def from_compile_request(
+        request: CompileRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+    ) -> EnrichingProcessor:
+        graph = FrontendGraph.create(request.nodes, request.edges)
+        return EnrichingProcessor(enricher, graph, request.metadata)
+
     def _get_dummy_enrichment(
         self, node_id: str, requested_inputs: dict[int, LeqoSupportedType]
     ) -> ImplementationNode:
@@ -307,15 +315,3 @@ class EnrichingProcessor(CommonProcessor):
     async def enrich_all(self) -> list[ImplementationNode]:
         """Get list of all enrichments."""
         return [x async for x in self.enrich()]
-
-
-class EnrichingProcessorService(EnrichingProcessor):
-    """Handles processing a :class:`~app.model.CompileRequest.CompileRequest`."""
-
-    def __init__(
-        self,
-        request: CompileRequest,
-        enricher: Annotated[Enricher, Depends(get_enricher)],
-    ) -> None:
-        graph = FrontendGraph.create(request.nodes, request.edges)
-        super().__init__(enricher, graph, request.metadata)
