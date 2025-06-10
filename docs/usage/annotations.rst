@@ -339,7 +339,7 @@ A qubit annotated with ``@leqo.reusable`` within such a block is referred to as 
         // some uncompute operation
 
         @leqo.reusable
-        let reusable1 = dirtyAncilla1
+        let reusable1 = dirtyAncilla1;
     }
 
 OpenQASM 2
@@ -353,7 +353,7 @@ An uncompute block is marked explicitly, as shown below:
     // someUncomputeOperation
     //
     // @leqo.reusable
-    // let reusable1 = dirtyAncilla1
+    // let reusable1 = dirtyAncilla1;
     // @leqo.uncompute end
 
 .. note::
