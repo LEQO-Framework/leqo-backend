@@ -336,7 +336,7 @@ A qubit annotated with ``@leqo.reusable`` within such a block is referred to as 
 
     @leqo.uncompute
     if (false) {
-        // some uncompute operation
+        h reusable1; // some uncompute operation
 
         @leqo.reusable
         let reusable1 = dirtyAncilla1;
