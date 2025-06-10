@@ -1,12 +1,12 @@
-"""
-Each qasm snippet attached to a node in the editor will first be passed through the preprocessing pipeline.
+"""Each qasm snippet attached to a node in the editor will first be passed through the preprocessing pipeline.
+
 The pipeline consists of multiple :class:`~openqasm3.visitor.QASMTransformer` that will transform the abstract syntax tree (AST) of the qasm snippet.
 """
 
 from openqasm3.ast import Program
 
-from app.openqasm3.parser import leqo_parse
 from app.processing.graph import IOInfo, ProcessedProgramNode, ProgramNode, QubitInfo
+from app.processing.pre.converter import parse_to_openqasm3
 from app.processing.pre.inlining import InliningTransformer
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.pre.renaming import RenameRegisterTransformer
@@ -25,7 +25,7 @@ def preprocess(
     if isinstance(implementation, Program):
         ast = implementation
     else:
-        ast = leqo_parse(implementation)
+        ast = parse_to_openqasm3(implementation)
     ast = RenameRegisterTransformer().visit(ast, node.id)
     ast = cast_to_program(InliningTransformer().visit(ast))
 
