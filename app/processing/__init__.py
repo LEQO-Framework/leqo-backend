@@ -102,7 +102,7 @@ class CommonProcessor:
 
 
 class MergingProcessor(CommonProcessor):
-    """Handles processing a :class:`~app.model.CompileRequest.CompileRequest`."""
+    """Process request with the whole pipeline."""
 
     async def process_nodes(self) -> None:
         """Process graph by enriching and preprocessing the nodes."""
@@ -209,6 +209,8 @@ class MergingProcessor(CommonProcessor):
 
 
 class Processor(MergingProcessor):
+    """Handles processing a :class:`~app.model.CompileRequest.CompileRequest`."""
+
     def __init__(
         self,
         request: CompileRequest,
@@ -219,7 +221,7 @@ class Processor(MergingProcessor):
 
 
 class EnrichingProcessor(CommonProcessor):
-    """Return enrichment for all nodes in a :class:`~app.model.CompileRequest.CompileRequest`."""
+    """Return enrichment for all nodes."""
 
     def _get_dummy_enrichment(
         self, node_id: str, requested_inputs: dict[int, LeqoSupportedType]
@@ -234,6 +236,7 @@ class EnrichingProcessor(CommonProcessor):
     async def _enrich_inner_block(
         self, node: FrontendNode, block: NestedBlock
     ) -> AsyncIterator[ImplementationNode]:
+        """Yield enrichments for nodes in inner block."""
         frontend_graph = FrontendGraph.create([*block.nodes, node], block.edges)
         for pred in frontend_graph.predecessors(node.id):
             frontend_graph.remove_edge(node.id, pred)
@@ -245,6 +248,7 @@ class EnrichingProcessor(CommonProcessor):
     async def enrich(
         self,
     ) -> AsyncIterator[ImplementationNode]:
+        """Yield enrichment of nodes."""
         for node in topological_sort(self.frontend_graph):
             frontend_node = self.frontend_graph.node_data[node]
             requested_inputs = self._resolve_inputs(node)
@@ -291,10 +295,13 @@ class EnrichingProcessor(CommonProcessor):
             self.frontend_to_processed[node] = processed_node
 
     async def enrich_all(self) -> list[ImplementationNode]:
+        """Get list of all enrichments."""
         return [x async for x in self.enrich()]
 
 
 class EnrichmentProcessor(EnrichingProcessor):
+    """Handles processing a :class:`~app.model.CompileRequest.CompileRequest`."""
+
     def __init__(
         self,
         request: CompileRequest,
