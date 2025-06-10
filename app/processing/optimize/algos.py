@@ -52,7 +52,7 @@ class OptimizationAlgo(ABC):
     def __init__(self, graph: ProgramGraph) -> None:
         for raw in graph.nodes:
             if raw.is_ancilla_node:
-                graph.get_data_node(raw).qubit.required_reusable_ids.clear()
+                graph.get_data_node(raw).qubit.clean_ids.clear()
         self.graph = graph
 
     @abstractmethod
@@ -158,7 +158,7 @@ class NoPred(OptimizationAlgo):
 
         result = min(
             self.uncomputable,
-            key=lambda n: len(n.qubit.returned_uncomputable_ids),
+            key=lambda n: len(n.qubit.uncomputable_ids),
         )
 
         self.uncomputable.remove(result)
@@ -173,57 +173,57 @@ class NoPred(OptimizationAlgo):
         if self.current_node is None:
             raise RuntimeError
 
-        need_dirty = self.current_node.qubit.required_dirty_ids
+        need_dirty = self.current_node.qubit.dirty_ids
 
         while len(need_dirty) > 0 and len(self.dirty) > 0:
             source = self.dirty[0]
-            possible_source_ids = source.qubit.returned_dirty_ids
+            possible_source_ids = source.qubit.entangled_ids
             size = min(len(need_dirty), len(possible_source_ids))
             target_ids = need_dirty[:size]
             need_dirty = need_dirty[size:]
             source_ids = possible_source_ids[:size]
-            source.qubit.returned_dirty_ids = possible_source_ids[size:]
+            source.qubit.entangled_ids = possible_source_ids[size:]
             self.ancilla_edges.append(
                 AncillaConnection(
                     (source.raw, source_ids),
                     (self.current_node.raw, target_ids),
                 ),
             )
-            if len(source.qubit.returned_dirty_ids) == 0:
+            if len(source.qubit.entangled_ids) == 0:
                 self.dirty.remove(source)
 
         while len(need_dirty) > 0 and len(self.uncomputable) > 0:
             source = self.uncomputable[0]
-            possible_source_ids = source.qubit.returned_uncomputable_ids
+            possible_source_ids = source.qubit.uncomputable_ids
             size = min(len(need_dirty), len(possible_source_ids))
             target_ids = need_dirty[:size]
             need_dirty = need_dirty[size:]
             source_ids = possible_source_ids[:size]
-            source.qubit.returned_uncomputable_ids = possible_source_ids[size:]
+            source.qubit.uncomputable_ids = possible_source_ids[size:]
             self.ancilla_edges.append(
                 AncillaConnection(
                     (source.raw, source_ids),
                     (self.current_node.raw, target_ids),
                 ),
             )
-            if len(source.qubit.returned_uncomputable_ids) == 0:
+            if len(source.qubit.uncomputable_ids) == 0:
                 self.uncomputable.remove(source)
 
         while len(need_dirty) > 0 and len(self.reusable) > 0:
             source = self.reusable[0]
-            possible_source_ids = source.qubit.returned_reusable_ids
+            possible_source_ids = source.qubit.reusable_ids
             size = min(len(need_dirty), len(possible_source_ids))
             target_ids = need_dirty[:size]
             need_dirty = need_dirty[size:]
             source_ids = possible_source_ids[:size]
-            source.qubit.returned_reusable_ids = possible_source_ids[size:]
+            source.qubit.reusable_ids = possible_source_ids[size:]
             self.ancilla_edges.append(
                 AncillaConnection(
                     (source.raw, source_ids),
                     (self.current_node.raw, target_ids),
                 ),
             )
-            if len(source.qubit.returned_reusable_ids) == 0:
+            if len(source.qubit.reusable_ids) == 0:
                 self.reusable.remove(source)
 
     def satisfy_reusable_qubit_requirement(self) -> None:
@@ -235,35 +235,35 @@ class NoPred(OptimizationAlgo):
         if self.current_node is None:
             raise RuntimeError
 
-        need_reusable = self.current_node.qubit.required_reusable_ids
+        need_reusable = self.current_node.qubit.clean_ids
 
         while len(need_reusable) > 0 and (
             len(self.uncomputable) > 0 or len(self.reusable) > 0
         ):
             while len(need_reusable) > 0 and len(self.reusable) > 0:
                 source = self.reusable[0]
-                possible_source_ids = source.qubit.returned_reusable_ids
+                possible_source_ids = source.qubit.reusable_ids
                 size = min(len(need_reusable), len(possible_source_ids))
                 target_ids = need_reusable[:size]
                 need_reusable = need_reusable[size:]
                 source_ids = possible_source_ids[:size]
-                source.qubit.returned_reusable_ids = possible_source_ids[size:]
+                source.qubit.reusable_ids = possible_source_ids[size:]
                 self.ancilla_edges.append(
                     AncillaConnection(
                         (source.raw, source_ids),
                         (self.current_node.raw, target_ids),
                     ),
                 )
-                if len(source.qubit.returned_reusable_ids) == 0:
+                if len(source.qubit.reusable_ids) == 0:
                     self.reusable.remove(source)
 
             if len(need_reusable) > 0 and len(self.uncomputable) > 0:
                 new_reusable = self.pop_uncomputable()
                 self.reusable.append(new_reusable)
-                new_reusable.qubit.returned_reusable_ids.extend(
-                    new_reusable.qubit.returned_uncomputable_ids,
+                new_reusable.qubit.reusable_ids.extend(
+                    new_reusable.qubit.uncomputable_ids,
                 )
-                new_reusable.qubit.returned_uncomputable_ids.clear()
+                new_reusable.qubit.uncomputable_ids.clear()
                 self.uncomputes[new_reusable.raw] = True
 
     @override
@@ -279,11 +279,11 @@ class NoPred(OptimizationAlgo):
             self.satisfy_dirty_qubit_requirement()
             self.satisfy_reusable_qubit_requirement()
 
-            if len(self.current_node.qubit.returned_dirty_ids) > 0:
+            if len(self.current_node.qubit.entangled_ids) > 0:
                 self.dirty.append(self.current_node)
-            if len(self.current_node.qubit.returned_reusable_ids) > 0:
+            if len(self.current_node.qubit.reusable_ids) > 0:
                 self.reusable.append(self.current_node)
-            if len(self.current_node.qubit.returned_uncomputable_ids) > 0:
+            if len(self.current_node.qubit.uncomputable_ids) > 0:
                 self.uncomputable.append(self.current_node)
 
         return self.ancilla_edges, self.uncomputes
@@ -315,13 +315,13 @@ class NoPredCheckNeedDiffScore(NoPred):
     @override
     def pop_nopred(self) -> ProcessedProgramNode:
         total_reusable = sum(
-            [len(n.qubit.returned_reusable_ids) for n in self.reusable],
+            [len(n.qubit.reusable_ids) for n in self.reusable],
         )
         total_dirty = sum(
-            [len(n.qubit.required_dirty_ids) for n in self.dirty],
+            [len(n.qubit.dirty_ids) for n in self.dirty],
         )
         total_uncomputable = sum(
-            [len(n.qubit.returned_uncomputable_ids) for n in self.uncomputable],
+            [len(n.qubit.uncomputable_ids) for n in self.uncomputable],
         )
         current_best: tuple[bool, int, None | ProcessedProgramNode] = (
             False,
@@ -329,8 +329,8 @@ class NoPredCheckNeedDiffScore(NoPred):
             None,
         )
         for node in self.nopred:
-            required_dirty = len(node.qubit.required_dirty_ids)
-            required_reusable = len(node.qubit.required_reusable_ids)
+            required_dirty = len(node.qubit.dirty_ids)
+            required_reusable = len(node.qubit.clean_ids)
             satisfied = (
                 required_dirty < total_dirty + total_uncomputable
                 and required_reusable < total_reusable + total_uncomputable
@@ -340,9 +340,9 @@ class NoPredCheckNeedDiffScore(NoPred):
             if not satisfied and current_best[0]:
                 continue
             score = (
-                len(node.qubit.returned_reusable_ids) * self.weight_reusable
-                + len(node.qubit.returned_uncomputable_ids) * self.weight_uncomp
-                + len(node.qubit.returned_dirty_ids) * self.weight_dirty
+                len(node.qubit.reusable_ids) * self.weight_reusable
+                + len(node.qubit.uncomputable_ids) * self.weight_uncomp
+                + len(node.qubit.entangled_ids) * self.weight_dirty
                 - required_reusable * self.weight_reusable
                 - required_dirty * self.weight_dirty
             )

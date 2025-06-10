@@ -8,14 +8,19 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
-from starlette.responses import PlainTextResponse, RedirectResponse
+from starlette.responses import (
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+)
 
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
-from app.processing import Processor
+from app.processing import EnrichingProcessor, MergingProcessor
 from app.services import get_result_url, get_settings, leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
@@ -30,30 +35,48 @@ app.add_middleware(
 
 # FIXME: these should live in the database
 states: dict[UUID, StatusResponse] = {}
-results: dict[UUID, str] = {}
+results: dict[UUID, str | list[ImplementationNode]] = {}
 
 
 @app.post("/compile")
 def post_compile(
-    processor: Annotated[Processor, Depends()],
+    processor: Annotated[
+        MergingProcessor, Depends(MergingProcessor.from_compile_request)
+    ],
     background_tasks: BackgroundTasks,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> RedirectResponse:
     """
-    Queue a compilation request.
+    Enqueue a :class:`~fastapi.background.BackgroundTasks` to process the :class:`~app.model.CompileRequest`.
     """
 
     uuid: UUID = uuid4()
-    states[uuid] = StatusResponse(
-        uuid=uuid,
-        status=StatusType.IN_PROGRESS,
-        createdAt=datetime.now(UTC),
-        completedAt=None,
-        progress=Progress(percentage=0, currentStep="init"),
-        result=get_result_url(uuid, settings),
+    states[uuid] = StatusResponse.init_status(uuid)
+
+    background_tasks.add_task(process_compile_request, uuid, processor, settings)
+
+    return RedirectResponse(
+        url=f"{settings.api_base_url}status/{uuid}",
+        status_code=303,
     )
 
-    background_tasks.add_task(process_request, uuid, processor, settings)
+
+@app.post("/enrich")
+async def post_enrich(
+    processor: Annotated[
+        EnrichingProcessor, Depends(EnrichingProcessor.from_compile_request)
+    ],
+    background_tasks: BackgroundTasks,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> RedirectResponse:
+    """
+    Enqueue a :class:`~fastapi.background.BackgroundTasks` to enrich all nodes in the :class:`~app.model.CompileRequest`.
+    """
+
+    uuid: UUID = uuid4()
+    states[uuid] = StatusResponse.init_status(uuid)
+
+    background_tasks.add_task(process_enrich_request, uuid, processor, settings)
 
     return RedirectResponse(
         url=f"{settings.api_base_url}status/{uuid}",
@@ -65,6 +88,8 @@ def post_compile(
 def get_status(uuid: UUID) -> StatusResponse:
     """
     Fetch status of a compile request.
+
+    :raises HTTPException: (Status 404) If no compile request with uuid is found
     """
 
     if uuid not in states:
@@ -75,8 +100,8 @@ def get_status(uuid: UUID) -> StatusResponse:
     return states[uuid]
 
 
-@app.get("/result/{uuid}", response_class=PlainTextResponse)
-def get_result(uuid: UUID) -> str:
+@app.get("/result/{uuid}", response_model=None)
+def get_result(uuid: UUID) -> PlainTextResponse | JSONResponse:
     """
     Fetch result of a compile request.
 
@@ -88,48 +113,99 @@ def get_result(uuid: UUID) -> str:
             status_code=404, detail=f"No compile request with uuid '{uuid}' found."
         )
 
-    return results[uuid]
+    result = results[uuid]
+
+    if isinstance(result, str):
+        return PlainTextResponse(status_code=200, content=result)
+
+    return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
 
-async def process_request(
+async def process_compile_request(
     uuid: UUID,
-    processor: Processor,
+    processor: MergingProcessor,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> None:
     """
-    Process a compile request in background.
+    Process the :class:`~app.model.CompileRequest`.
 
-    :param uuid: Id of the compile request
+    :param uuid: ID of the compile request
     :param processor: Processor for this request
+    :param settings: Settings from .env file
     """
 
-    status = StatusType.FAILED
+    status: StatusType = StatusType.FAILED
+    completedAt: datetime | None = None
     result_code: str = ""
 
     try:
         result_code = await processor.process()
-        result = get_result_url(uuid, settings)
+        result_url = get_result_url(uuid, settings)
         status = StatusType.COMPLETED
+        completedAt = datetime.now(UTC)
     except Exception as exception:
-        result = str(exception) or type(exception).__name__
+        result_url = str(exception) or type(exception).__name__
 
     old_state: StatusResponse = states[uuid]
     states[uuid] = StatusResponse(
         uuid=old_state.uuid,
         status=status,
         createdAt=old_state.createdAt,
-        completedAt=datetime.now(UTC),
+        completedAt=completedAt,
         progress=Progress(percentage=100, currentStep="done"),
-        result=result,
+        result=result_url,
     )
 
     results[uuid] = result_code
 
 
-@app.post("/debug/compile", response_class=PlainTextResponse)
-async def debug_compile(processor: Annotated[Processor, Depends()]) -> str:
+async def process_enrich_request(
+    uuid: UUID,
+    processor: EnrichingProcessor,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> None:
     """
-    Compiles the request to an openqasm3 program in one shot.
+    Enrich all nodes in the :class:`~app.model.CompileRequest`.
+
+    :param uuid: ID of the compile request
+    :param processor: Processor for this request
+    :param settings: Settings from .env file
+    """
+
+    status: StatusType = StatusType.FAILED
+    completedAt: datetime | None = None
+
+    try:
+        results[uuid] = await processor.enrich_all()
+
+        result_url = get_result_url(uuid, settings)
+        status = StatusType.COMPLETED
+        completedAt = datetime.now(UTC)
+    except Exception as exception:
+        result_url = str(exception) or type(exception).__name__
+
+    old_state: StatusResponse = states[uuid]
+    states[uuid] = StatusResponse(
+        uuid=old_state.uuid,
+        status=status,
+        createdAt=old_state.createdAt,
+        completedAt=completedAt,
+        progress=Progress(percentage=100, currentStep="done"),
+        result=result_url,
+    )
+
+
+@app.post("/debug/compile", response_class=PlainTextResponse)
+async def post_debug_compile(
+    processor: Annotated[
+        MergingProcessor, Depends(MergingProcessor.from_compile_request)
+    ],
+) -> str:
+    """
+    Compiles the request to an openqasm3 program in one request.
+    No redirects and no polling of different endpoints needed.
+
+    This endpoint should only be used for debugging purposes.
     """
 
     try:
@@ -139,14 +215,19 @@ async def debug_compile(processor: Annotated[Processor, Depends()]) -> str:
 
 
 @app.post("/debug/enrich")
-async def debug_enrich(
-    processor: Annotated[Processor, Depends()],
+async def post_debug_enrich(
+    processor: Annotated[
+        EnrichingProcessor, Depends(EnrichingProcessor.from_compile_request)
+    ],
 ) -> list[ImplementationNode] | str:
     """
-    Enriches all nodes in the compile request.
+    Enriches all nodes in the compile request in one request.
+    No redirects and no polling of different endpoints needed.
+
+    This endpoint should only be used for debugging purposes.
     """
 
     try:
-        return [x async for x in processor.enrich()]
+        return await processor.enrich_all()
     except Exception:
         return traceback.format_exc()

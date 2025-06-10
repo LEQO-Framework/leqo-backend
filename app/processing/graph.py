@@ -18,6 +18,7 @@ from app.model.data_types import (
     QubitType as LeqoQubitType,
 )
 
+QubitID = int
 QubitIDs = list[int]
 
 LeqoNamespace = UUID("1378f1f9-b705-404b-be6a-d1b3e29236d7")
@@ -61,6 +62,8 @@ class IOConnection:
 
     source: tuple[ProgramNode, int]
     target: tuple[ProgramNode, int]
+    identifier: str | None = None
+    size: int | None = None
 
 
 @dataclass()
@@ -123,22 +126,22 @@ class ProgramGraph(ProgramGraphBase):
 
 @dataclass()
 class QubitInfo:
-    """Store QubitIDs of declarations, reusable and dirty.
+    """Store QubitIDs of declarations and the various ancilla types.
 
     :param declaration_to_ids: Maps declared names to corresponding qubits ids.
-    :param required_reusable_ids: List of required reusable/fresh/uncomputed qubit ids.
-    :param required_dirty_ids: List of required (possible) dirty qubits.
-    :param returned_reusable_ids: List of returned reusable qubits.
-    :param returned_uncomputable_ids: List of qubits that are reusable after uncompute.
-    :param returned_dirty_ids: List of qubits that are always returned dirty.
+    :param clean_ids: List of required reusable/fresh/uncomputed qubit ids.
+    :param dirty_ids: List of required (possible) dirty qubits.
+    :param reusable_ids: List of returned reusable qubits.
+    :param uncomputable_ids: List of qubits that are reusable after uncompute.
+    :param entangled_ids: List of qubits that are always returned dirty.
     """
 
     declaration_to_ids: dict[str, QubitIDs] = field(default_factory=dict)
-    required_reusable_ids: QubitIDs = field(default_factory=list)
-    required_dirty_ids: QubitIDs = field(default_factory=list)
-    returned_reusable_ids: QubitIDs = field(default_factory=list)
-    returned_uncomputable_ids: QubitIDs = field(default_factory=list)
-    returned_dirty_ids: QubitIDs = field(default_factory=list)
+    clean_ids: QubitIDs = field(default_factory=list)
+    dirty_ids: QubitIDs = field(default_factory=list)
+    reusable_ids: QubitIDs = field(default_factory=list)
+    uncomputable_ids: QubitIDs = field(default_factory=list)
+    entangled_ids: QubitIDs = field(default_factory=list)
 
 
 @dataclass()
@@ -162,11 +165,11 @@ class QubitIOInstance:
     """
 
     name: str
-    ids: QubitIDs
+    ids: QubitID | QubitIDs
 
     @property
     def type(self) -> LeqoQubitType:
-        return LeqoQubitType(len(self.ids))
+        return LeqoQubitType(len(self.ids) if isinstance(self.ids, list) else None)
 
 
 @dataclass()

@@ -1,18 +1,13 @@
-from textwrap import dedent
-
 import pytest
 
-from app.enricher import Constraints, ConstraintValidationException
+from app.enricher import (
+    Constraints,
+    ConstraintValidationException,
+)
 from app.enricher.gates import enrich_gate
-from app.model.CompileRequest import GateNode, ImplementationNode
+from app.model.CompileRequest import GateNode
 from app.model.data_types import IntType, QubitType
-
-
-def assert_enrichment(
-    enriched_node: ImplementationNode, id: str, implementation: str
-) -> None:
-    assert enriched_node.id == id
-    assert enriched_node.implementation == dedent(implementation)
+from tests.enricher.utils import assert_enrichment
 
 
 def test_gate_impl_single_input() -> None:

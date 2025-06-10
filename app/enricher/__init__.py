@@ -13,8 +13,12 @@ import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine, Iterable
 from dataclasses import dataclass
+from typing import Literal
+
+from openqasm3.ast import Program
 
 from app.model.CompileRequest import (
+    BaseNode,
     ImplementationNode,
 )
 from app.model.CompileRequest import (
@@ -22,6 +26,15 @@ from app.model.CompileRequest import (
 )
 from app.model.data_types import LeqoSupportedType
 from app.utils import not_none_or
+
+
+class ParsedImplementationNode(BaseNode):
+    """
+    Special node that holds just a parsed implementation.
+    """
+
+    type: Literal["parsed-implementation"] = "parsed-implementation"
+    implementation: Program
 
 
 @dataclass(frozen=True)
@@ -55,7 +68,7 @@ class EnrichmentResult:
     Result of an enrichment strategy.
     """
 
-    enriched_node: ImplementationNode
+    enriched_node: ImplementationNode | ParsedImplementationNode
     meta_data: ImplementationMetaData
 
 
@@ -155,7 +168,7 @@ class Enricher:
 
     async def try_enrich(
         self, node: FrontendNode, constraints: Constraints | None
-    ) -> ImplementationNode | None:
+    ) -> ImplementationNode | ParsedImplementationNode | None:
         """
         Tries to enrich a :class:`~app.model.CompileRequest.Node` according to the specified :class:`~app.enricher.Constraints`.
         Returns none on failure.
@@ -171,8 +184,10 @@ class Enricher:
             return None
 
     async def enrich(
-        self, node: FrontendNode, constraints: Constraints | None
-    ) -> ImplementationNode:
+        self,
+        node: FrontendNode | ParsedImplementationNode,
+        constraints: Constraints | None,
+    ) -> ImplementationNode | ParsedImplementationNode:
         """
         Enrich the given :class:`~app.model.CompileRequest.Node` according to the specified :class:`~app.enricher.Constraints`.
         Throws :class:`ExceptionGroup` containing the exceptions from all :class:`~app.enricher.EnricherStrategy`.
@@ -184,7 +199,7 @@ class Enricher:
         :raises ExceptionGroup: If no strategy could generate an implementation.
         """
 
-        if isinstance(node, ImplementationNode):
+        if isinstance(node, ImplementationNode | ParsedImplementationNode):
             return node
 
         results: list[EnrichmentResult] = []

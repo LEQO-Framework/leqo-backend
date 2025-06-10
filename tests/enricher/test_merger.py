@@ -1,5 +1,3 @@
-from textwrap import dedent
-
 import pytest
 
 from app.enricher import (
@@ -9,18 +7,11 @@ from app.enricher import (
 )
 from app.enricher.merger import MergerEnricherStrategy
 from app.model.CompileRequest import (
-    ImplementationNode,
     IntLiteralNode,
     MergerNode,
 )
 from app.model.data_types import IntType, QubitType
-
-
-def assert_enrichment(
-    enriched_node: ImplementationNode, id: str, implementation: str
-) -> None:
-    assert enriched_node.id == id
-    assert enriched_node.implementation == dedent(implementation)
+from tests.enricher.utils import assert_enrichment
 
 
 @pytest.mark.asyncio
@@ -30,7 +21,7 @@ async def test_merger_normal_cases() -> None:
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=1), 1: QubitType(reg_size=1)},
+                requested_inputs={0: QubitType(size=1), 1: QubitType(size=1)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
@@ -55,7 +46,7 @@ async def test_merger_normal_cases() -> None:
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=2), 1: QubitType(reg_size=3)},
+                requested_inputs={0: QubitType(size=2), 1: QubitType(size=3)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
@@ -82,9 +73,9 @@ async def test_merger_normal_cases() -> None:
             MergerNode(id="nodeId", numberInputs=3),
             constraints=Constraints(
                 requested_inputs={
-                    0: QubitType(reg_size=1),
-                    1: QubitType(reg_size=2),
-                    2: QubitType(reg_size=3),
+                    0: QubitType(size=1),
+                    1: QubitType(size=2),
+                    2: QubitType(size=3),
                 },
                 optimizeWidth=False,
                 optimizeDepth=False,
@@ -114,9 +105,9 @@ async def test_merger_normal_cases() -> None:
             MergerNode(id="nodeId", numberInputs=3),
             constraints=Constraints(
                 requested_inputs={
-                    2: QubitType(reg_size=3),
-                    0: QubitType(reg_size=1),
-                    1: QubitType(reg_size=2),
+                    2: QubitType(size=3),
+                    0: QubitType(size=1),
+                    1: QubitType(size=2),
                 },
                 optimizeWidth=False,
                 optimizeDepth=False,
@@ -171,7 +162,7 @@ async def test_merger_too_few_inputs() -> None:
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=1)},
+                requested_inputs={0: QubitType(size=1)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
@@ -179,7 +170,7 @@ async def test_merger_too_few_inputs() -> None:
 
 
 @pytest.mark.asyncio
-async def test_merger_number_of_inputs_neq_reg_size() -> None:
+async def test_merger_number_of_inputs_neq_size() -> None:
     strategy = MergerEnricherStrategy()
 
     with pytest.raises(
@@ -189,7 +180,7 @@ async def test_merger_number_of_inputs_neq_reg_size() -> None:
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=3),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=1), 1: QubitType(reg_size=1)},
+                requested_inputs={0: QubitType(size=1), 1: QubitType(size=1)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
@@ -208,8 +199,8 @@ async def test_merger_empty_input() -> None:
             MergerNode(id="nodeId", numberInputs=2),
             constraints=Constraints(
                 requested_inputs={
-                    0: QubitType(reg_size=1),
-                    2: QubitType(reg_size=3),
+                    0: QubitType(size=1),
+                    2: QubitType(size=3),
                 },
                 optimizeWidth=False,
                 optimizeDepth=False,
@@ -228,7 +219,7 @@ async def test_merger_invalid_input_type() -> None:
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=1), 1: IntType(bit_size=32)},
+                requested_inputs={0: QubitType(size=1), 1: IntType(size=32)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
@@ -246,7 +237,7 @@ async def test_merger_invalid_register_size() -> None:
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
             constraints=Constraints(
-                requested_inputs={0: QubitType(reg_size=1), 1: QubitType(reg_size=0)},
+                requested_inputs={0: QubitType(size=1), 1: QubitType(size=0)},
                 optimizeWidth=False,
                 optimizeDepth=False,
             ),
