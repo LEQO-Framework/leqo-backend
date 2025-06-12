@@ -2,7 +2,6 @@ import traceback
 from uuid import UUID
 
 from pydantic import BaseModel
-from starlette.responses import JSONResponse
 
 
 class ErrorResult(BaseModel):
