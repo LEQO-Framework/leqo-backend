@@ -8,6 +8,7 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from testcontainers.postgres import PostgresContainer
 
+from app.exceptions import InternalServerError
 from app.services import use_leqo_db
 
 postgres = PostgresContainer("postgres:16-alpine3.20")
@@ -40,7 +41,7 @@ async def engine() -> AsyncGenerator[AsyncEngine]:
 
     async with use_leqo_db() as engine:
         if engine is None:
-            raise RuntimeError("Database engine is not initialized.")
+            raise InternalServerError("Database engine is not initialized.")
 
         yield engine
 

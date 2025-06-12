@@ -12,6 +12,7 @@ from app.enricher import (
     ImplementationMetaData,
     NodeUnsupportedException,
 )
+from app.exceptions import ServerError
 from app.model.CompileRequest import (
     BitLiteralNode,
     BoolLiteralNode,
@@ -162,16 +163,18 @@ async def test_try_enrich_unknown_node() -> None:
 async def test_enrich_unknown_node() -> None:
     enricher = Enricher(IntToAEnricherStrategy(), FloatToBEnricherStrategy())
     with pytest.raises(
-        ExceptionGroup,
+        ServerError,
         match=r"^Enrichment for node 'nodeId' failed \(2 sub-exceptions\)$",
     ) as ex:
         await enricher.enrich(
             BoolLiteralNode(id="nodeId", value=False), constraints=None
         )
 
-    assert len(ex.value.exceptions) == 2  # noqa: PLR2004 Magic value used in comparison
-    assert isinstance(ex.value.exceptions[0], NodeUnsupportedException)
-    assert isinstance(ex.value.exceptions[1], NodeUnsupportedException)
+    group_ex = ex.value.__cause__
+    assert isinstance(group_ex, ExceptionGroup)
+    assert len(group_ex.exceptions) == 2  # noqa: PLR2004 Magic value used in comparison
+    assert isinstance(group_ex.exceptions[0], NodeUnsupportedException)
+    assert isinstance(group_ex.exceptions[1], NodeUnsupportedException)
 
 
 class EmptyListEnricherStrategy(EnricherStrategy):

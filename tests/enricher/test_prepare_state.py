@@ -208,8 +208,4 @@ async def test_enrich_prepare_state_node_not_in_db(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match=r"^No results found in the database$",
-    ):
-        await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
+    assert await PrepareStateEnricherStrategy(engine).enrich(node, constraints) == []

@@ -202,8 +202,4 @@ async def test_enrich_operator_node_not_in_db(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match=r"^No results found in the database$",
-    ):
-        await OperatorEnricherStrategy(engine).enrich(node, constraints)
+    assert await OperatorEnricherStrategy(engine).enrich(node, constraints) == []
