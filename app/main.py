@@ -18,7 +18,7 @@ from starlette.responses import (
 )
 
 from app.config import Settings
-from app.exceptions import ErrorResult, ServerError, handle_exception
+from app.exceptions import ErrorResult, handle_exception
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import EnrichingProcessor, MergingProcessor
@@ -150,10 +150,7 @@ async def process_compile_request(
         status = StatusType.COMPLETED
         completedAt = datetime.now(UTC)
     except Exception as exc:
-        if isinstance(exc, ServerError):
-            result = handle_exception(exc, uuid)
-        else:
-            result = handle_exception(ServerError(exc), uuid)
+        result = handle_exception(exc, uuid)
         result_url = result.message
 
     old_state: StatusResponse = states[uuid]
@@ -192,11 +189,7 @@ async def process_enrich_request(
         status = StatusType.COMPLETED
         completedAt = datetime.now(UTC)
     except Exception as exc:
-        result: ErrorResult
-        if isinstance(exc, ServerError):
-            result = handle_exception(exc, uuid)
-        else:
-            result = handle_exception(ServerError(exc), uuid)
+        result = handle_exception(exc, uuid)
         results[uuid] = result
         result_url = result.message
 
