@@ -78,15 +78,14 @@ class InternalServerError(ServerError):
         super().__init__(message, node, client=False)
 
 
-def handle_exception(exc: Exception, request_id: UUID) -> JSONResponse:
+def handle_exception(exc: Exception, request_id: UUID) -> ErrorResult:
     """Generate response from server error.
 
     This has to be called inside a except block to get the stacktrace.
     """
-    result: ErrorResult
     match exc:
         case ServerError():
-            result = ErrorResult(
+            return ErrorResult(
                 request=request_id,
                 client=exc.client,
                 message=exc.message,
@@ -94,14 +93,10 @@ def handle_exception(exc: Exception, request_id: UUID) -> JSONResponse:
                 node=exc.node,
             )
         case _:
-            result = ErrorResult(
+            return ErrorResult(
                 request=request_id,
                 client=False,
                 message=str(exc) or type(exc).__name__,
                 stacktrace=traceback.format_exc(),
                 node=None,
             )
-    return JSONResponse(
-        status_code=400 if result.client else 500,
-        content=result.dict(),
-    )
