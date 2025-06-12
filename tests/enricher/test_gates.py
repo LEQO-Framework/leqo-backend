@@ -1,12 +1,14 @@
 import pytest
 
-from app.enricher import (
-    Constraints,
-    ConstraintValidationException,
-)
+from app.enricher import Constraints
 from app.enricher.gates import enrich_gate
 from app.model.CompileRequest import GateNode
 from app.model.data_types import IntType, QubitType
+from app.model.exceptions import (
+    InputCountMismatch,
+    InputSizeMismatch,
+    InputTypeMismatch,
+)
 from tests.enricher.utils import assert_enrichment
 
 
@@ -77,12 +79,12 @@ def test_gate_impl_wrong_input_count() -> None:
     )
 
     with pytest.raises(
-        ConstraintValidationException, match="^Gate 'abc' requires 3 qubits$"
+        InputCountMismatch, match=r"^Node can only have 3 inputs. Got 0.$"
     ):
         enrich_gate(node, constraints=None, gate_name="abc", input_count=3)
 
     with pytest.raises(
-        ConstraintValidationException, match="^Gate 'abc' requires 3 qubits$"
+        InputCountMismatch, match=r"^Node can only have 3 inputs\. Got 1\.$"
     ):
         enrich_gate(node, constraints, gate_name="abc", input_count=3)
 
@@ -96,7 +98,7 @@ def test_gate_impl_size_mismatch() -> None:
     )
 
     with pytest.raises(
-        ConstraintValidationException, match="^Gate inputs must be of equal size$"
+        InputSizeMismatch, match=r"^Expected size 2 for input 0\. Got 3\.$"
     ):
         enrich_gate(node, constraints, gate_name="abc", input_count=3)
 
@@ -110,6 +112,7 @@ def test_gate_impl_type_mismatch() -> None:
     )
 
     with pytest.raises(
-        ConstraintValidationException, match="^Gate may only have qubit inputs$"
+        InputTypeMismatch,
+        match=r"^Expected type 'qubit' for input 0\. Got 'IntType\(size=32\)'\.$",
     ):
         enrich_gate(node, constraints, gate_name="abc", input_count=2)

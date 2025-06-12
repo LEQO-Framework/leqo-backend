@@ -2,16 +2,14 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.enricher import (
-    Constraints,
-    ConstraintValidationException,
-    InputValidationException,
-)
+from app.enricher import Constraints
+from app.enricher.exceptions import QuantumStateNotSupported
 from app.enricher.models import NodeType, PrepareStateNode, QuantumStateType
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
 from app.model.data_types import FloatType
+from app.model.exceptions import InputCountMismatch
 from tests.enricher.utils import assert_enrichments
 
 
@@ -157,8 +155,8 @@ async def test_enrich_custom_prepare_state(engine: AsyncEngine) -> None:
     )
 
     with pytest.raises(
-        InputValidationException,
-        match=r"^Custom prepare state or size below 1 are not supported$",
+        QuantumStateNotSupported,
+        match=r"^Quantum state 'custom' not supported$",
     ):
         await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
 
@@ -191,8 +189,8 @@ async def test_enrich_prepare_state_one_inputs(engine: AsyncEngine) -> None:
     )
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^PrepareStateNode can't have an input$",
+        InputCountMismatch,
+        match=r"^Node can only have 0 inputs\. Got 1\.$",
     ):
         await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
 
@@ -208,8 +206,4 @@ async def test_enrich_prepare_state_node_not_in_db(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match=r"^No results found in the database$",
-    ):
-        await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
+    assert (await PrepareStateEnricherStrategy(engine).enrich(node, constraints)) == []

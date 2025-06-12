@@ -11,12 +11,11 @@ from openqasm3.ast import Expression, FloatLiteral, Identifier, Include, Quantum
 
 from app.enricher import (
     Constraints,
-    ConstraintValidationException,
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
-    NodeUnsupportedException,
 )
+from app.enricher.exceptions import GateNotSupported
 from app.enricher.utils import implementation, leqo_input, leqo_output
 from app.model.CompileRequest import (
     GateNode,
@@ -27,6 +26,11 @@ from app.model.CompileRequest import (
     Node as FrontendNode,
 )
 from app.model.data_types import QubitType as LeqoQubitType
+from app.model.exceptions import (
+    InputCountMismatch,
+    InputSizeMismatch,
+    InputTypeMismatch,
+)
 from app.openqasm3.stdgates import (
     OneQubitGate,
     OneQubitGateWithAngle,
@@ -38,31 +42,37 @@ from app.openqasm3.stdgates import (
 
 
 def _validate_constraints(
-    constraints: Constraints | None, name: str, input_count: int
+    constraints: Constraints | None, node: Node, input_count: int
 ) -> int | None:
     """
     Validate constraints for gate implementations.
     Ensures the constraints contain `input_count` qubit inputs with the same size.
 
     :param constraints: Constraints to validate.
-    :param name: Name of the gate the constraints are for.
+    :param node: Node the constraints are for.
     :param input_count: Count of expected inputs.
     :return: Size of the inputs.
     """
 
     if constraints is None or len(constraints.requested_inputs) != input_count:
-        raise ConstraintValidationException(
-            f"Gate '{name}' requires {input_count} qubits"
+        raise InputCountMismatch(
+            node,
+            actual=len(constraints.requested_inputs) if constraints else 0,
+            expected=input_count,
         )
 
     found_size = False
     size: int | None = None
-    for _, input_type in constraints.requested_inputs.items():
+    for input_index, input_type in constraints.requested_inputs.items():
         if not isinstance(input_type, LeqoQubitType):
-            raise ConstraintValidationException("Gate may only have qubit inputs")
+            raise InputTypeMismatch(
+                node, input_index, actual=input_type, expected="qubit"
+            )
 
         if size is not None and size != input_type.size:
-            raise ConstraintValidationException("Gate inputs must be of equal size")
+            raise InputSizeMismatch(
+                node, input_index, actual=input_type.size or 0, expected=size
+            )
 
         found_size = True
         size = input_type.size
@@ -92,7 +102,7 @@ def enrich_gate(
     :return: Final enrichment result.
     """
 
-    size = _validate_constraints(constraints, gate_name, input_count)
+    size = _validate_constraints(constraints, node, input_count)
 
     return EnrichmentResult(
         implementation(
@@ -160,7 +170,7 @@ class GateEnricherStrategy(EnricherStrategy):
         if node.gate == "toffoli":
             return enrich_gate(node, constraints, "ccx", 3)
 
-        raise NodeUnsupportedException(node)
+        raise GateNotSupported(node)
 
     def _enrich_parameterized_gate(
         self, node: ParameterizedGateNode, constraints: Constraints | None
@@ -187,4 +197,4 @@ class GateEnricherStrategy(EnricherStrategy):
                 node, constraints, node.gate, 2, FloatLiteral(node.parameter)
             )
 
-        raise NodeUnsupportedException(node)
+        raise GateNotSupported(node)

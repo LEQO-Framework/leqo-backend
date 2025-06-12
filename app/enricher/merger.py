@@ -12,16 +12,20 @@ from openqasm3.ast import (
 
 from app.enricher import (
     Constraints,
-    ConstraintValidationException,
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
-    InputValidationException,
 )
 from app.enricher.utils import implementation, leqo_input, leqo_output
 from app.model.CompileRequest import MergerNode
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import QubitType
+from app.model.exceptions import (
+    InputCountMismatch,
+    InputNull,
+    InputSizeMismatch,
+    InputTypeMismatch,
+)
 
 
 class MergerEnricherStrategy(EnricherStrategy):
@@ -38,11 +42,17 @@ class MergerEnricherStrategy(EnricherStrategy):
 
         MIN_INPUTS: int = 2
         if constraints is None or len(constraints.requested_inputs) < MIN_INPUTS:
-            raise ConstraintValidationException("Merger requires at least two inputs.")
+            raise InputCountMismatch(
+                node,
+                actual=len(constraints.requested_inputs) if constraints else 0,
+                expected=MIN_INPUTS,
+            )
 
         if node.numberInputs != len(constraints.requested_inputs):
-            raise ConstraintValidationException(
-                f"MergerNode.numberInputs ({node.numberInputs}) does not match the amount of provided inputs ({len(constraints.requested_inputs)})."
+            raise InputCountMismatch(
+                node,
+                actual=len(constraints.requested_inputs),
+                expected=node.numberInputs,
             )
 
         out_size = 0
@@ -53,19 +63,15 @@ class MergerEnricherStrategy(EnricherStrategy):
             input = constraints.requested_inputs.get(index)
 
             if input is None:
-                raise InputValidationException("Merger does not allow empty inputs.")
+                raise InputNull(node, index)
 
             if not isinstance(input, QubitType):
-                raise ConstraintValidationException(
-                    f"Invalid input type at index {index}: expected QubitType, got {type(input).__name__}."
-                )
+                raise InputTypeMismatch(node, index, actual=input, expected="qubit")
 
             reg_size = input.size
 
             if reg_size is None or reg_size < 1:
-                raise ConstraintValidationException(
-                    f"Invalid register size at index {index}: {reg_size}. Must be >= 1."
-                )
+                raise InputSizeMismatch(node, index, actual=reg_size or 0, expected=1)
 
             out_size += reg_size
 
@@ -78,9 +84,7 @@ class MergerEnricherStrategy(EnricherStrategy):
                 concatenation = Concatenation(concatenation, Identifier(identifier))
 
         if out_size < 1:
-            raise ConstraintValidationException(
-                "Merger must produce a non-empty register."
-            )
+            raise InputCountMismatch(node, actual=out_size, expected=2)
 
         stmts.append(leqo_output("merger_output", 0, concatenation))  # type: ignore[arg-type]
 
