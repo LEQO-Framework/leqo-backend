@@ -11,6 +11,7 @@ from openqasm3.ast import (
     UintType,
 )
 
+from app.exceptions import InternalServerError
 from app.openqasm3.visitor import LeqoTransformer
 
 
@@ -20,8 +21,10 @@ class InliningTransformer(LeqoTransformer[None]):
     """
 
     lookup: dict[str, ConstantDeclaration]
+    __node_id: str | None = None
 
-    def __init__(self) -> None:
+    def __init__(self, node_id: str | None = None) -> None:
+        self.__node_id = node_id
         self.lookup = {}
 
     def visit_ConstantDeclaration(
@@ -44,7 +47,7 @@ class InliningTransformer(LeqoTransformer[None]):
                 return node
 
         if self.lookup.get(node.identifier.name) is not None:
-            raise Exception("Constant already defined")
+            raise InternalServerError("Constant already defined", node=self.__node_id)
 
         self.lookup[node.identifier.name] = node
         return None  # Remove node

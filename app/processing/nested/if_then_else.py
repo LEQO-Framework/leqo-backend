@@ -15,6 +15,7 @@ from openqasm3.ast import (
 from openqasm3.parser import parse
 
 from app.enricher import ParsedImplementationNode
+from app.exceptions import InternalServerError
 from app.model.CompileRequest import (
     IfThenElseNode,
 )
@@ -37,7 +38,8 @@ def parse_condition(value: str) -> Expression:
     """
     if_then_else_ast = parse(f"if({value}) {{}}").statements[0]
     if not isinstance(if_then_else_ast, BranchingStatement):
-        raise RuntimeError()
+        msg = "this is a hardcoded BranchingStatement!"
+        raise InternalServerError(msg)
     return if_then_else_ast.condition
 
 

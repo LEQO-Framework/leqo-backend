@@ -37,6 +37,7 @@ from pathlib import Path
 from openqasm3.ast import Include, Program, QASMNode, QuantumGate, QuantumGateDefinition
 from openqasm3.parser import parse
 
+from app.exceptions import ServerError
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.utils import cast_to_program
 
@@ -79,7 +80,7 @@ class CustomOpenqasmLib:
                 self.gates.append(statement)
 
 
-class QASMConversionError(Exception):
+class QASMConversionError(ServerError):
     """Custom exception raised for errors occurring during QASM conversion."""
 
 
@@ -149,16 +150,22 @@ class QASMConverter:
     """Convert QASM 2.x code to QASM 3.1 AST or return parsed OpenQASM 3.x. directly"""
 
     custom_libs: dict[str, CustomOpenqasmLib]
+    __node_id: str | None
 
     def add_custom_gate_lib(self, lib: CustomOpenqasmLib) -> None:
         """Append custom lib to internal data."""
         self.custom_libs[lib.name] = lib
 
-    def __init__(self, custom_libs: list[CustomOpenqasmLib] | None = None) -> None:
+    def __init__(
+        self,
+        custom_libs: list[CustomOpenqasmLib] | None = None,
+        node_id: str | None = None,
+    ) -> None:
         """Initialize the QASMConverter with optional external QASM files for unsupported gates.
 
         :param custom_libs: List of CustomOpenqasmLib's containing additional gate definitions.
         """
+        self.__node_id = node_id
         self.custom_libs = {}
         if custom_libs is not None:
             for lib in custom_libs:
@@ -194,7 +201,7 @@ class QASMConverter:
         opaque = OPAQUE_STATEMENT_PATTERN.findall(qasm2_code)
         if len(opaque) != 0:
             msg = f"Unsupported opaque definition {opaque} could not be ported to OpenQASM 3."
-            raise QASMConversionError(msg)
+            raise QASMConversionError(msg, node=self.__node_id)
 
         qasm2_code = UNCOMPUTE_BLOCK_PATTERN.sub(
             r"@leqo.uncompute\nif(false) {\n\1\n}",
@@ -224,6 +231,7 @@ class QASMConverter:
 def parse_to_openqasm3(
     code: str,
     custom_libs: list[CustomOpenqasmLib] | None = None,
+    node_id: str | None = None,
 ) -> Program:
     """Parse an Openqasm2.x/3.x string to an equivalent Openqasm3.1 AST.
 
@@ -232,4 +240,4 @@ def parse_to_openqasm3(
     :return: The converted/parsed Openqasm 3 AST.
     """
     custom_libs = [] if custom_libs is None else custom_libs
-    return QASMConverter(custom_libs).parse_to_qasm3(code)
+    return QASMConverter(custom_libs, node_id).parse_to_qasm3(code)

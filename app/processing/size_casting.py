@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from io import UnsupportedOperation
 
 from openqasm3.ast import (
     AliasStatement,
@@ -19,6 +18,7 @@ from openqasm3.ast import (
     QubitDeclaration,
 )
 
+from app.exceptions import InternalServerError, InvalidInputError
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     ClassicalIOInstance,
@@ -93,8 +93,8 @@ class SizeCastTransformer(LeqoTransformer[None]):
                 return parse_io_annotation(annotation)
         return None
 
-    @staticmethod
     def raise_if_cast_to_bigger(
+        self,
         requested: int | None,
         actual: int | None,
         ioinstance: QubitIOInstance | ClassicalIOInstance,
@@ -103,7 +103,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
             requested is not None and actual is not None and requested > actual
         ):
             msg = f"Try to make {ioinstance} bigger, only smaller is possible."
-            raise UnsupportedOperation(msg)
+            raise InvalidInputError(msg, node=self.processed.raw.name)
 
     def visit_ClassicalDeclaration(
         self,
@@ -143,7 +143,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
         ioinstance = self.processed.io.inputs[index]
         if not isinstance(ioinstance, ClassicalIOInstance):
             msg = "IO-Info specifies qubit input for classic input in AST."
-            raise RuntimeError(msg)
+            raise InternalServerError(msg, node=self.processed.raw.name)
 
         requested = self.requested_sizes[index]
         actual = ioinstance.type.size
@@ -164,7 +164,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
             case IntType() | FloatType():
                 if requested is None:
                     msg = "can't cast int/float to None"
-                    raise UnsupportedOperation(msg)
+                    raise InvalidInputError(msg, node=self.processed.raw.name)
 
                 # create new declaration with old name + size pointing to new
                 new_input_node = ClassicalDeclaration(
@@ -256,7 +256,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
         ioinstance = self.processed.io.inputs[index]
         if not isinstance(ioinstance, QubitIOInstance):
             msg = "IO-Info specifies classic input for qubit input in AST."
-            raise RuntimeError(msg)
+            raise InternalServerError(msg, node=self.processed.raw.name)
 
         requested = self.requested_sizes[index]
         ids = ioinstance.ids

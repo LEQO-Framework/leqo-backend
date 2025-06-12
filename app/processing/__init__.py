@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from copy import deepcopy
-from io import UnsupportedOperation
 from typing import Annotated
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
 
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
+from app.exceptions import InvalidInputError
 from app.model.CompileRequest import (
     CompileRequest,
     IfThenElseNode,
@@ -80,17 +80,19 @@ class CommonProcessor:
             source_node_data = not_none(
                 self.frontend_to_processed.get(source_node),
                 f"Node '{source_node}' should already be enriched",
+                node_id=source_node,
             )
 
             for edge in not_none(
                 self.frontend_graph.edge_data.get((source_node, target_node)),
                 "Edge should exist",
+                node_id=source_node,
             ):
                 output_index = edge.source[1]
                 output = source_node_data.io.outputs.get(output_index)
                 if output is None:  # https://github.com/python/mypy/issues/17383
                     msg = f"Node '{source_node}' does not define an output with index {output_index}"
-                    raise UnsupportedOperation(msg)
+                    raise InvalidInputError(msg, node=source_node)
 
                 input_index = edge.target[1]
                 requested_inputs[input_index] = output.type

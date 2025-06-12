@@ -35,13 +35,21 @@ class ServerError(Exception):
         node: str | None = None,
         client: bool = False,
     ) -> None:
-        if isinstance(source, str):
-            self.message = source
-        else:
-            self.message = str(source) or type(source).__name__
-            self.__cause__ = source
-        self.node = node
-        self.client = client
+        match source:
+            case InvalidInputError() | InternalServerError():
+                self.message = source.message
+                self.node = node if node is not None else source.node
+                self.client = source.client
+                self.__cause__ = source
+            case str():
+                self.message = source
+                self.node = node
+                self.client = client
+            case _:
+                self.message = str(source) or type(source).__name__
+                self.node = node
+                self.client = client
+                self.__cause__ = source
         super().__init__(self.message)
 
     def __str__(self) -> str:

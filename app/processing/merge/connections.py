@@ -1,7 +1,6 @@
 """Connect input/output by modifying the AST based on IOInfo."""
 
 from dataclasses import dataclass
-from io import UnsupportedOperation
 from textwrap import dedent
 from uuid import UUID
 
@@ -16,15 +15,14 @@ from openqasm3.ast import (
     QubitDeclaration,
 )
 
+from app.exceptions import InternalServerError, InvalidInputError, ServerError
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     AncillaConnection,
     ClassicalIOInstance,
     IOConnection,
-    IOInfo,
     ProcessedProgramNode,
     ProgramGraph,
-    QubitInfo,
     QubitIOInstance,
 )
 
@@ -44,52 +42,44 @@ class SingleQubit:
 class ApplyConnectionsTransformer(LeqoTransformer[None]):
     """Replace qubit declaration and classical inputs with alias.
 
-    :param section_id: The UUID of the currently visited section.
-    :param io_info: The IOInfo for the current section.
-    :param qubit_info: The QubitInfo for the current section.
+    :param node: Information of the processed graph node
     :param global_reg_name: The name to use for global qubit register.
     :param qubit_to_index: Map qubits to the indexes in the global reg.
     :param classical_input_to_output: Map classical declaration names to alias to use.
     """
 
-    section_id: UUID
-    io_info: IOInfo
-    qubit_info: QubitInfo
+    node: ProcessedProgramNode
     global_reg_name: str
     qubit_to_index: dict[SingleQubit, int]
     classical_input_to_output: dict[str, str]
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
-        section_id: UUID,
-        io_info: IOInfo,
-        qubit_info: QubitInfo,
+        node: ProcessedProgramNode,
         global_reg_name: str,
         qubit_to_index: dict[SingleQubit, int],
         classical_input_to_output: dict[str, str],
     ) -> None:
-        self.section_id = section_id
-        self.io_info = io_info
-        self.qubit_info = qubit_info
+        self.node = node
         self.global_reg_name = global_reg_name
         self.qubit_to_index = qubit_to_index
         self.classical_input_to_output = classical_input_to_output
 
     def id_to_qubit(self, id: int) -> SingleQubit:
         """Create :class:`app.processing.merging.connections.SingleQubit` for encountered id."""
-        return SingleQubit(self.section_id, id)
+        return SingleQubit(self.node.id, id)
 
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
         """Replace qubit declaration with alias to leqo_reg."""
         name = node.qubit.name
-        ids = self.qubit_info.declaration_to_ids[name]
+        ids = self.node.qubit.declaration_to_ids[name]
         reg_indexes = [self.qubit_to_index[self.id_to_qubit(id)] for id in ids]
         # the 'type: ignore' is because of a bug in the openqasm3 module:
         # IndexExpression is allowed as value in AliasStatement (as can be seen by parsed input)
         if node.size is None:
             if len(reg_indexes) != 1:
                 msg = f"Critical Internal Error: Expected exactly one qubit index for {node.qubit.name} found {reg_indexes}"
-                raise RuntimeError(msg)
+                raise InternalServerError(msg, node=self.node.raw.name)
             result = AliasStatement(
                 Identifier(name),
                 IndexExpression(  # type: ignore
@@ -169,7 +159,7 @@ class Connections:
         output_type, input_type = output.type, input.type
         if output_type != input_type:
             msg = f"Unsupported: Mismatched types in IOConnection {output_type} != {input_type}"
-            raise UnsupportedOperation(msg)
+            raise InvalidInputError(msg)
         output_ids = output.ids if isinstance(output.ids, list) else [output.ids]
         input_ids = input.ids if isinstance(input.ids, list) else [input.ids]
         for s_id, t_id in zip(output_ids, input_ids, strict=True):
@@ -195,7 +185,7 @@ class Connections:
                 output {output.name} has type {output.type}
                 input {input.name} has type {input.type}
                 """)
-            raise UnsupportedOperation(msg)
+            raise InvalidInputError(msg)
         if input.name in self.classical_input_to_output:
             msg = dedent(f"""\
                 Unsupported: Multiply inputs into classical
@@ -203,7 +193,7 @@ class Connections:
                 Both {self.classical_input_to_output[input.name]} and {output.name}
                 are input to {input.name} but only one is allowed.
                 """)
-            raise UnsupportedOperation(msg)
+            raise InvalidInputError(msg)
         self.classical_input_to_output[input.name] = output.name
 
     def handle_connection(
@@ -224,7 +214,7 @@ class Connections:
                         Index {edge.source[1]} from {edge.source[0].name} modeled,
                         but no such annotation was found.
                         """)
-                    raise UnsupportedOperation(msg)
+                    raise InvalidInputError(msg, node=processed_source.raw.name)
                 if input is None:
                     msg = dedent(f"""\
                         Unsupported: Missing input index in connection
@@ -232,17 +222,27 @@ class Connections:
                         Index {edge.target[1]} from {edge.target[0].name} modeled,
                         but no such annotation was found.
                         """)
-                    raise UnsupportedOperation(msg)
+                    raise InvalidInputError(msg, node=processed_target.raw.name)
                 match output, input:
                     case QubitIOInstance(), QubitIOInstance():
-                        self.handle_qubit_connection(
-                            output,
-                            input,
-                            processed_source.id,
-                            processed_target.id,
-                        )
+                        try:
+                            self.handle_qubit_connection(
+                                output,
+                                input,
+                                processed_source.id,
+                                processed_target.id,
+                            )
+                        except Exception as exc:
+                            raise ServerError(
+                                exc, node=processed_source.raw.name
+                            ) from exc
                     case ClassicalIOInstance(), ClassicalIOInstance():
-                        self.handle_classical_connection(output, input)
+                        try:
+                            self.handle_classical_connection(output, input)
+                        except Exception as exc:
+                            raise ServerError(
+                                exc, node=processed_source.raw.name
+                            ) from exc
                     case _:
                         msg = dedent(f"""\
                             Unsupported: Try to connect qubit with classical
@@ -250,7 +250,7 @@ class Connections:
                             Index {edge.target[1]} from {edge.target[0].name} tries to
                             connect to index {edge.source[1]} from {edge.target[0].name}
                             """)
-                        raise UnsupportedOperation(msg)
+                        raise InvalidInputError(msg, node=processed_source.raw.name)
             case AncillaConnection():
                 self.handle_qubit_connection(
                     # the name __ancilla__ is only used in errors
@@ -264,7 +264,8 @@ class Connections:
         self,
     ) -> tuple[dict[SingleQubit, int], int]:
         if self.input is None:
-            raise RuntimeError
+            msg = "input can't be None here"
+            raise InternalServerError(msg)
 
         reg_index = 0
         qubit_to_reg_index: dict[SingleQubit, int] = {}
@@ -276,7 +277,7 @@ class Connections:
                         _ = self.equiv_classes.pop(qubit)
                     except KeyError as e:
                         msg = "Two qubits in input share the same equiv_class."
-                        raise RuntimeError(msg) from e
+                        raise InternalServerError(msg) from e
                     qubit_to_reg_index[qubit] = reg_index
                 reg_index += 1
 
@@ -297,7 +298,8 @@ class Connections:
         self,
     ) -> tuple[dict[SingleQubit, int], int]:
         if self.input is not None:
-            raise RuntimeError
+            msg = "input has to be None here"
+            raise InternalServerError(msg)
 
         reg_index = 0
         qubit_to_reg_index: dict[SingleQubit, int] = {}
@@ -333,9 +335,7 @@ class Connections:
                 continue
             node = self.graph.get_data_node(nd)
             ApplyConnectionsTransformer(
-                node.id,
-                node.io,
-                node.qubit,
+                node,
                 self.global_reg_name,
                 qubit_to_reg_index,
                 self.classical_input_to_output,
