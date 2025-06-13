@@ -16,6 +16,7 @@ from app.enricher import (
     NodeUnsupportedException,
 )
 from app.enricher.models import BaseNode
+from app.exceptions import InternalServerError
 from app.model.CompileRequest import ImplementationNode
 from app.model.CompileRequest import Node as FrontendNode
 
@@ -34,7 +35,7 @@ class DataBaseEnricherStrategy(EnricherStrategy, ABC):
     def _generate_query(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> Select[tuple[BaseNode]] | None:
-        raise Exception("Not implemented")
+        raise InternalServerError("Not implemented", node=node.id)
 
     @override
     async def _enrich_impl(
@@ -48,7 +49,7 @@ class DataBaseEnricherStrategy(EnricherStrategy, ABC):
             result_nodes = (await session.execute(query)).scalars().all()
 
         if not result_nodes:
-            raise RuntimeError("No results found in the database")
+            return []
 
         enrichment_results = []
         for result_node in result_nodes:

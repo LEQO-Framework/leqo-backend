@@ -3,7 +3,6 @@ Utils used within :mod:`app.processing`.
 """
 
 import re
-from io import UnsupportedOperation
 from typing import TypeVar
 
 from openqasm3.ast import (
@@ -19,6 +18,7 @@ from openqasm3.ast import (
     UnaryExpression,
 )
 
+from app.exceptions import InvalidInputError
 from app.openqasm3.printer import leqo_dumps
 from app.processing.frontend_graph import FrontendGraph
 from app.processing.graph import ProgramGraph
@@ -85,7 +85,7 @@ def annotate(
     return statement
 
 
-def parse_io_annotation(annotation: Annotation) -> int:
+def parse_io_annotation(annotation: Annotation, node_id: str | None = None) -> int:
     """Parse the :attr:`~openqasm3.ast.Annotation.command` of a `@leqo.input` or `@leqo.output` :class:`~openqasm3.ast.Annotation`.
 
     :param annotation: The annotation to parse
@@ -95,7 +95,7 @@ def parse_io_annotation(annotation: Annotation) -> int:
 
     if not command:
         msg = f"Annotation of type {type(annotation).__qualname__} without index was found."
-        raise UnsupportedOperation(msg)
+        raise InvalidInputError(msg, node=node_id)
 
     return int(command)
 
@@ -120,7 +120,9 @@ def parse_range_definition(range_def: RangeDefinition, length: int) -> list[int]
     return list(range(start, end, step))
 
 
-def parse_qasm_index(index: list[IndexElement], length: int) -> list[int] | int:
+def parse_qasm_index(
+    index: list[IndexElement], length: int, node_id: str | None = None
+) -> list[int] | int:
     """Parse list of qasm3 indexes.
 
     This can return either a single index or a subset of them.
@@ -131,7 +133,7 @@ def parse_qasm_index(index: list[IndexElement], length: int) -> list[int] | int:
     for subindex in index:
         if not isinstance(result, list):
             msg = "Unsupported: Can't further index single instance."
-            raise UnsupportedOperation(msg)
+            raise InvalidInputError(msg, node=node_id)
         match subindex:
             case DiscreteSet():
                 indecies = [expr_to_int(expr) for expr in subindex.values]

@@ -1,7 +1,6 @@
 """Merge all nodes from :class:`app.processing.graph.ProgramGraph` into a single QASM program."""
 
 from copy import deepcopy
-from io import UnsupportedOperation
 
 from networkx import topological_sort
 from openqasm3.ast import (
@@ -19,6 +18,7 @@ from openqasm3.ast import (
     Statement,
 )
 
+from app.exceptions import InvalidInputError
 from app.openqasm3.ast import CommentStatement
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
@@ -81,7 +81,7 @@ def graph_to_statements(
         for statement in implementation.statements:
             if isinstance(statement, Pragma):
                 msg = f"Can't handle pragma inside if-then-else: {statement}"
-                raise UnsupportedOperation(msg)
+                raise InvalidInputError(msg, node=processed.raw.name)
             result.append(statement)
     return result
 

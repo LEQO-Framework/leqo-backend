@@ -1,9 +1,9 @@
 import re
-from io import UnsupportedOperation
 from uuid import uuid4
 
 import pytest
 
+from app.exceptions import InvalidInputError
 from app.openqasm3.printer import leqo_dumps
 from app.processing.graph import ProgramNode
 from app.processing.pre import preprocess
@@ -152,7 +152,7 @@ def test_raise_on_invalid_qubit_cast() -> None:
 
     id = uuid4()
     with pytest.raises(
-        UnsupportedOperation,
+        InvalidInputError,
         match=re.escape(
             f"Try to make QubitIOInstance(name='leqo_{id.hex}_q', ids=[0, 1, 2, 3, 4]) bigger, only smaller is possible.",
         ),
@@ -169,7 +169,7 @@ def test_raise_on_invalid_classic_cast() -> None:
 
     id = uuid4()
     with pytest.raises(
-        UnsupportedOperation,
+        InvalidInputError,
         match=re.escape(
             f"Try to make ClassicalIOInstance(name='leqo_{id.hex}_i', type=IntType(size=5)) bigger, only smaller is possible.",
         ),

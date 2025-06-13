@@ -27,6 +27,7 @@ from abc import ABC, abstractmethod
 from sys import maxsize
 from typing import override
 
+from app.exceptions import InternalServerError
 from app.processing.graph import (
     AncillaConnection,
     ProcessedProgramNode,
@@ -145,7 +146,7 @@ class NoPred(OptimizationAlgo):
         """
         if len(self.uncomputable) == 0:
             msg = "No uncomputable nodes available to pop."
-            raise RuntimeError(msg)
+            raise InternalServerError(msg)
 
         result = min(
             self.uncomputable,
@@ -162,7 +163,8 @@ class NoPred(OptimizationAlgo):
         Use the qubits in the order: dirty -> uncomputable -> reusable
         """
         if self.current_node is None:
-            raise RuntimeError
+            msg = "can't happen"
+            raise InternalServerError(msg)
 
         need_dirty = self.current_node.qubit.dirty_ids
 
@@ -224,7 +226,8 @@ class NoPred(OptimizationAlgo):
         Try to satisfy with reusable qubits, uncompute nodes if that is not enough.
         """
         if self.current_node is None:
-            raise RuntimeError
+            msg = "can't happen"
+            raise InternalServerError(msg)
 
         need_reusable = self.current_node.qubit.clean_ids
 
@@ -339,7 +342,7 @@ class NoPredCheckNeedDiffScore(NoPred):
         choice = current_best[2]
         if choice is None:
             msg = "No nopred node available to pop."
-            raise RuntimeError(msg)
+            raise InternalServerError(msg)
 
         self.nopred.remove(choice)
         return choice

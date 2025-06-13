@@ -37,13 +37,16 @@ class SplitterEnricherStrategy(EnricherStrategy):
             return []
 
         if constraints is None or len(constraints.requested_inputs) != 1:
-            raise ConstraintValidationException("Splitter requires exactly one input.")
+            raise ConstraintValidationException(
+                "Splitter requires exactly one input.", node=node.id
+            )
 
         input = constraints.requested_inputs[0]
 
         if not isinstance(input, QubitType):
             raise ConstraintValidationException(
-                f"Invalid input type: expected QubitType, got {type(input).__name__}."
+                f"Invalid input type: expected QubitType, got {type(input).__name__}.",
+                node=node.id,
             )
 
         reg_size = input.size
