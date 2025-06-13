@@ -1,16 +1,18 @@
 import pytest
 
-from app.enricher import (
-    Constraints,
-    ConstraintValidationException,
-    InputValidationException,
-)
+from app.enricher import Constraints
 from app.enricher.merger import MergerEnricherStrategy
 from app.model.CompileRequest import (
     IntLiteralNode,
     MergerNode,
 )
 from app.model.data_types import IntType, QubitType
+from app.model.exceptions import (
+    InputCountMismatch,
+    InputNull,
+    InputSizeMismatch,
+    InputTypeMismatch,
+)
 from tests.enricher.utils import assert_enrichment
 
 
@@ -147,7 +149,7 @@ async def test_merger_no_constraints() -> None:
     strategy = MergerEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException, match=r"^Merger requires at least two inputs\.$"
+        InputCountMismatch, match=r"^Node can only have 2 inputs\. Got 0\.$"
     ):
         await strategy.enrich(MergerNode(id="nodeId", numberInputs=2), constraints=None)
 
@@ -157,7 +159,7 @@ async def test_merger_too_few_inputs() -> None:
     strategy = MergerEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException, match=r"^Merger requires at least two inputs\.$"
+        InputCountMismatch, match=r"^Node can only have 2 inputs\. Got 1\.$"
     ):
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
@@ -174,8 +176,8 @@ async def test_merger_number_of_inputs_neq_size() -> None:
     strategy = MergerEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^MergerNode\.numberInputs \(3\) does not match the amount of provided inputs \(2\)\.$",
+        InputCountMismatch,
+        match=r"^Node can only have 3 inputs\. Got 2\.$",
     ):
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=3),
@@ -192,8 +194,8 @@ async def test_merger_empty_input() -> None:
     strategy = MergerEnricherStrategy()
 
     with pytest.raises(
-        InputValidationException,
-        match=r"^Merger does not allow empty inputs\.$",
+        InputNull,
+        match=r"^Expected input at index 1 but got none\.$",
     ):
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
@@ -213,8 +215,8 @@ async def test_merger_invalid_input_type() -> None:
     strategy = MergerEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^Invalid input type at index 1: expected QubitType, got .+\.$",
+        InputTypeMismatch,
+        match=r"^Expected type 'qubit' for input 1\. Got 'IntType\(size=32\)'\.$",
     ):
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
@@ -231,8 +233,8 @@ async def test_merger_invalid_register_size() -> None:
     strategy = MergerEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^Invalid register size at index 1: 0\. Must be >= 1\.$",
+        InputSizeMismatch,
+        match=r"^Expected size 1 for input 1. Got 0.$",
     ):
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),

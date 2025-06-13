@@ -13,8 +13,8 @@ from app.enricher import (
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
-    NodeUnsupportedException,
 )
+from app.enricher.exceptions import NoImplementationFound
 from app.enricher.models import BaseNode
 from app.model.CompileRequest import ImplementationNode
 from app.model.CompileRequest import Node as FrontendNode
@@ -48,12 +48,12 @@ class DataBaseEnricherStrategy(EnricherStrategy, ABC):
             result_nodes = (await session.execute(query)).scalars().all()
 
         if not result_nodes:
-            raise RuntimeError("No results found in the database")
+            return []
 
         enrichment_results = []
         for result_node in result_nodes:
             if result_node.implementation is None:
-                raise NodeUnsupportedException(node)
+                raise NoImplementationFound(node)
 
             enrichment_results.append(
                 EnrichmentResult(

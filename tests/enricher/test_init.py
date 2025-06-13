@@ -10,7 +10,6 @@ from app.enricher import (
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
-    NodeUnsupportedException,
 )
 from app.model.CompileRequest import (
     BitLiteralNode,
@@ -22,6 +21,11 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
+
+
+class NodeUnsupportedException(Exception):
+    def __init__(self, node: FrontendNode):
+        super().__init__(f"Node '{type(node).__name__}' is not supported")
 
 
 class IntToAEnricherStrategy(EnricherStrategy):
@@ -186,7 +190,7 @@ async def test_enrich_unknown_node_empty_list() -> None:
     enricher = Enricher(EmptyListEnricherStrategy())
     with pytest.raises(
         Exception,
-        match=r"^No implementations were found for node 'nodeId'$",
+        match=r"^No implementations were found$",
     ):
         await enricher.enrich(
             BoolLiteralNode(id="nodeId", value=False), constraints=None

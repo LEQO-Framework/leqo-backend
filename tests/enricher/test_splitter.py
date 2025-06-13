@@ -1,15 +1,17 @@
 import pytest
 
-from app.enricher import (
-    Constraints,
-    ConstraintValidationException,
-)
+from app.enricher import Constraints
 from app.enricher.splitter import SplitterEnricherStrategy
 from app.model.CompileRequest import (
     IntLiteralNode,
     SplitterNode,
 )
 from app.model.data_types import IntType, QubitType
+from app.model.exceptions import (
+    InputCountMismatch,
+    InputSizeMismatch,
+    InputTypeMismatch,
+)
 from tests.enricher.utils import assert_enrichment
 
 
@@ -86,7 +88,7 @@ async def test_splitter_no_constraints() -> None:
     strategy = SplitterEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException, match=r"^Splitter requires exactly one input\.$"
+        InputCountMismatch, match=r"^Node can only have 1 inputs\. Got 0\.$"
     ):
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2), constraints=None
@@ -98,7 +100,7 @@ async def test_splitter_no_inputs() -> None:
     strategy = SplitterEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException, match=r"^Splitter requires exactly one input\.$"
+        InputCountMismatch, match=r"^Node can only have 1 inputs\. Got 0\.$"
     ):
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),
@@ -115,7 +117,7 @@ async def test_splitter_too_many_inputs() -> None:
     strategy = SplitterEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException, match=r"^Splitter requires exactly one input\.$"
+        InputCountMismatch, match=r"^Node can only have 1 inputs\. Got 2\.$"
     ):
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),
@@ -132,8 +134,8 @@ async def test_splitter_invalid_input_type() -> None:
     strategy = SplitterEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^Invalid input type: expected QubitType, got .+\.$",
+        InputTypeMismatch,
+        match=r"^Expected type 'qubit' for input 0\. Got 'IntType\(size=32\)'\.$",
     ):
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),
@@ -150,8 +152,8 @@ async def test_splitter_invalid_register_size() -> None:
     strategy = SplitterEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^Invalid register size: [0-9]+\. Must be >= 1\.$",
+        InputSizeMismatch,
+        match=r"^Expected size 1 for input 0\. Got 0\.$",
     ):
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),
@@ -168,8 +170,8 @@ async def test_splitter_number_of_outputs_neq_size() -> None:
     strategy = SplitterEnricherStrategy()
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^SplitterNode\.numberOutputs \([0-9]+\) does not match input register size \([0-9]+\)\.$",
+        InputSizeMismatch,
+        match=r"^Expected size 2 for input 0\. Got 3\.$",
     ):
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),

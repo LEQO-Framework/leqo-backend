@@ -2,12 +2,9 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.enricher import (
-    Constraints,
-    ConstraintValidationException,
-    InputValidationException,
-)
+from app.enricher import Constraints
 from app.enricher.encode_value import EncodeValueEnricherStrategy
+from app.enricher.exceptions import EncodingNotSupported
 from app.enricher.models import (
     EncodeValueNode,
     EncodingType,
@@ -18,6 +15,7 @@ from app.enricher.models import (
 from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
 from app.model.data_types import BitType, BoolType, FloatType, IntType, QubitType
+from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 from tests.enricher.utils import assert_enrichments
 
 
@@ -156,8 +154,8 @@ async def test_enrich_custom_encode_value(engine: AsyncEngine) -> None:
     )
 
     with pytest.raises(
-        InputValidationException,
-        match=r"^Custom encoding is not supported$",
+        EncodingNotSupported,
+        match=r"^Encoding 'custom' not supported$",
     ):
         await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
@@ -194,8 +192,8 @@ async def test_enrich_encode_value_two_inputs(engine: AsyncEngine) -> None:
     )
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^EncodeValueNode can only have a single input$",
+        InputCountMismatch,
+        match=r"^Node can only have 1 inputs. Got 2.$",
     ):
         await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
@@ -216,8 +214,8 @@ async def test_enrich_encode_value_quibit_input(engine: AsyncEngine) -> None:
     )
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^EncodeValueNode only supports classical types$",
+        InputTypeMismatch,
+        match=r"^Expected type 'classical' for input 0. Got 'QubitType\(size=1\)'.$",
     ):
         await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
@@ -237,8 +235,4 @@ async def test_enrich_encode_value_node_not_in_db(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match=r"^No results found in the database$",
-    ):
-        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
+    assert (await EncodeValueEnricherStrategy(engine).enrich(node, constraints)) == []
