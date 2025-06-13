@@ -28,6 +28,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.intersphinx",
     "sphinxcontrib.openapi",
+    "sphinxcontrib.datatemplates",
     "autoapi.extension",
 ]
 
