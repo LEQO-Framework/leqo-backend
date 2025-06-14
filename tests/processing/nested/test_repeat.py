@@ -24,9 +24,10 @@ async def assert_unroll_repeat(
     requested_inputs: dict[int, LeqoSupportedType],
     expected: FrontendGraph,
 ) -> None:
-    _entry_node, _exit_node, actual_graph = await unroll_repeat(
-        node, requested_inputs, build_graph
+    _entry_node, _exit_node, enrolled_graph = await unroll_repeat(
+        node, requested_inputs
     )
+    actual_graph = await build_graph(enrolled_graph)
     actual = normalize_qasm_string(leqo_dumps(merge_nodes(actual_graph)))
     print(actual)
     expected_impl = normalize_qasm_string(

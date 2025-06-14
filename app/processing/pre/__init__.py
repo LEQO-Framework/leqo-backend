@@ -5,21 +5,26 @@ The pipeline consists of multiple :class:`~openqasm3.visitor.QASMTransformer` th
 
 from openqasm3.ast import Program
 
+from app.model.data_types import LeqoSupportedType
 from app.processing.graph import IOInfo, ProcessedProgramNode, ProgramNode, QubitInfo
 from app.processing.pre.converter import parse_to_openqasm3
 from app.processing.pre.inlining import InliningTransformer
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.pre.renaming import RenameRegisterTransformer
+from app.processing.pre.size_casting import size_cast
 from app.processing.utils import cast_to_program
 
 
 def preprocess(
-    node: ProgramNode, implementation: str | Program
+    node: ProgramNode,
+    implementation: str | Program,
+    requested_inputs: dict[int, LeqoSupportedType],
 ) -> ProcessedProgramNode:
     """Run an openqasm3 snippet through the preprocessing pipeline.
 
     :param node: The node to preprocess.
     :param implementation: A valid OpenQASM 2/3 implementation for that node.
+    :param requested_inputs: Inputs specification needed for size_casting
     :return: The preprocessed program.
     """
     if isinstance(implementation, Program):
@@ -33,4 +38,9 @@ def preprocess(
     qubit = QubitInfo()
     _ = ParseAnnotationsVisitor(io, qubit).visit(ast)
 
-    return ProcessedProgramNode(node, ast, io, qubit)
+    processed_node = ProcessedProgramNode(node, ast, io, qubit)
+    size_cast(
+        processed_node,
+        {index: type.size for index, type in requested_inputs.items()},
+    )
+    return processed_node
