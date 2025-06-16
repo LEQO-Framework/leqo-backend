@@ -21,7 +21,12 @@ from app.enricher import (
     EnrichmentResult,
     ImplementationMetaData,
 )
-from app.enricher.exceptions import DuplicateIndices, IndicesOutOfRange, NoIndices
+from app.enricher.exceptions import (
+    DuplicateIndices,
+    IndicesOutOfRange,
+    InvalidSingleQubitIndex,
+    NoIndices,
+)
 from app.enricher.utils import implementation, leqo_input, leqo_output
 from app.model.CompileRequest import (
     MeasurementNode,
@@ -64,7 +69,7 @@ class MeasurementEnricherStrategy(EnricherStrategy):
         input_size = constraints.requested_inputs[0].size
         if input_size is None:
             if node.indices not in ([], [0]):
-                raise IndicesOutOfRange(node, node.indices, input_size=1)
+                raise InvalidSingleQubitIndex(node)
             return EnrichmentResult(
                 implementation(
                     node,

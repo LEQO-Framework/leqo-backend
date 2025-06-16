@@ -51,6 +51,13 @@ class GateNotSupported(EnricherException):
         super().__init__(f"Gate '{node.gate}' not supported", node)
 
 
+class InvalidSingleQubitIndex(EnricherException):
+    def __init__(self, node: MeasurementNode) -> None:
+        super().__init__(
+            "Single qubit can only be measured with [] or [0] indices", node
+        )
+
+
 class NoIndices(EnricherException):
     def __init__(self, node: MeasurementNode) -> None:
         super().__init__("No indices were specified", node)
