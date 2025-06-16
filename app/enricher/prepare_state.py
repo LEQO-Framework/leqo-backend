@@ -13,14 +13,14 @@ from app.enricher import (
     InputValidationException,
 )
 from app.enricher.db_enricher import DataBaseEnricherStrategy
+from app.enricher.models import BaseNode, Input, NodeType, QuantumStateType
+from app.enricher.models import PrepareStateNode as PrepareStateTable
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
 from app.model.CompileRequest import (
     PrepareStateNode,
 )
-from app.model.database_model import BaseNode, Input, NodeType, QuantumStateType
-from app.model.database_model import PrepareStateNode as PrepareStateTable
 
 
 class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):

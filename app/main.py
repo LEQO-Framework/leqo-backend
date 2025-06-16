@@ -11,6 +11,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
+from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.responses import (
     JSONResponse,
     PlainTextResponse,
@@ -40,12 +41,6 @@ app.add_middleware(
     allow_headers=get_settings().cors_allow_headers,
 )
 
-# FIXME: these should live in the database
-states: dict[UUID, StatusResponse] = {}
-results: dict[UUID, str | list[ImplementationNode]] = {}
-
-engine = get_db_engine()
-
 
 @app.post("/compile")
 async def post_compile(
@@ -54,6 +49,7 @@ async def post_compile(
     ],
     background_tasks: BackgroundTasks,
     settings: Annotated[Settings, Depends(get_settings)],
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
 ) -> RedirectResponse:
     """
     Enqueue a :class:`~fastapi.background.BackgroundTasks` to process the :class:`~app.model.CompileRequest`.
@@ -63,7 +59,9 @@ async def post_compile(
     statusResponse = StatusResponse.init_status(uuid)
     await addStatusResponseToDB(engine, statusResponse)
 
-    background_tasks.add_task(process_compile_request, uuid, processor, settings)
+    background_tasks.add_task(
+        process_compile_request, uuid, processor, settings, engine
+    )
 
     return RedirectResponse(
         url=f"{settings.api_base_url}status/{uuid}",
@@ -78,6 +76,7 @@ async def post_enrich(
     ],
     background_tasks: BackgroundTasks,
     settings: Annotated[Settings, Depends(get_settings)],
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
 ) -> RedirectResponse:
     """
     Enqueue a :class:`~fastapi.background.BackgroundTasks` to enrich all nodes in the :class:`~app.model.CompileRequest`.
@@ -87,7 +86,7 @@ async def post_enrich(
     statusResponse = StatusResponse.init_status(uuid)
     await addStatusResponseToDB(engine, statusResponse)
 
-    background_tasks.add_task(process_enrich_request, uuid, processor, settings)
+    background_tasks.add_task(process_enrich_request, uuid, processor, settings, engine)
 
     return RedirectResponse(
         url=f"{settings.api_base_url}status/{uuid}",
@@ -96,7 +95,9 @@ async def post_enrich(
 
 
 @app.get("/status/{uuid}")
-async def get_status(uuid: UUID) -> StatusResponse:
+async def get_status(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> StatusResponse:
     """
     Fetch status of a compile request.
 
@@ -114,7 +115,9 @@ async def get_status(uuid: UUID) -> StatusResponse:
 
 
 @app.get("/result/{uuid}", response_model=None)
-async def get_result(uuid: UUID) -> PlainTextResponse | JSONResponse:
+async def get_result(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> PlainTextResponse | JSONResponse:
     """
     Fetch result of a compile request.
 
@@ -135,9 +138,7 @@ async def get_result(uuid: UUID) -> PlainTextResponse | JSONResponse:
 
 
 async def process_compile_request(
-    uuid: UUID,
-    processor: MergingProcessor,
-    settings: Annotated[Settings, Depends(get_settings)],
+    uuid: UUID, processor: MergingProcessor, settings: Settings, engine: AsyncEngine
 ) -> None:
     """
     Process the :class:`~app.model.CompileRequest`.
@@ -145,6 +146,7 @@ async def process_compile_request(
     :param uuid: ID of the compile request
     :param processor: Processor for this request
     :param settings: Settings from .env file
+    :param engine: Database engine to use
     """
 
     status: StatusType = StatusType.FAILED
@@ -174,9 +176,7 @@ async def process_compile_request(
 
 
 async def process_enrich_request(
-    uuid: UUID,
-    processor: EnrichingProcessor,
-    settings: Annotated[Settings, Depends(get_settings)],
+    uuid: UUID, processor: EnrichingProcessor, settings: Settings, engine: AsyncEngine
 ) -> None:
     """
     Enrich all nodes in the :class:`~app.model.CompileRequest`.
@@ -184,6 +184,7 @@ async def process_enrich_request(
     :param uuid: ID of the compile request
     :param processor: Processor for this request
     :param settings: Settings from .env file
+    :param engine: Database engine to use
     """
 
     status: StatusType = StatusType.FAILED
