@@ -238,12 +238,11 @@ class EnrichingProcessor(CommonProcessor):
         enriched_node: ImplementationNode,
         requested_inputs: dict[int, LeqoSupportedType],
     ) -> None:
-        processed_node = preprocess(
+        self.frontend_to_processed[enriched_node.id] = preprocess(
             ProgramNode(enriched_node.id),
             enriched_node.implementation,
             requested_inputs,
         )
-        self.frontend_to_processed[enriched_node.id] = processed_node
 
     async def _enrich_inner_block(
         self, node: FrontendNode, block: NestedBlock
