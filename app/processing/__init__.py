@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from copy import deepcopy
 from io import UnsupportedOperation
 from typing import Annotated
 
@@ -158,7 +157,7 @@ class MergingProcessor(CommonProcessor):
                     )
                 processed_node = preprocess(
                     ProgramNode(node),
-                    deepcopy(enriched_node.implementation),
+                    enriched_node.implementation,
                     requested_inputs,
                 )
                 self.frontend_to_processed[node] = processed_node
