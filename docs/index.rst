@@ -21,4 +21,5 @@ documentation for details.
 
     testing
     example-cross-references
+    dev/sbom.rst
     openqasm3
