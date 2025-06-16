@@ -45,6 +45,7 @@ class MergerEnricherStrategy(EnricherStrategy):
             raise InputCountMismatch(
                 node,
                 actual=len(constraints.requested_inputs) if constraints else 0,
+                should_be="at-least",
                 expected=MIN_INPUTS,
             )
 
@@ -52,6 +53,7 @@ class MergerEnricherStrategy(EnricherStrategy):
             raise InputCountMismatch(
                 node,
                 actual=len(constraints.requested_inputs),
+                should_be="equal",
                 expected=node.numberInputs,
             )
 
@@ -84,7 +86,9 @@ class MergerEnricherStrategy(EnricherStrategy):
                 concatenation = Concatenation(concatenation, Identifier(identifier))
 
         if out_size < 1:
-            raise InputCountMismatch(node, actual=out_size, expected=2)
+            raise InputCountMismatch(
+                node, actual=out_size, should_be="at-least", expected=2
+            )
 
         stmts.append(leqo_output("merger_output", 0, concatenation))  # type: ignore[arg-type]
 

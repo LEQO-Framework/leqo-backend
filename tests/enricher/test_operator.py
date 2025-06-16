@@ -170,7 +170,7 @@ async def test_enrich_operator_one_inputs(engine: AsyncEngine) -> None:
 
     with pytest.raises(
         InputCountMismatch,
-        match=r"^Node can only have 2 inputs\. Got 1\.$",
+        match=r"^Node should have 2 inputs\. Got 1\.$",
     ):
         await OperatorEnricherStrategy(engine).enrich(node, constraints)
 

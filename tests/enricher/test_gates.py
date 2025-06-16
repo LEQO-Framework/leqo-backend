@@ -79,12 +79,12 @@ def test_gate_impl_wrong_input_count() -> None:
     )
 
     with pytest.raises(
-        InputCountMismatch, match=r"^Node can only have 3 inputs. Got 0.$"
+        InputCountMismatch, match=r"^Node should have 3 inputs. Got 0.$"
     ):
         enrich_gate(node, constraints=None, gate_name="abc", input_count=3)
 
     with pytest.raises(
-        InputCountMismatch, match=r"^Node can only have 3 inputs\. Got 1\.$"
+        InputCountMismatch, match=r"^Node should have 3 inputs\. Got 1\.$"
     ):
         enrich_gate(node, constraints, gate_name="abc", input_count=3)
 

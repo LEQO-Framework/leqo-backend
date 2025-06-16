@@ -149,7 +149,7 @@ async def test_merger_no_constraints() -> None:
     strategy = MergerEnricherStrategy()
 
     with pytest.raises(
-        InputCountMismatch, match=r"^Node can only have 2 inputs\. Got 0\.$"
+        InputCountMismatch, match=r"^Node should have at least 2 inputs\. Got 0\.$"
     ):
         await strategy.enrich(MergerNode(id="nodeId", numberInputs=2), constraints=None)
 
@@ -159,7 +159,7 @@ async def test_merger_too_few_inputs() -> None:
     strategy = MergerEnricherStrategy()
 
     with pytest.raises(
-        InputCountMismatch, match=r"^Node can only have 2 inputs\. Got 1\.$"
+        InputCountMismatch, match=r"^Node should have at least 2 inputs\. Got 1\.$"
     ):
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=2),
@@ -177,7 +177,7 @@ async def test_merger_number_of_inputs_neq_size() -> None:
 
     with pytest.raises(
         InputCountMismatch,
-        match=r"^Node can only have 3 inputs\. Got 2\.$",
+        match=r"^Node should have 3 inputs\. Got 2\.$",
     ):
         await strategy.enrich(
             MergerNode(id="nodeId", numberInputs=3),

@@ -190,7 +190,7 @@ async def test_enrich_prepare_state_one_inputs(engine: AsyncEngine) -> None:
 
     with pytest.raises(
         InputCountMismatch,
-        match=r"^Node can only have 0 inputs\. Got 1\.$",
+        match=r"^Node should have 0 inputs\. Got 1\.$",
     ):
         await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
 

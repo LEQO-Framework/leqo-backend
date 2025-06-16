@@ -1,3 +1,5 @@
+from typing import Literal
+
 from app.model.CompileRequest import Node
 from app.model.data_types import LeqoSupportedType
 
@@ -17,9 +19,24 @@ class DiagnosticError(Exception):
         self.node = node
 
 
+type InputCountExpectation = Literal["at-least", "at-most", "equal"]
+
+
 class InputCountMismatch(DiagnosticError):
-    def __init__(self, node: Node, actual: int, expected: int) -> None:
-        super().__init__(f"Node can only have {expected} inputs. Got {actual}.", node)
+    def __init__(
+        self, node: Node, actual: int, should_be: InputCountExpectation, expected: int
+    ) -> None:
+        match should_be:
+            case "at-least":
+                should_be_str = "at least "
+            case "at-most":
+                should_be_str = "at most "
+            case _:
+                should_be_str = ""
+
+        super().__init__(
+            f"Node should have {should_be_str}{expected} inputs. Got {actual}.", node
+        )
 
 
 class InputNull(DiagnosticError):

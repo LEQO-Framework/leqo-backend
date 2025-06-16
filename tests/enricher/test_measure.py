@@ -127,7 +127,7 @@ async def test_exactly_one_input_1() -> None:
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
         InputCountMismatch,
-        match=r"^Node can only have 1 inputs\. Got 0\.$",
+        match=r"^Node should have 1 inputs\. Got 0\.$",
     ):
         await strategy.enrich(node, constraints)
 
@@ -144,7 +144,7 @@ async def test_exactly_one_input_2() -> None:
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
         InputCountMismatch,
-        match=r"^Node can only have 1 inputs\. Got 2\.$",
+        match=r"^Node should have 1 inputs\. Got 2\.$",
     ):
         await strategy.enrich(node, constraints)
 

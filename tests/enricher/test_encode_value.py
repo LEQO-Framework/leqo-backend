@@ -193,7 +193,7 @@ async def test_enrich_encode_value_two_inputs(engine: AsyncEngine) -> None:
 
     with pytest.raises(
         InputCountMismatch,
-        match=r"^Node can only have 1 inputs. Got 2.$",
+        match=r"^Node should have 1 inputs. Got 2.$",
     ):
         await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 

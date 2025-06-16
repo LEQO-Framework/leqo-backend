@@ -88,7 +88,7 @@ async def test_splitter_no_constraints() -> None:
     strategy = SplitterEnricherStrategy()
 
     with pytest.raises(
-        InputCountMismatch, match=r"^Node can only have 1 inputs\. Got 0\.$"
+        InputCountMismatch, match=r"^Node should have 1 inputs\. Got 0\.$"
     ):
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2), constraints=None
@@ -100,7 +100,7 @@ async def test_splitter_no_inputs() -> None:
     strategy = SplitterEnricherStrategy()
 
     with pytest.raises(
-        InputCountMismatch, match=r"^Node can only have 1 inputs\. Got 0\.$"
+        InputCountMismatch, match=r"^Node should have 1 inputs\. Got 0\.$"
     ):
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),
@@ -117,7 +117,7 @@ async def test_splitter_too_many_inputs() -> None:
     strategy = SplitterEnricherStrategy()
 
     with pytest.raises(
-        InputCountMismatch, match=r"^Node can only have 1 inputs\. Got 2\.$"
+        InputCountMismatch, match=r"^Node should have 1 inputs\. Got 2\.$"
     ):
         await strategy.enrich(
             SplitterNode(id="nodeId", numberOutputs=2),

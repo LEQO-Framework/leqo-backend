@@ -44,6 +44,7 @@ class SplitterEnricherStrategy(EnricherStrategy):
             raise InputCountMismatch(
                 node,
                 actual=len(constraints.requested_inputs) if constraints else 0,
+                should_be="equal",
                 expected=1,
             )
 
