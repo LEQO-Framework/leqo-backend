@@ -4,6 +4,16 @@ Utils used throughout the whole application.
 
 from collections.abc import Callable
 from typing import TypeVar
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+
+from app.model.database_model import (
+    ProcessedResults,
+    ProcessStates,
+    ResultImplementation,
+)
+from app.model.StatusResponse import Progress, StatusResponse
 
 TParam = TypeVar("TParam")
 TReturn = TypeVar("TReturn")
@@ -67,3 +77,110 @@ def duplicates(list: list[T]) -> set[T]:
         else:
             seen.add(item)
     return result
+
+
+async def addStatusResponseToDB(engine: AsyncEngine, status: StatusResponse) -> None:
+    """Add the :class:`StatusResponse` to the database
+
+    :param engine: Database to insert the :class:`StatusResponse` in
+    :param status: The :class:`StatusResponse` to add to the database
+    """
+    process_state = ProcessStates(
+        id=status.uuid.int,
+        status=status.status,
+        createdAt=status.createdAt,
+        completedAt=status.completedAt,
+        progressPercentage=status.progress.percentage if status.progress else None,
+        progressCurrentStep=status.progress.currentStep if status.progress else None,
+        result=status.result,
+    )
+
+    async with AsyncSession(engine) as session:
+        session.add(process_state)
+        await session.commit()
+
+
+async def updateStatusResponseInDB(
+    engine: AsyncEngine, uuid: UUID, newState: StatusResponse
+) -> None:
+    """Update the :class:`StatusResponse` in the database
+
+    :param engine: Database engine to update the :class:`StatusResponse` in
+    :param uuid: UUID of the :class:`StatusResponse` to update
+    :param newState: The new :class:`StatusResponse` to update in the database
+    """
+    async with AsyncSession(engine) as session:
+        state = await session.get(ProcessStates, uuid.int)
+        if state:
+            state.id = newState.uuid.int
+            state.status = newState.status
+            state.createdAt = newState.createdAt or state.createdAt
+            state.completedAt = newState.completedAt or state.completedAt
+            if newState.progress:
+                state.progressPercentage = newState.progress.percentage
+                state.progressCurrentStep = newState.progress.currentStep
+            state.result = newState.result or state.result
+            await session.commit()
+
+
+async def getStatusResponseFromDB(
+    engine: AsyncEngine, uuid: UUID
+) -> StatusResponse | None:
+    """Get the instance of :class:`StatusResponse` with the given uuid from the database
+
+    :param engine: Database engine to get the :class:`StatusResponse` from
+    :param uuid: UUID of the :class:`StatusResponse` to retrieve
+    :return: The :class:`StatusResponse` if found, otherwise None
+    """
+    async with AsyncSession(engine) as session:
+        process_state_db = await session.get(ProcessStates, uuid.int)
+        if process_state_db:
+            return StatusResponse(
+                uuid=uuid,
+                status=process_state_db.status,
+                createdAt=process_state_db.createdAt,
+                completedAt=process_state_db.completedAt,
+                progress=Progress(
+                    percentage=process_state_db.progressPercentage,
+                    currentStep=process_state_db.progressCurrentStep,
+                )
+                if process_state_db.progressPercentage is not None
+                else None,
+                result=process_state_db.result,
+            )
+        return None
+
+
+async def addResultToDB(engine: AsyncEngine, uuid: UUID, results: list[str]) -> None:
+    """Add a result to the database for the given uuid
+
+    :param engine: Database engine to add the result to
+    :param uuid: UUID of the process state this result belongs
+    :param result: List of result strings to add
+    """
+    async with AsyncSession(engine) as session:
+        processed_result = ProcessedResults(id=uuid.int)
+        result_impls = [
+            ResultImplementation(
+                implementation=result, processed_result=processed_result
+            )
+            for result in results
+        ]
+        processed_result.results = result_impls
+
+        session.add(processed_result)
+        await session.commit()
+
+
+async def getResultsFromDB(engine: AsyncEngine, uuid: UUID) -> list[str] | None:
+    """Get the results from the database for the given uuid
+
+    :param engine: Database engine to get the results from
+    :param uuid: UUID of the process state this result belongs
+    :return: List of result strings or None if no results found
+    """
+    async with AsyncSession(engine) as session:
+        processed_result = await session.get(ProcessedResults, uuid.int)
+        if processed_result:
+            return [result.implementation for result in processed_result.results]
+        return None
