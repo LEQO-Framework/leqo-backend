@@ -41,6 +41,8 @@ Dependencies
 
 The dependencies of this project are configured in `pyproject.toml` and locked via `uv.lock` by uv.
 
+For a license summary have a look at :doc:`Dependencies <sbom>`.
+
 Code Formatting
 ---------------
 
@@ -55,6 +57,7 @@ Format the code with:
 Further Information
 -------------------
 
-- Architecture overview: :doc:`dev/architecture`
-- How to write docs: :doc:`dev/docs`
-- How to run the tests: :doc:`dev/testing`
+- Architecture overview: :doc:`Architecture <architecture>`
+- How to run the tests: :doc:`Testing <testing>`
+- How to write docs: :doc:`Documentation <docs>`
+- Automated code documentation from embedded docs: :doc:`API Reference <../autoapi/index>`
