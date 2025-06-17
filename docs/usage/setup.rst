@@ -73,7 +73,7 @@ You can host both the frontend and backend together with docker compose.
         docker compose up -d
 
 **Step 5:** Open the frontend
-    `localhost:80 <http://localhost:80>`_
+    Navigate to: `localhost:80 <http://localhost:80>`_
 
 **Step 6:** Configure the backend port in the frontend
 
