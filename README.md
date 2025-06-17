@@ -8,8 +8,10 @@ The backend for low-code, quantum [LEQO-Framework](https://github.com/LEQO-Frame
 ## Features
 
 - provide a REST-API for the [LEQO front-end](https://github.com/LEQO-Framework/low-code-modeler)
-- retrieve [Openqasm](https://openqasm.com/) implementations for low-code nodes
-- merge low-code model into one [Openqasm](https://openqasm.com/) program that is compatible with [Qiskit](https://github.com/Qiskit/qiskit)
+- retrieve [OpenQASM](https://openqasm.com/) implementations for low-code nodes
+- merge low-code model into one [OpenQASM](https://openqasm.com/) program that is compatible with [Qiskit](https://github.com/Qiskit/qiskit)
+- handle OpenQASM 2 input via own converter
+- optimize the result by automated reusage of ancilla qubits
 
 This project uses the [uv package manager](https://docs.astral.sh/uv/#getting-started), [mypy](https://mypy.readthedocs.io/en/stable/getting_started.html) and [ruff](https://docs.astral.sh/ruff/).
 

@@ -18,7 +18,7 @@ Run all tests using the following command:
 Code Coverage
 -------------
 
-To see how much code is covered by test, run the following:
+To see how much code is covered by tests, run the following:
 
 .. code-block:: shell
 
