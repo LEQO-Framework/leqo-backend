@@ -13,7 +13,6 @@ from openqasm3.ast import (
 
 from app.enricher import (
     Constraints,
-    ConstraintValidationException,
     EnricherStrategy,
     EnrichmentResult,
     ImplementationMetaData,
@@ -22,6 +21,11 @@ from app.enricher.utils import implementation, leqo_input, leqo_output
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.CompileRequest import SplitterNode
 from app.model.data_types import QubitType
+from app.model.exceptions import (
+    InputCountMismatch,
+    InputSizeMismatch,
+    InputTypeMismatch,
+)
 
 
 class SplitterEnricherStrategy(EnricherStrategy):
@@ -37,25 +41,28 @@ class SplitterEnricherStrategy(EnricherStrategy):
             return []
 
         if constraints is None or len(constraints.requested_inputs) != 1:
-            raise ConstraintValidationException("Splitter requires exactly one input.")
+            raise InputCountMismatch(
+                node,
+                actual=len(constraints.requested_inputs) if constraints else 0,
+                should_be="equal",
+                expected=1,
+            )
 
         input = constraints.requested_inputs[0]
 
         if not isinstance(input, QubitType):
-            raise ConstraintValidationException(
-                f"Invalid input type: expected QubitType, got {type(input).__name__}."
-            )
+            raise InputTypeMismatch(node, input_index=0, actual=input, expected="qubit")
 
         reg_size = input.size
 
         if reg_size is None or reg_size < 1:
-            raise ConstraintValidationException(
-                f"Invalid register size: {reg_size}. Must be >= 1."
+            raise InputSizeMismatch(
+                node, input_index=0, actual=reg_size or 0, expected=1
             )
 
         if node.numberOutputs != reg_size:
-            raise ConstraintValidationException(
-                f"SplitterNode.numberOutputs ({node.numberOutputs}) does not match input register size ({reg_size})."
+            raise InputSizeMismatch(
+                node, input_index=0, actual=reg_size, expected=node.numberOutputs
             )
 
         stmts = []
