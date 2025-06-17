@@ -4,7 +4,7 @@ Overview
 Setup for Development
 ---------------------
 
-This project uses the `uv <https://docs.astral.sh/uv/#getting-started>`_ package manager).
+This project uses the `uv <https://docs.astral.sh/uv/#getting-started>`_ package manager.
 
 After installing uv, use the following command to install the dependencies:
 

@@ -5,6 +5,22 @@ The LEQO-Backend is provided as a docker-image to allow for a simple setup.
 
 To get started install `Docker Compose <https://docs.docker.com/compose/install/>`_ and follow the instructions below.
 
+Standalone
+----------
+
+Use this for just hosting the backend without frontend (or separate from it).
+Run the following commands:
+
+.. code-block:: shell
+
+    cp .env.template .env
+    docker compose -f compose-dev.yaml up --build
+
+In Combination
+--------------
+
+You can host both the frontend and the backend with docker compose.
+
 #. Create a directory for your project
     .. code-block:: shell
 
