@@ -1,21 +1,24 @@
 # LEQO Back-End
 
 [![Docker image on ghcr.io](https://img.shields.io/badge/Docker-GitHub%20Container%20Registry-green?style=flat&logo=docker&logoColor=%23fff)](https://github.com/LEQO-Framework/leqo-backend/pkgs/container/leqo-backend)
+[![Docker image on ghcr.io](https://img.shields.io/badge/Docker-GitHub%20Container%20Registry-green?style=flat&logo=docker&logoColor=%23fff)](https://github.com/LEQO-Framework/leqo-backend/pkgs/container/leqo-backend)
 
-The back-end for the QASM low-code platform LEQO.
-It does:
+The backend for low-code, quantum [LEQO-Framework](https://github.com/LEQO-Framework).
 
-- provide a REST-API for the LEQO front-end
-- enrich QASM programs via ID-based imports
-- merge multiple QASM programs into one
+## Features
 
-This project uses the [uv package manager](https://docs.astral.sh/uv/#getting-started).
+- provide a REST-API for the [LEQO front-end](https://github.com/LEQO-Framework/low-code-modeler)
+- retrieve [Openqasm](https://openqasm.com/) implementations for low-code nodes
+- merge low-code model into one [Openqasm](https://openqasm.com/) program that is compatible with [Qiskit](https://github.com/Qiskit/qiskit)
+
+This project uses the [uv package manager](https://docs.astral.sh/uv/#getting-started), [mypy](https://mypy.readthedocs.io/en/stable/getting_started.html) and [ruff](https://docs.astral.sh/ruff/).
 
 ## Deployment
 
-Run the following command:
+Run the following commands:
 
 ```bash
+cp .env.template .env
 docker compose -f compose-dev.yaml up --build
 ```
 
@@ -23,31 +26,9 @@ Then you can access the back-end on:
 http://localhost:8000  
 http://localhost:8000/docs
 
-## Development
+## Documentation and Development
 
-Run the following command:
-
-```bash
-docker compose up postgres
-uv run fastapi dev
-```
-
-Now you have to change the host in your `.env` to the
-IP address of the postgres database docker container. 
-For docker you get the IP with:
-
-Unix:
-```bash
-docker inspect <container id> | grep "IPAddress"
-```
-Windows:
-```bash
-docker inspect <container id> | findstr "IPAddress"
-```
-
-Then you can access the back-end on:  
-http://localhost:8000  
-http://localhost:8000/docs
+Please visit our [Documentation](https://leqo-framework.github.io/leqo-backend/)
 
 ## Disclaimer of Warranty
 
