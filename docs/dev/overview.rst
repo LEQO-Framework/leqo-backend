@@ -36,6 +36,11 @@ Now you can start with backend with:
 
 You can verify it working by opening the `fastapi docs <http://localhost:8000/docs>`_.
 
+Dependencies
+------------
+
+The dependencies of this project are configured in `pyproject.toml` and locked via `uv.lock` by uv.
+
 Code Formatting
 ---------------
 
