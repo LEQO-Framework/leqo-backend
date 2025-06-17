@@ -119,7 +119,7 @@ class MergingProcessor(CommonProcessor):
 
             if isinstance(frontend_node, RepeatNode):
                 requested_inputs = self._resolve_inputs(node)
-                entry_node_id, exit_node_id, enrolled_graph = await unroll_repeat(
+                entry_node_id, exit_node_id, enrolled_graph = unroll_repeat(
                     frontend_node,
                     requested_inputs,
                 )

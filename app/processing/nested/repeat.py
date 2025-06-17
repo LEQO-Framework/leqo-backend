@@ -11,7 +11,7 @@ from app.processing.graph import ProgramNode
 from app.processing.nested.utils import generate_pass_node_implementation
 
 
-async def unroll_repeat(
+def unroll_repeat(
     node: RepeatNode, requested_inputs: dict[int, LeqoSupportedType]
 ) -> tuple[str, str, FrontendGraph]:
     """Unroll and enrich the repeat node.
