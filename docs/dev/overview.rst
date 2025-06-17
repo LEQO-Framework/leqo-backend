@@ -36,6 +36,16 @@ Now you can start with backend with:
 
 You can verify it working by opening the `fastapi docs <http://localhost:8000/docs>`_.
 
+Code Formatting
+---------------
+
+We use `ruff <https://docs.astral.sh/ruff/>`_ as our code formatter.
+
+Format the code with:
+
+.. code-block:: shell
+
+  uv run ruff format .
 
 Further Information
 -------------------
