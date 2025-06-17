@@ -21,6 +21,7 @@ To get started install `Docker Compose <https://docs.docker.com/compose/install/
                 environment:
                     POSTGRES_USER: leqo
                     POSTGRES_PASSWORD: secure_password
+                    POSTGRES_DB: qasm
             backend:
                 image: ghcr.io/leqo-framework/leqo-backend:main
                 environment:
@@ -37,10 +38,20 @@ To get started install `Docker Compose <https://docs.docker.com/compose/install/
                 ports:
                     - 127.0.0.1:80:4242
 
+#. Pull project
+    .. code-block:: shell
+
+        docker compose pull
+
 #. Start project
     .. code-block:: shell
 
         docker compose up -d
 
 #. Open frontend in the browser
-    `localhost:80 <http://127.0.0.1:80>`_
+    `localhost:80 <http://localhost:80>`_
+
+#. Configure the backend port in the frontend
+    - open **Configuration**
+    - write in **Low-Code Backend Endpoint**: `http://localhost:8000`
+
