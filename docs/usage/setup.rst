@@ -1,7 +1,15 @@
 Setup
 =====
 
-The LEQO-Backend is provided as a docker-image to allow for a simple setup.
+The LEQO-Backend is provided as a docker-image and can be run:
+
+- **Standalone**: for backend-only use
+- **In combination with frontend**: for full-stack development
+
+You’ll need:
+
+- Docker + Docker Compose installed
+- Basic terminal access
 
 To get started install `Docker Compose <https://docs.docker.com/compose/install/>`_ and follow the instructions below.
 
@@ -19,15 +27,15 @@ Run the following commands:
 In Combination
 --------------
 
-You can host both the frontend and the backend with docker compose.
+You can host both the frontend and backend together with docker compose.
 
-#. Create a directory for your project
+**Step 1:** Create a project directory
     .. code-block:: shell
 
         mkdir leqo
         cd leqo
 
-#. Create a `compose.yml` file
+**Step 2:** Create a `compose.yml` file with the following contents:
     .. code-block:: yaml
 
         name: LEQO
@@ -54,20 +62,21 @@ You can host both the frontend and the backend with docker compose.
                 ports:
                     - 127.0.0.1:80:4242
 
-#. Pull project
+**Step 3:** Pull container images
     .. code-block:: shell
 
         docker compose pull
 
-#. Start project
+**Step 4:** Start the application
     .. code-block:: shell
 
         docker compose up -d
 
-#. Open frontend in the browser
+**Step 5:** Open the frontend
     `localhost:80 <http://localhost:80>`_
 
-#. Configure the backend port in the frontend
-    - open **Configuration**
-    - write in **Low-Code Backend Endpoint**: `http://localhost:8000`
+**Step 6:** Configure the backend port in the frontend
+
+    - Go to **Configuration**
+    - Set the **Low-Code Backend Endpoint** to: `http://localhost:8000`
 
