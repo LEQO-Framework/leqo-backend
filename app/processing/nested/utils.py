@@ -12,8 +12,8 @@ from openqasm3.ast import (
     Statement,
 )
 
-from app.converter import qasm_converter
 from app.model.data_types import ClassicalType, LeqoSupportedType, QubitType
+from app.processing.pre import converter
 
 
 def generate_pass_node_implementation(
@@ -57,4 +57,4 @@ def generate_pass_node_implementation(
         alias.annotations = [Annotation("leqo.output", str(index))]
         statements.append(alias)
 
-    return Program(statements, version=qasm_converter.TARGET_QASM_VERSION)
+    return Program(statements, version=converter.TARGET_QASM_VERSION)

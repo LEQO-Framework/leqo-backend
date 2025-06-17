@@ -50,3 +50,4 @@ Further information can be found here:
     dev/architecture.rst
     dev/testing.rst
     dev/docs.rst
+    dev/sbom.rst

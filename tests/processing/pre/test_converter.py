@@ -2,7 +2,7 @@ import pytest
 from openqasm3.ast import Program
 from openqasm3.printer import dumps
 
-from app.converter.qasm_converter import QASMConversionError, QASMConverter
+from app.processing.pre.converter import QASMConversionError, QASMConverter
 from app.processing.utils import normalize_qasm_string
 
 

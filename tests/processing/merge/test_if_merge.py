@@ -2,9 +2,9 @@ from uuid import UUID
 
 import pytest
 from openqasm3.ast import BinaryExpression, BinaryOperator, BooleanLiteral, Identifier
+from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
-from app.openqasm3.parser import leqo_parse
 from app.processing.graph import (
     AncillaConnection,
     IOConnection,
@@ -24,7 +24,7 @@ manual_graph = tuple[list[str], list[manual_ios], list[manual_ancillas]]
 
 
 def preprocess(node: ProgramNode, impl: str) -> ProcessedProgramNode:
-    ast = leqo_parse(impl)
+    ast = parse(impl)
 
     io = IOInfo()
     qubit = QubitInfo()
