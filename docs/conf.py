@@ -30,7 +30,6 @@ extensions = [
     "sphinxcontrib.openapi",
     "sphinxcontrib.datatemplates",
     "autoapi.extension",
-    "sphinxcontrib.mermaid",
 ]
 
 # https://sphinx-autoapi.readthedocs.io/en/latest/reference/config.html
