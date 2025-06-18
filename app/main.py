@@ -18,7 +18,6 @@ from starlette.responses import (
 )
 
 from app.config import Settings
-from app.exceptions import ErrorResult, handle_exception
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import EnrichingProcessor, MergingProcessor
@@ -36,7 +35,7 @@ app.add_middleware(
 
 # FIXME: these should live in the database
 states: dict[UUID, StatusResponse] = {}
-results: dict[UUID, str | list[ImplementationNode] | ErrorResult] = {}
+results: dict[UUID, str | list[ImplementationNode]] = {}
 
 
 @app.post("/compile")
@@ -119,11 +118,6 @@ def get_result(uuid: UUID) -> PlainTextResponse | JSONResponse:
     if isinstance(result, str):
         return PlainTextResponse(status_code=200, content=result)
 
-    if isinstance(result, ErrorResult):
-        return JSONResponse(
-            status_code=400 if result.client else 500, content=jsonable_encoder(result)
-        )
-
     return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
 
@@ -142,16 +136,15 @@ async def process_compile_request(
 
     status: StatusType = StatusType.FAILED
     completedAt: datetime | None = None
-    result: str | ErrorResult
+    result_code: str = ""
 
     try:
-        result = await processor.process()
+        result_code = await processor.process()
         result_url = get_result_url(uuid, settings)
         status = StatusType.COMPLETED
         completedAt = datetime.now(UTC)
-    except Exception as exc:
-        result = handle_exception(exc, uuid)
-        result_url = result.message
+    except Exception as exception:
+        result_url = str(exception) or type(exception).__name__
 
     old_state: StatusResponse = states[uuid]
     states[uuid] = StatusResponse(
@@ -163,7 +156,7 @@ async def process_compile_request(
         result=result_url,
     )
 
-    results[uuid] = result
+    results[uuid] = result_code
 
 
 async def process_enrich_request(
@@ -188,10 +181,8 @@ async def process_enrich_request(
         result_url = get_result_url(uuid, settings)
         status = StatusType.COMPLETED
         completedAt = datetime.now(UTC)
-    except Exception as exc:
-        result = handle_exception(exc, uuid)
-        results[uuid] = result
-        result_url = result.message
+    except Exception as exception:
+        result_url = str(exception) or type(exception).__name__
 
     old_state: StatusResponse = states[uuid]
     states[uuid] = StatusResponse(

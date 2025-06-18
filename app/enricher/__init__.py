@@ -17,7 +17,6 @@ from typing import Literal
 
 from openqasm3.ast import Program
 
-from app.exceptions import InternalServerError, ServerError
 from app.model.CompileRequest import (
     BaseNode,
     ImplementationNode,
@@ -97,8 +96,7 @@ class EnricherStrategy(ABC):
         :return: The enriched node or awaitable to enriched node.
         """
 
-        msg = "abstractmethod was called"
-        raise InternalServerError(msg, node=node.id)
+        raise NotImplementedError()
 
     async def enrich(
         self, node: FrontendNode, constraints: Constraints | None
@@ -128,10 +126,10 @@ class EnricherStrategy(ABC):
         if isinstance(result, Iterable):
             return result
 
-        raise InternalServerError("Invalid enrichment result", node=node.id)
+        raise Exception("Invalid enrichment result")
 
 
-class EnricherException(ServerError, ABC):
+class EnricherException(Exception, ABC):
     """
     Baseclass for exceptions raised by :class:`~app.enricher.EnricherStrategy`.
     """
@@ -217,14 +215,9 @@ class Enricher:
 
         if len(results) == 0:
             if len(exceptions) == 0:
-                raise InternalServerError(
-                    f"No implementations were found for node '{node.id}'", node=node.id
-                )
+                raise Exception(f"No implementations were found for node '{node.id}'")
 
-            raise ServerError(
-                ExceptionGroup(f"Enrichment for node '{node.id}' failed", exceptions),
-                node=node.id,
-            )
+            raise ExceptionGroup(f"Enrichment for node '{node.id}' failed", exceptions)
 
         key_selector: Callable[[EnrichmentResult], tuple[int | float, int | float]]
         if constraints and constraints.optimizeDepth and not constraints.optimizeWidth:

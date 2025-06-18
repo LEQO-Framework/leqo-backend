@@ -4,6 +4,7 @@ Provides enricher strategy for gate nodes
  * :class:`~app.model.CompileRequest.ParameterizedGateNode`
 """
 
+from io import UnsupportedOperation
 from typing import get_args, override
 
 from openqasm3.ast import Expression, FloatLiteral, Identifier, Include, QuantumGate
@@ -17,7 +18,6 @@ from app.enricher import (
     NodeUnsupportedException,
 )
 from app.enricher.utils import implementation, leqo_input, leqo_output
-from app.exceptions import InternalServerError
 from app.model.CompileRequest import (
     GateNode,
     Node,
@@ -38,7 +38,7 @@ from app.openqasm3.stdgates import (
 
 
 def _validate_constraints(
-    constraints: Constraints | None, name: str, input_count: int, node_id: str
+    constraints: Constraints | None, name: str, input_count: int
 ) -> int | None:
     """
     Validate constraints for gate implementations.
@@ -69,7 +69,7 @@ def _validate_constraints(
 
     if not found_size:
         msg = "Could not determine size"
-        raise InternalServerError(msg, node=node_id)
+        raise UnsupportedOperation(msg)
 
     return size
 
@@ -92,7 +92,7 @@ def enrich_gate(
     :return: Final enrichment result.
     """
 
-    size = _validate_constraints(constraints, gate_name, input_count, node.id)
+    size = _validate_constraints(constraints, gate_name, input_count)
 
     return EnrichmentResult(
         implementation(

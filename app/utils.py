@@ -5,8 +5,6 @@ Utils used throughout the whole application.
 from collections.abc import Callable
 from typing import TypeVar
 
-from app.exceptions import ServerError
-
 TParam = TypeVar("TParam")
 TReturn = TypeVar("TReturn")
 
@@ -29,7 +27,7 @@ def opt_call(func: Callable[[TParam], TReturn], arg: TParam | None) -> TReturn |
 T = TypeVar("T")
 
 
-def not_none(value: T | None, error_msg: str, node_id: str | None = None) -> T:
+def not_none(value: T | None, error_msg: str) -> T:
     """
     Returns value if not none or raises exception.
 
@@ -39,7 +37,7 @@ def not_none(value: T | None, error_msg: str, node_id: str | None = None) -> T:
     """
 
     if value is None:
-        raise ServerError(error_msg, node=node_id)
+        raise Exception(error_msg)
 
     return value
 

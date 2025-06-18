@@ -237,4 +237,8 @@ async def test_enrich_encode_value_node_not_in_db(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    assert await EncodeValueEnricherStrategy(engine).enrich(node, constraints) == []
+    with pytest.raises(
+        RuntimeError,
+        match=r"^No results found in the database$",
+    ):
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)

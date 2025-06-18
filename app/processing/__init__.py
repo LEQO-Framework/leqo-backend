@@ -80,13 +80,11 @@ class CommonProcessor:
             source_node_data = not_none(
                 self.frontend_to_processed.get(source_node),
                 f"Node '{source_node}' should already be enriched",
-                node_id=source_node,
             )
 
             for edge in not_none(
                 self.frontend_graph.edge_data.get((source_node, target_node)),
                 "Edge should exist",
-                node_id=source_node,
             ):
                 output_index = edge.source[1]
                 output = source_node_data.io.outputs.get(output_index)
