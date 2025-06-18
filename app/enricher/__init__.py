@@ -240,8 +240,7 @@ class Enricher:
             x.insert_enrichment(node, implementation, requested_inputs)
             for x in self.strategies
         ):
-            if result:
-                success = True
+            success = success or result
 
         if not success:
             raise UnableToInsertImplementation(node)
