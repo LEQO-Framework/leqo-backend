@@ -45,7 +45,7 @@ The following environment variables are available for configuring the backend:
      - ``5432``
 
    * - ``POSTGRES_HOST``
-     - Hostname or IP address of the PostgreSQL server. Use `postgres` when accessed via docker compose and `localhost` for local development.
+     - Hostname or IP address of the PostgreSQL server. Use ``postgres`` when accessed via docker compose and ``localhost`` for local development.
      - ``postgres``
 
    * - ``SQLALCHEMY_DRIVER``
