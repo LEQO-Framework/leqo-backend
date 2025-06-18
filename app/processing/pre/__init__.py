@@ -1,6 +1,6 @@
-"""Each qasm snippet attached to a node in the editor will first be passed through the preprocessing pipeline.
+"""Each single qasm snippet attached to a node will first pass through the preprocessing.
 
-The pipeline consists of multiple :class:`~openqasm3.visitor.QASMTransformer` that will transform the abstract syntax tree (AST) of the qasm snippet.
+This happens without the global graph view.
 """
 
 from openqasm3.ast import Program
