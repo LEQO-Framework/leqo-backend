@@ -21,11 +21,20 @@ The backend is composed of the following main components:
 - **Preprocessing** (:py:mod:`app.processing.pre`):
   Contains logic for individual node transformations that do not require global graph context, such as:
 
-  - :mod:`Converter`: Converts OpenQASM 2 to OpenQASM 3.
-  - :mod:`Renaming`: Ensures unique and conflict-free identifiers.
-  - :mod:`IO Parser`: Parses input/output annotations.
-  - :mod:`Size Casting`: Aligns input register sizes.
-  - :mod:`Inlining of Constants`: Replaces aliases with their resolved content.
+  - **Converter** (:py:mod:`app.processing.pre.converter`):
+    Converts OpenQASM 2 to OpenQASM 3.
+
+  - **Renaming** (:py:mod:`app.processing.pre.renaming`):
+    Ensures unique and conflict-free identifiers.
+
+  - **Inlining** (:py:mod:`app.processing.pre.inlining`):
+    Replaces aliases with their resolved content.
+
+  - **IO Parser** (:py:mod:`app.processing.pre.io_parser`):
+    Parses input/output annotations.
+
+  - **Size Casting** (:py:mod:`app.processing.pre.size_casting`):
+    Aligns input register sizes.
 
 - **Optimization** (:py:mod:`app.processing.optimize`):
   Attempts to reduce circuit width via ancilla reuse heuristics.
@@ -36,7 +45,7 @@ The backend is composed of the following main components:
 - **Postprocessing** (:py:mod:`app.processing.post`):
   Performs cleanup steps such as removing duplicate imports and rendering the final program into OpenQASM 3.1.
 
-- **Nested Structures**:
+- **Nested Structures** (:py:mod:`app.processing.nested`):
 
   - **Repeat** (:py:mod:`app.processing.nested.repeat`):
     Unrolls the repeat node to be processed by the pipeline.
