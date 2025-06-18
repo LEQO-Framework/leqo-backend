@@ -19,7 +19,7 @@ The project uses:
 - [mypy](https://mypy.readthedocs.io/en/stable/getting_started.html) for static type checking
 - [ruff](https://docs.astral.sh/ruff/) for code formatting and linting
 
-## 🚀 Quick Start of Development Deployment
+## 🚀 Quick Start
 
 Make sure Docker and [Docker Compose](https://docs.docker.com/compose/install/) are installed.
 
