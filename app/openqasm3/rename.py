@@ -24,7 +24,7 @@ class _SimpleRenameTransformer(LeqoTransformer[None]):
 TNode = TypeVar("TNode", bound=QASMNode)
 
 
-def simple_rename(node: TNode, renamings: dict[str, str]) -> TNode:
+def simple_rename[TNode](node: TNode, renamings: dict[str, str]) -> TNode:
     """
     Renames variables in node according to the specified mapping.
 

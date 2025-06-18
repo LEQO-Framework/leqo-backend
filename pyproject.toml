@@ -65,6 +65,7 @@ extend-select = [
     "UP", # pyupgrade
     "YTT", # flake8-2020
 ]
+ignore = ["UP047"] # ignore this warning so that we can use TypeVar("...", bound=...) and make mypy happy
 
 [tool.mypy]
 ignore_missing_imports = true

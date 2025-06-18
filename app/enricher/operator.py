@@ -8,10 +8,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.orm import aliased
 
-from app.enricher import (
-    Constraints,
-    ConstraintValidationException,
-)
+from app.enricher import Constraints
 from app.enricher.db_enricher import DataBaseEnricherStrategy
 from app.enricher.models import BaseNode, Input, InputType, NodeType, OperatorType
 from app.enricher.models import OperatorNode as OperatorNodeTable
@@ -22,6 +19,7 @@ from app.model.CompileRequest import (
     OperatorNode,
 )
 from app.model.data_types import QubitType
+from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 
 
 class OperatorEnricherStrategy(DataBaseEnricherStrategy):
@@ -40,15 +38,21 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
             return None
 
         if constraints is None or len(constraints.requested_inputs) != 2:  # noqa: PLR2004
-            raise ConstraintValidationException(
-                "OperatorNode can only have a two inputs"
+            raise InputCountMismatch(
+                node,
+                actual=len(constraints.requested_inputs) if constraints else 0,
+                should_be="equal",
+                expected=2,
             )
 
-        if not isinstance(constraints.requested_inputs[0], QubitType) or not isinstance(
-            constraints.requested_inputs[1], QubitType
-        ):
-            raise ConstraintValidationException(
-                "OperatorNode only supports qubit types"
+        if not isinstance(constraints.requested_inputs[0], QubitType):
+            raise InputTypeMismatch(
+                node, 0, actual=constraints.requested_inputs[0], expected="qubit"
+            )
+
+        if not isinstance(constraints.requested_inputs[1], QubitType):
+            raise InputTypeMismatch(
+                node, 1, actual=constraints.requested_inputs[1], expected="qubit"
             )
 
         Input0 = aliased(Input)

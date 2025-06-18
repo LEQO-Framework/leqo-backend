@@ -27,7 +27,7 @@ def opt_call(func: Callable[[TParam], TReturn], arg: TParam | None) -> TReturn |
 T = TypeVar("T")
 
 
-def not_none(value: T | None, error_msg: str) -> T:
+def not_none[T](value: T | None, error_msg: str) -> T:
     """
     Returns value if not none or raises exception.
 
@@ -42,7 +42,7 @@ def not_none(value: T | None, error_msg: str) -> T:
     return value
 
 
-def not_none_or(value: T | None, default_value: T) -> T:
+def not_none_or[T](value: T | None, default_value: T) -> T:
     """
     Nullish coalescence - `??` operator.
     Returns `value` if not `None`.
@@ -55,7 +55,7 @@ def not_none_or(value: T | None, default_value: T) -> T:
     return value
 
 
-def duplicates(list: list[T]) -> set[T]:
+def duplicates[T](list: list[T]) -> set[T]:
     """
     Returns set of duplicate items.
     """

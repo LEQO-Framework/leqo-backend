@@ -7,12 +7,9 @@ from typing import cast, override
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.enricher import (
-    Constraints,
-    ConstraintValidationException,
-    InputValidationException,
-)
+from app.enricher import Constraints
 from app.enricher.db_enricher import DataBaseEnricherStrategy
+from app.enricher.exceptions import BoundsOutOfRange, EncodingNotSupported
 from app.enricher.models import BaseNode, EncodingType, Input, InputType, NodeType
 from app.enricher.models import EncodeValueNode as EncodeNodeTable
 from app.model.CompileRequest import (
@@ -30,6 +27,7 @@ from app.model.data_types import (
     LeqoSupportedType,
     QubitType,
 )
+from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 
 
 class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
@@ -56,7 +54,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             case QubitType():
                 input_type = InputType.QubitType.value
             case _:
-                raise ConstraintValidationException(f"Unsupported input type: {input}")
+                raise Exception(f"Unsupported input type: {input}")
 
         return input_type
 
@@ -68,19 +66,25 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             return None
 
         if node.encoding == "custom":
-            raise InputValidationException("Custom encoding is not supported")
+            raise EncodingNotSupported(node)
 
         if node.bounds < 0 or node.bounds > 1:
-            raise InputValidationException("Bounds must be between 0 and 1")
+            raise BoundsOutOfRange(node)
 
         if constraints is None or len(constraints.requested_inputs) != 1:
-            raise ConstraintValidationException(
-                "EncodeValueNode can only have a single input"
+            raise InputCountMismatch(
+                node,
+                actual=len(constraints.requested_inputs) if constraints else 0,
+                should_be="equal",
+                expected=1,
             )
 
         if not isinstance(constraints.requested_inputs[0], LeqoSupportedClassicalType):
-            raise ConstraintValidationException(
-                "EncodeValueNode only supports classical types"
+            raise InputTypeMismatch(
+                node,
+                input_index=0,
+                actual=constraints.requested_inputs[0],
+                expected="classical",
             )
 
         converted_input_type = self._convert_to_input_type(
