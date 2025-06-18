@@ -1,27 +1,27 @@
 name: LEQO
 services:
-  backend-db:
-    image: postgres:latest
-    environment:
-      POSTGRES_USER: leqo
-      POSTGRES_PASSWORD: secure_password
-      POSTGRES_DB: qasm
-    restart: unless-stopped
-  backend:
-    image: ghcr.io/leqo-framework/leqo-backend:main
-    environment:
-      POSTGRES_USER: leqo
-      POSTGRES_PASSWORD: secure_password
-      POSTGRES_DB: qasm
-      POSTGRES_PORT: 5432
-      POSTGRES_HOST: backend-db
-      SQLALCHEMY_DRIVER: postgresql+psycopg
-    restart: unless-stopped
-    depends_on:
-      - backend-db
-    ports:
-      - 127.0.0.1:8000:80
-  frontend:
+  leqo-frontend:
     image: ghcr.io/leqo-framework/low-code-modeler:main
     ports:
       - 127.0.0.1:80:4242
+  leqo-backend:
+    image: ghcr.io/leqo-framework/leqo-backend:main
+    environment:
+      POSTGRES_USER: leqo
+      POSTGRES_PASSWORD: unsave_passwd
+      POSTGRES_DB: qasm
+      POSTGRES_PORT: 5432
+      POSTGRES_HOST: postgres
+      SQLALCHEMY_DRIVER: postgresql+psycopg
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - 127.0.0.1:8000:80
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: leqo
+      POSTGRES_PASSWORD: unsave_passwd
+      POSTGRES_DB: qasm
+    restart: unless-stopped
