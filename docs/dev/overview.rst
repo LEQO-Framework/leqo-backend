@@ -50,7 +50,7 @@ Edit the file to set `POSTGRES_HOST` according to your environment. In most case
 
    POSTGRES_HOST=localhost
 
-For more detailed options have a look at :doc:`Configuration <../usage/config.rst>`
+For more detailed options have a look at :doc:`Configuration <../usage/config>`
 
 3. Start Postgres
 ~~~~~~~~~~~~~~~~~
