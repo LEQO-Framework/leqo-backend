@@ -3,7 +3,7 @@
 [![Docker image on ghcr.io](https://img.shields.io/badge/Docker-GitHub%20Container%20Registry-green?style=flat&logo=docker&logoColor=%23fff)](https://github.com/LEQO-Framework/leqo-backend/pkgs/container/leqo-backend)
 [![Documentation](https://img.shields.io/badge/docs-live-green?style=flat&logo=read-the-docs&logoColor=white)](https://leqo-framework.github.io/leqo-backend/)
 
-The backend for low-code, quantum [LEQO-Framework](https://github.com/LEQO-Framework).
+The backend for the low-code, quantum [LEQO-Framework](https://github.com/LEQO-Framework).
 
 ## Features
 
