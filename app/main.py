@@ -20,7 +20,7 @@ from starlette.responses import (
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
-from app.processing import EnrichingProcessor, MergingProcessor
+from app.processing import EnrichingProcessor, EnrichmentInserter, MergingProcessor
 from app.services import get_result_url, get_settings, leqo_lifespan
 
 app = FastAPI(lifespan=leqo_lifespan)
@@ -82,6 +82,23 @@ async def post_enrich(
         url=f"{settings.api_base_url}status/{uuid}",
         status_code=303,
     )
+
+
+@app.post("/insert")
+async def post_insert(
+    inserter: Annotated[
+        EnrichmentInserter, Depends(EnrichmentInserter.from_insert_request)
+    ],
+) -> PlainTextResponse:
+    """
+    Insert enrichments via :class:`~app.model.InsertRequest`.
+    """
+
+    try:
+        await inserter.insert_all()
+        return PlainTextResponse(status_code=200, content="success")
+    except Exception:
+        return PlainTextResponse(status_code=400, content=traceback.format_exc())
 
 
 @app.get("/status/{uuid}")
