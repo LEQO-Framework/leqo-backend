@@ -4,62 +4,70 @@ Configuration
 Overview
 --------
 
-The backend is configured via an `.env` file that needs to be places next to your `compose.yaml`.
-Have a look at the default values in `.env.template`:
+The backend is configured via an `.env` file, which should be placed in the same directory as your `compose.yaml`.
+This file defines all environment-specific variables required for the backend to function correctly.
+
+To get started, examine the default values provided in `.env.template`:
 
 .. literalinclude:: ../../.env.template
    :language: sh
    :linenos:
 
-Download this file: :download:`.env.template <../../.env.template>`
+Download this template: :download:`.env.template <../../.env.template>`
 
 Options
 -------
 
-The following environment variables are used to configure the backend:
+The following environment variables are available for configuring the backend:
 
-- **POSTGRES_USER**  
-  The username used to connect to the PostgreSQL database.  
-  *Default: `dev`*
+.. list-table:: Backend Configuration Parameters
+   :widths: 25 45 30
+   :header-rows: 1
 
-- **POSTGRES_PASSWORD**  
-  The password for the PostgreSQL user.  
-  *Default: `dev`*
+   * - Variable
+     - Description
+     - Default
 
-- **POSTGRES_DB**  
-  The name of the PostgreSQL database to connect to.  
-  *Default: `qasm`*
+   * - ``POSTGRES_USER``
+     - The username used to connect to the PostgreSQL database.
+     - ``dev``
 
-- **POSTGRES_PORT**  
-  The port on which the PostgreSQL server is running.  
-  *Default: `5432`*
+   * - ``POSTGRES_PASSWORD``
+     - Password for the PostgreSQL user.
+     - ``dev``
 
-- **POSTGRES_HOST**  
-  The hostname or IP address of the PostgreSQL server.  
-  Use `postgres` when accessed via docker compose and `localhost` for local development.
-  *Default: `postgres`*
+   * - ``POSTGRES_DB``
+     - Name of the PostgreSQL database to connect to.
+     - ``qasm``
 
-- **SQLALCHEMY_DRIVER**  
-  The SQLAlchemy driver string used to construct the database URL.  
-  *Default: `postgresql+psycopg`*
+   * - ``POSTGRES_PORT``
+     - Port on which the PostgreSQL server is accessible.
+     - ``5432``
 
-- **API_BASE_URL**  
-  The base URL of this API, used internally for building absolute URLs.  
-  *Default: `http://localhost:8000/`*
+   * - ``POSTGRES_HOST``
+     - Hostname or IP address of the PostgreSQL server. Use `postgres` when accessed via docker compose and `localhost` for local development.
+     - ``postgres``
 
-- **CORS_ALLOW_ORIGINS**  
-  A list of origins allowed for Cross-Origin Resource Sharing (CORS).  
-  Should be a JSON-formatted list of strings.  
-  *Default: `["*"]` (allow all origins)*
+   * - ``SQLALCHEMY_DRIVER``
+     - SQLAlchemy driver string used to construct the database URL.
+     - ``postgresql+psycopg``
 
-- **CORS_ALLOW_CREDENTIALS**  
-  Whether to allow credentials (cookies, authorization headers) in CORS requests.  
-  *Default: `TRUE`*
+   * - ``API_BASE_URL``
+     - Base URL of the backend API, used to construct absolute URLs internally.
+     - ``http://localhost:8000/``
 
-- **CORS_ALLOW_METHODS**  
-  A list of HTTP methods allowed for CORS.  
-  *Default: `["*"]` (allow all methods)*
+   * - ``CORS_ALLOW_ORIGINS``
+     - JSON-formatted list of allowed origins for Cross-Origin Resource Sharing (CORS).
+     - ``["*"]`` (allow all origins)
 
-- **CORS_ALLOW_HEADERS**  
-  A list of HTTP headers allowed in CORS requests.  
-  *Default: `["*"]` (allow all headers)*
+   * - ``CORS_ALLOW_CREDENTIALS``
+     - Whether to allow credentials (cookies, authorization headers) in CORS requests.
+     - ``TRUE``
+
+   * - ``CORS_ALLOW_METHODS``
+     - List of HTTP methods permitted in CORS requests.
+     - ``["*"]`` (allow all methods)
+
+   * - ``CORS_ALLOW_HEADERS``
+     - list of HTTP headers allowed in CORS requests.
+     - ``["*"]`` (allow all headers)
