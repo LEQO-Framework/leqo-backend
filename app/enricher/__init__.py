@@ -126,7 +126,7 @@ class EnricherStrategy(ABC):
     async def insert_enrichment(
         self,
         _node: FrontendNode,
-        _implementation: ImplementationNode,
+        _implementation: str,
         _requested_inputs: dict[int, LeqoSupportedType],
         _width: int,
         _depth: int | None,
@@ -224,7 +224,7 @@ class Enricher:
     async def insert_enrichment(
         self,
         node: FrontendNode,
-        implementation: ImplementationNode,
+        implementation: str,
         requested_inputs: dict[int, LeqoSupportedType],
         width: int,
         depth: int | None = None,
@@ -235,6 +235,8 @@ class Enricher:
         :param node: The node to insert the enrichment for.
         :param implementation: The implementation to insert
         :param requested_inputs: The (parsed) requested inputs for that node.
+        :param width: the (parsed) width of the program
+        :param depth: the optional provided depth of the program
         """
         if isinstance(node, ImplementationNode):
             raise UnableToInsertImplementation(node)

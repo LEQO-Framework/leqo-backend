@@ -143,6 +143,9 @@ class QubitInfo:
     uncomputable_ids: QubitIDs = field(default_factory=list)
     entangled_ids: QubitIDs = field(default_factory=list)
 
+    def get_width(self) -> int:
+        return sum([len(ids) for ids in self.declaration_to_ids.values()])
+
 
 @dataclass()
 class ClassicalIOInstance:

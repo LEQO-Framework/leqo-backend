@@ -237,6 +237,8 @@ class InsertRequest(BaseModel):
     inserts: list[
         tuple[
             Annotated[EnrichableNode, Field(discriminator="type")],
-            Annotated[ImplementationNode, Field(discriminator="type")],
+            str,
+            Annotated[int, Field(gt=0)] | None,
+            Annotated[int, Field(gt=0)] | None,
         ]
     ]

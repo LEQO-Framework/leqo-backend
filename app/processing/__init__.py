@@ -313,12 +313,12 @@ class EnrichingProcessor(CommonProcessor):
 class EnrichmentInserter:
     """Insert enrichment implementations for frontend-nodes into the Enricher."""
 
-    inserts: list[tuple[EnrichableNode, ImplementationNode]]
+    inserts: list[tuple[EnrichableNode, str, int | None, int | None]]
     enricher: Enricher
 
     def __init__(
         self,
-        inserts: list[tuple[EnrichableNode, ImplementationNode]],
+        inserts: list[tuple[EnrichableNode, str, int | None, int | None]],
         enricher: Enricher,
     ) -> None:
         self.inserts = inserts
@@ -333,10 +333,15 @@ class EnrichmentInserter:
 
     async def insert_all(self) -> None:
         """Insert all enrichments."""
-        for node, impl in self.inserts:
-            inputs = preprocess(
-                ProgramNode(name="dummy"), impl.implementation
-            ).io.inputs
+        for node, impl, width, depth in self.inserts:
+            processed = preprocess(ProgramNode(name="dummy"), impl)
+            requested_inputs = {k: v.type for k, v in processed.io.inputs.items()}
+            actual_width = processed.qubit.get_width()
+
+            if width is not None and actual_width != width:
+                msg = f"Specified width does not match parsed width: {width} != {actual_width}"
+                raise UnsupportedOperation(msg)
+
             await self.enricher.insert_enrichment(
-                node, impl, {k: v.type for k, v in inputs.items()}
+                node, impl, requested_inputs, actual_width, depth
             )
