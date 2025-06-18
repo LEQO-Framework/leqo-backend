@@ -55,7 +55,9 @@ def handle_endpoints(client: TestClient, request: str, first_endpoint: str) -> R
         content=request,
     )
 
-    uuid = json.loads(response.text)["uuid"]
+    data = response.json()
+    assert "uuid" in data, f"No uuid in first response: {data}"
+    uuid = data["uuid"]
     done = False
     for _ in range(MAX_ATTEMPTS):
         response = client.get(f"/status/{uuid}")
