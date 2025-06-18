@@ -103,7 +103,7 @@ def test_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "test",
-    find_files(TEST_DIR  / "compile", Baseline),
+    find_files(TEST_DIR / "compile", Baseline),
     ids=lambda test: test[0],
 )
 def test_debug_compile(test: tuple[str, Baseline], client: TestClient) -> None:
@@ -120,7 +120,7 @@ def test_debug_compile(test: tuple[str, Baseline], client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "test",
-    find_files(TEST_DIR  / "enrich", Baseline),
+    find_files(TEST_DIR / "enrich", Baseline),
     ids=lambda test: test[0],
 )
 def test_debug_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
