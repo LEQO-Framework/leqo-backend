@@ -61,11 +61,11 @@ class DataBaseEnricherStrategy(EnricherStrategy, ABC):
     @override
     async def insert_enrichment(
         self,
-        _node: FrontendNode,
-        _implementation: ImplementationNode,
-        _requested_inputs: dict[int, LeqoSupportedType],
-        _width: int,
-        _depth: int | None = None,
+        node: FrontendNode,
+        implementation: str,
+        requested_inputs: dict[int, LeqoSupportedType],
+        width: int,
+        depth: int | None = None,
     ) -> bool:
         """
         Insert a node into the database.
@@ -78,7 +78,7 @@ class DataBaseEnricherStrategy(EnricherStrategy, ABC):
         :return: The inserted node or None if insertion failed.
         """
         database_node = self._generate_database_node(
-            _node, _implementation.implementation, _requested_inputs, _width, _depth
+            node, implementation, requested_inputs, width, depth
         )
         if database_node is None:
             return False
