@@ -1,12 +1,12 @@
 Testing
 =======
 
-This project uses `pytest <https://docs.pytest.org/en/stable/>`_ for testing.
+This project uses `pytest <https://docs.pytest.org/en/stable/>`_ for testing, complemented by static analysis tools for type and style checking.
 
 Run Tests
 ---------
 
-Run all tests using the following command:
+To execute the full test suite, run:
 
 .. code-block:: shell
 
@@ -18,7 +18,7 @@ Run all tests using the following command:
 Code Coverage
 -------------
 
-To see how much code is covered by tests, run the following:
+To measure and visualize test coverage, use the following command:
 
 .. code-block:: shell
 
@@ -26,12 +26,17 @@ To see how much code is covered by tests, run the following:
   cd .coverage-report
   python3 -m http.server 8000
 
+Then open `localhost:8000 <http://localhost:8000>`_ in your browser to inspect the interactive HTML coverage report.
+
 Static Analysis
 ---------------
 
-This project uses `ruff <https://docs.astral.sh/ruff/>`_ and `mypy <https://mypy.readthedocs.io/en/stable/getting_started.html>`_ for linting.
+The project enforces code quality and type safety through:
 
-Run them via:
+- `ruff <https://docs.astral.sh/ruff/>`_ for linting and formatting
+- `mypy <https://mypy.readthedocs.io/en/stable/getting_started.html>`_ for static type checking
+
+Run both tools with:
 
 .. code-block:: shell
 
