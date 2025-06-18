@@ -18,7 +18,7 @@ from app.processing.utils import cast_to_program
 def preprocess(
     node: ProgramNode,
     implementation: str | Program,
-    requested_inputs: dict[int, LeqoSupportedType],
+    requested_inputs: dict[int, LeqoSupportedType] | None = None,
 ) -> ProcessedProgramNode:
     """Run an openqasm3 snippet through the preprocessing pipeline.
 
@@ -39,8 +39,9 @@ def preprocess(
     _ = ParseAnnotationsVisitor(io, qubit).visit(ast)
 
     processed_node = ProcessedProgramNode(node, ast, io, qubit)
-    size_cast(
-        processed_node,
-        {index: type.size for index, type in requested_inputs.items()},
-    )
+    if requested_inputs is not None:
+        size_cast(
+            processed_node,
+            {index: type.size for index, type in requested_inputs.items()},
+        )
     return processed_node

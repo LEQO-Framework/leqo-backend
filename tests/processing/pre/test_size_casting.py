@@ -17,9 +17,9 @@ def assert_size_cast(
     expected_code: str,
 ) -> None:
     dummy_node = ProgramNode("")
-    actual = preprocess(dummy_node, before_code, {})
+    actual = preprocess(dummy_node, before_code)
     size_cast(actual, requested_sizes)
-    expected = preprocess(dummy_node, expected_code, {})
+    expected = preprocess(dummy_node, expected_code)
     assert normalize_qasm_string(
         leqo_dumps(actual.implementation)
     ) == normalize_qasm_string(leqo_dumps(expected.implementation))
@@ -157,7 +157,7 @@ def test_raise_on_invalid_qubit_cast() -> None:
             f"Try to make QubitIOInstance(name='leqo_{id.hex}_q', ids=[0, 1, 2, 3, 4]) bigger, only smaller is possible.",
         ),
     ):
-        size_cast(preprocess(ProgramNode("", id=id), before, {}), {0: 10000})
+        size_cast(preprocess(ProgramNode("", id=id), before), {0: 10000})
 
 
 def test_raise_on_invalid_classic_cast() -> None:
@@ -174,4 +174,4 @@ def test_raise_on_invalid_classic_cast() -> None:
             f"Try to make ClassicalIOInstance(name='leqo_{id.hex}_i', type=IntType(size=5)) bigger, only smaller is possible.",
         ),
     ):
-        size_cast(preprocess(ProgramNode("", id=id), before, {}), {0: 10000})
+        size_cast(preprocess(ProgramNode("", id=id), before), {0: 10000})

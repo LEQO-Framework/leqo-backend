@@ -16,7 +16,7 @@ def assert_merge(
 ) -> None:
     nodes = []
     for i, code in enumerate(codes):
-        nodes.append(preprocess(ProgramNode(str(i)), code, {}))
+        nodes.append(preprocess(ProgramNode(str(i)), code))
 
     graph = ProgramGraph()
     graph.append_nodes(*nodes)
