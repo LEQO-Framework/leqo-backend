@@ -12,7 +12,7 @@ Quick Start
       uv sync --all-groups --all-extras
       cp .env.template .env
       nano .env # update POSTGRES_HOST to your needs (try POSTGRES_HOST=localhost)
-      docker compose up postgres
+      docker compose up postgres -d
       uv run fastapi run app/main.py --port 8000
 
 #. Open `localhost:8000 <http://localhost:8000/docs>`_ to verify the backend is running
@@ -59,7 +59,7 @@ Start the postgres database via docker:
 
 .. code-block:: shell
 
-  docker compose up postgres
+  docker compose up postgres -d
 
 4. Run the Backend
 ~~~~~~~~~~~~~~~~~~
