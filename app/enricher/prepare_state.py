@@ -76,7 +76,7 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
             depth=depth,
             width=width,
             implementation=implementation,
-            quantumState=QuantumStateType(node.quantumState),
+            quantum_state=QuantumStateType(node.quantumState),
             size=node.size,
         )
 

@@ -1,5 +1,6 @@
 import pytest
 import pytest_asyncio
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import Constraints
@@ -76,6 +77,33 @@ async def setup_database_data(session: AsyncSession) -> None:
 
     session.add_all([node1, node2, node3, node4, node5])
     await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_insert_enrichtment(engine: AsyncEngine) -> None:
+    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="/")
+
+    result = await OperatorEnricherStrategy(engine).insert_enrichment(
+        node=node,
+        implementation="operator_impl",
+        requested_inputs={0: QubitType(size=2), 1: QubitType(size=3)},
+        width=1,
+        depth=1,
+    )
+
+    assert result is True
+    async with AsyncSession(engine) as session:
+        db_result = await session.execute(
+            select(OperatorNode).where(
+                OperatorNode.implementation == "operator_impl",
+                OperatorNode.type == NodeType.OPERATOR,
+                OperatorNode.operator == OperatorType.DIV,
+                OperatorNode.depth == 1,
+                OperatorNode.width == 1,
+            )
+        )
+        node_in_db = db_result.scalar_one_or_none()
+        assert node_in_db is not None
 
 
 @pytest.mark.asyncio
