@@ -1,5 +1,8 @@
+Annotations
+===========
+
 Qubit Classification
-====================
+--------------------
 This section provides definitions of key terms to ensure consistent usage throughout the document.
 
 .. glossary::
@@ -60,9 +63,8 @@ and the data flow between snippets.
        It may be in a non-zero or entangled state and cannot safely be reused without restrictions.
        Entangled ancillae are considered dirty ancillae in future snippets.
 
-Annotations
-===========
-
+Annotation Usage Overview
+-------------------------
 A developer can create mappings between a concrete implementation (openqasm) and a program modeled in the `frontend <https://github.com/LEQO-Framework/low-code-modeler>`_ by using various openqasm3 annotations.
 
 Annotations can be emulated in openqasm2 by using special comments.
