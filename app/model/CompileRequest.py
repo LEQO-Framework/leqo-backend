@@ -216,3 +216,27 @@ class CompileRequest(BaseModel):
     metadata: MetaData
     nodes: list[Annotated[Node, Field(discriminator="type")]]
     edges: list[Edge]
+
+
+EnrichableNode = (
+    BoundaryNode
+    | GateNode
+    | ParameterizedGateNode
+    | LiteralNode
+    | AncillaNode
+    | OperatorNode
+    | QubitNode
+)
+
+
+class InsertRequest(BaseModel):
+    """
+    Models a request for an implementation insert into the enricher.
+    """
+
+    inserts: list[
+        tuple[
+            Annotated[EnrichableNode, Field(discriminator="type")],
+            Annotated[ImplementationNode, Field(discriminator="type")],
+        ]
+    ]

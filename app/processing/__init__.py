@@ -12,8 +12,10 @@ from networkx.algorithms.dag import topological_sort
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
     CompileRequest,
+    EnrichableNode,
     IfThenElseNode,
     ImplementationNode,
+    InsertRequest,
     NestedBlock,
     OptimizeSettings,
     RepeatNode,
@@ -306,3 +308,35 @@ class EnrichingProcessor(CommonProcessor):
     async def enrich_all(self) -> list[ImplementationNode]:
         """Get list of all enrichments."""
         return [x async for x in self.enrich()]
+
+
+class EnrichmentInserter:
+    """Insert enrichment implementations for frontend-nodes into the Enricher."""
+
+    inserts: list[tuple[EnrichableNode, ImplementationNode]]
+    enricher: Enricher
+
+    def __init__(
+        self,
+        inserts: list[tuple[EnrichableNode, ImplementationNode]],
+        enricher: Enricher,
+    ) -> None:
+        self.inserts = inserts
+        self.enricher = enricher
+
+    @staticmethod
+    def from_insert_request(
+        request: InsertRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+    ) -> EnrichmentInserter:
+        return EnrichmentInserter(request.inserts, enricher)
+
+    async def insert_all(self) -> None:
+        """Insert all enrichments."""
+        for node, impl in self.inserts:
+            inputs = preprocess(
+                ProgramNode(name="dummy"), impl.implementation
+            ).io.inputs
+            await self.enricher.insert_enrichment(
+                node, impl, {k: v.type for k, v in inputs.items()}
+            )
