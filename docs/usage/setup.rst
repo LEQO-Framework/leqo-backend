@@ -36,31 +36,11 @@ You can host both the frontend and backend together with docker compose.
         cd leqo
 
 **Step 2:** Create a `compose.yml` file with the following contents:
-    .. code-block:: yaml
+  .. literalinclude:: downloads/compose.yaml
+     :language: yaml
+     :linenos:
 
-        name: LEQO
-        services:
-            backend-db:
-                image: postgres:latest
-                environment:
-                    POSTGRES_USER: leqo
-                    POSTGRES_PASSWORD: secure_password
-                    POSTGRES_DB: qasm
-            backend:
-                image: ghcr.io/leqo-framework/leqo-backend:main
-                environment:
-                    POSTGRES_USER: leqo
-                    POSTGRES_PASSWORD: secure_password
-                    POSTGRES_DB: qasm
-                    POSTGRES_PORT: 5432
-                    POSTGRES_HOST: backend-db
-                    SQLALCHEMY_DRIVER: postgresql+psycopg
-                ports:
-                    - 127.0.0.1:8000:80
-            frontend:
-                image: ghcr.io/leqo-framework/low-code-modeler:main
-                ports:
-                    - 127.0.0.1:80:4242
+  Download this file: :download:`compose.yml <downloads/compose.yaml>`
 
 **Step 3:** Pull container images
     .. code-block:: shell
