@@ -17,7 +17,7 @@ from typing import Literal
 
 from openqasm3.ast import Program
 
-from app.enricher.exceptions import NoImplementationFound
+from app.enricher.exceptions import NoImplementationFound, UnableToInsertImplementation
 from app.model.CompileRequest import BaseNode, ImplementationNode
 from app.model.CompileRequest import (
     Node as FrontendNode,
@@ -123,6 +123,23 @@ class EnricherStrategy(ABC):
 
         raise Exception("Invalid enrichment result")
 
+    async def insert_enrichment(
+        self,
+        _node: FrontendNode,
+        _implementation: ImplementationNode,
+        _requested_inputs: dict[int, LeqoSupportedType],
+    ) -> bool:
+        """
+        Insert an enrichment :class:`~app.model.CompileRequest.ImplementationNode` for a given :class:`~app.model.CompileRequest.Node`.
+
+        :param node: The node to insert the enrichment for.
+        :param implementation: The implementation to insert
+        :param requested_inputs: The (parsed) requested inputs for that node.
+
+        :return: Whether the insert was successful.
+        """
+        return False
+
 
 class Enricher:
     """
@@ -201,3 +218,30 @@ class Enricher:
 
         results = sorted(results, key=key_selector)
         return results[0].enriched_node
+
+    async def insert_enrichment(
+        self,
+        node: FrontendNode,
+        implementation: ImplementationNode,
+        requested_inputs: dict[int, LeqoSupportedType],
+    ) -> None:
+        """
+        Insert the enrichment :class:`~app.model.CompileRequest.ImplementationNode` for the given :class:`~app.model.CompileRequest.Node`.
+
+        :param node: The node to insert the enrichment for.
+        :param implementation: The implementation to insert
+        :param requested_inputs: The (parsed) requested inputs for that node.
+        """
+        if isinstance(node, ImplementationNode):
+            raise UnableToInsertImplementation(node)
+
+        success = False
+        async for result in asyncio.as_completed(
+            x.insert_enrichment(node, implementation, requested_inputs)
+            for x in self.strategies
+        ):
+            if result:
+                success = True
+
+        if not success:
+            raise UnableToInsertImplementation(node)
