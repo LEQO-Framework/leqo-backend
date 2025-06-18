@@ -78,7 +78,7 @@ class BaseNode(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     type: Mapped[NodeType] = mapped_column(Enum(NodeType), nullable=False)
     depth: Mapped[int] = mapped_column(nullable=False)
-    width: Mapped[int] = mapped_column(nullable=False)
+    width: Mapped[int] = mapped_column(nullable=True)
     implementation: Mapped[str] = mapped_column(Text, nullable=False)
 
     inputs: Mapped[list["Input"]] = relationship(

@@ -128,6 +128,8 @@ class EnricherStrategy(ABC):
         _node: FrontendNode,
         _implementation: ImplementationNode,
         _requested_inputs: dict[int, LeqoSupportedType],
+        _width: int,
+        _depth: int | None,
     ) -> bool:
         """
         Insert an enrichment :class:`~app.model.CompileRequest.ImplementationNode` for a given :class:`~app.model.CompileRequest.Node`.
@@ -224,6 +226,8 @@ class Enricher:
         node: FrontendNode,
         implementation: ImplementationNode,
         requested_inputs: dict[int, LeqoSupportedType],
+        width: int,
+        depth: int | None = None,
     ) -> None:
         """
         Insert the enrichment :class:`~app.model.CompileRequest.ImplementationNode` for the given :class:`~app.model.CompileRequest.Node`.
@@ -237,8 +241,10 @@ class Enricher:
 
         success = False
         async for result in asyncio.as_completed(
-            x.insert_enrichment(node, implementation, requested_inputs)
-            for x in self.strategies
+            strategie.insert_enrichment(
+                node, implementation, requested_inputs, width, depth
+            )
+            for strategie in self.strategies
         ):
             success = success or await result
 

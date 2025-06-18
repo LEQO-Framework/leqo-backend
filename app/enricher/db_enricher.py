@@ -18,6 +18,7 @@ from app.enricher.exceptions import NoImplementationFound
 from app.enricher.models import BaseNode
 from app.model.CompileRequest import ImplementationNode
 from app.model.CompileRequest import Node as FrontendNode
+from app.model.data_types import LeqoSupportedType
 
 
 class DataBaseEnricherStrategy(EnricherStrategy, ABC):
@@ -35,6 +36,59 @@ class DataBaseEnricherStrategy(EnricherStrategy, ABC):
         self, node: FrontendNode, constraints: Constraints | None
     ) -> Select[tuple[BaseNode]] | None:
         raise Exception("Not implemented")
+
+    @abstractmethod
+    def _generate_database_node(
+        self,
+        node: FrontendNode,
+        implementation: str,
+        requested_inputs: dict[int, LeqoSupportedType],
+        width: int,
+        depth: int | None,
+    ) -> BaseNode | None:
+        """
+        Generate an :class:`~app.enricher.models.BaseNode` which can then be inserted into the database.
+
+        :param node: The frontend node.
+        :param implementation: The implementation of the node.
+        :param requested_inputs: Dictionary where the key is the input index and value the type of the node.
+        :param width: Width of the node implementation.
+        :param depth: Depth of the node implementation.
+        :return: Whether the insert was successful.
+        """
+        return None
+
+    @override
+    async def insert_enrichment(
+        self,
+        _node: FrontendNode,
+        _implementation: ImplementationNode,
+        _requested_inputs: dict[int, LeqoSupportedType],
+        _width: int,
+        _depth: int | None = None,
+    ) -> bool:
+        """
+        Insert a node into the database.
+
+        :param node: The frontend node.
+        :param implementation: The implementation of the node.
+        :param requested_inputs: Dictionary where the key is the input index and value the type of the node.
+        :param width: Width of the node implementation.
+        :param depth: Depth of the node implementation.
+        :return: The inserted node or None if insertion failed.
+        """
+        database_node = self._generate_database_node(
+            _node, _implementation.implementation, _requested_inputs, _width, _depth
+        )
+        if database_node is None:
+            return False
+
+        async with AsyncSession(self.engine) as session:
+            session.add(database_node)
+            await session.commit()
+            await session.refresh(database_node)
+
+            return database_node.id is not None
 
     @override
     async def _enrich_impl(
