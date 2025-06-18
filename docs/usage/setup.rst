@@ -24,8 +24,8 @@ Run the following commands:
     cp .env.template .env
     docker compose -f compose-dev.yaml up --build
 
-In Combination
---------------
+With Frontend
+-------------
 
 You can host both the frontend and backend together with docker compose.
 

@@ -9,8 +9,9 @@ Quick Start
 
    .. code-block:: shell
 
-      uv sync
+      uv sync --all-groups --all-extras
       cp .env.template .env
+      nano .env # update POSTGRES_HOST to your needs (try POSTGRES_HOST=localhost)
       docker compose up postgres
       uv run fastapi run app/main.py --port 8000
 
@@ -18,6 +19,8 @@ Quick Start
 
 Setup for Development
 ---------------------
+
+The instructions below are a more detailed version of the Quick Start instructions.
 
 1. Install Dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -28,7 +31,7 @@ After installing uv, use the following command to install the dependencies:
 
 .. code-block:: shell
 
-    uv sync
+    uv sync --all-groups --all-extras
 
 2. Set up Environment
 ~~~~~~~~~~~~~~~~~~~~~
