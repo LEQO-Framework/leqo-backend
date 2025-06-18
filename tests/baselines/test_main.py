@@ -60,11 +60,11 @@ def test_debug_enrich(test: DebugBaseline, client: TestClient) -> None:
         content=test.request,
     )
 
-    assert response.status_code == test.expected_status
-
     if response.status_code == SUCCESS_CODE:
         pretty_text = prettify_json(response.text)
         print(pretty_text)
         assert pretty_text == prettify_json(test.expected_result)
     else:
         assert response.text == test.expected_result
+
+    assert response.status_code == test.expected_status

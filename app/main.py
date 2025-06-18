@@ -199,12 +199,20 @@ async def process_enrich_request(
     states[uuid] = status
 
 
-@app.post("/debug/compile", response_class=PlainTextResponse)
+@app.post(
+    "/debug/compile",
+    response_model=None,
+    response_class=PlainTextResponse,
+    responses={
+        400: {"model": LeqoProblemDetails},
+        500: {"model": LeqoProblemDetails},
+    },
+)
 async def post_debug_compile(
     processor: Annotated[
         MergingProcessor, Depends(MergingProcessor.from_compile_request)
     ],
-) -> str | LeqoProblemDetails:
+) -> str | JSONResponse:
     """
     Compiles the request to an openqasm3 program in one request.
     No redirects and no polling of different endpoints needed.
@@ -215,15 +223,22 @@ async def post_debug_compile(
     try:
         return await processor.process()
     except Exception as ex:
-        return LeqoProblemDetails.from_exception(ex)
+        return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
 
 
-@app.post("/debug/enrich")
+@app.post(
+    "/debug/enrich",
+    response_model=list[ImplementationNode],
+    responses={
+        400: {"model": LeqoProblemDetails},
+        500: {"model": LeqoProblemDetails},
+    },
+)
 async def post_debug_enrich(
     processor: Annotated[
         EnrichingProcessor, Depends(EnrichingProcessor.from_compile_request)
     ],
-) -> list[ImplementationNode] | LeqoProblemDetails:
+) -> list[ImplementationNode] | JSONResponse:
     """
     Enriches all nodes in the compile request in one request.
     No redirects and no polling of different endpoints needed.
@@ -234,4 +249,4 @@ async def post_debug_enrich(
     try:
         return await processor.enrich_all()
     except Exception as ex:
-        return LeqoProblemDetails.from_exception(ex)
+        return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()

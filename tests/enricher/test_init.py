@@ -11,6 +11,7 @@ from app.enricher import (
     EnrichmentResult,
     ImplementationMetaData,
 )
+from app.enricher.exceptions import EnrichmentFailed
 from app.model.CompileRequest import (
     BitLiteralNode,
     BoolLiteralNode,
@@ -166,8 +167,8 @@ async def test_try_enrich_unknown_node() -> None:
 async def test_enrich_unknown_node() -> None:
     enricher = Enricher(IntToAEnricherStrategy(), FloatToBEnricherStrategy())
     with pytest.raises(
-        ExceptionGroup,
-        match=r"^Enrichment for node 'nodeId' failed \(2 sub-exceptions\)$",
+        EnrichmentFailed,
+        match=r"^Enrichment failed \(2 sub-exceptions\)$",
     ) as ex:
         await enricher.enrich(
             BoolLiteralNode(id="nodeId", value=False), constraints=None

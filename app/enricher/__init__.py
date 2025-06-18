@@ -17,7 +17,7 @@ from typing import Literal
 
 from openqasm3.ast import Program
 
-from app.enricher.exceptions import NoImplementationFound
+from app.enricher.exceptions import EnrichmentFailed, NoImplementationFound
 from app.model.CompileRequest import BaseNode, ImplementationNode
 from app.model.CompileRequest import (
     Node as FrontendNode,
@@ -185,7 +185,7 @@ class Enricher:
             if len(exceptions) == 0:
                 raise NoImplementationFound(node)
 
-            raise ExceptionGroup(f"Enrichment for node '{node.id}' failed", exceptions)
+            raise EnrichmentFailed(node, exceptions)
 
         key_selector: Callable[[EnrichmentResult], tuple[int | float, int | float]]
         if constraints and constraints.optimizeDepth and not constraints.optimizeWidth:

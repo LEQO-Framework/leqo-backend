@@ -21,6 +21,18 @@ class EnricherException(DiagnosticError, ABC):
     """
 
 
+class EnrichmentFailed(EnricherException, BaseExceptionGroup):
+    def __init__(self, node: Node, exceptions: list[Exception]):
+        msg = "Enrichment failed"
+        EnricherException.__init__(self, msg, node)
+        BaseExceptionGroup.__init__(self, msg, exceptions)
+
+    @staticmethod
+    def __new__(cls, _node: Node, exceptions: list[Exception]) -> "EnrichmentFailed":
+        msg = "Enrichment failed"
+        return BaseExceptionGroup.__new__(cls, msg, exceptions)
+
+
 class NoImplementationFound(EnricherException):
     def __init__(self, node: Node) -> None:
         super().__init__("No implementations were found", node)

@@ -1,7 +1,9 @@
 from io import StringIO
 from typing import Literal
 
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
+from starlette.responses import JSONResponse
 
 from app.model.CompileRequest import Node
 from app.model.data_types import LeqoSupportedType
@@ -75,14 +77,16 @@ class InputSizeMismatch(DiagnosticError):
         )
 
 
-def print_exception(stream: StringIO, ex: BaseException) -> None:
+def print_exception(
+    stream: StringIO, ex: BaseException, is_debug: bool = False
+) -> None:
     def print_exception_helper(
         ex: BaseException | None, prefix: str, is_root: bool
     ) -> None:
         if ex is None:
             return
 
-        msg = "<Redacted>"
+        msg = str(ex) if is_debug else "<Redacted>"
         if isinstance(ex, DiagnosticError):
             msg = ex.msg
 
@@ -146,10 +150,19 @@ class LeqoProblemDetails(ProblemDetails):
     nodeId: str | None = Field(default=None)
     inputIndex: int | None = Field(default=None)
 
+    def to_response(self) -> JSONResponse:
+        return JSONResponse(
+            jsonable_encoder(self),
+            status_code=self.status or 500,
+            media_type="application/problem+json",
+        )
+
     @staticmethod
-    def from_exception(ex: BaseException) -> "LeqoProblemDetails":
+    def from_exception(
+        ex: BaseException, is_debug: bool = False
+    ) -> "LeqoProblemDetails":
         stream = StringIO()
-        print_exception(stream, ex)
+        print_exception(stream, ex, is_debug)
 
         if not isinstance(ex, DiagnosticError):
             return LeqoProblemDetails(
