@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from copy import deepcopy
 from io import UnsupportedOperation
 from typing import Annotated
 
@@ -36,7 +35,6 @@ from app.processing.nested.utils import generate_pass_node_implementation
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
-from app.processing.size_casting import size_cast
 from app.services import get_enricher
 from app.utils import not_none
 
@@ -121,15 +119,13 @@ class MergingProcessor(CommonProcessor):
 
             if isinstance(frontend_node, RepeatNode):
                 requested_inputs = self._resolve_inputs(node)
-                processed_node, exit_node, sub_graph = await unroll_repeat(
+                entry_node_id, exit_node_id, enrolled_graph = unroll_repeat(
                     frontend_node,
                     requested_inputs,
-                    self._build_inner_graph,
                 )
-                size_cast(
-                    processed_node,
-                    {index: type.size for index, type in requested_inputs.items()},
-                )
+                sub_graph = await self._build_inner_graph(enrolled_graph)
+                processed_node = sub_graph.node_data[ProgramNode(entry_node_id)]
+                exit_node = sub_graph.node_data[ProgramNode(exit_node_id)]
                 for n in sub_graph.nodes:
                     self.graph.append_node(sub_graph.node_data[n])
                 for e in sub_graph.edges:
@@ -160,11 +156,9 @@ class MergingProcessor(CommonProcessor):
                         ),
                     )
                 processed_node = preprocess(
-                    ProgramNode(node), deepcopy(enriched_node.implementation)
-                )
-                size_cast(
-                    processed_node,
-                    {index: type.size for index, type in requested_inputs.items()},
+                    ProgramNode(node),
+                    enriched_node.implementation,
+                    requested_inputs,
                 )
                 self.frontend_to_processed[node] = processed_node
                 self.graph.append_node(processed_node)
@@ -244,14 +238,11 @@ class EnrichingProcessor(CommonProcessor):
         enriched_node: ImplementationNode,
         requested_inputs: dict[int, LeqoSupportedType],
     ) -> None:
-        processed_node = preprocess(
-            ProgramNode(enriched_node.id), enriched_node.implementation
+        self.frontend_to_processed[enriched_node.id] = preprocess(
+            ProgramNode(enriched_node.id),
+            enriched_node.implementation,
+            requested_inputs,
         )
-        size_cast(
-            processed_node,
-            {index: type.size for index, type in requested_inputs.items()},
-        )
-        self.frontend_to_processed[enriched_node.id] = processed_node
 
     async def _enrich_inner_block(
         self, node: FrontendNode, block: NestedBlock

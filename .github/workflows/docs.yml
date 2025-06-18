@@ -23,6 +23,9 @@ jobs:
       - name: Extract OpenAPI spec
         run: uv run --no-sync extract-openapi.py
 
+      - name: Extract SBOM
+        run: uv run cyclonedx-py venv -o docs/_static/sbom.json
+
       - name: Build static files
         run: uv run --no-sync sphinx-build docs/ docs/_build
         env:
