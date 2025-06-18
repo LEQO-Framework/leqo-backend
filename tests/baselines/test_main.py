@@ -1,15 +1,40 @@
 import json
+import os
 from collections.abc import Iterator
 from pathlib import Path
+from typing import TypeVar
 
 import pytest
+import yaml
+from httpx import Response
 from pydantic import BaseModel
 from starlette.testclient import TestClient
 
 from app.main import app
-from tests.baselines import find_files
+
+TModel = TypeVar("TModel", bound=BaseModel)
 
 SUCCESS_CODE = 200
+POLL_INTERVAL = 0.5
+MAX_ATTEMPTS = 5
+TEST_DIR = Path(__file__).parent
+
+
+class Baseline(BaseModel):
+    request: str
+    expected_status: int
+    expected_result: str
+
+
+def find_files(path: Path, model: type[TModel]) -> Iterator[tuple[str, TModel]]:
+    for _, _, files in os.walk(path):
+        for file_name in files:
+            file = path / file_name
+            with file.open() as f:
+                yield (
+                    str(file.relative_to(Path.cwd())),
+                    model.model_validate(yaml.safe_load(f)),
+                )
 
 
 def prettify_json(s: str) -> str:
@@ -22,49 +47,89 @@ def client() -> Iterator[TestClient]:
         yield client
 
 
-class DebugBaseline(BaseModel):
-    request: str
-    expected_status: int
-    expected_result: str
-
-
-TEST_DIR = Path(__file__).parent
-
-
-@pytest.mark.parametrize(
-    "test",
-    find_files(TEST_DIR / "debug" / "compile", DebugBaseline),
-)
-def test_debug_compile(test: DebugBaseline, client: TestClient) -> None:
+def handle_endpoints(client: TestClient, request: str, first_endpoint: str) -> Response:
     response = client.post(
-        "/debug/compile",
+        first_endpoint,
         headers={"Content-Type": "application/json"},
-        content=test.request,
+        content=request,
     )
 
-    print(response.text)
+    uuid = json.loads(response.text)["uuid"]
+    done = False
+    for _ in range(MAX_ATTEMPTS):
+        response = client.get(f"/status/{uuid}")
+        if json.loads(response.text)["status"] == "completed":
+            done = True
+            break
+    assert done
 
-    # Check body first to see why the status_code assertion may fail
-    assert response.text == test.expected_result
-    assert response.status_code == test.expected_status
+    return client.get(f"/result/{uuid}")
 
 
-@pytest.mark.parametrize(
-    "test",
-    find_files(TEST_DIR / "debug" / "enrich", DebugBaseline),
-)
-def test_debug_enrich(test: DebugBaseline, client: TestClient) -> None:
-    response = client.post(
-        "/debug/enrich",
-        headers={"Content-Type": "application/json"},
-        content=test.request,
-    )
-
-    assert response.status_code == test.expected_status
-
+def json_assert(expected: str, response: Response) -> None:
     if response.status_code == SUCCESS_CODE:
         pretty_text = prettify_json(response.text)
         print(pretty_text)
-        assert pretty_text == prettify_json(test.expected_result)
+        assert prettify_json(expected) == pretty_text
     else:
-        assert response.text == test.expected_result
+        assert expected == response.text
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(TEST_DIR / "compile", Baseline),
+    ids=lambda test: test[0],
+)
+def test_compile(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = handle_endpoints(client, base.request, "/compile")
+
+    assert response.text == base.expected_result
+    assert response.status_code == base.expected_status
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(TEST_DIR / "enrich", Baseline),
+    ids=lambda test: test[0],
+)
+def test_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = handle_endpoints(client, base.request, "/enrich")
+
+    json_assert(base.expected_result, response)
+    assert response.status_code == base.expected_status
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(TEST_DIR  / "compile", Baseline),
+    ids=lambda test: test[0],
+)
+def test_debug_compile(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = client.post(
+        "/debug/compile",
+        headers={"Content-Type": "application/json"},
+        content=base.request,
+    )
+
+    assert response.text == base.expected_result
+    assert response.status_code == base.expected_status
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(TEST_DIR  / "enrich", Baseline),
+    ids=lambda test: test[0],
+)
+def test_debug_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = client.post(
+        "/debug/enrich",
+        headers={"Content-Type": "application/json"},
+        content=base.request,
+    )
+
+    json_assert(base.expected_result, response)
+    assert response.status_code == base.expected_status
