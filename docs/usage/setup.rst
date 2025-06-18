@@ -24,6 +24,9 @@ Run the following commands:
     cp .env.template .env
     docker compose -f compose-dev.yaml up --build
 
+.. tip::
+   The commands above use the default configuration that can be changed as described in :doc:`Configuration <config>`
+
 With Frontend
 -------------
 
@@ -42,20 +45,24 @@ You can host both the frontend and backend together with docker compose.
 
   Download this file: :download:`compose.yml <downloads/compose.yaml>`
 
-**Step 3:** Pull container images
+  If you don't need configuration, you can use this file: :download:`compose.simple.yml <downloads/compose.simple.yaml>` and skip Step 3.
+
+**Step 3:** Create the `.env` file according to the instructions in :doc:`Configuration <config>`.
+
+**Step 4:** Pull container images
     .. code-block:: shell
 
         docker compose pull
 
-**Step 4:** Start the application
+**Step 5:** Start the application
     .. code-block:: shell
 
         docker compose up -d
 
-**Step 5:** Open the frontend
+**Step 6:** Open the frontend
     Navigate to: `localhost:80 <http://localhost:80>`_
 
-**Step 6:** Configure the backend port in the frontend
+**Step 7:** Configure the backend port in the frontend
 
     - Go to **Configuration**
     - Set the **Low-Code Backend Endpoint** to: `http://localhost:8000`
