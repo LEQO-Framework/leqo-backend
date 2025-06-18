@@ -17,7 +17,7 @@ services:
     depends_on:
       - postgres
     ports:
-      - 127.0.0.1:8000:80
+      - "8000:80"
   postgres:
     image: postgres:latest
     shm_size: 128mb
@@ -26,3 +26,7 @@ services:
       POSTGRES_PASSWORD: unsave_passwd
       POSTGRES_DB: qasm
     restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
+volumes:
+  db-data:
