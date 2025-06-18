@@ -145,6 +145,13 @@ class AncillaNode(BaseNode):
 
 # region ControlFlow
 class NestedBlock(BaseModel):
+    """
+    Represents a subgraph or code block used inside control flow nodes.
+
+    Attributes:
+        :param nodes (list[NestableNode]): List of nodes within the block.
+        :param edges (list[Edge]): Connections between the nodes.
+        """
     nodes: list[NestableNode]
     edges: list[Edge]
 

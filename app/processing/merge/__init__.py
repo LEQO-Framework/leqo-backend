@@ -119,6 +119,7 @@ def merge_if_nodes(
     :param condition: The condition to use in the generated :class:`openqasm3.ast.BranchingStatement`.
 
         :raises NotImplementedError:
+
         - If the circuit attempts to return classical output from the if-then-else structure.
         - If the outputs of the **then_graph** and **else_graph** do not match in size or qubit ordering.
 
