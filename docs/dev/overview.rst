@@ -15,7 +15,7 @@ Quick Start
       docker compose up postgres -d
       uv run fastapi run app/main.py --port 8000
 
-#. Open `localhost:8000 <http://localhost:8000/docs>`_ to verify the backend is running
+#. Open `localhost:8000 <http://localhost:8000/redoc>`_ to verify the backend is running
 
 Setup for Development
 ---------------------
@@ -70,7 +70,7 @@ Now you can start with backend with:
 
   uv run fastapi run app/main.py --port 8000
 
-You can verify it working by opening the `fastapi docs <http://localhost:8000/docs>`_.
+You can verify it working by opening the `fastapi docs <http://localhost:8000/redoc>`_.
 
 Dependencies
 ------------

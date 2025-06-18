@@ -33,7 +33,7 @@ docker compose -f compose-dev.yaml up --build
 Once started, access the backend at: 
 
 - API: http://localhost:8000  
-- Swagger UI: http://localhost:8000/docs
+- Swagger UI: http://localhost:8000/redoc
 
 ## 📚 Documentation
 
