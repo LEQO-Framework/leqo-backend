@@ -19,4 +19,4 @@ Build the docs locally via:
 
     uv run --no-sync extract-openapi.py
     uv run cyclonedx-py venv -o docs/_static/sbom.json
-    uv run sphinx-autobuild ./docs/ ./docs/_build
+    uv run sphinx-autobuild --port 8080 ./docs/ ./docs/_build
