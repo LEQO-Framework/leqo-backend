@@ -1,13 +1,11 @@
 import pytest
 
-from app.enricher import (
-    Constraints,
-    ConstraintValidationException,
-    InputValidationException,
-)
+from app.enricher import Constraints
+from app.enricher.exceptions import DuplicateIndices, IndicesOutOfRange, NoIndices
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.model.CompileRequest import MeasurementNode
 from app.model.data_types import IntType, QubitType
+from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 from tests.enricher.utils import assert_enrichment
 
 
@@ -128,8 +126,8 @@ async def test_exactly_one_input_1() -> None:
 
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
-        ConstraintValidationException,
-        match="^Measurements can only have a single input$",
+        InputCountMismatch,
+        match=r"^Node should have 1 inputs\. Got 0\.$",
     ):
         await strategy.enrich(node, constraints)
 
@@ -145,8 +143,8 @@ async def test_exactly_one_input_2() -> None:
 
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
-        ConstraintValidationException,
-        match="^Measurements can only have a single input$",
+        InputCountMismatch,
+        match=r"^Node should have 1 inputs\. Got 2\.$",
     ):
         await strategy.enrich(node, constraints)
 
@@ -160,8 +158,8 @@ async def test_qubit_type_input() -> None:
 
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
-        ConstraintValidationException,
-        match="^Measurements can only have a qubit type input$",
+        InputTypeMismatch,
+        match=r"^Expected type 'qubit' for input 0\. Got 'IntType\(size=3\)'\.$",
     ):
         await strategy.enrich(node, constraints)
 
@@ -174,9 +172,7 @@ async def test_at_least_one_index() -> None:
     )
 
     strategy = MeasurementEnricherStrategy()
-    with pytest.raises(
-        InputValidationException, match="^Measurements must have at least one index$"
-    ):
+    with pytest.raises(NoIndices, match="^No indices were specified$"):
         await strategy.enrich(node, constraints)
 
 
@@ -189,7 +185,7 @@ async def test_index_out_of_range_1() -> None:
 
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
-        InputValidationException, match="^Indices \\[3\\] out of range \\[0, 3\\)$"
+        IndicesOutOfRange, match="^Indices \\[3\\] out of range \\[0, 3\\)$"
     ):
         await strategy.enrich(node, constraints)
 
@@ -203,7 +199,7 @@ async def test_index_out_of_range_2() -> None:
 
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
-        InputValidationException, match="^Indices \\[5, 3\\] out of range \\[0, 3\\)$"
+        IndicesOutOfRange, match="^Indices \\[5, 3\\] out of range \\[0, 3\\)$"
     ):
         await strategy.enrich(node, constraints)
 
@@ -216,7 +212,5 @@ async def test_duplicate_indices() -> None:
     )
 
     strategy = MeasurementEnricherStrategy()
-    with pytest.raises(
-        InputValidationException, match="^Duplicate indices \\[1, 2\\]$"
-    ):
+    with pytest.raises(DuplicateIndices, match="^Duplicate indices \\[1, 2\\]$"):
         await strategy.enrich(node, constraints)

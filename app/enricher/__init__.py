@@ -17,10 +17,8 @@ from typing import Literal
 
 from openqasm3.ast import Program
 
-from app.model.CompileRequest import (
-    BaseNode,
-    ImplementationNode,
-)
+from app.enricher.exceptions import NoImplementationFound
+from app.model.CompileRequest import BaseNode, ImplementationNode
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
@@ -108,9 +106,6 @@ class EnricherStrategy(ABC):
         :param node: The node to enrich.
         :param constraints: Constraints to follow during enrichment.
         :return: The enriched node.
-
-        :raises NodeUnsupportedException: If the specified node is not supported by this strategy.
-        :raises ConstraintValidationException: The specified constraints are invalid or cannot be met.
         """
 
         result = self._enrich_impl(node, constraints)
@@ -127,33 +122,6 @@ class EnricherStrategy(ABC):
             return result
 
         raise Exception("Invalid enrichment result")
-
-
-class EnricherException(Exception, ABC):
-    """
-    Baseclass for exceptions raised by :class:`~app.enricher.EnricherStrategy`.
-    """
-
-
-class NodeUnsupportedException(EnricherException):
-    """
-    Indicates that an :class:`~app.enricher.EnricherStrategy` does not support a :class:`~app.model.CompileRequest.Node`.
-    """
-
-    def __init__(self, node: FrontendNode):
-        super().__init__(f"Node '{type(node).__name__}' is not supported")
-
-
-class ConstraintValidationException(EnricherException):
-    """
-    Indicates that the specified constraints are invalid or cannot be met by an :class:`~app.enricher.EnricherStrategy`.
-    """
-
-
-class InputValidationException(EnricherException):
-    """
-    Indicates the use-input is not valid (in the context of the given :class:`~app.enricher.Constraints`).
-    """
 
 
 class Enricher:
@@ -215,7 +183,7 @@ class Enricher:
 
         if len(results) == 0:
             if len(exceptions) == 0:
-                raise Exception(f"No implementations were found for node '{node.id}'")
+                raise NoImplementationFound(node)
 
             raise ExceptionGroup(f"Enrichment for node '{node.id}' failed", exceptions)
 

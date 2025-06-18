@@ -1,26 +1,19 @@
 """Unroll the repeat node."""
 
-from collections.abc import Callable, Coroutine
 from copy import deepcopy
 from io import UnsupportedOperation
-from typing import Any
 
 from app.enricher import ParsedImplementationNode
 from app.model.CompileRequest import RepeatNode
 from app.model.data_types import LeqoSupportedType
 from app.processing.frontend_graph import FrontendGraph
-from app.processing.graph import ProcessedProgramNode, ProgramGraph, ProgramNode
+from app.processing.graph import ProgramNode
 from app.processing.nested.utils import generate_pass_node_implementation
 
 
-async def unroll_repeat(
-    node: RepeatNode,
-    requested_inputs: dict[int, LeqoSupportedType],
-    build_graph: Callable[
-        [FrontendGraph],
-        Coroutine[Any, Any, ProgramGraph],
-    ],
-) -> tuple[ProcessedProgramNode, ProcessedProgramNode, ProgramGraph]:
+def unroll_repeat(
+    node: RepeatNode, requested_inputs: dict[int, LeqoSupportedType]
+) -> tuple[str, str, FrontendGraph]:
     """Unroll and enrich the repeat node.
 
     :param node: The node to enrich
@@ -74,10 +67,4 @@ async def unroll_repeat(
         prev_id = exit_node.id
 
     result.rename_nodes({exit_node.id: node.id})
-
-    processed = await build_graph(result)
-    return (
-        processed.node_data[ProgramNode(entry_node.id)],
-        processed.node_data[ProgramNode(exit_node.id)],
-        processed,
-    )
+    return (entry_node.id, exit_node.id, result)

@@ -7,12 +7,12 @@ from typing import cast, override
 from sqlalchemy import Select, exists, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.enricher import (
-    Constraints,
-    ConstraintValidationException,
-    InputValidationException,
-)
+from app.enricher import Constraints
 from app.enricher.db_enricher import DataBaseEnricherStrategy
+from app.enricher.exceptions import (
+    PrepareStateSizeOutOfRange,
+    QuantumStateNotSupported,
+)
 from app.enricher.models import BaseNode, Input, NodeType, QuantumStateType
 from app.enricher.models import PrepareStateNode as PrepareStateTable
 from app.model.CompileRequest import (
@@ -21,6 +21,7 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import (
     PrepareStateNode,
 )
+from app.model.exceptions import InputCountMismatch
 
 
 class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
@@ -38,13 +39,19 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
         if not isinstance(node, PrepareStateNode):
             return None
 
-        if node.quantumState == "custom" or node.size <= 0:
-            raise InputValidationException(
-                "Custom prepare state or size below 1 are not supported"
-            )
+        if node.quantumState == "custom":
+            raise QuantumStateNotSupported(node)
+
+        if node.size <= 0:
+            raise PrepareStateSizeOutOfRange(node)
 
         if constraints is None or len(constraints.requested_inputs) != 0:
-            raise ConstraintValidationException("PrepareStateNode can't have an input")
+            raise InputCountMismatch(
+                node,
+                actual=len(constraints.requested_inputs) if constraints else 0,
+                should_be="equal",
+                expected=0,
+            )
 
         no_inputs = ~exists().where(Input.node_id == PrepareStateTable.id)
         return cast(

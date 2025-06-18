@@ -2,10 +2,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from app.enricher import (
-    Constraints,
-    ConstraintValidationException,
-)
+from app.enricher import Constraints
 from app.enricher.models import (
     Input,
     InputType,
@@ -17,6 +14,7 @@ from app.enricher.operator import OperatorEnricherStrategy
 from app.model.CompileRequest import OperatorNode as FrontendOperatorNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
 from app.model.data_types import FloatType, QubitType
+from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 from tests.enricher.utils import assert_enrichments
 
 
@@ -177,8 +175,8 @@ async def test_enrich_operator_one_inputs(engine: AsyncEngine) -> None:
     )
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^OperatorNode can only have a two inputs$",
+        InputCountMismatch,
+        match=r"^Node should have 2 inputs\. Got 1\.$",
     ):
         await OperatorEnricherStrategy(engine).enrich(node, constraints)
 
@@ -193,8 +191,8 @@ async def test_enrich_operator_classical_input(engine: AsyncEngine) -> None:
     )
 
     with pytest.raises(
-        ConstraintValidationException,
-        match=r"^OperatorNode only supports qubit types$",
+        InputTypeMismatch,
+        match=r"^Expected type 'qubit' for input 0\. Got 'FloatType\(size=32\)'\.$",
     ):
         await OperatorEnricherStrategy(engine).enrich(node, constraints)
 
@@ -208,8 +206,4 @@ async def test_enrich_operator_node_not_in_db(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    with pytest.raises(
-        RuntimeError,
-        match=r"^No results found in the database$",
-    ):
-        await OperatorEnricherStrategy(engine).enrich(node, constraints)
+    assert (await OperatorEnricherStrategy(engine).enrich(node, constraints)) == []
