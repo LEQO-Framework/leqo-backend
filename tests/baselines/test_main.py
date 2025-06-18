@@ -2,6 +2,7 @@ import json
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from time import sleep
 from typing import TypeVar
 
 import pytest
@@ -15,7 +16,7 @@ from app.main import app
 TModel = TypeVar("TModel", bound=BaseModel)
 
 SUCCESS_CODE = 200
-POLL_INTERVAL = 0.5
+POLL_INTERVAL = 0.1
 MAX_ATTEMPTS = 5
 TEST_DIR = Path(__file__).parent
 
@@ -61,7 +62,10 @@ def handle_endpoints(client: TestClient, request: str, first_endpoint: str) -> R
         if json.loads(response.text)["status"] == "completed":
             done = True
             break
-    assert done
+        sleep(POLL_INTERVAL)
+    assert done, (
+        f"Timeout while waiting {MAX_ATTEMPTS * POLL_INTERVAL}s for the request"
+    )
 
     return client.get(f"/result/{uuid}")
 
