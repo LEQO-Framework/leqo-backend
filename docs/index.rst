@@ -59,3 +59,4 @@ Further Information
     dev/testing.rst
     dev/docs.rst
     dev/sbom.rst
+    dev/openqasm3

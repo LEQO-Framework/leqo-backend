@@ -96,4 +96,5 @@ Further Information
 - Architecture overview: :doc:`Architecture <architecture>`
 - How to run the tests: :doc:`Testing <testing>`
 - How to write docs: :doc:`Documentation <docs>`
+- Some parts of the `openqasm3 python package <https://pypi.org/project/openqasm3/>`_ documentation important for us: :doc:`Openqasm3 <openqasm3>`
 - Automated code documentation from embedded docs: :doc:`API Reference <../autoapi/index>`
