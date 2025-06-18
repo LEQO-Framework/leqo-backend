@@ -5,10 +5,12 @@ It provides classes to model progress, status, and associated timestamps.
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Self
+from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel
+
+from app.model.exceptions import LeqoProblemDetails
 
 
 class StatusType(StrEnum):
@@ -30,25 +32,37 @@ class Progress(BaseModel):
     currentStep: str
 
 
-class StatusResponse(BaseModel):
+class StatusBase(BaseModel):
     """
     Models the status of a process.
     """
 
     uuid: UUID
-    status: StatusType
-    createdAt: datetime | None
-    completedAt: datetime | None
-    progress: Progress | None
-    result: str | None
+    createdAt: datetime
+    progress: Progress
+
+
+class CreatedStatus(StatusBase):
+    status: Literal[StatusType.IN_PROGRESS] = StatusType.IN_PROGRESS
 
     @classmethod
     def init_status(cls, uuid: UUID) -> Self:
         return cls(
             uuid=uuid,
-            status=StatusType.IN_PROGRESS,
             createdAt=datetime.now(UTC),
-            completedAt=None,
             progress=Progress(percentage=0, currentStep="init"),
-            result=None,
         )
+
+
+class SuccessStatus(StatusBase):
+    status: Literal[StatusType.COMPLETED] = StatusType.COMPLETED
+    completedAt: datetime
+    result: str
+
+
+class FailedStatus(StatusBase):
+    status: Literal[StatusType.FAILED] = StatusType.FAILED
+    result: LeqoProblemDetails
+
+
+StatusResponse = CreatedStatus | SuccessStatus | FailedStatus

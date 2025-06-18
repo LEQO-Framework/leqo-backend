@@ -2,7 +2,6 @@
 All fastapi endpoints available.
 """
 
-import traceback
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
@@ -19,7 +18,14 @@ from starlette.responses import (
 
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
-from app.model.StatusResponse import Progress, StatusResponse, StatusType
+from app.model.exceptions import LeqoProblemDetails
+from app.model.StatusResponse import (
+    CreatedStatus,
+    FailedStatus,
+    Progress,
+    StatusResponse,
+    SuccessStatus,
+)
 from app.processing import EnrichingProcessor, MergingProcessor
 from app.services import get_result_url, get_settings, leqo_lifespan
 
@@ -51,7 +57,7 @@ def post_compile(
     """
 
     uuid: UUID = uuid4()
-    states[uuid] = StatusResponse.init_status(uuid)
+    states[uuid] = CreatedStatus.init_status(uuid)
 
     background_tasks.add_task(process_compile_request, uuid, processor, settings)
 
@@ -74,7 +80,7 @@ async def post_enrich(
     """
 
     uuid: UUID = uuid4()
-    states[uuid] = StatusResponse.init_status(uuid)
+    states[uuid] = CreatedStatus.init_status(uuid)
 
     background_tasks.add_task(process_enrich_request, uuid, processor, settings)
 
@@ -134,29 +140,27 @@ async def process_compile_request(
     :param settings: Settings from .env file
     """
 
-    status: StatusType = StatusType.FAILED
-    completedAt: datetime | None = None
-    result_code: str = ""
+    status: StatusResponse = states[uuid]
 
     try:
-        result_code = await processor.process()
-        result_url = get_result_url(uuid, settings)
-        status = StatusType.COMPLETED
-        completedAt = datetime.now(UTC)
-    except Exception as exception:
-        result_url = str(exception) or type(exception).__name__
+        results[uuid] = await processor.process()
 
-    old_state: StatusResponse = states[uuid]
-    states[uuid] = StatusResponse(
-        uuid=old_state.uuid,
-        status=status,
-        createdAt=old_state.createdAt,
-        completedAt=completedAt,
-        progress=Progress(percentage=100, currentStep="done"),
-        result=result_url,
-    )
+        status = SuccessStatus(
+            uuid=status.uuid,
+            createdAt=status.createdAt,
+            completedAt=datetime.now(UTC),
+            progress=Progress(percentage=100, currentStep="done"),
+            result=get_result_url(uuid, settings),
+        )
+    except Exception as ex:
+        status = FailedStatus(
+            uuid=status.uuid,
+            createdAt=status.createdAt,
+            progress=Progress(percentage=100, currentStep="done"),
+            result=LeqoProblemDetails.from_exception(ex),
+        )
 
-    results[uuid] = result_code
+    states[uuid] = status
 
 
 async def process_enrich_request(
@@ -172,27 +176,27 @@ async def process_enrich_request(
     :param settings: Settings from .env file
     """
 
-    status: StatusType = StatusType.FAILED
-    completedAt: datetime | None = None
+    status: StatusResponse = states[uuid]
 
     try:
         results[uuid] = await processor.enrich_all()
 
-        result_url = get_result_url(uuid, settings)
-        status = StatusType.COMPLETED
-        completedAt = datetime.now(UTC)
-    except Exception as exception:
-        result_url = str(exception) or type(exception).__name__
+        status = SuccessStatus(
+            uuid=status.uuid,
+            createdAt=status.createdAt,
+            completedAt=datetime.now(UTC),
+            progress=Progress(percentage=100, currentStep="done"),
+            result=get_result_url(uuid, settings),
+        )
+    except Exception as ex:
+        status = FailedStatus(
+            uuid=status.uuid,
+            createdAt=status.createdAt,
+            progress=Progress(percentage=100, currentStep="done"),
+            result=LeqoProblemDetails.from_exception(ex),
+        )
 
-    old_state: StatusResponse = states[uuid]
-    states[uuid] = StatusResponse(
-        uuid=old_state.uuid,
-        status=status,
-        createdAt=old_state.createdAt,
-        completedAt=completedAt,
-        progress=Progress(percentage=100, currentStep="done"),
-        result=result_url,
-    )
+    states[uuid] = status
 
 
 @app.post("/debug/compile", response_class=PlainTextResponse)
@@ -200,7 +204,7 @@ async def post_debug_compile(
     processor: Annotated[
         MergingProcessor, Depends(MergingProcessor.from_compile_request)
     ],
-) -> str:
+) -> str | LeqoProblemDetails:
     """
     Compiles the request to an openqasm3 program in one request.
     No redirects and no polling of different endpoints needed.
@@ -210,8 +214,8 @@ async def post_debug_compile(
 
     try:
         return await processor.process()
-    except Exception:
-        return traceback.format_exc()
+    except Exception as ex:
+        return LeqoProblemDetails.from_exception(ex)
 
 
 @app.post("/debug/enrich")
@@ -219,7 +223,7 @@ async def post_debug_enrich(
     processor: Annotated[
         EnrichingProcessor, Depends(EnrichingProcessor.from_compile_request)
     ],
-) -> list[ImplementationNode] | str:
+) -> list[ImplementationNode] | LeqoProblemDetails:
     """
     Enriches all nodes in the compile request in one request.
     No redirects and no polling of different endpoints needed.
@@ -229,5 +233,5 @@ async def post_debug_enrich(
 
     try:
         return await processor.enrich_all()
-    except Exception:
-        return traceback.format_exc()
+    except Exception as ex:
+        return LeqoProblemDetails.from_exception(ex)
