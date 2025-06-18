@@ -6,8 +6,11 @@ from collections.abc import Callable
 from typing import TypeVar
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.model.CompileRequest import ImplementationNode
 from app.model.database_model import (
     ProcessedResults,
     ProcessStates,
@@ -86,7 +89,7 @@ async def addStatusResponseToDB(engine: AsyncEngine, status: StatusResponse) -> 
     :param status: The :class:`StatusResponse` to add to the database
     """
     process_state = ProcessStates(
-        id=status.uuid.int,
+        id=status.uuid,
         status=status.status,
         createdAt=status.createdAt,
         completedAt=status.completedAt,
@@ -110,9 +113,9 @@ async def updateStatusResponseInDB(
     :param newState: The new :class:`StatusResponse` to update in the database
     """
     async with AsyncSession(engine) as session:
-        state = await session.get(ProcessStates, uuid.int)
+        state = await session.get(ProcessStates, uuid)
         if state:
-            state.id = newState.uuid.int
+            state.id = newState.uuid
             state.status = newState.status
             state.createdAt = newState.createdAt or state.createdAt
             state.completedAt = newState.completedAt or state.completedAt
@@ -133,7 +136,7 @@ async def getStatusResponseFromDB(
     :return: The :class:`StatusResponse` if found, otherwise None
     """
     async with AsyncSession(engine) as session:
-        process_state_db = await session.get(ProcessStates, uuid.int)
+        process_state_db = await session.get(ProcessStates, uuid)
         if process_state_db:
             return StatusResponse(
                 uuid=uuid,
@@ -151,18 +154,23 @@ async def getStatusResponseFromDB(
         return None
 
 
-async def addResultToDB(engine: AsyncEngine, uuid: UUID, results: list[str]) -> None:
+async def addResultToDB(
+    engine: AsyncEngine, uuid: UUID, results: list[ImplementationNode]
+) -> None:
     """Add a result to the database for the given uuid
 
     :param engine: Database engine to add the result to
     :param uuid: UUID of the process state this result belongs
-    :param result: List of result strings to add
+    :param result: List of :class:`ImplementationNode` to add as results
     """
     async with AsyncSession(engine) as session:
-        processed_result = ProcessedResults(id=uuid.int)
+        processed_result = ProcessedResults(id=uuid)
         result_impls = [
             ResultImplementation(
-                implementation=result, processed_result=processed_result
+                impl_id=result.id,
+                impl_label=result.label,
+                implementation=result.implementation,
+                processed_result=processed_result,
             )
             for result in results
         ]
@@ -172,15 +180,24 @@ async def addResultToDB(engine: AsyncEngine, uuid: UUID, results: list[str]) -> 
         await session.commit()
 
 
-async def getResultsFromDB(engine: AsyncEngine, uuid: UUID) -> list[str] | None:
-    """Get the results from the database for the given uuid
-
-    :param engine: Database engine to get the results from
-    :param uuid: UUID of the process state this result belongs
-    :return: List of result strings or None if no results found
-    """
+async def getResultsFromDB(
+    engine: AsyncEngine, uuid: UUID
+) -> list[ImplementationNode] | None:
     async with AsyncSession(engine) as session:
-        processed_result = await session.get(ProcessedResults, uuid.int)
+        result = await session.execute(
+            select(ProcessedResults)
+            .options(selectinload(ProcessedResults.results))
+            .where(ProcessedResults.id == uuid)
+        )
+        processed_result = result.scalar_one_or_none()
         if processed_result:
-            return [result.implementation for result in processed_result.results]
+            return [
+                ImplementationNode(
+                    id=result.impl_id,
+                    label=result.impl_label,
+                    type="implementation",
+                    implementation=result.implementation,
+                )
+                for result in processed_result.results
+            ]
         return None

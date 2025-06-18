@@ -132,7 +132,7 @@ async def get_result(
         )
 
     if len(result) == 1:
-        return PlainTextResponse(status_code=200, content=result[0])
+        return PlainTextResponse(status_code=200, content=result[0].implementation)
 
     return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
@@ -172,7 +172,18 @@ async def process_compile_request(
     state.progress = Progress(percentage=100, currentStep="done")
     state.result = result_url
     await updateStatusResponseInDB(engine, uuid, state)
-    await addResultToDB(engine, uuid, [result_code])
+    await addResultToDB(
+        engine,
+        uuid,
+        [
+            ImplementationNode(
+                id="0",
+                label=None,
+                type="implementation",
+                implementation=result_code,
+            )
+        ],
+    )
 
 
 async def process_enrich_request(
@@ -192,8 +203,7 @@ async def process_enrich_request(
 
     try:
         resultsAsImplNode = await processor.enrich_all()
-        resultsAsStr = [implNode.implementation for implNode in resultsAsImplNode]
-        await addResultToDB(engine, uuid, resultsAsStr)
+        await addResultToDB(engine, uuid, resultsAsImplNode)
 
         result_url = get_result_url(uuid, settings)
         status = StatusType.COMPLETED

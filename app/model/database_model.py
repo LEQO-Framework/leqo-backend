@@ -1,8 +1,9 @@
 """Database schema for everything stored in the database."""
 
+import uuid
 from datetime import datetime
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import UUID, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.model.StatusResponse import StatusType
@@ -19,7 +20,7 @@ class ProcessStates(Base):
 
     __tablename__ = "process_states"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     status: Mapped[StatusType] = mapped_column(nullable=False)
     createdAt: Mapped[datetime] = mapped_column(nullable=True)
     completedAt: Mapped[datetime] = mapped_column(nullable=True)
@@ -33,7 +34,7 @@ class ProcessedResults(Base):
 
     __tablename__ = "processed_results"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     results: Mapped[list["ResultImplementation"]] = relationship(
         "ResultImplementation",
         back_populates="processed_result",
@@ -42,13 +43,15 @@ class ProcessedResults(Base):
 
 
 class ResultImplementation(Base):
-    """Class to store resulting implementations."""
-
     __tablename__ = "result_implementations"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    impl_id: Mapped[str] = mapped_column(nullable=False)
+    impl_label: Mapped[str] = mapped_column(nullable=True)
     implementation: Mapped[str] = mapped_column(nullable=False)
-    processed_result_id: Mapped[int] = mapped_column(
+    processed_result_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("processed_results.id"), nullable=False
     )
 
