@@ -1,6 +1,14 @@
-"""Each single qasm snippet attached to a node will first pass through the preprocessing.
+"""Each single qasm snippet attached to a node will first pass through the preprocessing pipeline.
 
 This happens without the global graph view.
+The steps are:
+
+- parse implementation if it is a string
+- convert to OpenQASM 3 if in OpenQASM 2
+- rename the identifiers by prefixing with node id
+- inline constants
+- parse annotation info
+- upcast inputs if they are too small for the required spec
 """
 
 from openqasm3.ast import Program
@@ -24,7 +32,7 @@ def preprocess(
 
     :param node: The node to preprocess.
     :param implementation: A valid OpenQASM 2/3 implementation for that node.
-    :param requested_inputs: Inputs specification needed for size_casting
+    :param requested_inputs: Optional inputs specification for size_casting
     :return: The preprocessed program.
     """
     if isinstance(implementation, Program):
