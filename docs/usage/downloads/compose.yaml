@@ -6,6 +6,7 @@ services:
       POSTGRES_USER: leqo
       POSTGRES_PASSWORD: secure_password
       POSTGRES_DB: qasm
+    restart: unless-stopped
   backend:
     image: ghcr.io/leqo-framework/leqo-backend:main
     environment:
@@ -15,6 +16,9 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_HOST: backend-db
       SQLALCHEMY_DRIVER: postgresql+psycopg
+    restart: unless-stopped
+    depends_on:
+      - backend-db
     ports:
       - 127.0.0.1:8000:80
   frontend:
