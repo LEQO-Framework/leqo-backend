@@ -86,9 +86,12 @@ def print_exception(
         if ex is None:
             return
 
-        msg = str(ex) if is_debug else "<Redacted>"
         if isinstance(ex, DiagnosticError):
             msg = ex.msg
+        elif is_debug:
+            msg = str(ex) or type(ex).__name__
+        else:
+            msg = "<Redacted>"
 
         stream.write(f"{prefix}{'' if is_root else '╰ '}{msg}\n")
 

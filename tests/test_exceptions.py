@@ -77,3 +77,13 @@ def test_exception_group() -> None:
     │ ╰ Cause of inner group
     ╰ Cause of outer group
     """)
+
+
+class MyTestException(Exception):
+    pass
+
+
+def test_no_exception_msg():
+    stream = StringIO()
+    print_exception(stream, MyTestException(), is_debug=True)
+    assert stream.getvalue() == "MyTestException\n"
