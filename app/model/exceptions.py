@@ -80,12 +80,20 @@ class InputSizeMismatch(DiagnosticError):
 def print_exception(
     stream: StringIO, ex: BaseException, is_debug: bool = False
 ) -> None:
+    """
+    Writes an exception with its cause stack into a stream.
+
+    All exceptions that don't inherit from :class:`~app.model.exceptions.DiagnosticError`
+    will be marked as `<Redacted>` unless is_debug is set to true.
+    """
+
     def print_exception_helper(
         ex: BaseException | None, prefix: str, is_root: bool
     ) -> None:
         if ex is None:
             return
 
+        # extract message
         if isinstance(ex, DiagnosticError):
             msg = ex.msg
         elif is_debug:
@@ -93,16 +101,19 @@ def print_exception(
         else:
             msg = "<Redacted>"
 
+        # print message
         for i, line in enumerate(msg.splitlines()):
             if i == 0:
                 stream.write(f"{prefix}{'' if is_root else '╰ '}{line}\n")
             else:
                 stream.write(f"{prefix}{'' if is_root else '  '}{line}\n")
 
+        # handle grouped exceptions
         if isinstance(ex, BaseExceptionGroup):
             for inner_ex in ex.exceptions:
                 print_exception_helper(inner_ex, prefix + "│ ", is_root=True)
 
+        # handle cause
         print_exception_helper(
             ex.__cause__, prefix + ("" if is_root else "  "), is_root=False
         )
