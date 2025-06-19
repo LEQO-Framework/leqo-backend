@@ -44,6 +44,8 @@ class StatusBase(BaseModel):
 
 class CreatedStatus(StatusBase):
     status: Literal[StatusType.IN_PROGRESS] = StatusType.IN_PROGRESS
+    completedAt: None = None
+    result: None = None
 
     @classmethod
     def init_status(cls, uuid: UUID) -> Self:
@@ -62,6 +64,7 @@ class SuccessStatus(StatusBase):
 
 class FailedStatus(StatusBase):
     status: Literal[StatusType.FAILED] = StatusType.FAILED
+    completedAt: None = None
     result: LeqoProblemDetails
 
 
