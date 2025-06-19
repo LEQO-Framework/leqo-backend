@@ -163,9 +163,18 @@ async def process_compile_request(
 
     state = await get_status_response_from_db(engine, uuid)
     if state is None:
-        raise HTTPException(
-            status_code=404, detail=f"No compile request with uuid '{uuid}' found."
+        await add_status_response_to_db(
+            engine,
+            StatusResponse(
+                uuid=uuid,
+                status=StatusType.FAILED,
+                result="No status with this uuid found while processing the compile request.",
+                createdAt=datetime.now(UTC),
+                completedAt=None,
+                progress=Progress(percentage=0, currentStep="init"),
+            ),
         )
+        return
 
     state.status = status
     state.completedAt = completedAt
@@ -206,9 +215,18 @@ async def process_enrich_request(
 
     state = await get_status_response_from_db(engine, uuid)
     if state is None:
-        raise HTTPException(
-            status_code=404, detail=f"No compile request with uuid '{uuid}' found."
+        await add_status_response_to_db(
+            engine,
+            StatusResponse(
+                uuid=uuid,
+                status=StatusType.FAILED,
+                result="No status with this uuid found while processing the enrichment request.",
+                createdAt=datetime.now(UTC),
+                completedAt=None,
+                progress=Progress(percentage=0, currentStep="init"),
+            ),
         )
+        return
 
     state.status = status
     state.completedAt = completedAt
