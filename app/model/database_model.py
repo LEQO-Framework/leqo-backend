@@ -24,7 +24,7 @@ class ProcessStates(Base):
     status: Mapped[StatusType] = mapped_column(nullable=False)
     createdAt: Mapped[datetime] = mapped_column(nullable=True)
     completedAt: Mapped[datetime] = mapped_column(nullable=True)
-    progressPercentage: Mapped[float] = mapped_column(nullable=True)
+    progressPercentage: Mapped[int] = mapped_column(nullable=True)
     progressCurrentStep: Mapped[str] = mapped_column(nullable=True)
     result: Mapped[str] = mapped_column(nullable=True)
 
