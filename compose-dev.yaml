@@ -1,17 +1,24 @@
+name: LEQO
 services:
   leqo-backend:
     build: .
     env_file: ".env"
+    restart: unless-stopped
+    depends_on:
+      - postgres
     ports:
       - "8000:80"
   postgres:
-    image: postgres:16-alpine3.20
+    image: postgres:latest
     shm_size: 128mb
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    expose:
-      - ${POSTGRES_PORT}
+    restart: unless-stopped
+    volumes:
+      - db-data:/var/lib/postgresql/data
     ports:
       - "${POSTGRES_PORT}:5432"
+volumes:
+  db-data:

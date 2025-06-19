@@ -27,7 +27,9 @@ def event_loop_policy() -> asyncio.AbstractEventLoopPolicy:
 
 @pytest_asyncio.fixture(scope="session", autouse=True, loop_scope="session")
 async def engine() -> AsyncGenerator[AsyncEngine]:
-    """Set up the database container for the tests."""
+    """
+    Set up the database container for the tests.
+    """
 
     postgres.start()
 
@@ -51,7 +53,9 @@ async def engine() -> AsyncGenerator[AsyncEngine]:
 
 @pytest_asyncio.fixture(autouse=True)
 async def session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
-    """Create and return a database session."""
+    """
+    Create and return a database session.
+    """
 
     async with AsyncSession(engine) as session:
         yield session
