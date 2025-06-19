@@ -122,9 +122,9 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                 OperatorNodeTable.operator == OperatorType(node.operator),
                 Input0.index == 0,
                 Input0.type == InputType.QubitType,
-                Input0.size == constraints.requested_inputs[0].size,
+                Input0.size >= constraints.requested_inputs[0].size,
                 Input1.index == 1,
                 Input1.type == InputType.QubitType,
-                Input1.size == constraints.requested_inputs[1].size,
+                Input1.size >= constraints.requested_inputs[1].size,
             ),
         )
