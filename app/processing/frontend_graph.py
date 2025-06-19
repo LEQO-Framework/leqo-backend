@@ -1,4 +1,6 @@
-"""Graph structure of the frontend model."""
+"""
+Graph structure of the frontend model.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +23,8 @@ else:
 
 
 class FrontendGraph(FrontendGraphBase):
-    """Graph representing the frontend model.
+    """
+    Graph representing the frontend model.
 
     Mainly used to be converted to internal class:`app.processing.graph.ProgramGraph`.
     """
@@ -68,7 +71,9 @@ class FrontendGraph(FrontendGraphBase):
         nodes: Iterable[TBaseNode],
         edges: Iterable[Edge],
     ) -> FrontendGraph:
-        """Build graph from nodes + edges."""
+        """
+        Build graph from nodes + edges.
+        """
         graph = FrontendGraph()
         for node in nodes:
             graph.append_node(node)

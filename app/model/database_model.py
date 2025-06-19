@@ -1,4 +1,6 @@
-"""Database schema for everything stored in the database."""
+"""
+Database schema for everything stored in the database.
+"""
 
 import uuid
 from datetime import datetime
@@ -10,11 +12,14 @@ from app.model.StatusResponse import StatusType
 
 
 class Base(DeclarativeBase):
-    pass
+    """
+    Base class for database types.
+    """
 
 
 class StatusResponseDb(Base):
-    """Class to store the states of all current processes
+    """
+    Class to store the states of all current processes
     which await processing or a currently processed.
     """
 
@@ -22,15 +27,17 @@ class StatusResponseDb(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     status: Mapped[StatusType] = mapped_column(nullable=False)
-    createdAt: Mapped[datetime] = mapped_column(nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(nullable=False)
     completedAt: Mapped[datetime] = mapped_column(nullable=True)
-    progressPercentage: Mapped[int] = mapped_column(nullable=True)
-    progressCurrentStep: Mapped[str] = mapped_column(nullable=True)
+    progressPercentage: Mapped[int] = mapped_column(nullable=False)
+    progressCurrentStep: Mapped[str] = mapped_column(nullable=False)
     result: Mapped[str] = mapped_column(nullable=True)
 
 
 class CompileResult(Base):
-    """Store the result of an compile request."""
+    """
+    Store the result of a compile request.
+    """
 
     __tablename__ = "compile_results"
 
@@ -39,7 +46,9 @@ class CompileResult(Base):
 
 
 class EnrichResult(Base):
-    """Store the result of an enrich request."""
+    """
+    Store the result of an enrich request.
+    """
 
     __tablename__ = "enrich_result"
 
@@ -52,7 +61,9 @@ class EnrichResult(Base):
 
 
 class SingleEnrichResult(Base):
-    """Store the implementation for an node in the context of an enrichment result."""
+    """
+    Store the implementation for a node in the context of an enrichment result.
+    """
 
     __tablename__ = "single_enrich_result"
 

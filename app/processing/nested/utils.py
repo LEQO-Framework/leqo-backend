@@ -1,4 +1,6 @@
-"""Utils for nested-node processing."""
+"""
+Utils for nested-node processing.
+"""
 
 from openqasm3.ast import (
     AliasStatement,
@@ -19,7 +21,8 @@ from app.processing.pre import converter
 def generate_pass_node_implementation(
     requested_inputs: dict[int, LeqoSupportedType],
 ) -> Program:
-    """Generate implementation for a so called pass node.
+    """
+    Generate implementation for a so called pass node.
 
     The pass node just returns all input it gets as outputs.
     Similar to the python pass statement, it does not modify them.

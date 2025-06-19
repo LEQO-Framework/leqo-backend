@@ -13,10 +13,10 @@ The following diagram shows the architecture of the backend:
 The backend is composed of the following main components:
 
 - **Processing** (:py:mod:`app.processing`):
-  Coordinates the end-to-end handling of :class:`app.model.CompileRequest.CompileRequest`, including compilation and enrichment.
+  Coordinates the end-to-end handling of :class:`~app.model.CompileRequest.CompileRequest`, including compilation and enrichment.
 
 - **Enricher** (:py:mod:`app.enricher`):
-  Retrieves implementations and is extendable via strategies that implement :class:`app.enricher.EnricherStrategy`
+  Retrieves implementations and is extendable via strategies that implement :class:`~app.enricher.EnricherStrategy`
 
 - **Preprocessing** (:py:mod:`app.processing.pre`):
   Contains logic for individual node transformations that do not require global graph context, such as:
@@ -56,7 +56,7 @@ The backend is composed of the following main components:
 Pipeline Flow
 -------------
 
-The following diagram illustrates the pipeline stages for processing a :class:`app.model.CompileRequest.CompileRequest`:
+The following diagram illustrates the pipeline stages for processing a :class:`~app.model.CompileRequest.CompileRequest`:
 
 .. image:: ./images/pipeline.webp
    :alt: Compilation Pipeline

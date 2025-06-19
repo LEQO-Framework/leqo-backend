@@ -26,7 +26,8 @@ LeqoNamespace = UUID("1378f1f9-b705-404b-be6a-d1b3e29236d7")
 
 @dataclass(frozen=True)
 class ProgramNode:
-    """Represents a node in a visual model of an openqasm3 program.
+    """
+    Represents a node in a visual model of an openqasm3 program.
 
     :param name: The id given from the front-end.
     :param id: Unique ID of this node, used in the renaming.
@@ -58,7 +59,9 @@ class ProgramNode:
 
 @dataclass(frozen=True)
 class IOConnection:
-    """Map output-reg from source to target input-reg with specified size."""
+    """
+    Map output-reg from source to target input-reg with specified size.
+    """
 
     source: tuple[ProgramNode, int]
     target: tuple[ProgramNode, int]
@@ -68,9 +71,10 @@ class IOConnection:
 
 @dataclass()
 class AncillaConnection:
-    """Map output qubits from source to target input qubits.
+    """
+    Map output qubits from source to target input qubits.
 
-    The qubits are identified via the id specified in :class:`app.processing.graph.IOInfo`.
+    The qubits are identified via the id specified in :class:`~app.processing.graph.IOInfo`.
     """
 
     source: tuple[ProgramNode, QubitIDs]
@@ -84,7 +88,9 @@ else:
 
 
 class ProgramGraph(ProgramGraphBase):
-    """Internal representation of the program graph."""
+    """
+    Internal representation of the program graph.
+    """
 
     node_data: dict[ProgramNode, ProcessedProgramNode]
     edge_data: dict[
@@ -126,7 +132,8 @@ class ProgramGraph(ProgramGraphBase):
 
 @dataclass()
 class QubitInfo:
-    """Store QubitIDs of declarations and the various ancilla types.
+    """
+    Store QubitIDs of declarations and the various ancilla types.
 
     :param declaration_to_ids: Maps declared names to corresponding qubits ids.
     :param clean_ids: List of required reusable/fresh/uncomputed qubit ids.
@@ -149,7 +156,8 @@ class QubitInfo:
 
 @dataclass()
 class ClassicalIOInstance:
-    """Single input/output from a snippet of type classical.
+    """
+    Single input/output from a snippet of type classical.
 
     :param name: Name of the annotated variable.
     :param type: Type of the annotated variable.
@@ -161,7 +169,8 @@ class ClassicalIOInstance:
 
 @dataclass()
 class QubitIOInstance:
-    """Single input/output from a snippet of type qubits.
+    """
+    Single input/output from a snippet of type qubits.
 
     :param name: Name of the annotated variable.
     :param ids: List of annotated qubit ids.
@@ -177,7 +186,8 @@ class QubitIOInstance:
 
 @dataclass()
 class IOInfo:
-    """Input/output info for a single snippet.
+    """
+    Input/output info for a single snippet.
 
     :param inputs: Maps input-index to (Qubit/Classical)IOInstance.
     :param outputs: Maps output-index to (Qubit/Classical)IOInstance.
@@ -193,7 +203,8 @@ class IOInfo:
 
 @dataclass()
 class ProcessedProgramNode:
-    """Store a qasm snippet as string and AST.
+    """
+    Store a qasm snippet as string and AST.
 
     :param raw: The corresponding ProgramNode.
     :param implementation: The implementation as AST. Might be modified during processing.

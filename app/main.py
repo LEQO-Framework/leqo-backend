@@ -2,7 +2,6 @@
 All fastapi endpoints available.
 """
 
-import traceback
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
@@ -20,7 +19,14 @@ from starlette.responses import (
 
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
-from app.model.StatusResponse import Progress, StatusResponse, StatusType
+from app.model.exceptions import LeqoProblemDetails
+from app.model.StatusResponse import (
+    CreatedStatus,
+    FailedStatus,
+    Progress,
+    StatusResponse,
+    SuccessStatus,
+)
 from app.processing import EnrichingProcessor, EnrichmentInserter, MergingProcessor
 from app.services import get_db_engine, get_result_url, get_settings, leqo_lifespan
 from app.utils import (
@@ -56,11 +62,16 @@ async def post_compile(
     """
 
     uuid: UUID = uuid4()
-    statusResponse = StatusResponse.init_status(uuid)
-    await add_status_response_to_db(engine, statusResponse)
+    status_response = CreatedStatus.init_status(uuid)
+    await add_status_response_to_db(engine, status_response)
 
     background_tasks.add_task(
-        process_compile_request, uuid, processor, settings, engine
+        process_compile_request,
+        uuid,
+        status_response.createdAt,
+        processor,
+        settings,
+        engine,
     )
 
     return RedirectResponse(
@@ -83,10 +94,17 @@ async def post_enrich(
     """
 
     uuid: UUID = uuid4()
-    statusResponse = StatusResponse.init_status(uuid)
-    await add_status_response_to_db(engine, statusResponse)
+    status_response = CreatedStatus.init_status(uuid)
+    await add_status_response_to_db(engine, status_response)
 
-    background_tasks.add_task(process_enrich_request, uuid, processor, settings, engine)
+    background_tasks.add_task(
+        process_enrich_request,
+        uuid,
+        status_response.createdAt,
+        processor,
+        settings,
+        engine,
+    )
 
     return RedirectResponse(
         url=f"{settings.api_base_url}status/{uuid}",
@@ -94,21 +112,29 @@ async def post_enrich(
     )
 
 
-@app.post("/insert")
+@app.post(
+    "/insert",
+    response_model=None,
+    response_class=PlainTextResponse,
+    responses={
+        400: {"model": LeqoProblemDetails},
+        500: {"model": LeqoProblemDetails},
+    },
+)
 async def post_insert(
     inserter: Annotated[
         EnrichmentInserter, Depends(EnrichmentInserter.from_insert_request)
     ],
-) -> PlainTextResponse:
+) -> str | JSONResponse:
     """
     Insert enrichments via :class:`~app.model.InsertRequest`.
     """
 
     try:
         await inserter.insert_all()
-        return PlainTextResponse(status_code=200, content="success")
-    except Exception:
-        return PlainTextResponse(status_code=400, content=traceback.format_exc())
+        return "success"
+    except Exception as ex:
+        return LeqoProblemDetails.from_exception(ex).to_response()
 
 
 @app.get("/status/{uuid}")
@@ -155,7 +181,11 @@ async def get_result(
 
 
 async def process_compile_request(
-    uuid: UUID, processor: MergingProcessor, settings: Settings, engine: AsyncEngine
+    uuid: UUID,
+    createdAt: datetime,
+    processor: MergingProcessor,
+    settings: Settings,
+    engine: AsyncEngine,
 ) -> None:
     """
     Process the :class:`~app.model.CompileRequest`.
@@ -166,36 +196,35 @@ async def process_compile_request(
     :param engine: Database engine to use
     """
 
-    status: StatusType = StatusType.FAILED
-    completedAt: datetime | None = None
-    result_code: str = ""
-
+    status: SuccessStatus | FailedStatus
     try:
-        result_code = await processor.process()
-        result_url = get_result_url(uuid, settings)
-        status = StatusType.COMPLETED
-        completedAt = datetime.now(UTC)
-    except Exception as exception:
-        result_url = str(exception) or type(exception).__name__
+        result = await processor.process()
+        await add_result_to_db(engine, uuid, result)
 
-    new_state = StatusResponse(
-        uuid=uuid,
-        status=status,
-        createdAt=None,
-        completedAt=completedAt,
-        progress=Progress(percentage=100, currentStep="done"),
-        result=result_url,
-    )
-    await update_status_response_in_db(engine, new_state)
-    await add_result_to_db(
-        engine,
-        uuid,
-        result_code,
-    )
+        status = SuccessStatus(
+            uuid=uuid,
+            createdAt=createdAt,
+            completedAt=datetime.now(UTC),
+            progress=Progress(percentage=100, currentStep="done"),
+            result=get_result_url(uuid, settings),
+        )
+    except Exception as ex:
+        status = FailedStatus(
+            uuid=uuid,
+            createdAt=createdAt,
+            progress=Progress(percentage=100, currentStep="done"),
+            result=LeqoProblemDetails.from_exception(ex),
+        )
+
+    await update_status_response_in_db(engine, status)
 
 
 async def process_enrich_request(
-    uuid: UUID, processor: EnrichingProcessor, settings: Settings, engine: AsyncEngine
+    uuid: UUID,
+    createdAt: datetime,
+    processor: EnrichingProcessor,
+    settings: Settings,
+    engine: AsyncEngine,
 ) -> None:
     """
     Enrich all nodes in the :class:`~app.model.CompileRequest`.
@@ -206,36 +235,43 @@ async def process_enrich_request(
     :param engine: Database engine to use
     """
 
-    status: StatusType = StatusType.FAILED
-    completedAt: datetime | None = None
-
+    status: SuccessStatus | FailedStatus
     try:
-        result_as_impl_nodes = await processor.enrich_all()
-        await add_result_to_db(engine, uuid, result_as_impl_nodes)
+        result = await processor.enrich_all()
+        await add_result_to_db(engine, uuid, result)
 
-        result_url = get_result_url(uuid, settings)
-        status = StatusType.COMPLETED
-        completedAt = datetime.now(UTC)
-    except Exception as exception:
-        result_url = str(exception) or type(exception).__name__
+        status = SuccessStatus(
+            uuid=uuid,
+            createdAt=createdAt,
+            completedAt=datetime.now(UTC),
+            progress=Progress(percentage=100, currentStep="done"),
+            result=get_result_url(uuid, settings),
+        )
+    except Exception as ex:
+        status = FailedStatus(
+            uuid=uuid,
+            createdAt=createdAt,
+            progress=Progress(percentage=100, currentStep="done"),
+            result=LeqoProblemDetails.from_exception(ex),
+        )
 
-    new_state = StatusResponse(
-        uuid=uuid,
-        status=status,
-        createdAt=None,
-        completedAt=completedAt,
-        progress=Progress(percentage=100, currentStep="done"),
-        result=result_url,
-    )
-    await update_status_response_in_db(engine, new_state)
+    await update_status_response_in_db(engine, status)
 
 
-@app.post("/debug/compile", response_class=PlainTextResponse)
+@app.post(
+    "/debug/compile",
+    response_model=None,
+    response_class=PlainTextResponse,
+    responses={
+        400: {"model": LeqoProblemDetails},
+        500: {"model": LeqoProblemDetails},
+    },
+)
 async def post_debug_compile(
     processor: Annotated[
         MergingProcessor, Depends(MergingProcessor.from_compile_request)
     ],
-) -> str:
+) -> str | JSONResponse:
     """
     Compiles the request to an openqasm3 program in one request.
     No redirects and no polling of different endpoints needed.
@@ -245,16 +281,23 @@ async def post_debug_compile(
 
     try:
         return await processor.process()
-    except Exception:
-        return traceback.format_exc()
+    except Exception as ex:
+        return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
 
 
-@app.post("/debug/enrich")
+@app.post(
+    "/debug/enrich",
+    response_model=list[ImplementationNode],
+    responses={
+        400: {"model": LeqoProblemDetails},
+        500: {"model": LeqoProblemDetails},
+    },
+)
 async def post_debug_enrich(
     processor: Annotated[
         EnrichingProcessor, Depends(EnrichingProcessor.from_compile_request)
     ],
-) -> list[ImplementationNode] | str:
+) -> list[ImplementationNode] | JSONResponse:
     """
     Enriches all nodes in the compile request in one request.
     No redirects and no polling of different endpoints needed.
@@ -264,5 +307,5 @@ async def post_debug_enrich(
 
     try:
         return await processor.enrich_all()
-    except Exception:
-        return traceback.format_exc()
+    except Exception as ex:
+        return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()

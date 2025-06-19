@@ -18,7 +18,11 @@ from typing import Literal
 from openqasm3.ast import Program
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enricher.exceptions import NoImplementationFound, UnableToInsertImplementation
+from app.enricher.exceptions import (
+    EnrichmentFailed,
+    NoImplementationFound,
+    UnableToInsertImplementation,
+)
 from app.model.CompileRequest import BaseNode, ImplementationNode, SingleInsertMetaData
 from app.model.CompileRequest import (
     Node as FrontendNode,
@@ -180,7 +184,7 @@ class Enricher:
     ) -> ImplementationNode | ParsedImplementationNode:
         """
         Enrich the given :class:`~app.model.CompileRequest.Node` according to the specified :class:`~app.enricher.Constraints`.
-        Throws :class:`ExceptionGroup` containing the exceptions from all :class:`~app.enricher.EnricherStrategy`.
+        Throws ExceptionGroup containing the exceptions from all :class:`~app.enricher.EnricherStrategy`.
 
         :param node: The node to enrich.
         :param constraints: Constraints to follow during enrichment.
@@ -207,7 +211,7 @@ class Enricher:
             if len(exceptions) == 0:
                 raise NoImplementationFound(node)
 
-            raise ExceptionGroup(f"Enrichment for node '{node.id}' failed", exceptions)
+            raise EnrichmentFailed(node, exceptions)
 
         key_selector: Callable[[EnrichmentResult], tuple[int | float, int | float]]
         if constraints and constraints.optimizeDepth and not constraints.optimizeWidth:

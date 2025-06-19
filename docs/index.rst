@@ -19,9 +19,9 @@ Features
 Overview
 --------
 
-The backend is build to retrieve a :class:`app.model.CompileRequest.CompileRequest` representing a graph modeled by the low-code-modeler.
-The :class:`app.enricher.Enricher` then retrieves implementations for the nodes if not explicitly given.
-After that, :class:`app.processing.MergingProcessor` merges the graph to a single program with the modeled semantic.
+The backend is build to retrieve a :class:`~app.model.CompileRequest.CompileRequest` representing a graph modeled by the low-code-modeler.
+The :class:`~app.enricher.Enricher` then retrieves implementations for the nodes if not explicitly given.
+After that, :class:`~app.processing.MergingProcessor` merges the graph to a single program with the modeled semantic.
 
 .. warning::
    The backend requires special annotations in the implementations of the single nodes.

@@ -36,7 +36,8 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
     def _check_constraints(
         self, node: PrepareStateNode, requested_inputs: dict[int, LeqoSupportedType]
     ) -> None:
-        """Checks the constraints of the node and requested inputs.
+        """
+        Checks the constraints of the node and requested inputs.
 
         :param node: The frontend node to check.
         :param requested_inputs: The requested inputs to check.
