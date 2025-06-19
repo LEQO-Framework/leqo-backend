@@ -27,7 +27,7 @@ jobs:
         run: uv run cyclonedx-py venv -o docs/_static/sbom.json
 
       - name: Build static files
-        run: uv run --no-sync sphinx-build docs/ docs/_build
+        run: uv run --no-sync sphinx-build -W docs/ docs/_build
         env:
           PYTHONPATH: ${{ github.workspace }}
 
