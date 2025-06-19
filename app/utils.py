@@ -159,26 +159,26 @@ async def add_result_to_db(
     :param uuid: UUID of the process state this result belongs
     :param result: List of :class:`ImplementationNode` to add as results
     """
-    result: ProcessedResult | ProcessedEnrichmentResults
+    processed_result: ProcessedResult | ProcessedEnrichmentResults
     if isinstance(results, str):
-        result = ProcessedResult(
+        processed_result = ProcessedResult(
             id=uuid, implementation=results
         )
     else:
-        result = ProcessedEnrichmentResults(id=uuid)
+        processed_result = ProcessedEnrichmentResults(id=uuid)
         enrichment_results = [
             EnrichmentResult(
                 impl_id=result.id,
                 impl_label=result.label,
                 implementation=result.implementation,
-                processed_enrichment_result=result,
+                processed_enrichment_result=processed_result,
             )
             for result in results
         ]
-        result.results = enrichment_results
+        processed_result.results = enrichment_results
     
     async with AsyncSession(engine) as session:
-        session.add(result)
+        session.add(processed_result)
         await session.commit()
 
 
