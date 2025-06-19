@@ -93,7 +93,11 @@ def print_exception(
         else:
             msg = "<Redacted>"
 
-        stream.write(f"{prefix}{'' if is_root else '╰ '}{msg}\n")
+        for i, line in enumerate(msg.splitlines()):
+            if i == 0:
+                stream.write(f"{prefix}{'' if is_root else '╰ '}{line}\n")
+            else:
+                stream.write(f"{prefix}{'' if is_root else '  '}{line}\n")
 
         if isinstance(ex, BaseExceptionGroup):
             for inner_ex in ex.exceptions:

@@ -41,12 +41,16 @@ def test_multiple_exceptions() -> None:
 
 def test_exception_group() -> None:
     try:
-        raise DiagnosticError("Item 1") from Exception("Redacted 1")
+        raise DiagnosticError("Item 1\nwith multiple lines") from Exception(
+            "Redacted 1"
+        )
     except Exception as ex:
         item1 = ex
 
     try:
-        raise Exception("Redacted 2") from DiagnosticError("Item 2")
+        raise Exception("Redacted 2") from DiagnosticError(
+            "Item 2\nwith multiple lines"
+        )
     except Exception as ex:
         item2 = ex
 
@@ -71,9 +75,11 @@ def test_exception_group() -> None:
     <Redacted>
     │ <Redacted>
     │ │ Item 1
+    │ │ with multiple lines
     │ │ ╰ <Redacted>
     │ │ <Redacted>
     │ │ ╰ Item 2
+    │ │   with multiple lines
     │ ╰ Cause of inner group
     ╰ Cause of outer group
     """)
