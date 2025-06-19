@@ -37,7 +37,7 @@ class ProcessedResult(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     implementation: Mapped[str] = mapped_column(nullable=False)
 
-    
+
 class ProcessedEnrichmentResults(Base):
     """Class to store the processed enrichment result."""
 
@@ -53,6 +53,7 @@ class ProcessedEnrichmentResults(Base):
 
 class EnrichmentResult(Base):
     """Class to store the implementation for an node in the context of an enrichment result."""
+
     __tablename__ = "result_implementations"
 
     id: Mapped[uuid.UUID] = mapped_column(

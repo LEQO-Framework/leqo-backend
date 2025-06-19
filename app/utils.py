@@ -83,7 +83,9 @@ def duplicates[T](list: list[T]) -> set[T]:
     return result
 
 
-async def add_status_response_to_db(engine: AsyncEngine, status: StatusResponse) -> None:
+async def add_status_response_to_db(
+    engine: AsyncEngine, status: StatusResponse
+) -> None:
     """Add the :class:`StatusResponse` to the database
 
     :param engine: Database to insert the :class:`StatusResponse` in
@@ -114,7 +116,9 @@ async def update_status_response_in_db(
         createdAt=newState.createdAt,
         completedAt=newState.completedAt,
         progressPercentage=newState.progress.percentage if newState.progress else None,
-        progressCurrentStep=newState.progress.currentStep if newState.progress else None,
+        progressCurrentStep=newState.progress.currentStep
+        if newState.progress
+        else None,
         result=newState.result,
     )
     async with AsyncSession(engine) as session:
@@ -161,9 +165,7 @@ async def add_result_to_db(
     """
     processed_result: ProcessedResult | ProcessedEnrichmentResults
     if isinstance(results, str):
-        processed_result = ProcessedResult(
-            id=uuid, implementation=results
-        )
+        processed_result = ProcessedResult(id=uuid, implementation=results)
     else:
         processed_result = ProcessedEnrichmentResults(id=uuid)
         enrichment_results = [
@@ -176,7 +178,7 @@ async def add_result_to_db(
             for result in results
         ]
         processed_result.results = enrichment_results
-    
+
     async with AsyncSession(engine) as session:
         session.add(processed_result)
         await session.commit()
