@@ -201,7 +201,7 @@ async def process_enrich_request(
         completedAt = datetime.now(UTC)
     except Exception as exception:
         result_url = str(exception) or type(exception).__name__
-        
+
     new_state = StatusResponse(
         uuid=uuid,
         status=status,
