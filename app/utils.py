@@ -87,10 +87,10 @@ async def add_status_response_to_db(
     engine: AsyncEngine, status: StatusResponse
 ) -> None:
     """
-    Add the :class:`StatusResponse` to the database
+    Add the :class:`~app.model.StatusResponse.StatusResponse` to the database
 
-    :param engine: Database to insert the :class:`StatusResponse` in
-    :param status: The :class:`StatusResponse` to add to the database
+    :param engine: Database to insert the :class:`~app.model.StatusResponse.StatusResponse` in
+    :param status: The :class:`~app.model.StatusResponse.StatusResponse` to add to the database
     """
     process_state = StatusResponseDb(
         id=status.uuid,
@@ -111,7 +111,7 @@ async def update_status_response_in_db(
     engine: AsyncEngine, newState: StatusResponse
 ) -> None:
     """
-    Update the :class:`StatusResponse` in the database by replacing the row.
+    Update the :class:`~app.model.StatusResponse.StatusResponse` in the database by replacing the row.
     """
     new_process_state = StatusResponseDb(
         id=newState.uuid,
@@ -133,11 +133,11 @@ async def get_status_response_from_db(
     engine: AsyncEngine, uuid: UUID
 ) -> StatusResponse | None:
     """
-    Get the instance of :class:`StatusResponse` with the given uuid from the database
+    Get the instance of :class:`~app.model.StatusResponse.StatusResponse` with the given uuid from the database
 
-    :param engine: Database engine to get the :class:`StatusResponse` from
-    :param uuid: UUID of the :class:`StatusResponse` to retrieve
-    :return: The :class:`StatusResponse` if found, otherwise None
+    :param engine: Database engine to get the :class:`~app.model.StatusResponse.StatusResponse` from
+    :param uuid: UUID of the :class:`~app.model.StatusResponse.StatusResponse` to retrieve
+    :return: The :class:`~app.model.StatusResponse.StatusResponse` if found, otherwise None
     """
     async with AsyncSession(engine) as session:
         process_state_db = await session.get(StatusResponseDb, uuid)
@@ -166,7 +166,7 @@ async def add_result_to_db(
 
     :param engine: Database engine to add the result to
     :param uuid: UUID of the process state this result belongs
-    :param result: List of :class:`ImplementationNode` to add as results
+    :param result: List of :class:`~app.model.CompileRequest.ImplementationNode` to add as results
     """
     processed_result: CompileResult | EnrichResult
     if isinstance(results, str):

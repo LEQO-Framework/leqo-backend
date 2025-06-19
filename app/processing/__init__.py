@@ -46,7 +46,7 @@ TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 
 class CommonProcessor:
     """
-    Process a :class:`app.processing.frontend_graph.FrontendGraph`.
+    Process a :class:`~app.processing.frontend_graph.FrontendGraph`.
 
     :param enricher: The enricher to use to get node implementations
     :frontend_graph: The graph to process
@@ -189,7 +189,7 @@ class MergingProcessor(CommonProcessor):
 
     async def _build_inner_graph(self, frontend_graph: FrontendGraph) -> ProgramGraph:
         """
-        Convert :class:`app.processing.frontend_graph.FrontendGraph` to :class:`~app.processing.graph.ProgramGraph`.
+        Convert :class:`~app.processing.frontend_graph.FrontendGraph` to :class:`~app.processing.graph.ProgramGraph`.
 
         This is used as dependency injection for nested nodes.
 

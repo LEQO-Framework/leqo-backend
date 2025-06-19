@@ -74,7 +74,7 @@ class AncillaConnection:
     """
     Map output qubits from source to target input qubits.
 
-    The qubits are identified via the id specified in :class:`app.processing.graph.IOInfo`.
+    The qubits are identified via the id specified in :class:`~app.processing.graph.IOInfo`.
     """
 
     source: tuple[ProgramNode, QubitIDs]

@@ -57,8 +57,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     """
     Non-modifying visitor to parse leqo annotations.
 
-    :param io: The :class:`app.processing.graph.IOInfo` to be modified in-place.
-    :param qubit: The :class:`app.processing.graph.QubitInfo` to be modified in-place.
+    :param io: The :class:`~app.processing.graph.IOInfo` to be modified in-place.
+    :param qubit: The :class:`~app.processing.graph.QubitInfo` to be modified in-place.
     """
 
     __next_qubit_id: int

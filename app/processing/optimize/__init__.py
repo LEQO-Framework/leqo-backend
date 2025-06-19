@@ -37,7 +37,7 @@ class ApplyUncomputeTransformer(LeqoTransformer[None]):
 
 def optimize(graph: ProgramGraph) -> None:
     """
-    Optimize the given graph in-place based on :class:`app.processing.graph.IOInfo`.
+    Optimize the given graph in-place based on :class:`~app.processing.graph.IOInfo`.
 
     :param graph: Graph of all nodes representing the program
     """

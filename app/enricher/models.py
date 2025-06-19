@@ -232,11 +232,11 @@ class BaseNode(Base):
     Base class for all nodes.
 
     :param id: ID and primary key of a node
-    :param type: One of the types defined in :class:`NodeType`
+    :param type: One of the types defined in :class:`~app.enricher.models.NodeType`
     :param depth: Depth of the node implementation
     :param width: Width of the node implementation
     :param implementation: Implementation of the node
-    :param inputs: 1-n-Relationship with :class:`Input`
+    :param inputs: 1-n-Relationship with :class:`~app.enricher.models.Input`
     """
 
     __tablename__ = "base_nodes"
@@ -263,10 +263,10 @@ class Input(Base):
 
     :param id: Primary key.
     :param index: Input index within the node.
-    :param type: Type of the input from :class:`InputType`.
+    :param type: Type of the input from :class:`~app.enricher.models.InputType`.
     :param size: Optional size for array-based types.
     :param node_id: Foreign key to the parent node.
-    :param node: Back-reference to the parent :class:`BaseNode`.
+    :param node: Back-reference to the parent :class:`~app.enricher.models.BaseNode`.
     """
 
     __tablename__ = "inputs"
@@ -284,8 +284,8 @@ class EncodeValueNode(BaseNode):
     """
     Special properties of EncodeValueNode.
 
-    :param id: Foreign key to the id of the BaseNode (:class:`BaseNode`)
-    :param encoding: Type of encoding defined by :class:`EncodingType`
+    :param id: Foreign key to the id of the :class:`~app.enricher.models.BaseNode`
+    :param encoding: Type of encoding defined by :class:`~app.enricher.models.EncodingType`
     :param bounds: Bound of the encode value node
     """
 
@@ -304,9 +304,9 @@ class PrepareStateNode(BaseNode):
     """
     Special properties of PrepareStateNode
 
-    :param id: Foreign key to the id of the BaseNode (:class:`BaseNode`)
+    :param id: Foreign key to the id of the :class:`~app.enricher.models.BaseNode`
     :param size: Integer value for the size the implementation supports
-    :param quantum_state: Quantum state of the implementation defined by :class:`QuantumStateType`
+    :param quantum_state: Quantum state of the implementation defined by :class:`~app.enricher.models.QuantumStateType`
     """
 
     __tablename__ = "prepare_nodes"
@@ -326,7 +326,7 @@ class OperatorNode(BaseNode):
     """
     Special properties of OperatorNode
 
-    :param: id: Foreign key to the id of the BaseNode (:class:`BaseNode`)
+    :param: id: Foreign key to the id of the :class:`~app.enricher.models.BaseNode`
     :param: operator: Operator the implementation supports
     """
 
