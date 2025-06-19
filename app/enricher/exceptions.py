@@ -36,7 +36,7 @@ class EnrichmentFailed(EnricherException, BaseExceptionGroup):
 class UnableToInsertImplementation(EnricherException):
     def __init__(self, node: Node) -> None:
         super().__init__(
-            f"It is not possible to insert an enrichment for nodes of type '{type(node)}'",
+            f"It is not possible to insert an implementation for nodes of type '{type(node)}'",
             node,
         )
 
