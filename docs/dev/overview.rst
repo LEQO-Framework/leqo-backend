@@ -88,7 +88,7 @@ Format the code with:
 
 .. code-block:: shell
 
-  uv run ruff format .
+  uv run ruff format
 
 Further Information
 -------------------

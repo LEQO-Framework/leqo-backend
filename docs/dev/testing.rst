@@ -40,5 +40,5 @@ Run both tools with:
 
 .. code-block:: shell
 
-  uv run ruff check .
+  uv run ruff check
   uv run mypy --strict .
