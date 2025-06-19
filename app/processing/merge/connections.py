@@ -31,7 +31,8 @@ from app.processing.graph import (
 
 @dataclass(frozen=True, order=True)
 class SingleQubit:
-    """Give a qubit a unique ID in the whole graph.
+    """
+    Give a qubit a unique ID in the whole graph.
 
     :param section_id: The UUID of the section the qubit occurred in.
     :param id_in_section: The Qubit ID based on the declaration order in the section.
@@ -42,7 +43,8 @@ class SingleQubit:
 
 
 class ApplyConnectionsTransformer(LeqoTransformer[None]):
-    """Replace qubit declarations and classical inputs with aliases.
+    """
+    Replace qubit declarations and classical inputs with aliases.
 
     :param section_id: The UUID of the currently visited section.
     :param io_info: The IOInfo for the current section.
@@ -76,11 +78,15 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         self.classical_input_to_output = classical_input_to_output
 
     def id_to_qubit(self, id: int) -> SingleQubit:
-        """Create a :class:`~app.processing.merging.connections.SingleQubit` for the encountered ID."""
+        """
+        Create a :class:`~app.processing.merging.connections.SingleQubit` for the encountered ID.
+        """
         return SingleQubit(self.section_id, id)
 
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
-        """Replace qubit declaration with alias to leqo_reg."""
+        """
+        Replace qubit declaration with alias to leqo_reg.
+        """
         name = node.qubit.name
         ids = self.qubit_info.declaration_to_ids[name]
         reg_indexes = [self.qubit_to_index[self.id_to_qubit(id)] for id in ids]
@@ -109,7 +115,9 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
         return result
 
     def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
-        """Replace classical declaration with alias to output if it is an input."""
+        """
+        Replace classical declaration with alias to output if it is an input.
+        """
         name = node.identifier.name
         if name not in self.classical_input_to_output:
             return self.generic_visit(node)
@@ -122,7 +130,8 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
 
 
 class _Connections:
-    """Helper class for creating connections in a graph.
+    """
+    Helper class for creating connections in a graph.
 
     Not intended to be constructed by hand,
     usage over :class:`~app.processing.merging.connections.connect_qubits`
@@ -142,7 +151,9 @@ class _Connections:
 
     @staticmethod
     def get_equiv_classes(graph: ProgramGraph) -> dict[SingleQubit, set[SingleQubit]]:
-        """Get a dict of all qubits pointing to a set containing themselves."""
+        """
+        Get a dict of all qubits pointing to a set containing themselves.
+        """
         equiv_classes = {}
         for node in graph.nodes():
             processed = graph.get_data_node(node)
@@ -171,7 +182,9 @@ class _Connections:
         src_sec_id: UUID,
         target_sec_id: UUID,
     ) -> None:
-        """Merge qubit equivalence classes of connected qubits."""
+        """
+        Merge qubit equivalence classes of connected qubits.
+        """
         output_type, input_type = output.type, input.type
         if output_type != input_type:
             msg = f"Unsupported: Mismatched types in IOConnection {output_type} != {input_type}"
@@ -193,7 +206,9 @@ class _Connections:
         output: ClassicalIOInstance,
         input: ClassicalIOInstance,
     ) -> None:
-        """Let input point to output in classical connection."""
+        """
+        Let input point to output in classical connection.
+        """
         if input.type != output.type:
             msg = dedent(f"""\
                 Unsupported: Mismatched types in IOConnection
@@ -216,7 +231,9 @@ class _Connections:
         self,
         edge: IOConnection | AncillaConnection,
     ) -> None:
-        """Handle connection based on type."""
+        """
+        Handle connection based on type.
+        """
         processed_source = self.graph.get_data_node(edge.source[0])
         processed_target = self.graph.get_data_node(edge.target[0])
         match edge:
@@ -269,7 +286,8 @@ class _Connections:
     def collect_qubit_to_reg_with_input(
         self,
     ) -> tuple[dict[SingleQubit, int], int]:
-        """Construct global register indexes from equivalence classes with an input node.
+        """
+        Construct global register indexes from equivalence classes with an input node.
 
         Create a unique index for every equivalence class and let all qubits inside point to it.
         We want the indexes of the qubits in the input node to be in ascending order (based on declarations).
@@ -310,7 +328,8 @@ class _Connections:
     def collect_qubit_to_reg_without_input(
         self,
     ) -> tuple[dict[SingleQubit, int], int]:
-        """Construct global register indexes from equivalence classes without an input node.
+        """
+        Construct global register indexes from equivalence classes without an input node.
 
         Create a unique index for every equivalence class and let all qubits inside point to it.
 
@@ -332,7 +351,8 @@ class _Connections:
         return (qubit_to_reg_index, reg_index)
 
     def apply(self) -> int:
-        """Apply the connections to the graph.
+        """
+        Apply the connections to the graph.
 
         :return: The size of the global qubit register.
         """
@@ -371,7 +391,8 @@ def connect_qubits(
     global_reg_name: str,
     input: ProcessedProgramNode | None = None,
 ) -> int:
-    """Apply connections to the graph.
+    """
+    Apply connections to the graph.
 
     :param graph: The graph to modify in place.
     :param global_reg_name: The name of the qubit reg to use in aliases.

@@ -1,4 +1,5 @@
-"""Optimization algorithms.
+"""
+Optimization algorithms.
 
 Following task has to be solved:
 
@@ -41,7 +42,8 @@ from app.processing.graph import (
 
 
 class OptimizationAlgo(ABC):
-    """Abstract parent of optimization algorithms.
+    """
+    Abstract parent of optimization algorithms.
 
     - Specify the interface.
     - Handle special user-required ancilla nodes.
@@ -61,7 +63,8 @@ class OptimizationAlgo(ABC):
 
 
 class NoPred(OptimizationAlgo):
-    """Implementation of the 'no predecessor' idea with dummy selection.
+    """
+    Implementation of the 'no predecessor' idea with dummy selection.
 
     Other Algorithms should inherit from this and only override the heuristic methods.
 
@@ -119,7 +122,8 @@ class NoPred(OptimizationAlgo):
         self.need_reusable = []
 
     def remove_node(self, node: ProcessedProgramNode) -> list[ProcessedProgramNode]:
-        """(Virtually) remove node from graph.
+        """
+        (Virtually) remove node from graph.
 
         Don't remove the node itself, but all connections outgoing from him.
         It is not possible that the node is incoming edges (invariant of this algo).
@@ -136,7 +140,8 @@ class NoPred(OptimizationAlgo):
         return result
 
     def pop_nopred(self) -> ProcessedProgramNode:
-        """Remove and return the next nopred node.
+        """
+        Remove and return the next nopred node.
 
         This is a dummy implementation!
         Overwrite this method is sub-classes.
@@ -146,7 +151,8 @@ class NoPred(OptimizationAlgo):
         return self.nopred.pop()
 
     def pop_uncomputable(self) -> ProcessedProgramNode:
-        """Remove and return the next node to be uncomputed.
+        """
+        Remove and return the next node to be uncomputed.
 
         Chooses the node with the fewest uncomputable qubits, i.e. the cheapest to uncompute.
 
@@ -165,7 +171,8 @@ class NoPred(OptimizationAlgo):
         return result
 
     def satisfy_dirty_qubit_requirement(self) -> None:
-        """Try to satisfy requirement for dirty qubits.
+        """
+        Try to satisfy requirement for dirty qubits.
 
         Add ancilla edges from previous nodes for this case.
         Use the qubits in the order: dirty -> uncomputable -> reusable
@@ -227,7 +234,8 @@ class NoPred(OptimizationAlgo):
                 self.reusable.remove(source)
 
     def satisfy_reusable_qubit_requirement(self) -> None:
-        """Try to satisfy requirement for dirty qubits.
+        """
+        Try to satisfy requirement for dirty qubits.
 
         Add ancilla edges from previous nodes for this case.
         Try to satisfy with reusable qubits, uncompute nodes if that is not enough.
@@ -268,7 +276,8 @@ class NoPred(OptimizationAlgo):
 
     @override
     def compute(self) -> tuple[list[AncillaConnection], dict[ProgramNode, bool]]:
-        """Execute the optimization.
+        """
+        Execute the optimization.
 
         :return: Added ancilla edges and dict specifying whether to uncomute nodes.
         """
@@ -290,7 +299,8 @@ class NoPred(OptimizationAlgo):
 
 
 class NoPredCheckNeedDiffScore(NoPred):
-    """NoPred variant with the check-need strategy + diff score.
+    """
+    NoPred variant with the check-need strategy + diff score.
 
     Check need strategy:
     All possible nodes are divided in one of two categories:

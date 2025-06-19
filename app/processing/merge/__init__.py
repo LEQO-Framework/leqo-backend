@@ -37,7 +37,8 @@ OPENQASM_VERSION = "3.1"
 
 
 class RemoveAnnotationTransformer(LeqoTransformer[None]):
-    """Remove leqo annotations of specified types.
+    """
+    Remove leqo annotations of specified types.
 
     :param inputs: Whether to remove 'leqo.input' annotations.
     :param outputs: Whether to remove 'leqo.output' annotations.
@@ -53,7 +54,9 @@ class RemoveAnnotationTransformer(LeqoTransformer[None]):
             self.to_delete.add("leqo.output")
 
     def visit_Annotation(self, node: Annotation) -> QASMNode | None:
-        """Remove or keep annotation."""
+        """
+        Remove or keep annotation.
+        """
         if node.keyword.strip().split()[0] in self.to_delete:
             return None
         return node
@@ -64,7 +67,8 @@ def graph_to_statements(
     if_node: ProgramNode,
     endif_node: ProgramNode,
 ) -> list[Statement]:
-    """Concatenate nodes from the graph via topological_sort and remove annotations.
+    """
+    Concatenate nodes from the graph via topological_sort and remove annotations.
 
     **if_node** and **endif_node** need to be skipped here.
     """
@@ -93,7 +97,8 @@ def merge_if_nodes(
     else_graph: ProgramGraph,
     condition: Expression,
 ) -> tuple[Program, int]:
-    """Construct a single program with a :class:`openqasm3.ast.BranchingStatement` from two sub-graphs.
+    """
+    Construct a single program with a :class:`openqasm3.ast.BranchingStatement` from two sub-graphs.
 
     There are two known limitations of this implementation:
 
@@ -202,7 +207,8 @@ def merge_if_nodes(
 
 
 def merge_nodes(graph: ProgramGraph) -> Program:
-    """Create a unified :class:`openqasm3.ast.Program` from a modeled graph with attached qasm implementation snippets.
+    """
+    Create a unified :class:`openqasm3.ast.Program` from a modeled graph with attached qasm implementation snippets.
 
     :param graph: Graph of all nodes representing the program
     :return: The unified qasm program

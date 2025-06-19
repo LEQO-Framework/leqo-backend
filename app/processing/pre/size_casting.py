@@ -29,7 +29,9 @@ from app.processing.utils import parse_io_annotation
 
 
 class CreateUnseenNamesVisitor(LeqoTransformer[None]):
-    """Keep track of all identifier in an AST to create new ones."""
+    """
+    Keep track of all identifier in an AST to create new ones.
+    """
 
     seen: set[str]
 
@@ -38,13 +40,17 @@ class CreateUnseenNamesVisitor(LeqoTransformer[None]):
         self.seen = set()
 
     def visit_Identifier(self, node: Identifier) -> QASMNode:
-        """Collect identifier names."""
+        """
+        Collect identifier names.
+        """
         self.seen.add(node.name)
         return self.generic_visit(node)
 
     @staticmethod
     def __increment_or_add_counter_str(name: str) -> str:
-        """Increment the number at the end of a string by one or append '_0'."""
+        """
+        Increment the number at the end of a string by one or append '_0'.
+        """
         prefix = ""
         maybe_number = name
         while True:
@@ -55,7 +61,9 @@ class CreateUnseenNamesVisitor(LeqoTransformer[None]):
             prefix, maybe_number = prefix + maybe_number[0], maybe_number[1:]
 
     def generate_new_name(self, name: str) -> str:
-        """Generate a new unused identifier name."""
+        """
+        Generate a new unused identifier name.
+        """
         while name in self.seen:
             name = self.__increment_or_add_counter_str(name)
         self.seen.add(name)
@@ -63,7 +71,8 @@ class CreateUnseenNamesVisitor(LeqoTransformer[None]):
 
 
 class SizeCastTransformer(LeqoTransformer[None]):
-    """Apply the size-reduction casts.
+    """
+    Apply the size-reduction casts.
 
     :param processed: The ProcessedProgramNode to be modified in-place.
     :param requested_sizes: Specifying the required sizes for the input indexes.
@@ -87,7 +96,9 @@ class SizeCastTransformer(LeqoTransformer[None]):
 
     @staticmethod
     def get_input_index(annotations: list[Annotation]) -> None | int:
-        """Parse annotations for input with index."""
+        """
+        Parse annotations for input with index.
+        """
         for annotation in annotations:
             if annotation.keyword.startswith("leqo.input"):
                 return parse_io_annotation(annotation)
@@ -109,7 +120,8 @@ class SizeCastTransformer(LeqoTransformer[None]):
         self,
         node: ClassicalDeclaration,
     ) -> QASMNode | list[QASMNode]:
-        """Reduce size of a classical input.
+        """
+        Reduce size of a classical input.
 
         - Handle int/float:
             This is done by reducing the size in the declaration and changing its name.
@@ -238,7 +250,8 @@ class SizeCastTransformer(LeqoTransformer[None]):
         self,
         node: QubitDeclaration,
     ) -> QASMNode | list[QASMNode]:
-        """Reduce size of a qubit input.
+        """
+        Reduce size of a qubit input.
 
         This is done by splitting the old declaration in two:
 
@@ -317,7 +330,8 @@ class SizeCastTransformer(LeqoTransformer[None]):
 def size_cast(
     node: ProcessedProgramNode, requested_sizes: dict[int, int | None]
 ) -> None:
-    """Reduce the size of inputs in a node.
+    """
+    Reduce the size of inputs in a node.
 
     :param node: The node to be modified in-place.
     :param requested_sizes: Specifying the sizes to cast to by input index.

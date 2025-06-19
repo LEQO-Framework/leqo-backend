@@ -1,4 +1,5 @@
-"""Convert **OpenQASM 2.x/3.x** code into an **OpenQASM 3.1** AST.
+"""
+Convert **OpenQASM 2.x/3.x** code into an **OpenQASM 3.1** AST.
 
 The conversion process includes handling unsupported gates, transforming obsolete syntax
 and integrating necessary gate definitions from external libraries.
@@ -59,7 +60,8 @@ TARGET_QASM_VERSION = "3.1"
 
 
 class CustomOpenqasmLib:
-    """Encapsulates an OpenQASM 3.x-compatible gate library for custom gate resolution.
+    """
+    Encapsulates an OpenQASM 3.x-compatible gate library for custom gate resolution.
 
     Used to provide gate definitions (e.g., from qelib1.inc) that can be injected into
     converted OpenQASM 2.x code. Only gate definitions (`QuantumGateDefinition`) are retained."""
@@ -69,7 +71,8 @@ class CustomOpenqasmLib:
     gates: list[QuantumGateDefinition]
 
     def __init__(self, name: str, content: str) -> None:
-        """Initialize the custom gate library
+        """
+        Initialize the custom gate library
 
         :param name: The name of the module.
         :param content: The custom gate definitions in OpenQASM 3.x as string.
@@ -83,11 +86,14 @@ class CustomOpenqasmLib:
 
 
 class QASMConversionError(Exception):
-    """Custom exception raised for errors occurring during QASM conversion."""
+    """
+    Custom exception raised for errors occurring during QASM conversion.
+    """
 
 
 class ApplyCustomGates(LeqoTransformer[None]):
-    """AST visitor that injects custom gate definitions and filters include statements.
+    """
+    AST visitor that injects custom gate definitions and filters include statements.
 
     This visitor:
     1. Tracks which gate definitions from the custom libs are actually used.
@@ -106,7 +112,8 @@ class ApplyCustomGates(LeqoTransformer[None]):
         custom_libs: dict[str, CustomOpenqasmLib],
         lib_replacements: dict[str, str],
     ) -> None:
-        """Initialize the visitor with libraries and replacement rules.
+        """
+        Initialize the visitor with libraries and replacement rules.
 
         :param custom_libs: Dictionary of custom libraries with gate definitions.
         :param lib_replacements: Mapping of include lib-names to replacements (e.g. qelib1.inc -> stdgates.inc)
@@ -123,7 +130,8 @@ class ApplyCustomGates(LeqoTransformer[None]):
         self.includes = {}
 
     def visit_QuantumGate(self, node: QuantumGate) -> QASMNode:
-        """Search for usages of custom declared gates.
+        """
+        Search for usages of custom declared gates.
 
         :param node: Quantum gate AST node.
         """
@@ -133,7 +141,8 @@ class ApplyCustomGates(LeqoTransformer[None]):
         return self.generic_visit(node)
 
     def visit_Include(self, node: Include) -> None:
-        """Remove and store required includes, possible modify via lib_replacements.
+        """
+        Remove and store required includes, possible modify via lib_replacements.
 
         :param node: The include node from the OpenQASM AST.
         """
@@ -145,7 +154,8 @@ class ApplyCustomGates(LeqoTransformer[None]):
             self.includes[name] = node
 
     def visit_Program(self, node: Program) -> QASMNode:
-        """Apply the visitor.
+        """
+        Apply the visitor.
 
         1. Remove imports + gather info
         2. Add required (possible imports) back
@@ -163,7 +173,8 @@ class ApplyCustomGates(LeqoTransformer[None]):
 
 
 class QASMConverter:
-    """Main interface for converting OpenQASM 2.x into OpenQASM 3.1 ASTs.
+    """
+    Main interface for converting OpenQASM 2.x into OpenQASM 3.1 ASTs.
 
     If the input code is already in OpenQASM 3.x, it is returned as-is (after parsing).
     Custom libraries for legacy gates can be provided via `CustomOpenqasmLib` and will be
@@ -173,14 +184,16 @@ class QASMConverter:
     custom_libs: dict[str, CustomOpenqasmLib]
 
     def add_custom_gate_lib(self, lib: CustomOpenqasmLib) -> None:
-        """Append custom lib to internal data.
+        """
+        Append custom lib to internal data.
 
         :param lib: The custom gate library to add.
         """
         self.custom_libs[lib.name] = lib
 
     def __init__(self, custom_libs: list[CustomOpenqasmLib] | None = None) -> None:
-        """Initialize the QASMConverter with optional external OpenQASM files for unsupported gates.
+        """
+        Initialize the QASMConverter with optional external OpenQASM files for unsupported gates.
 
         :param custom_libs: List of CustomOpenqasmLib's containing additional gate definitions.
         """
@@ -196,7 +209,8 @@ class QASMConverter:
             self.add_custom_gate_lib(CustomOpenqasmLib("qelib1.inc", f.read()))
 
     def parse_to_qasm3(self, qasm2_code: str) -> Program:
-        """Convert entire OpenQASM 2.x code to OpenQASM 3.1 AST or return parsed OpenQASM 3.x. directly
+        """
+        Convert entire OpenQASM 2.x code to OpenQASM 3.1 AST or return parsed OpenQASM 3.x. directly
 
         Warning: All comments present in the given OpenQASM code will be removed!!!
 
@@ -250,7 +264,8 @@ def parse_to_openqasm3(
     code: str,
     custom_libs: list[CustomOpenqasmLib] | None = None,
 ) -> Program:
-    """Parse an OpenQASM 2.x/3.x string to an equivalent OpenQASM 3.1 AST.
+    """
+    Parse an OpenQASM 2.x/3.x string to an equivalent OpenQASM 3.1 AST.
 
     :param code: The code-string to be parsed and converted if required.
     :param custom_libs: An optional list of custom provided libraries. "qelib1.inc" is builtin.

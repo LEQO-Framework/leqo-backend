@@ -7,7 +7,8 @@ from app.processing.utils import cast_to_program
 
 
 class SortImportsTransformer(QASMTransformer[None]):
-    """Create unique imports at the top.
+    """
+    Create unique imports at the top.
 
     Makes following changes:
 
@@ -21,7 +22,8 @@ class SortImportsTransformer(QASMTransformer[None]):
         self.seen = {}
 
     def visit_Include(self, node: Include) -> None:
-        """Store and remove all includes.
+        """
+        Store and remove all includes.
 
         :param node: The statement to process
         :return: None removes the node
@@ -29,7 +31,9 @@ class SortImportsTransformer(QASMTransformer[None]):
         self.seen[node.filename] = node
 
     def visit_Program(self, node: Program) -> Program:
-        """Execute a normal (generic) visit, then add removed imports back."""
+        """
+        Execute a normal (generic) visit, then add removed imports back.
+        """
         program = cast_to_program(self.generic_visit(node))
         program.statements = list(self.seen.values()) + program.statements
         return program

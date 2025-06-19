@@ -14,7 +14,8 @@ from app.processing.nested.utils import generate_pass_node_implementation
 def unroll_repeat(
     node: RepeatNode, requested_inputs: dict[int, LeqoSupportedType]
 ) -> tuple[str, str, FrontendGraph]:
-    """Unroll and enrich the repeat node.
+    """
+    Unroll and enrich the repeat node.
 
     :param node: The node to enrich
     :param requested_inputs: The inputs for that node

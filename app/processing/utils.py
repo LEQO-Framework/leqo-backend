@@ -27,12 +27,16 @@ REMOVE_INDENT = re.compile(r"\n +", re.MULTILINE)
 
 
 def normalize_qasm_string(program: str) -> str:
-    """Normalize QASM-string."""
+    """
+    Normalize QASM-string.
+    """
     return REMOVE_INDENT.sub("\n", program).strip()
 
 
 def cast_to_program(node: QASMNode | None) -> Program:
-    """Cast to Program or raise error."""
+    """
+    Cast to Program or raise error.
+    """
     if not isinstance(node, Program):
         msg = f"Tried to cast {type(node)} to Program."
         raise TypeError(msg)
@@ -40,7 +44,8 @@ def cast_to_program(node: QASMNode | None) -> Program:
 
 
 def expr_to_int(expr: Expression | None) -> int:
-    """Get an integer from an expression.
+    """
+    Get an integer from an expression.
 
     This method does no analysis of the overall AST.
     If it cannot extract an integer from an expression, it throws.
@@ -86,7 +91,8 @@ def annotate(
 
 
 def parse_io_annotation(annotation: Annotation) -> int:
-    """Parse the :attr:`~openqasm3.ast.Annotation.command` of a `@leqo.input` or `@leqo.output` :class:`~openqasm3.ast.Annotation`.
+    """
+    Parse the :attr:`~openqasm3.ast.Annotation.command` of a `@leqo.input` or `@leqo.output` :class:`~openqasm3.ast.Annotation`.
 
     :param annotation: The annotation to parse
     :return: The indices
@@ -101,7 +107,8 @@ def parse_io_annotation(annotation: Annotation) -> int:
 
 
 def parse_range_definition(range_def: RangeDefinition, length: int) -> list[int]:
-    """Return list of integers expressed by qasm3-range.
+    """
+    Return list of integers expressed by qasm3-range.
 
     The complexity of this function arises because openqasm3 includes the last element
     and python does not.
@@ -121,7 +128,8 @@ def parse_range_definition(range_def: RangeDefinition, length: int) -> list[int]
 
 
 def parse_qasm_index(index: list[IndexElement], length: int) -> list[int] | int:
-    """Parse list of qasm3 indexes.
+    """
+    Parse list of qasm3 indexes.
 
     This can return either a single index or a subset of them.
     Multiple indexes are applied iteratively (as qiskit also does it).

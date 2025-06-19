@@ -1,4 +1,5 @@
-"""Enrich the if-then-else node.
+"""
+Enrich the if-then-else node.
 
 The core logic is in :func:`app.processing.merge.merge_if_nodes`,
 this module calls this function and handles the extensive pre- and postprocessing.
@@ -28,7 +29,8 @@ from app.processing.post import postprocess
 
 
 def parse_condition(value: str) -> Expression:
-    """Parse condition used in if-then-else.
+    """
+    Parse condition used in if-then-else.
 
     It uses a simple wrapper to leverage the parser provided by openqasm3.
 
@@ -50,7 +52,8 @@ async def enrich_if_then_else(
         Coroutine[Any, Any, ProgramGraph],
     ],
 ) -> ParsedImplementationNode:
-    """Generate implementation for if-then-else-node.
+    """
+    Generate implementation for if-then-else-node.
 
     :param node: The IfThenElseNode to generate the implementation for.
     :param requested_inputs: The inputs into that IfThenElseNode.

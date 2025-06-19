@@ -15,19 +15,25 @@ BOOL_SIZE = 1
 
 @dataclass(frozen=True)
 class QubitType:
-    """A single qubit or qubit register."""
+    """
+    A single qubit or qubit register.
+    """
 
     size: int | None
 
 
 @dataclass(frozen=True)
 class ClassicalType:
-    """Base class for classical data types."""
+    """
+    Base class for classical data types.
+    """
 
 
 @dataclass(frozen=True)
 class BitType(ClassicalType):
-    """A single bit or bit-array."""
+    """
+    A single bit or bit-array.
+    """
 
     size: int | None
 
@@ -41,7 +47,9 @@ class BitType(ClassicalType):
 
 @dataclass(frozen=True)
 class BoolType(ClassicalType):
-    """A single boolean."""
+    """
+    A single boolean.
+    """
 
     @property
     def size(self) -> int:
@@ -60,7 +68,9 @@ class BoolType(ClassicalType):
 
 @dataclass(frozen=True)
 class IntType(ClassicalType):
-    """An integer with size in bits."""
+    """
+    An integer with size in bits.
+    """
 
     size: int
 
@@ -74,7 +84,9 @@ class IntType(ClassicalType):
 
 @dataclass(frozen=True)
 class FloatType(ClassicalType):
-    """A float with size in bits."""
+    """
+    A float with size in bits.
+    """
 
     size: int
 

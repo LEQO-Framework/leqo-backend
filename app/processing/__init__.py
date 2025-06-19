@@ -42,7 +42,8 @@ TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 
 
 class CommonProcessor:
-    """Process a :class:`app.processing.frontend_graph.FrontendGraph`.
+    """
+    Process a :class:`app.processing.frontend_graph.FrontendGraph`.
 
     :param enricher: The enricher to use to get node implementations
     :frontend_graph: The graph to process
@@ -72,7 +73,9 @@ class CommonProcessor:
         target_node: str,
         frontend_name_to_index: dict[str, int] | None = None,
     ) -> dict[int, LeqoSupportedType]:
-        """Get inputs of current node from previous processed nodes."""
+        """
+        Get inputs of current node from previous processed nodes.
+        """
         requested_inputs: dict[int, LeqoSupportedType] = {}
         for source_node in self.frontend_graph.predecessors(target_node):
             source_node_data = not_none(
@@ -102,7 +105,9 @@ class CommonProcessor:
 
 
 class MergingProcessor(CommonProcessor):
-    """Process request with the whole pipeline."""
+    """
+    Process request with the whole pipeline.
+    """
 
     @staticmethod
     def from_compile_request(
@@ -113,7 +118,9 @@ class MergingProcessor(CommonProcessor):
         return MergingProcessor(enricher, graph, request.metadata)
 
     async def process_nodes(self) -> None:
-        """Process graph by enriching and preprocessing the nodes."""
+        """
+        Process graph by enriching and preprocessing the nodes.
+        """
         for node in topological_sort(self.frontend_graph):
             frontend_node = self.frontend_graph.node_data[node]
 
@@ -178,7 +185,8 @@ class MergingProcessor(CommonProcessor):
                     )
 
     async def _build_inner_graph(self, frontend_graph: FrontendGraph) -> ProgramGraph:
-        """Convert :class:`app.processing.frontend_graph.FrontendGraph` to :class:`~app.processing.graph.ProgramGraph`.
+        """
+        Convert :class:`app.processing.frontend_graph.FrontendGraph` to :class:`~app.processing.graph.ProgramGraph`.
 
         This is used as dependency injection for nested nodes.
 
@@ -194,7 +202,8 @@ class MergingProcessor(CommonProcessor):
         return processor.graph
 
     async def process(self) -> str:
-        """Process the :class:`~app.model.CompileRequest`.
+        """
+        Process the :class:`~app.model.CompileRequest`.
 
         #. Enrich frontend nodes.
         #. :meth:`~app.processing.pre.preprocess` frontend nodes.
@@ -213,7 +222,9 @@ class MergingProcessor(CommonProcessor):
 
 
 class EnrichingProcessor(CommonProcessor):
-    """Return enrichment for all nodes."""
+    """
+    Return enrichment for all nodes.
+    """
 
     @staticmethod
     def from_compile_request(
@@ -247,7 +258,9 @@ class EnrichingProcessor(CommonProcessor):
     async def _enrich_inner_block(
         self, node: FrontendNode, block: NestedBlock
     ) -> AsyncIterator[ImplementationNode]:
-        """Yield enrichments for nodes in inner block."""
+        """
+        Yield enrichments for nodes in inner block.
+        """
         frontend_graph = FrontendGraph.create([*block.nodes, node], block.edges)
         for pred in list(frontend_graph.predecessors(node.id)):
             frontend_graph.remove_edge(pred, node.id)
@@ -260,7 +273,9 @@ class EnrichingProcessor(CommonProcessor):
     async def enrich(
         self,
     ) -> AsyncIterator[ImplementationNode]:
-        """Yield enrichment of nodes."""
+        """
+        Yield enrichment of nodes.
+        """
         for node in topological_sort(self.frontend_graph):
             frontend_node = self.frontend_graph.node_data[node]
             requested_inputs = self._resolve_inputs(node)
@@ -304,5 +319,7 @@ class EnrichingProcessor(CommonProcessor):
                     yield enriched_node
 
     async def enrich_all(self) -> list[ImplementationNode]:
-        """Get list of all enrichments."""
+        """
+        Get list of all enrichments.
+        """
         return [x async for x in self.enrich()]

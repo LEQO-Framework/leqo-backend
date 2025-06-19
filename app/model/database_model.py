@@ -14,7 +14,8 @@ class Base(DeclarativeBase):
 
 
 class StatusResponseDb(Base):
-    """Class to store the states of all current processes
+    """
+    Class to store the states of all current processes
     which await processing or a currently processed.
     """
 
@@ -30,7 +31,9 @@ class StatusResponseDb(Base):
 
 
 class CompileResult(Base):
-    """Store the result of an compile request."""
+    """
+    Store the result of an compile request.
+    """
 
     __tablename__ = "compile_results"
 
@@ -39,7 +42,9 @@ class CompileResult(Base):
 
 
 class EnrichResult(Base):
-    """Store the result of an enrich request."""
+    """
+    Store the result of an enrich request.
+    """
 
     __tablename__ = "enrich_result"
 
@@ -52,7 +57,9 @@ class EnrichResult(Base):
 
 
 class SingleEnrichResult(Base):
-    """Store the implementation for an node in the context of an enrichment result."""
+    """
+    Store the implementation for an node in the context of an enrichment result.
+    """
 
     __tablename__ = "single_enrich_result"
 
