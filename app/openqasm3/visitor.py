@@ -1,4 +1,6 @@
-"""Fix QASMTransformer ignoring lists in lists and tuples."""
+"""
+Fix QASMTransformer ignoring lists in lists and tuples.
+"""
 
 from typing import TypeVar, override
 

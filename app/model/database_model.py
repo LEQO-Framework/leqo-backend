@@ -1,4 +1,6 @@
-"""Database schema for everything stored in the database."""
+"""
+Database schema for everything stored in the database.
+"""
 
 import uuid
 from datetime import datetime
@@ -10,7 +12,9 @@ from app.model.StatusResponse import StatusType
 
 
 class Base(DeclarativeBase):
-    pass
+    """
+    Base class for database types.
+    """
 
 
 class StatusResponseDb(Base):

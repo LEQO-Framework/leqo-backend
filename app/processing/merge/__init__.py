@@ -1,4 +1,6 @@
-"""Merge all nodes from :class:`~app.processing.graph.ProgramGraph` into a single QASM program."""
+"""
+Merge all nodes from :class:`~app.processing.graph.ProgramGraph` into a single QASM program.
+"""
 
 from copy import deepcopy
 from io import UnsupportedOperation

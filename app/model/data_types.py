@@ -1,4 +1,6 @@
-"""OpenQasm data-types that are supported by the leqo-backend."""
+"""
+OpenQasm data-types that are supported by the leqo-backend.
+"""
 
 from dataclasses import dataclass
 

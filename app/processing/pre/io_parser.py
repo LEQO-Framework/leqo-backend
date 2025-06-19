@@ -1,4 +1,6 @@
-"""Parse input/output info for single code snippet over leqo-annotations."""
+"""
+Parse input/output info for single code snippet over leqo-annotations.
+"""
 
 from __future__ import annotations
 
@@ -302,7 +304,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
 
         if dirty:
-            msg = f"""Unsupported: dirty annotation over classical {name}"""
+            msg = f"Unsupported: dirty annotation over classical {name}"
             raise UnsupportedOperation(msg)
 
         leqo_type: LeqoSupportedType

@@ -1,4 +1,6 @@
-"""Ensure unique imports at the front of the program."""
+"""
+Ensure unique imports at the front of the program.
+"""
 
 from openqasm3.ast import Include, Program
 from openqasm3.visitor import QASMTransformer

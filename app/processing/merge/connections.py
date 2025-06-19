@@ -1,4 +1,6 @@
-"""Connect input/output by modifying the AST based on :class:`~app.processing.graph.IOInfo`."""
+"""
+Connect input/output by modifying the AST based on :class:`~app.processing.graph.IOInfo`.
+"""
 
 from dataclasses import dataclass
 from io import UnsupportedOperation

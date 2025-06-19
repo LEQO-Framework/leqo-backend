@@ -1,4 +1,6 @@
-"""Allow for smaller inputs by reducing the size of the type in the AST and parsed info."""
+"""
+Allow for smaller inputs by reducing the size of the type in the AST and parsed info.
+"""
 
 from __future__ import annotations
 

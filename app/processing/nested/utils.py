@@ -1,4 +1,6 @@
-"""Utils for nested-node processing."""
+"""
+Utils for nested-node processing.
+"""
 
 from openqasm3.ast import (
     AliasStatement,

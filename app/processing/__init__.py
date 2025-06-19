@@ -1,4 +1,6 @@
-"""Provides the core logic of the backend."""
+"""
+Provides the core logic of the backend.
+"""
 
 from __future__ import annotations
 

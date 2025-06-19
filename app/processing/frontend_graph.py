@@ -1,4 +1,6 @@
-"""Graph structure of the frontend model."""
+"""
+Graph structure of the frontend model.
+"""
 
 from __future__ import annotations
 

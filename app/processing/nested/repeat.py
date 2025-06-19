@@ -1,4 +1,6 @@
-"""Unroll the repeat node."""
+"""
+Unroll the repeat node.
+"""
 
 from copy import deepcopy
 from io import UnsupportedOperation

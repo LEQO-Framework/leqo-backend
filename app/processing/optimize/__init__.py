@@ -1,4 +1,6 @@
-"""Optimize the modeled graph by adding additional ancilla connections and decide whether to uncompute."""
+"""
+Optimize the modeled graph by adding additional ancilla connections and decide whether to uncompute.
+"""
 
 from copy import deepcopy
 

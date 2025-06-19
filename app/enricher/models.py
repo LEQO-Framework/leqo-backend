@@ -1,4 +1,6 @@
-"""Database schema for the enricher nodes."""
+"""
+Database schema for the enricher nodes.
+"""
 
 import enum
 
