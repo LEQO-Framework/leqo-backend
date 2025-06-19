@@ -62,3 +62,26 @@ You can host both the frontend and backend together with docker compose.
     - Go to **Configuration**
     - Set the **Low-Code Backend Endpoint** to: `http://localhost:8000`
 
+Insert Implementations into the Database
+----------------------------------------
+
+The backend provides the `/insert` endpoint for inserting implementations into the database.
+A simple example of an insert request can be seen here:
+
+.. literalinclude:: ../../scripts/addition_insert.json
+   :language: json
+   :linenos:
+
+Download this file: :download:`addition_insert.yml <../../scripts/addition_insert.json>`
+
+For sending this request, you have two options:
+
+**Use Python:** Run the following command in the project directory:
+    .. code-block:: shell
+
+        ./scripts/insert_helper.py ./scripts/addition_insert.json
+
+**Use curl:** Run the following command next to the json file:
+    .. code-block:: shell
+
+        curl -X POST -H "Content-Type: application/json" --data @./addition_insert.json http://localhost:8000/insert
