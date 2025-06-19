@@ -8,15 +8,12 @@ However, since it provides its services via a simple REST-API, it can also be us
 Features
 --------
 
-- Ability to compose a single program from low-code-model graphs
-- Provides portable `OpenQASM 3 <https://openqasm.com/>`_ output
-- Output is compatible with `Qiskit <https://github.com/Qiskit/qiskit>`_
-- Provides endpoint to retrieve standalone implementations for low-code nodes
-- Additional enrich endpoint to retrieve just the implementation
-- Handle OpenQASM 2 input via own converter
-- Optimize the result by automated reusage of ancilla qubits
-- Can handle nested low-code nodes: if-then-else and repeat
-- Automated upcasts in the node implementations if the inputs into the node is to to big
+- Provide a REST-API for the `LEQO frontend <https://github.com/LEQO-Framework/low-code-modeler>`_
+- Retrieve `OpenQASM <https://openqasm.com/>`_ implementations for low-code nodes
+- Merge low-code models into a single `OpenQASM <https://openqasm.com/>`_ program compatible with `Qiskit <https://github.com/Qiskit/qiskit>`_
+- Support OpenQASM 2 input via an internal converter
+- Optimize circuits by reusing ancilla qubits automatically
+- Can handle nested low-code nodes: If-Then-Else and Repeat
 - Build to be extensible
 
 Overview

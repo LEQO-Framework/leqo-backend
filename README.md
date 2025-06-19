@@ -12,6 +12,8 @@ The backend for the [LEQO-Framework](https://github.com/LEQO-Framework) - a low-
 - Merge low-code models into a single [OpenQASM](https://openqasm.com/) program compatible with [Qiskit](https://github.com/Qiskit/qiskit)
 - Support OpenQASM 2 input via an internal converter
 - Optimize circuits by reusing ancilla qubits automatically
+- Can handle nested low-code nodes: If-Then-Else and Repeat
+- Build to be extensible
 
 The project uses:
 
