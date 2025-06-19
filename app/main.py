@@ -11,6 +11,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
+from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.responses import (
     JSONResponse,
     PlainTextResponse,
@@ -21,7 +22,14 @@ from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import EnrichingProcessor, EnrichmentInserter, MergingProcessor
-from app.services import get_result_url, get_settings, leqo_lifespan
+from app.services import get_db_engine, get_result_url, get_settings, leqo_lifespan
+from app.utils import (
+    add_result_to_db,
+    add_status_response_to_db,
+    get_results_from_db,
+    get_status_response_from_db,
+    update_status_response_in_db,
+)
 
 app = FastAPI(lifespan=leqo_lifespan)
 
@@ -33,27 +41,27 @@ app.add_middleware(
     allow_headers=get_settings().cors_allow_headers,
 )
 
-# FIXME: these should live in the database
-states: dict[UUID, StatusResponse] = {}
-results: dict[UUID, str | list[ImplementationNode]] = {}
-
 
 @app.post("/compile")
-def post_compile(
+async def post_compile(
     processor: Annotated[
         MergingProcessor, Depends(MergingProcessor.from_compile_request)
     ],
     background_tasks: BackgroundTasks,
     settings: Annotated[Settings, Depends(get_settings)],
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
 ) -> RedirectResponse:
     """
     Enqueue a :class:`~fastapi.background.BackgroundTasks` to process the :class:`~app.model.CompileRequest`.
     """
 
     uuid: UUID = uuid4()
-    states[uuid] = StatusResponse.init_status(uuid)
+    statusResponse = StatusResponse.init_status(uuid)
+    await add_status_response_to_db(engine, statusResponse)
 
-    background_tasks.add_task(process_compile_request, uuid, processor, settings)
+    background_tasks.add_task(
+        process_compile_request, uuid, processor, settings, engine
+    )
 
     return RedirectResponse(
         url=f"{settings.api_base_url}status/{uuid}",
@@ -68,15 +76,17 @@ async def post_enrich(
     ],
     background_tasks: BackgroundTasks,
     settings: Annotated[Settings, Depends(get_settings)],
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
 ) -> RedirectResponse:
     """
     Enqueue a :class:`~fastapi.background.BackgroundTasks` to enrich all nodes in the :class:`~app.model.CompileRequest`.
     """
 
     uuid: UUID = uuid4()
-    states[uuid] = StatusResponse.init_status(uuid)
+    statusResponse = StatusResponse.init_status(uuid)
+    await add_status_response_to_db(engine, statusResponse)
 
-    background_tasks.add_task(process_enrich_request, uuid, processor, settings)
+    background_tasks.add_task(process_enrich_request, uuid, processor, settings, engine)
 
     return RedirectResponse(
         url=f"{settings.api_base_url}status/{uuid}",
@@ -102,35 +112,41 @@ async def post_insert(
 
 
 @app.get("/status/{uuid}")
-def get_status(uuid: UUID) -> StatusResponse:
+async def get_status(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> StatusResponse:
     """
     Fetch status of a compile request.
 
     :raises HTTPException: (Status 404) If no compile request with uuid is found
     """
 
-    if uuid not in states:
+    state = await get_status_response_from_db(engine, uuid)
+
+    if state is None:
         raise HTTPException(
             status_code=404, detail=f"No compile request with uuid '{uuid}' found."
         )
 
-    return states[uuid]
+    return state
 
 
 @app.get("/result/{uuid}", response_model=None)
-def get_result(uuid: UUID) -> PlainTextResponse | JSONResponse:
+async def get_result(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> PlainTextResponse | JSONResponse:
     """
     Fetch result of a compile request.
 
     :raises HTTPException: (Status 404) If no compile request with uuid is found
     """
 
-    if uuid not in results:
+    result = await get_results_from_db(engine, uuid)
+
+    if result is None:
         raise HTTPException(
             status_code=404, detail=f"No compile request with uuid '{uuid}' found."
         )
-
-    result = results[uuid]
 
     if isinstance(result, str):
         return PlainTextResponse(status_code=200, content=result)
@@ -139,9 +155,7 @@ def get_result(uuid: UUID) -> PlainTextResponse | JSONResponse:
 
 
 async def process_compile_request(
-    uuid: UUID,
-    processor: MergingProcessor,
-    settings: Annotated[Settings, Depends(get_settings)],
+    uuid: UUID, processor: MergingProcessor, settings: Settings, engine: AsyncEngine
 ) -> None:
     """
     Process the :class:`~app.model.CompileRequest`.
@@ -149,6 +163,7 @@ async def process_compile_request(
     :param uuid: ID of the compile request
     :param processor: Processor for this request
     :param settings: Settings from .env file
+    :param engine: Database engine to use
     """
 
     status: StatusType = StatusType.FAILED
@@ -163,23 +178,24 @@ async def process_compile_request(
     except Exception as exception:
         result_url = str(exception) or type(exception).__name__
 
-    old_state: StatusResponse = states[uuid]
-    states[uuid] = StatusResponse(
-        uuid=old_state.uuid,
+    new_state = StatusResponse(
+        uuid=uuid,
         status=status,
-        createdAt=old_state.createdAt,
+        createdAt=None,
         completedAt=completedAt,
         progress=Progress(percentage=100, currentStep="done"),
         result=result_url,
     )
-
-    results[uuid] = result_code
+    await update_status_response_in_db(engine, new_state)
+    await add_result_to_db(
+        engine,
+        uuid,
+        result_code,
+    )
 
 
 async def process_enrich_request(
-    uuid: UUID,
-    processor: EnrichingProcessor,
-    settings: Annotated[Settings, Depends(get_settings)],
+    uuid: UUID, processor: EnrichingProcessor, settings: Settings, engine: AsyncEngine
 ) -> None:
     """
     Enrich all nodes in the :class:`~app.model.CompileRequest`.
@@ -187,13 +203,15 @@ async def process_enrich_request(
     :param uuid: ID of the compile request
     :param processor: Processor for this request
     :param settings: Settings from .env file
+    :param engine: Database engine to use
     """
 
     status: StatusType = StatusType.FAILED
     completedAt: datetime | None = None
 
     try:
-        results[uuid] = await processor.enrich_all()
+        result_as_impl_nodes = await processor.enrich_all()
+        await add_result_to_db(engine, uuid, result_as_impl_nodes)
 
         result_url = get_result_url(uuid, settings)
         status = StatusType.COMPLETED
@@ -201,15 +219,15 @@ async def process_enrich_request(
     except Exception as exception:
         result_url = str(exception) or type(exception).__name__
 
-    old_state: StatusResponse = states[uuid]
-    states[uuid] = StatusResponse(
-        uuid=old_state.uuid,
+    new_state = StatusResponse(
+        uuid=uuid,
         status=status,
-        createdAt=old_state.createdAt,
+        createdAt=None,
         completedAt=completedAt,
         progress=Progress(percentage=100, currentStep="done"),
         result=result_url,
     )
+    await update_status_response_in_db(engine, new_state)
 
 
 @app.post("/debug/compile", response_class=PlainTextResponse)

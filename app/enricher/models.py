@@ -1,4 +1,4 @@
-"""Database schema to store and query node implementations."""
+"""Database schema for the enricher nodes."""
 
 import enum
 

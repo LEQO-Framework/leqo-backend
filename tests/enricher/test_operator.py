@@ -4,7 +4,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import Constraints
-from app.enricher.models import Input, InputType, NodeType, OperatorNode, OperatorType
+from app.enricher.models import (
+    Input,
+    InputType,
+    NodeType,
+    OperatorNode,
+    OperatorType,
+)
 from app.enricher.operator import OperatorEnricherStrategy
 from app.model.CompileRequest import OperatorNode as FrontendOperatorNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
