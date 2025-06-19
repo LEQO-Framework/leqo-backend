@@ -65,8 +65,8 @@ You can host both the frontend and backend together with docker compose.
 Insert Implementations into the Database
 ----------------------------------------
 
-The backend provides the `/insert` endpoint for inserting Implementations into the database.
-An simple example of an insert request can be seen here:
+The backend provides the `/insert` endpoint for inserting implementations into the database.
+A simple example of an insert request can be seen here:
 
 .. literalinclude:: ../../scripts/addition_insert.json
    :language: json
