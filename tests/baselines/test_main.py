@@ -27,6 +27,14 @@ class Baseline(BaseModel):
     expected_result: str
 
 
+class InsertBaseline(BaseModel):
+    insert_request: str
+    insert_status: int
+    merge_request: str
+    merge_status: int
+    merge_result: str
+
+
 def find_files(path: Path, model: type[TModel]) -> Iterator[tuple[str, TModel]]:
     for _, _, files in os.walk(path):
         for file_name in files:
@@ -139,3 +147,29 @@ def test_debug_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
 
     json_assert(base.expected_result, response)
     assert response.status_code == base.expected_status
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(TEST_DIR / "insert", InsertBaseline),
+    ids=lambda test: test[0],
+)
+def test_insert(test: tuple[str, InsertBaseline], client: TestClient) -> None:
+    _file, base = test
+    response = client.post(
+        "/insert",
+        headers={"Content-Type": "application/json"},
+        content=base.insert_request,
+    )
+    assert base.insert_status == response.status_code, (
+        f"Insert failed with {response.text}"
+    )
+
+    response = client.post(
+        "/debug/compile",
+        headers={"Content-Type": "application/json"},
+        content=base.merge_request,
+    )
+    print(response.text)
+    assert base.merge_result == response.text
+    assert base.merge_status == response.status_code
