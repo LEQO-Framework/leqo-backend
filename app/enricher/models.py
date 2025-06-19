@@ -58,7 +58,6 @@ class EncodingType(enum.Enum):
     """
 
 
-
 class QuantumStateType(enum.Enum):
     """
     Enum for quantum state preparation options.
