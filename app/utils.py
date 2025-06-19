@@ -104,26 +104,21 @@ async def addStatusResponseToDB(engine: AsyncEngine, status: StatusResponse) -> 
 
 
 async def updateStatusResponseInDB(
-    engine: AsyncEngine, uuid: UUID, newState: StatusResponse
+    engine: AsyncEngine, newState: StatusResponse
 ) -> None:
-    """Update the :class:`StatusResponse` in the database
-
-    :param engine: Database engine to update the :class:`StatusResponse` in
-    :param uuid: UUID of the :class:`StatusResponse` to update
-    :param newState: The new :class:`StatusResponse` to update in the database
-    """
+    """Update the :class:`StatusResponse` in the database by replacing the row."""
+    new_process_state = ProcessStates(
+        id=newState.uuid,
+        status=newState.status,
+        createdAt=newState.createdAt,
+        completedAt=newState.completedAt,
+        progressPercentage=newState.progress.percentage if newState.progress else None,
+        progressCurrentStep=newState.progress.currentStep if newState.progress else None,
+        result=newState.result,
+    )
     async with AsyncSession(engine) as session:
-        state = await session.get(ProcessStates, uuid)
-        if state:
-            state.id = newState.uuid
-            state.status = newState.status
-            state.createdAt = newState.createdAt or state.createdAt
-            state.completedAt = newState.completedAt or state.completedAt
-            if newState.progress:
-                state.progressPercentage = newState.progress.percentage
-                state.progressCurrentStep = newState.progress.currentStep
-            state.result = newState.result or state.result
-            await session.commit()
+        await session.merge(new_process_state)
+        await session.commit()
 
 
 async def getStatusResponseFromDB(

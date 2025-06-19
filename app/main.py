@@ -171,7 +171,7 @@ async def process_compile_request(
     state.completedAt = completedAt
     state.progress = Progress(percentage=100, currentStep="done")
     state.result = result_url
-    await updateStatusResponseInDB(engine, uuid, state)
+    await updateStatusResponseInDB(engine, state)
     await addResultToDB(
         engine,
         uuid,
@@ -221,7 +221,7 @@ async def process_enrich_request(
     state.completedAt = completedAt
     state.progress = Progress(percentage=100, currentStep="done")
     state.result = result_url
-    await updateStatusResponseInDB(engine, uuid, state)
+    await updateStatusResponseInDB(engine, state)
 
 
 @app.post("/debug/compile", response_class=PlainTextResponse)
