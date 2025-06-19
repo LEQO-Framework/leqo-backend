@@ -110,7 +110,7 @@ async def test_insert_enrichtment(engine: AsyncEngine) -> None:
 async def test_enrich_plus_operator(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator="+")
     constraints = Constraints(
-        requested_inputs={0: QubitType(size=2), 1: QubitType(size=3)},
+        requested_inputs={0: QubitType(size=3), 1: QubitType(size=4)},
         optimizeDepth=True,
         optimizeWidth=True,
     )
