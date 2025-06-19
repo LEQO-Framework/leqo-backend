@@ -12,10 +12,10 @@ from sqlalchemy.orm import selectinload
 
 from app.model.CompileRequest import ImplementationNode
 from app.model.database_model import (
-    EnrichmentResult,
-    ProcessedEnrichmentResults,
-    ProcessedResult,
+    CompileResult,
+    EnrichResult,
     ProcessStates,
+    SingleEnrichResult,
 )
 from app.model.StatusResponse import Progress, StatusResponse
 
@@ -163,17 +163,17 @@ async def add_result_to_db(
     :param uuid: UUID of the process state this result belongs
     :param result: List of :class:`ImplementationNode` to add as results
     """
-    processed_result: ProcessedResult | ProcessedEnrichmentResults
+    processed_result: CompileResult | EnrichResult
     if isinstance(results, str):
-        processed_result = ProcessedResult(id=uuid, implementation=results)
+        processed_result = CompileResult(id=uuid, implementation=results)
     else:
-        processed_result = ProcessedEnrichmentResults(id=uuid)
+        processed_result = EnrichResult(id=uuid)
         enrichment_results = [
-            EnrichmentResult(
+            SingleEnrichResult(
                 impl_id=result.id,
                 impl_label=result.label,
                 implementation=result.implementation,
-                processed_enrichment_result=processed_result,
+                enrich_result=processed_result,
             )
             for result in results
         ]
@@ -189,16 +189,16 @@ async def get_results_from_db(
 ) -> str | list[ImplementationNode] | None:
     async with AsyncSession(engine) as session:
         db_result = await session.execute(
-            select(ProcessedResult).where(ProcessedResult.id == uuid)
+            select(CompileResult).where(CompileResult.id == uuid)
         )
         processed_result = db_result.scalar_one_or_none()
         if processed_result:
             return processed_result.implementation
 
         enrichment_db_result = await session.execute(
-            select(ProcessedEnrichmentResults)
-            .options(selectinload(ProcessedEnrichmentResults.results))
-            .where(ProcessedEnrichmentResults.id == uuid)
+            select(EnrichResult)
+            .options(selectinload(EnrichResult.results))
+            .where(EnrichResult.id == uuid)
         )
         processed_enrichment_result = enrichment_db_result.scalar_one_or_none()
         if processed_enrichment_result:
