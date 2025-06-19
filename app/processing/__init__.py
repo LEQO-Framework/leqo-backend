@@ -329,7 +329,9 @@ class EnrichingProcessor(CommonProcessor):
 
 
 class EnrichmentInserter:
-    """Insert enrichment implementations for frontend-nodes into the Enricher."""
+    """
+    Insert enrichment implementations for frontend-nodes into the Enricher.
+    """
 
     inserts: list[SingleInsert]
     enricher: Enricher
@@ -350,7 +352,9 @@ class EnrichmentInserter:
         return EnrichmentInserter(request.inserts, enricher, engine)
 
     async def insert_all(self) -> None:
-        """Insert all enrichments."""
+        """
+        Insert all enrichments.
+        """
         async with AsyncSession(self.engine) as session:
             for insert in self.inserts:
                 processed = preprocess(ProgramNode(name="dummy"), insert.implementation)
