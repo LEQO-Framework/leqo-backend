@@ -176,11 +176,15 @@ async def process_compile_request(
         )
         return
 
-    state.status = status
-    state.completedAt = completedAt
-    state.progress = Progress(percentage=100, currentStep="done")
-    state.result = result_url
-    await update_status_response_in_db(engine, state)
+    new_state = StatusResponse(
+        uuid=state.uuid,
+        status=status,
+        createdAt=state.createdAt,
+        completedAt=completedAt,
+        progress=Progress(percentage=100, currentStep="done"),
+        result=result_url,
+    )
+    await update_status_response_in_db(engine, new_state)
     await add_result_to_db(
         engine,
         uuid,
@@ -204,8 +208,8 @@ async def process_enrich_request(
     completedAt: datetime | None = None
 
     try:
-        resultsAsImplNode = await processor.enrich_all()
-        await add_result_to_db(engine, uuid, resultsAsImplNode)
+        result_as_impl_node = await processor.enrich_all()
+        await add_result_to_db(engine, uuid, result_as_impl_node)
 
         result_url = get_result_url(uuid, settings)
         status = StatusType.COMPLETED
@@ -228,11 +232,15 @@ async def process_enrich_request(
         )
         return
 
-    state.status = status
-    state.completedAt = completedAt
-    state.progress = Progress(percentage=100, currentStep="done")
-    state.result = result_url
-    await update_status_response_in_db(engine, state)
+    new_state = StatusResponse(
+        uuid=state.uuid,
+        status=status,
+        createdAt=state.createdAt,
+        completedAt=completedAt,
+        progress=Progress(percentage=100, currentStep="done"),
+        result=result_url,
+    )
+    await update_status_response_in_db(engine, new_state)
 
 
 @app.post("/debug/compile", response_class=PlainTextResponse)
