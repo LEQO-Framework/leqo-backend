@@ -1,4 +1,4 @@
-"""Database schema to store and query node implementations."""
+"""Database schema for the enricher nodes."""
 
 import enum
 
@@ -77,7 +77,7 @@ class BaseNode(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     type: Mapped[NodeType] = mapped_column(Enum(NodeType), nullable=False)
-    depth: Mapped[int] = mapped_column(nullable=False)
+    depth: Mapped[int] = mapped_column(nullable=True)
     width: Mapped[int] = mapped_column(nullable=False)
     implementation: Mapped[str] = mapped_column(Text, nullable=False)
 

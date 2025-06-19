@@ -1,12 +1,20 @@
 import pytest
 import pytest_asyncio
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import Constraints
-from app.enricher.models import Input, InputType, NodeType, OperatorNode, OperatorType
+from app.enricher.models import (
+    Input,
+    InputType,
+    NodeType,
+    OperatorNode,
+    OperatorType,
+)
 from app.enricher.operator import OperatorEnricherStrategy
 from app.model.CompileRequest import OperatorNode as FrontendOperatorNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
+from app.model.CompileRequest import SingleInsertMetaData
 from app.model.data_types import FloatType, QubitType
 from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 from tests.enricher.utils import assert_enrichments
@@ -79,10 +87,36 @@ async def setup_database_data(session: AsyncSession) -> None:
 
 
 @pytest.mark.asyncio
+async def test_insert_enrichtment(engine: AsyncEngine) -> None:
+    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="/")
+
+    result = await OperatorEnricherStrategy(engine).insert_enrichment(
+        node=node,
+        implementation="operator_impl",
+        requested_inputs={0: QubitType(size=2), 1: QubitType(size=3)},
+        meta_data=SingleInsertMetaData(width=1, depth=1),
+    )
+
+    assert result is True
+    async with AsyncSession(engine) as session:
+        db_result = await session.execute(
+            select(OperatorNode).where(
+                OperatorNode.implementation == "operator_impl",
+                OperatorNode.type == NodeType.OPERATOR,
+                OperatorNode.operator == OperatorType.DIV,
+                OperatorNode.depth == 1,
+                OperatorNode.width == 1,
+            )
+        )
+        node_in_db = db_result.scalar_one_or_none()
+        assert node_in_db is not None
+
+
+@pytest.mark.asyncio
 async def test_enrich_plus_operator(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator="+")
     constraints = Constraints(
-        requested_inputs={0: QubitType(size=2), 1: QubitType(size=3)},
+        requested_inputs={0: QubitType(size=3), 1: QubitType(size=4)},
         optimizeDepth=True,
         optimizeWidth=True,
     )

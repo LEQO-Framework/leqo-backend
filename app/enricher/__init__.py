@@ -16,9 +16,14 @@ from dataclasses import dataclass
 from typing import Literal
 
 from openqasm3.ast import Program
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.enricher.exceptions import EnrichmentFailed, NoImplementationFound
-from app.model.CompileRequest import BaseNode, ImplementationNode
+from app.enricher.exceptions import (
+    EnrichmentFailed,
+    NoImplementationFound,
+    UnableToInsertImplementation,
+)
+from app.model.CompileRequest import BaseNode, ImplementationNode, SingleInsertMetaData
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
@@ -123,6 +128,27 @@ class EnricherStrategy(ABC):
 
         raise Exception("Invalid enrichment result")
 
+    async def insert_enrichment(
+        self,
+        node: FrontendNode,  # noqa ARG002
+        implementation: str,  # noqa ARG002
+        requested_inputs: dict[int, LeqoSupportedType],  # noqa ARG002
+        meta_data: SingleInsertMetaData,  # noqa ARG002
+        session: AsyncSession | None = None,  # noqa ARG002
+    ) -> bool:
+        """
+        Insert an enrichment :class:`~app.model.CompileRequest.ImplementationNode` for a given :class:`~app.model.CompileRequest.Node`.
+
+        :param node: The node to insert the enrichment for.
+        :param implementation: The implementation to insert
+        :param requested_inputs: The (parsed) requested inputs for that node.
+        :param meta_data: meta data for that node
+        :param session: The optional database session to use
+
+        :return: Whether the insert was successful.
+        """
+        return False
+
 
 class Enricher:
     """
@@ -201,3 +227,45 @@ class Enricher:
 
         results = sorted(results, key=key_selector)
         return results[0].enriched_node
+
+    async def insert_enrichment(
+        self,
+        node: FrontendNode,
+        implementation: str,
+        requested_inputs: dict[int, LeqoSupportedType],
+        meta_data: SingleInsertMetaData,
+        session: AsyncSession | None = None,
+    ) -> None:
+        """
+        Insert the enrichment :class:`~app.model.CompileRequest.ImplementationNode` for the given :class:`~app.model.CompileRequest.Node`.
+
+        :param node: The node to insert the enrichment for.
+        :param implementation: The implementation to insert
+        :param requested_inputs: The (parsed) requested inputs for that node.
+        :param meta_data: meta data for that node
+        :param session: The optional database session to use
+        """
+        if isinstance(node, ImplementationNode):
+            raise UnableToInsertImplementation(node)
+
+        success = False
+        exceptions: list[Exception] = []
+
+        async for result in asyncio.as_completed(
+            strategy.insert_enrichment(
+                node, implementation, requested_inputs, meta_data, session
+            )
+            for strategy in self.strategies
+        ):
+            try:
+                success = success or await result
+            except Exception as ex:
+                exceptions.append(ex)
+
+        if not success:
+            if len(exceptions) > 1:
+                raise ExceptionGroup(
+                    "Insertion failed with some exceptions.", exceptions
+                )
+
+            raise UnableToInsertImplementation(node)

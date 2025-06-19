@@ -3,21 +3,23 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from copy import deepcopy
 from io import UnsupportedOperation
 from typing import Annotated
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
     CompileRequest,
     IfThenElseNode,
     ImplementationNode,
+    InsertRequest,
     NestedBlock,
     OptimizeSettings,
     RepeatNode,
+    SingleInsert,
 )
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
@@ -36,8 +38,7 @@ from app.processing.nested.utils import generate_pass_node_implementation
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
-from app.processing.size_casting import size_cast
-from app.services import get_enricher
+from app.services import get_db_engine, get_enricher
 from app.utils import not_none
 
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
@@ -121,15 +122,13 @@ class MergingProcessor(CommonProcessor):
 
             if isinstance(frontend_node, RepeatNode):
                 requested_inputs = self._resolve_inputs(node)
-                processed_node, exit_node, sub_graph = await unroll_repeat(
+                entry_node_id, exit_node_id, enrolled_graph = unroll_repeat(
                     frontend_node,
                     requested_inputs,
-                    self._build_inner_graph,
                 )
-                size_cast(
-                    processed_node,
-                    {index: type.size for index, type in requested_inputs.items()},
-                )
+                sub_graph = await self._build_inner_graph(enrolled_graph)
+                processed_node = sub_graph.node_data[ProgramNode(entry_node_id)]
+                exit_node = sub_graph.node_data[ProgramNode(exit_node_id)]
                 for n in sub_graph.nodes:
                     self.graph.append_node(sub_graph.node_data[n])
                 for e in sub_graph.edges:
@@ -160,11 +159,9 @@ class MergingProcessor(CommonProcessor):
                         ),
                     )
                 processed_node = preprocess(
-                    ProgramNode(node), deepcopy(enriched_node.implementation)
-                )
-                size_cast(
-                    processed_node,
-                    {index: type.size for index, type in requested_inputs.items()},
+                    ProgramNode(node),
+                    enriched_node.implementation,
+                    requested_inputs,
                 )
                 self.frontend_to_processed[node] = processed_node
                 self.graph.append_node(processed_node)
@@ -244,14 +241,11 @@ class EnrichingProcessor(CommonProcessor):
         enriched_node: ImplementationNode,
         requested_inputs: dict[int, LeqoSupportedType],
     ) -> None:
-        processed_node = preprocess(
-            ProgramNode(enriched_node.id), enriched_node.implementation
+        self.frontend_to_processed[enriched_node.id] = preprocess(
+            ProgramNode(enriched_node.id),
+            enriched_node.implementation,
+            requested_inputs,
         )
-        size_cast(
-            processed_node,
-            {index: type.size for index, type in requested_inputs.items()},
-        )
-        self.frontend_to_processed[enriched_node.id] = processed_node
 
     async def _enrich_inner_block(
         self, node: FrontendNode, block: NestedBlock
@@ -315,3 +309,50 @@ class EnrichingProcessor(CommonProcessor):
     async def enrich_all(self) -> list[ImplementationNode]:
         """Get list of all enrichments."""
         return [x async for x in self.enrich()]
+
+
+class EnrichmentInserter:
+    """Insert enrichment implementations for frontend-nodes into the Enricher."""
+
+    inserts: list[SingleInsert]
+    enricher: Enricher
+
+    def __init__(
+        self, inserts: list[SingleInsert], enricher: Enricher, engine: AsyncEngine
+    ) -> None:
+        self.inserts = inserts
+        self.enricher = enricher
+        self.engine = engine
+
+    @staticmethod
+    def from_insert_request(
+        request: InsertRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+        engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+    ) -> EnrichmentInserter:
+        return EnrichmentInserter(request.inserts, enricher, engine)
+
+    async def insert_all(self) -> None:
+        """Insert all enrichments."""
+        async with AsyncSession(self.engine) as session:
+            for insert in self.inserts:
+                processed = preprocess(ProgramNode(name="dummy"), insert.implementation)
+                requested_inputs = {k: v.type for k, v in processed.io.inputs.items()}
+                actual_width = processed.qubit.get_width()
+
+                if (
+                    insert.metadata.width is not None
+                    and actual_width != insert.metadata.width
+                ):
+                    msg = f"Specified width does not match parsed width: {insert.metadata.width} != {actual_width}"
+                    raise UnsupportedOperation(msg)
+                insert.metadata.width = actual_width
+
+                await self.enricher.insert_enrichment(
+                    insert.node,
+                    insert.implementation,
+                    requested_inputs,
+                    insert.metadata,
+                    session,
+                )
+            await session.commit()

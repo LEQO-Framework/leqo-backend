@@ -1,0 +1,22 @@
+Documentation
+=============
+
+Syntax
+------
+
+This documentation is build with `Sphinx <https://www.sphinx-doc.org/en/master/index.html>`_.
+Content has to be in the ``reStructuredText`` syntax.
+See the
+`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
+documentation for details.
+
+Local Build
+-----------
+
+Build the docs locally via:
+
+.. code-block:: shell
+
+    uv run --no-sync extract-openapi.py
+    uv run cyclonedx-py venv -o docs/_static/sbom.json
+    uv run sphinx-autobuild --port 8080 ./docs/ ./docs/_build

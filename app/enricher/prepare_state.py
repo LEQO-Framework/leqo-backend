@@ -21,6 +21,7 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import (
     PrepareStateNode,
 )
+from app.model.data_types import LeqoSupportedType
 from app.model.exceptions import InputCountMismatch
 
 
@@ -32,6 +33,53 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
     def __init__(self, engine: AsyncEngine):
         super().__init__(engine)
 
+    def _check_constraints(
+        self, node: PrepareStateNode, requested_inputs: dict[int, LeqoSupportedType]
+    ) -> None:
+        """Checks the constraints of the node and requested inputs.
+
+        :param node: The frontend node to check.
+        :param requested_inputs: The requested inputs to check.
+        :raises QuantumStateNotSupported: If the quantum state is not supported.
+        :raises PrepareStateSizeOutOfRange: If the size of the state is less than or equal to 0.
+        :raises InputCountMismatch: If the number of requested inputs is not equal to 0.
+        """
+        if node.quantumState == "custom":
+            raise QuantumStateNotSupported(node)
+
+        if node.size <= 0:
+            raise PrepareStateSizeOutOfRange(node)
+
+        if len(requested_inputs) != 0:
+            raise InputCountMismatch(
+                node,
+                actual=len(requested_inputs),
+                should_be="equal",
+                expected=0,
+            )
+
+    @override
+    def _generate_database_node(
+        self,
+        node: FrontendNode,
+        implementation: str,
+        requested_inputs: dict[int, LeqoSupportedType],
+        width: int,
+        depth: int | None,
+    ) -> BaseNode | None:
+        if not isinstance(node, PrepareStateNode):
+            return None
+        self._check_constraints(node, requested_inputs)
+
+        return PrepareStateTable(
+            type=NodeType(node.type),
+            depth=depth,
+            width=width,
+            implementation=implementation,
+            quantum_state=QuantumStateType(node.quantumState),
+            size=node.size,
+        )
+
     @override
     def _generate_query(
         self, node: FrontendNode, constraints: Constraints | None
@@ -39,19 +87,10 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
         if not isinstance(node, PrepareStateNode):
             return None
 
-        if node.quantumState == "custom":
-            raise QuantumStateNotSupported(node)
-
-        if node.size <= 0:
-            raise PrepareStateSizeOutOfRange(node)
-
-        if constraints is None or len(constraints.requested_inputs) != 0:
-            raise InputCountMismatch(
-                node,
-                actual=len(constraints.requested_inputs) if constraints else 0,
-                should_be="equal",
-                expected=0,
-            )
+        self._check_constraints(
+            node,
+            {} if constraints is None else constraints.requested_inputs,
+        )
 
         no_inputs = ~exists().where(Input.node_id == PrepareStateTable.id)
         return cast(

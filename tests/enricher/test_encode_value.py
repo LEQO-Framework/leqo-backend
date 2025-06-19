@@ -1,5 +1,6 @@
 import pytest
 import pytest_asyncio
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import Constraints
@@ -14,6 +15,7 @@ from app.enricher.models import (
 )
 from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
+from app.model.CompileRequest import SingleInsertMetaData
 from app.model.data_types import BitType, BoolType, FloatType, IntType, QubitType
 from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 from tests.enricher.utils import assert_enrichments
@@ -60,6 +62,38 @@ async def setup_database_data(session: AsyncSession) -> None:
 
     session.add_all([node1, node2, node3, node4])
     await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_insert_enrichtment(engine: AsyncEngine) -> None:
+    node = FrontendEncodeValueNode(
+        id="1",
+        label=None,
+        type="encode",
+        encoding="basis",
+        bounds=1,
+    )
+
+    result = await EncodeValueEnricherStrategy(engine).insert_enrichment(
+        node=node,
+        implementation="basis_impl",
+        requested_inputs={0: FloatType(size=32)},
+        meta_data=SingleInsertMetaData(width=1, depth=1),
+    )
+
+    assert result is True
+    async with AsyncSession(engine) as session:
+        db_result = await session.execute(
+            select(EncodeValueNode).where(
+                EncodeValueNode.implementation == "basis_impl",
+                EncodeValueNode.type == NodeType.ENCODE,
+                EncodeValueNode.encoding == EncodingType.BASIS,
+                EncodeValueNode.depth == 1,
+                EncodeValueNode.width == 1,
+            )
+        )
+        node_in_db = db_result.scalar_one_or_none()
+        assert node_in_db is not None
 
 
 @pytest.mark.asyncio

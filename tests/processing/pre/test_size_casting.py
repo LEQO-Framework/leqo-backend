@@ -7,7 +7,7 @@ import pytest
 from app.openqasm3.printer import leqo_dumps
 from app.processing.graph import ProgramNode
 from app.processing.pre import preprocess
-from app.processing.size_casting import size_cast
+from app.processing.pre.size_casting import size_cast
 from app.processing.utils import normalize_qasm_string
 
 
