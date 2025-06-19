@@ -89,7 +89,7 @@ class MyTestException(Exception):
     pass
 
 
-def test_no_exception_msg():
+def test_no_exception_msg() -> None:
     stream = StringIO()
     print_exception(stream, MyTestException(), is_debug=True)
     assert stream.getvalue() == "MyTestException\n"
