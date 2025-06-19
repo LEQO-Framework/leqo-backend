@@ -87,19 +87,10 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
         if not isinstance(node, PrepareStateNode):
             return None
 
-        if node.quantumState == "custom":
-            raise QuantumStateNotSupported(node)
-
-        if node.size <= 0:
-            raise PrepareStateSizeOutOfRange(node)
-
-        if constraints is None or len(constraints.requested_inputs) != 0:
-            raise InputCountMismatch(
-                node,
-                actual=len(constraints.requested_inputs) if constraints else 0,
-                should_be="equal",
-                expected=0,
-            )
+        self._check_constraints(
+            node,
+            {} if constraints is None else constraints.requested_inputs,
+        )
 
         no_inputs = ~exists().where(Input.node_id == PrepareStateTable.id)
         return cast(
