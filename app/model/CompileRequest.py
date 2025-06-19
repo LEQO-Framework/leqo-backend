@@ -24,8 +24,8 @@ class OptimizeSettings(ABC):
     """
     Abstract base class providing optimization settings.
 
-    :param optimizeWidth (int | None): If set, enables circuit width optimization with a user-defined priority.
-    :param optimizeDepth (int | None): If set, enables circuit depth optimization with a user-defined priority.
+    :param int | None optimizeWidth: If set, enables circuit width optimization with a user-defined priority.
+    :param int | None optimizeDepth: If set, enables circuit depth optimization with a user-defined priority.
     """
 
     optimizeWidth: int | None
@@ -36,12 +36,12 @@ class MetaData(BaseModel, OptimizeSettings):
     """
     Contains metadata for a compile request, including versioning and optimization preferences.
 
-    :param version (str): Version identifier of the project or model.
-    :param name (str): Name of the quantum circuit or model.
-    :param description (str): Human-readable description of the model.
-    :param author (str): Author of the model.
-    :param optimizeWidth (int | None): Optimization setting for reducing circuit width (optional).
-    :param optimizeDepth (int | None): Optimization setting for reducing circuit depth (optional).
+    :param str version: Version identifier of the project or model.
+    :param str name: Name of the quantum circuit or model.
+    :param str description: Human-readable description of the model.
+    :param str author: Author of the model.
+    :param int | None optimizeWidth: Optimization setting for reducing circuit width (optional).
+    :param int | None optimizeDepth: Optimization setting for reducing circuit depth (optional).
     """
 
     version: str
@@ -56,8 +56,8 @@ class BaseNode(BaseModel):
     """
     Abstract base class for all node types used in a compile request.
 
-    :param id (str): Unique identifier for the node.
-    :param label (str | None): Optional label for the node used for display purposes.
+    :param str id: Unique identifier for the node.
+    :param str | None label: Optional label for the node used for display purposes.
     """
 
     id: str
@@ -68,8 +68,8 @@ class ImplementationNode(BaseNode):
     """
     Node containing a user-defined OpenQASM implementation.
 
-    :param type (Literal["implementation"]): Constant value indicating this node type.
-    :param implementation (str): Raw OpenQASM code associated with the node.
+    :param Literal["implementation"] type: Constant value indicating this node type.
+    :param str implementation: Raw OpenQASM code associated with the node.
     """
 
     type: Literal["implementation"] = "implementation"
@@ -81,9 +81,9 @@ class EncodeValueNode(BaseNode):
     """
     Node representing quantum state encoding from classical values.
 
-    :param type (Literal["encode"]): Constant value indicating this node type.
-    :param encoding (Literal): Encoding scheme used (e.g. "amplitude", "basis", etc.).
-    :param bounds (int): Indicates whether values are clamped (0 or 1).
+    :param Literal["encode"] type: Constant value indicating this node type.
+    :param Literal encoding: Encoding scheme used (e.g. "amplitude", "basis", etc.).
+    :param int bounds: Indicates whether values are clamped (0 or 1).
     """
 
     type: Literal["encode"] = "encode"
@@ -95,9 +95,9 @@ class PrepareStateNode(BaseNode):
     """
     Node for preparing known quantum states like Bell or GHZ.
 
-    :param type (Literal["prepare"]): Constant value indicating this node type.
-    :param quantumState (Literal): Type of quantum state to prepare (e.g. "ψ+", "ghz").
-    :param size (int): Number of qubits involved in state preparation.
+    :param Literal["prepare"] type: Constant value indicating this node type.
+    :param Literal quantumState: Type of quantum state to prepare (e.g. "ψ+", "ghz").
+    :param int size: Number of qubits involved in state preparation.
     """
 
     type: Literal["prepare"] = "prepare"
@@ -109,8 +109,8 @@ class SplitterNode(BaseNode):
     """
     Node that splits qubits into multiple branches.
 
-    :param type (Literal["splitter"]): Constant value indicating this node type.
-    :param numberOutputs (int): Number of output branches created.
+    :param Literal["splitter"] type: Constant value indicating this node type.
+    :param int numberOutputs: Number of output branches created.
     """
 
     type: Literal["splitter"] = "splitter"
@@ -121,8 +121,8 @@ class MergerNode(BaseNode):
     """
     Node that merges multiple input branches into a single stream.
 
-    :param type (Literal["merger"]): Constant value indicating this node type.
-    :param numberInputs (int): Number of input branches merged.
+    :param Literal["merger"] type: Constant value indicating this node type.
+    :param int numberInputs: Number of input branches merged.
     """
 
     type: Literal["merger"] = "merger"
@@ -133,8 +133,8 @@ class MeasurementNode(BaseNode):
     """
     Node performing quantum measurement on specified qubit indices.
 
-    :param type (Literal["measure"]): Constant value indicating this node type.
-    :param indices (list[int]): List of qubit indices to measure.
+    :param Literal["measure"] type: Constant value indicating this node type.
+    :param list[int] indices: List of qubit indices to measure.
     """
 
     type: Literal["measure"] = "measure"
@@ -151,8 +151,8 @@ class QubitNode(BaseNode):
     """
     Node representing qubit allocation.
 
-    :param type (Literal["qubit"]): Constant value indicating this node type.
-    :param size (int): Number of qubits to allocate.
+    :param Literal["qubit"] type: Constant value indicating this node type.
+    :param int size: Number of qubits to allocate.
     """
 
     type: Literal["qubit"] = "qubit"
@@ -163,7 +163,7 @@ class GateNode(BaseNode):
     """
     Node representing application of a quantum gate.
 
-    :param type (Literal["gate"]): Constant value indicating this node type.
+    :param Literal["gate"] type: Constant value indicating this node type.
     :param gate: The gate to apply (e.g., "x", "cnot", etc.).
     """
 
@@ -175,9 +175,9 @@ class ParameterizedGateNode(BaseNode):
     """
     Node representing a gate that requires a parameter (e.g., angle rotation).
 
-    :param type (Literal["gate-with-param"]): Constant value indicating this node type.
+    :param Literal["gate-with-param"] type: Constant value indicating this node type.
     :param gate: The parameterized gate to apply.
-    :param parameter (float): Value of the gate's parameter.
+    :param float parameter: Value of the gate's parameter.
     """
 
     type: Literal["gate-with-param"] = "gate-with-param"
@@ -190,8 +190,8 @@ class BitLiteralNode(BaseNode):
     """
     Node representing a fixed classical bit value (0 or 1).
 
-    :param type (Literal["bit"]): Constant value indicating this node type.
-    :param value (Literal[0, 1]): Bit value.
+    :param Literal["bit"] type: Constant value indicating this node type.
+    :param Literal[0, 1] value: Bit value.
     """
 
     type: Literal["bit"] = "bit"
@@ -202,8 +202,8 @@ class BoolLiteralNode(BaseNode):
     """
     Node representing a boolean literal.
 
-    :param type (Literal["bool"]): Constant value indicating this node type.
-    :param value (bool): Boolean value.
+    :param Literal["bool"] type: Constant value indicating this node type.
+    :param bool value: Boolean value.
     """
 
     type: Literal["bool"] = "bool"
@@ -214,9 +214,9 @@ class IntLiteralNode(BaseNode):
     """
     Node representing an integer literal.
 
-    :param type (Literal["int"]): Constant value indicating this node type.
-    :param bitSize (int): Bit size of the integer.
-    :param value (int): Integer value.
+    :param Literal["int"] type: Constant value indicating this node type.
+    :param int bitSize: Bit size of the integer.
+    :param int value: Integer value.
     """
 
     type: Literal["int"] = "int"
@@ -228,9 +228,9 @@ class FloatLiteralNode(BaseNode):
     """
     Node representing a floating-point literal.
 
-    :param type (Literal["float"]): Constant value indicating this node type.
-    :param bitSize (int): Bit size of the float.
-    :param value (float): Float value.
+    :param Literal["float"] type: Constant value indicating this node type.
+    :param int bitSize: Bit size of the float.
+    :param float value: Float value.
     """
 
     type: Literal["float"] = "float"
@@ -246,8 +246,8 @@ class AncillaNode(BaseNode):
     """
     Node allocating ancillary qubits for temporary computation.
 
-    :param type (Literal["ancilla"]): Constant value indicating this node type.
-    :param size (int): Number of ancilla qubits allocated.
+    :param Literal["ancilla"] type: Constant value indicating this node type.
+    :param int size: Number of ancilla qubits allocated.
     """
 
     type: Literal["ancilla"] = "ancilla"
@@ -259,8 +259,8 @@ class NestedBlock(BaseModel):
     """
     Represents a subgraph or code block used inside control flow nodes.
 
-    :param nodes (list[NestableNode]): List of nodes within the block.
-    :param edges (list[Edge]): Connections between the nodes.
+    :param list[NestableNode] nodes: List of nodes within the block.
+    :param list[Edge] edges: Connections between the nodes.
     """
 
     nodes: list[NestableNode]
@@ -271,10 +271,10 @@ class IfThenElseNode(BaseNode):
     """
     Node representing conditional execution.
 
-    :param type (Literal["if-then-else"]): Constant value indicating this node type.
-    :param condition (str): Condition expression used to branch execution.
-    :param thenBlock (NestedBlock): Code block executed if the condition is true.
-    :param elseBlock (NestedBlock): Code block executed if the condition is false.
+    :param Literal["if-then-else"] type: Constant value indicating this node type.
+    :param str condition: Condition expression used to branch execution.
+    :param NestedBlock thenBlock: Code block executed if the condition is true.
+    :param NestedBlock elseBlock: Code block executed if the condition is false.
     """
 
     type: Literal["if-then-else"] = "if-then-else"
@@ -287,9 +287,9 @@ class RepeatNode(BaseNode):
     """
     Node representing a repeat loop structure.
 
-    :param type (Literal["repeat"]): Constant value indicating this node type.
-    :param iterations (int): Number of loop iterations.
-    :param block (NestedBlock): Code block to repeat.
+    :param Literal["repeat"] type: Constant value indicating this node type.
+    :param int iterations: Number of loop iterations.
+    :param NestedBlock block: Code block to repeat.
     """
 
     type: Literal["repeat"] = "repeat"
@@ -305,8 +305,8 @@ class OperatorNode(BaseNode):
     """
     Node representing a classical operation (arithmetic, bitwise, comparison).
 
-    :param type (Literal["operator"]): Constant value indicating this node type.
-    :param operator (Literal): Type of operator (e.g., "+", "&", "==").
+    :param Literal["operator"] type: Constant value indicating this node type.
+    :param Literal operator: Type of operator (e.g., "+", "&", "==").
     """
 
     type: Literal["operator"] = "operator"
@@ -347,10 +347,10 @@ class Edge(BaseModel):
     """
     Represents a connection between two ports of nodes.
 
-    :param source (tuple[str, int]): Tuple of (node_id, output_index).
-    :param target (tuple[str, int]): Tuple of (node_id, input_index).
-    :param size (int | None): Optional size override for the edge.
-    :param identifier (str | None): Optional name or alias of the connection.
+    :param tuple[str, int] source: Tuple of (node_id, output_index).
+    :param tuple[str, int] target: Tuple of (node_id, input_index).
+    :param int | None size: Optional size override for the edge.
+    :param str | None identifier: Optional name or alias of the connection.
     """
 
     source: tuple[str, Annotated[int, Field(ge=0)]]
@@ -363,9 +363,9 @@ class CompileRequest(BaseModel):
     """
     Top-level object representing a full graph-based quantum compile request.
 
-    :param metadata (MetaData): General information and optimization preferences.
-    :param nodes (list[Node]): List of all nodes forming the program graph.
-    :param edges (list[Edge]): Directed edges defining input-output relationships between nodes.
+    :param MetaData metadata: General information and optimization preferences.
+    :param list[Node] nodes: List of all nodes forming the program graph.
+    :param list[Edge] edges: Directed edges defining input-output relationships between nodes.
     """
 
     metadata: MetaData
