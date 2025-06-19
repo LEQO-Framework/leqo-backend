@@ -81,12 +81,12 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         input_node0 = Input(
             index=0,
             type=InputType.QubitType,
-            size=getattr(requested_inputs[0], "size", None),
+            size=requested_inputs[0].size,
         )
         input_node1 = Input(
             index=1,
             type=InputType.QubitType,
-            size=getattr(requested_inputs[1], "size", None),
+            size=requested_inputs[1].size,
         )
         new_node.inputs.append(input_node0)
         new_node.inputs.append(input_node1)

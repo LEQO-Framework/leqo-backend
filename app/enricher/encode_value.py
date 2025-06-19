@@ -120,7 +120,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         input_node = Input(
             index=0,
             type=converted_input_type,
-            size=getattr(requested_inputs[0], "size", None),
+            size=requested_inputs[0].size,
         )
         new_node.inputs.append(input_node)
 
