@@ -216,3 +216,41 @@ class CompileRequest(BaseModel):
     metadata: MetaData
     nodes: list[Annotated[Node, Field(discriminator="type")]]
     edges: list[Edge]
+
+
+EnrichableNode = (
+    BoundaryNode
+    | GateNode
+    | ParameterizedGateNode
+    | LiteralNode
+    | AncillaNode
+    | OperatorNode
+    | QubitNode
+)
+
+
+class SingleInsertMetaData(BaseModel):
+    """
+    Models the metadata of a single insert.
+    """
+
+    width: Annotated[int, Field(gt=0)] | None = None
+    depth: Annotated[int, Field(gt=0)] | None = None
+
+
+class SingleInsert(BaseModel):
+    """
+    Single insertion of an implementation for the enricher.
+    """
+
+    node: Annotated[EnrichableNode, Field(discriminator="type")]
+    implementation: str
+    metadata: SingleInsertMetaData
+
+
+class InsertRequest(BaseModel):
+    """
+    Models a request for an implementation insert into the enricher.
+    """
+
+    inserts: list[SingleInsert]

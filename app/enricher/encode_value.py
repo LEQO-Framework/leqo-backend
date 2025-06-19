@@ -58,6 +58,74 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         return input_type
 
+    def _check_constraints(
+        self, node: EncodeValueNode, requested_inputs: dict[int, LeqoSupportedType]
+    ) -> None:
+        """
+        Checks the constraints for the node and requested inputs.
+        Raises exceptions if constraints are not met.
+
+        :param node: The node to check constraints for.
+        :param requested_inputs: Dictionary where the key is the input index and value the type of the node.
+        :raises EncodingNotSupported: If the encoding is not supported.
+        :raises BoundsOutOfRange: If the bounds are out of range.
+        :raises InputCountMismatch: If the number of requested inputs does not match the expected count.
+        :raises InputTypeMismatch: If the type of the requested input does not match the expected type.
+        """
+        if node.encoding == "custom":
+            raise EncodingNotSupported(node)
+
+        if node.bounds < 0 or node.bounds > 1:
+            raise BoundsOutOfRange(node)
+
+        if len(requested_inputs) != 1:
+            raise InputCountMismatch(
+                node,
+                actual=len(requested_inputs),
+                should_be="equal",
+                expected=1,
+            )
+
+        if not isinstance(requested_inputs[0], LeqoSupportedClassicalType):
+            raise InputTypeMismatch(
+                node,
+                input_index=0,
+                actual=requested_inputs[0],
+                expected="classical",
+            )
+
+    @override
+    def _generate_database_node(
+        self,
+        node: FrontendNode,
+        implementation: str,
+        requested_inputs: dict[int, LeqoSupportedType],
+        width: int,
+        depth: int | None,
+    ) -> BaseNode | None:
+        if not isinstance(node, EncodeValueNode):
+            return None
+        self._check_constraints(node, requested_inputs)
+
+        converted_input_type = self._convert_to_input_type(requested_inputs[0])
+
+        new_node = EncodeNodeTable(
+            type=NodeType(node.type),
+            depth=depth,
+            width=width,
+            implementation=implementation,
+            encoding=EncodingType(node.encoding),
+            bounds=node.bounds,
+        )
+        input_node = Input(
+            index=0,
+            type=converted_input_type,
+            size=requested_inputs[0].size,
+        )
+        new_node.inputs.append(input_node)
+
+        return new_node
+
     @override
     def _generate_query(
         self, node: FrontendNode, constraints: Constraints | None
@@ -65,27 +133,15 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if not isinstance(node, EncodeValueNode):
             return None
 
-        if node.encoding == "custom":
-            raise EncodingNotSupported(node)
-
-        if node.bounds < 0 or node.bounds > 1:
-            raise BoundsOutOfRange(node)
-
-        if constraints is None or len(constraints.requested_inputs) != 1:
+        if constraints is None:
             raise InputCountMismatch(
                 node,
-                actual=len(constraints.requested_inputs) if constraints else 0,
+                actual=0,
                 should_be="equal",
                 expected=1,
             )
 
-        if not isinstance(constraints.requested_inputs[0], LeqoSupportedClassicalType):
-            raise InputTypeMismatch(
-                node,
-                input_index=0,
-                actual=constraints.requested_inputs[0],
-                expected="classical",
-            )
+        self._check_constraints(node, constraints.requested_inputs)
 
         converted_input_type = self._convert_to_input_type(
             constraints.requested_inputs[0]
@@ -101,6 +157,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 EncodeNodeTable.bounds == node.bounds,
                 Input.index == 0,
                 Input.type == converted_input_type,
-                Input.size == constraints.requested_inputs[0].size,
+                Input.size >= constraints.requested_inputs[0].size,
             ),
         )

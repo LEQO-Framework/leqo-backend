@@ -8,15 +8,18 @@ from typing import Annotated
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
     CompileRequest,
     IfThenElseNode,
     ImplementationNode,
+    InsertRequest,
     NestedBlock,
     OptimizeSettings,
     RepeatNode,
+    SingleInsert,
 )
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
@@ -35,7 +38,7 @@ from app.processing.nested.utils import generate_pass_node_implementation
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
-from app.services import get_enricher
+from app.services import get_db_engine, get_enricher
 from app.utils import not_none
 
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
@@ -306,3 +309,50 @@ class EnrichingProcessor(CommonProcessor):
     async def enrich_all(self) -> list[ImplementationNode]:
         """Get list of all enrichments."""
         return [x async for x in self.enrich()]
+
+
+class EnrichmentInserter:
+    """Insert enrichment implementations for frontend-nodes into the Enricher."""
+
+    inserts: list[SingleInsert]
+    enricher: Enricher
+
+    def __init__(
+        self, inserts: list[SingleInsert], enricher: Enricher, engine: AsyncEngine
+    ) -> None:
+        self.inserts = inserts
+        self.enricher = enricher
+        self.engine = engine
+
+    @staticmethod
+    def from_insert_request(
+        request: InsertRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+        engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+    ) -> EnrichmentInserter:
+        return EnrichmentInserter(request.inserts, enricher, engine)
+
+    async def insert_all(self) -> None:
+        """Insert all enrichments."""
+        async with AsyncSession(self.engine) as session:
+            for insert in self.inserts:
+                processed = preprocess(ProgramNode(name="dummy"), insert.implementation)
+                requested_inputs = {k: v.type for k, v in processed.io.inputs.items()}
+                actual_width = processed.qubit.get_width()
+
+                if (
+                    insert.metadata.width is not None
+                    and actual_width != insert.metadata.width
+                ):
+                    msg = f"Specified width does not match parsed width: {insert.metadata.width} != {actual_width}"
+                    raise UnsupportedOperation(msg)
+                insert.metadata.width = actual_width
+
+                await self.enricher.insert_enrichment(
+                    insert.node,
+                    insert.implementation,
+                    requested_inputs,
+                    insert.metadata,
+                    session,
+                )
+            await session.commit()

@@ -21,6 +21,14 @@ class EnricherException(DiagnosticError, ABC):
     """
 
 
+class UnableToInsertImplementation(EnricherException):
+    def __init__(self, node: Node) -> None:
+        super().__init__(
+            f"It is not possible to insert an enrichment for nodes of type '{type(node)}'",
+            node,
+        )
+
+
 class NoImplementationFound(EnricherException):
     def __init__(self, node: Node) -> None:
         super().__init__("No implementations were found", node)
