@@ -9,8 +9,8 @@ Features
 --------
 
 - Provide a REST-API for the `LEQO frontend <https://github.com/LEQO-Framework/low-code-modeler>`_
-- Retrieve `OpenQASM <https://openqasm.com/>`_ implementations for low-code nodes
-- Merge low-code models into a single `OpenQASM <https://openqasm.com/>`_ program compatible with `Qiskit <https://github.com/Qiskit/qiskit>`_
+- Retrieve `OpenQASM <https://openqasm.com/>`__ implementations for low-code nodes
+- Merge low-code models into a single `OpenQASM <https://openqasm.com/>`__ program compatible with `Qiskit <https://github.com/Qiskit/qiskit>`_
 - Support OpenQASM 2 input via an internal converter
 - Optimize circuits by reusing ancilla qubits automatically
 - Can handle nested low-code nodes: If-Then-Else and Repeat
