@@ -184,7 +184,7 @@ class Enricher:
     ) -> ImplementationNode | ParsedImplementationNode:
         """
         Enrich the given :class:`~app.model.CompileRequest.Node` according to the specified :class:`~app.enricher.Constraints`.
-        Throws :class:`ExceptionGroup` containing the exceptions from all :class:`~app.enricher.EnricherStrategy`.
+        Throws ExceptionGroup containing the exceptions from all :class:`~app.enricher.EnricherStrategy`.
 
         :param node: The node to enrich.
         :param constraints: Constraints to follow during enrichment.

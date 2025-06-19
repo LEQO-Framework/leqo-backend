@@ -8,25 +8,35 @@ from app.processing.utils import normalize_qasm_string
 
 
 class AllToYDefault(QASMTransformer[None]):
-    """Replaces all identifiers with y."""
+    """
+    Replaces all identifiers with y.
+    """
 
     def visit_Identifier(self, node: Identifier) -> Identifier:
-        """Replace name of all Identifiers with y."""
+        """
+        Replace name of all Identifiers with y.
+        """
         node.name = "y"
         return node
 
 
 class AllToYFixed(LeqoTransformer[None]):
-    """Like AllToYDefault but inherit from Transformer."""
+    """
+    Like AllToYDefault but inherit from Transformer.
+    """
 
     def visit_Identifier(self, node: Identifier) -> Identifier:
-        """Replace name of all Identifiers with y."""
+        """
+        Replace name of all Identifiers with y.
+        """
         node.name = "y"
         return node
 
 
 def test_indecies() -> None:
-    """Check if Transformer can handle variables in indices."""
+    """
+    Check if Transformer can handle variables in indices.
+    """
     before = normalize_qasm_string("""
     x q[I];
     """)
@@ -40,7 +50,9 @@ def test_indecies() -> None:
 
 
 def test_switch() -> None:
-    """Check if Transformer can handle tuples in switches."""
+    """
+    Check if Transformer can handle tuples in switches.
+    """
     before = normalize_qasm_string("""
     switch (i) {
         case 1, B, C {
@@ -62,21 +74,27 @@ def test_switch() -> None:
 
 
 class AllToYFixedContext(LeqoTransformer[bool]):
-    """Check if context works."""
+    """
+    Check if context works.
+    """
 
     def visit_Identifier(
         self,
         node: Identifier,
         context: bool | None = None,
     ) -> Identifier:
-        """Replace name of all Identifiers with y."""
+        """
+        Replace name of all Identifiers with y.
+        """
         if context is True:
             node.name = "y"
         return node
 
 
 def test_context() -> None:
-    """Check if Transformer can handle variables in indices."""
+    """
+    Check if Transformer can handle variables in indices.
+    """
     before = normalize_qasm_string("""
     x q;
     """)
@@ -94,7 +112,9 @@ def test_context() -> None:
 
 
 def test_all() -> None:
-    """Check if Transformer can handle variables in indices."""
+    """
+    Check if Transformer can handle variables in indices.
+    """
     before = normalize_qasm_string("""
     switch (i) {
         case 1, B, C {

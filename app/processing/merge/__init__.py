@@ -1,4 +1,6 @@
-"""Merge all nodes from :class:`app.processing.graph.ProgramGraph` into a single QASM program."""
+"""
+Merge all nodes from :class:`~app.processing.graph.ProgramGraph` into a single QASM program.
+"""
 
 from copy import deepcopy
 from io import UnsupportedOperation
@@ -37,7 +39,8 @@ OPENQASM_VERSION = "3.1"
 
 
 class RemoveAnnotationTransformer(LeqoTransformer[None]):
-    """Remove leqo annotations of specified types.
+    """
+    Remove leqo annotations of specified types.
 
     :param inputs: Whether to remove 'leqo.input' annotations.
     :param outputs: Whether to remove 'leqo.output' annotations.
@@ -53,7 +56,9 @@ class RemoveAnnotationTransformer(LeqoTransformer[None]):
             self.to_delete.add("leqo.output")
 
     def visit_Annotation(self, node: Annotation) -> QASMNode | None:
-        """Remove or keep annotation."""
+        """
+        Remove or keep annotation.
+        """
         if node.keyword.strip().split()[0] in self.to_delete:
             return None
         return node
@@ -64,7 +69,8 @@ def graph_to_statements(
     if_node: ProgramNode,
     endif_node: ProgramNode,
 ) -> list[Statement]:
-    """Concatenate nodes from graph via topological_sort and remove annotations.
+    """
+    Concatenate nodes from the graph via topological_sort and remove annotations.
 
     **if_node** and **endif_node** need to be skipped here.
     """
@@ -93,18 +99,23 @@ def merge_if_nodes(
     else_graph: ProgramGraph,
     condition: Expression,
 ) -> tuple[Program, int]:
-    """Construct single Program with a :class:`openqasm3.ast.BranchingStatement` from two sub-graphs.
+    """
+    Construct a single program with a :class:`openqasm3.ast.BranchingStatement` from two sub-graphs.
 
     There are two known limitations of this implementation:
 
     - Classical outputs are not supported.
         This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-then-else,
-        meaning they can not pass there value to the **endif_node**, which is outside.
+        meaning they can not pass their value to the **endif_node**, which is outside.
         This would be required for classical outputs to work.
-        However, classical inputs can be used.
+        It might be possible in the future to declare the outputs at the top (in the if-node) and initialize them inside the arms.
+        However, this does not fit into our code very well, and classicals have almost no support in Qiskit anyway.
 
     - The **endif_node** from both **then_graph** and **else_graph** need to match.
-        This not only true for the size of the outputs, but also for the order of the used qubit ids.
+        This is not only true for the size of the outputs but also for the order of the used qubit IDs.
+        The problem is very fundamental, as it comes from using a single big qubit register at the top.
+        So the outputs need to have the same underling reg-index in both arms.
+        A workaround might be to swap the qubits via gates.
 
     :param if_node: The border node that leads into the if-then-else.
         This node has to be in both **then_graph** and **else_graph**.
@@ -115,6 +126,7 @@ def merge_if_nodes(
     :param condition: The condition to use in the generated :class:`openqasm3.ast.BranchingStatement`.
 
         :raises NotImplementedError:
+
         - If the circuit attempts to return classical output from the if-then-else structure.
         - If the outputs of the **then_graph** and **else_graph** do not match in size or qubit ordering.
 
@@ -197,7 +209,8 @@ def merge_if_nodes(
 
 
 def merge_nodes(graph: ProgramGraph) -> Program:
-    """Create a unified :class:`openqasm3.ast.Program` from a modelled graph with attached qasm implementation snippets.
+    """
+    Create a unified :class:`openqasm3.ast.Program` from a modeled graph with attached qasm implementation snippets.
 
     :param graph: Graph of all nodes representing the program
     :return: The unified qasm program
