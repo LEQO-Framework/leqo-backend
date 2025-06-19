@@ -16,9 +16,10 @@ from dataclasses import dataclass
 from typing import Literal
 
 from openqasm3.ast import Program
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.enricher.exceptions import NoImplementationFound, UnableToInsertImplementation
-from app.model.CompileRequest import BaseNode, ImplementationNode
+from app.model.CompileRequest import BaseNode, ImplementationNode, SingleInsertMetaData
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
@@ -128,8 +129,8 @@ class EnricherStrategy(ABC):
         _node: FrontendNode,
         _implementation: str,
         _requested_inputs: dict[int, LeqoSupportedType],
-        _width: int,
-        _depth: int | None,
+        _meta_data: SingleInsertMetaData,
+        _session: AsyncSession | None = None,
     ) -> bool:
         """
         Insert an enrichment :class:`~app.model.CompileRequest.ImplementationNode` for a given :class:`~app.model.CompileRequest.Node`.
@@ -137,6 +138,8 @@ class EnricherStrategy(ABC):
         :param node: The node to insert the enrichment for.
         :param implementation: The implementation to insert
         :param requested_inputs: The (parsed) requested inputs for that node.
+        :param meta_data: meta data for that node
+        :param session: The optional database session to use
 
         :return: Whether the insert was successful.
         """
@@ -226,8 +229,8 @@ class Enricher:
         node: FrontendNode,
         implementation: str,
         requested_inputs: dict[int, LeqoSupportedType],
-        width: int,
-        depth: int | None = None,
+        meta_data: SingleInsertMetaData,
+        session: AsyncSession | None = None,
     ) -> None:
         """
         Insert the enrichment :class:`~app.model.CompileRequest.ImplementationNode` for the given :class:`~app.model.CompileRequest.Node`.
@@ -235,18 +238,19 @@ class Enricher:
         :param node: The node to insert the enrichment for.
         :param implementation: The implementation to insert
         :param requested_inputs: The (parsed) requested inputs for that node.
-        :param width: the (parsed) width of the program
-        :param depth: the optional provided depth of the program
+        :param meta_data: meta data for that node
+        :param session: The optional database session to use
         """
         if isinstance(node, ImplementationNode):
             raise UnableToInsertImplementation(node)
 
         success = False
+
         async for result in asyncio.as_completed(
-            strategie.insert_enrichment(
-                node, implementation, requested_inputs, width, depth
+            strategy.insert_enrichment(
+                node, implementation, requested_inputs, meta_data, session
             )
-            for strategie in self.strategies
+            for strategy in self.strategies
         ):
             success = success or await result
 

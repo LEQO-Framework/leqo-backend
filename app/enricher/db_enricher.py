@@ -16,7 +16,7 @@ from app.enricher import (
 )
 from app.enricher.exceptions import NoImplementationFound
 from app.enricher.models import BaseNode
-from app.model.CompileRequest import ImplementationNode
+from app.model.CompileRequest import ImplementationNode, SingleInsertMetaData
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
 
@@ -64,31 +64,24 @@ class DataBaseEnricherStrategy(EnricherStrategy, ABC):
         node: FrontendNode,
         implementation: str,
         requested_inputs: dict[int, LeqoSupportedType],
-        width: int,
-        depth: int | None = None,
+        meta_data: SingleInsertMetaData,
+        session: AsyncSession | None = None,
     ) -> bool:
-        """
-        Insert a node into the database.
-
-        :param node: The frontend node.
-        :param implementation: The implementation of the node.
-        :param requested_inputs: Dictionary where the key is the input index and value the type of the node.
-        :param width: Width of the node implementation.
-        :param depth: Depth of the node implementation.
-        :return: The inserted node or None if insertion failed.
-        """
+        assert meta_data.width is not None, "can't happen, this is parsed"
         database_node = self._generate_database_node(
-            node, implementation, requested_inputs, width, depth
+            node, implementation, requested_inputs, meta_data.width, meta_data.depth
         )
         if database_node is None:
             return False
 
-        async with AsyncSession(self.engine) as session:
-            session.add(database_node)
-            await session.commit()
-            await session.refresh(database_node)
+        if session is None:
+            async with AsyncSession(self.engine) as session:
+                session.add(database_node)
+                await session.commit()
+                return True
 
-            return database_node.id is not None
+        session.add(database_node)
+        return True
 
     @override
     async def _enrich_impl(

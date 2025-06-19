@@ -229,6 +229,15 @@ EnrichableNode = (
 )
 
 
+class SingleInsertMetaData(BaseModel):
+    """
+    Models the metadata of a single insert.
+    """
+
+    width: Annotated[int, Field(gt=0)] | None = None
+    depth: Annotated[int, Field(gt=0)] | None = None
+
+
 class SingleInsert(BaseModel):
     """
     Single insertion of an implementation for the enricher.
@@ -236,8 +245,7 @@ class SingleInsert(BaseModel):
 
     node: Annotated[EnrichableNode, Field(discriminator="type")]
     implementation: str
-    width: Annotated[int, Field(gt=0)] | None
-    depth: Annotated[int, Field(gt=0)] | None
+    meta: SingleInsertMetaData
 
 
 class InsertRequest(BaseModel):
