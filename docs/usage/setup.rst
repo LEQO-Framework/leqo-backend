@@ -49,20 +49,15 @@ You can host both the frontend and backend together with docker compose.
 
 **Step 3:** Create the `.env` file according to the instructions in :doc:`Configuration <config>`.
 
-**Step 4:** Pull container images
-    .. code-block:: shell
-
-        docker compose pull
-
-**Step 5:** Start the application
+**Step 4:** Start the application
     .. code-block:: shell
 
         docker compose up -d
 
-**Step 6:** Open the frontend
+**Step 5:** Open the frontend
     Navigate to: `localhost:80 <http://localhost:80>`_
 
-**Step 7:** Configure the backend port in the frontend
+**Step 6:** Configure the backend port in the frontend
 
     - Go to **Configuration**
     - Set the **Low-Code Backend Endpoint** to: `http://localhost:8000`
