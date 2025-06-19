@@ -229,16 +229,20 @@ EnrichableNode = (
 )
 
 
+class SingleInsert(BaseModel):
+    """
+    Single insertion of an implementation for the enricher.
+    """
+
+    node: Annotated[EnrichableNode, Field(discriminator="type")]
+    implementation: str
+    width: Annotated[int, Field(gt=0)] | None
+    depth: Annotated[int, Field(gt=0)] | None
+
+
 class InsertRequest(BaseModel):
     """
     Models a request for an implementation insert into the enricher.
     """
 
-    inserts: list[
-        tuple[
-            Annotated[EnrichableNode, Field(discriminator="type")],
-            str,
-            Annotated[int, Field(gt=0)] | None,
-            Annotated[int, Field(gt=0)] | None,
-        ]
-    ]
+    inserts: list[SingleInsert]

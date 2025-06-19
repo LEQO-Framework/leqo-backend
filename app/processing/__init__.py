@@ -19,6 +19,7 @@ from app.model.CompileRequest import (
     NestedBlock,
     OptimizeSettings,
     RepeatNode,
+    SingleInsert,
 )
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
@@ -313,12 +314,12 @@ class EnrichingProcessor(CommonProcessor):
 class EnrichmentInserter:
     """Insert enrichment implementations for frontend-nodes into the Enricher."""
 
-    inserts: list[tuple[EnrichableNode, str, int | None, int | None]]
+    inserts: list[SingleInsert]
     enricher: Enricher
 
     def __init__(
         self,
-        inserts: list[tuple[EnrichableNode, str, int | None, int | None]],
+        inserts: list[SingleInsert],
         enricher: Enricher,
     ) -> None:
         self.inserts = inserts
@@ -333,15 +334,19 @@ class EnrichmentInserter:
 
     async def insert_all(self) -> None:
         """Insert all enrichments."""
-        for node, impl, width, depth in self.inserts:
-            processed = preprocess(ProgramNode(name="dummy"), impl)
+        for insert in self.inserts:
+            processed = preprocess(ProgramNode(name="dummy"), insert.implementation)
             requested_inputs = {k: v.type for k, v in processed.io.inputs.items()}
             actual_width = processed.qubit.get_width()
 
-            if width is not None and actual_width != width:
-                msg = f"Specified width does not match parsed width: {width} != {actual_width}"
+            if insert.width is not None and actual_width != insert.width:
+                msg = f"Specified width does not match parsed width: {insert.width} != {actual_width}"
                 raise UnsupportedOperation(msg)
 
             await self.enricher.insert_enrichment(
-                node, impl, requested_inputs, actual_width, depth
+                insert.node,
+                insert.implementation,
+                requested_inputs,
+                actual_width,
+                insert.depth,
             )
