@@ -75,9 +75,9 @@ class DataBaseEnricherStrategy(EnricherStrategy, ABC):
             return False
 
         if session is None:
-            async with AsyncSession(self.engine) as session:
-                session.add(database_node)
-                await session.commit()
+            async with AsyncSession(self.engine) as own_session:
+                own_session.add(database_node)
+                await own_session.commit()
                 return True
 
         session.add(database_node)

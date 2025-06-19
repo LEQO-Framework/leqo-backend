@@ -15,6 +15,7 @@ from app.enricher.models import (
 )
 from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
+from app.model.CompileRequest import SingleInsertMetaData
 from app.model.data_types import BitType, BoolType, FloatType, IntType, QubitType
 from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 from tests.enricher.utils import assert_enrichments
@@ -77,8 +78,7 @@ async def test_insert_enrichtment(engine: AsyncEngine) -> None:
         node=node,
         implementation="basis_impl",
         requested_inputs={0: FloatType(size=32)},
-        width=1,
-        depth=1,
+        meta_data=SingleInsertMetaData(width=1, depth=1),
     )
 
     assert result is True

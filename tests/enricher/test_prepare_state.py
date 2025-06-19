@@ -9,6 +9,7 @@ from app.enricher.models import NodeType, PrepareStateNode, QuantumStateType
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
+from app.model.CompileRequest import SingleInsertMetaData
 from app.model.data_types import FloatType
 from app.model.exceptions import InputCountMismatch
 from tests.enricher.utils import assert_enrichments
@@ -79,8 +80,7 @@ async def test_insert_enrichtment(engine: AsyncEngine) -> None:
         node=node,
         implementation="phi_minus_impl",
         requested_inputs={},
-        width=1,
-        depth=1,
+        meta_data=SingleInsertMetaData(width=1, depth=1),
     )
 
     assert result is True

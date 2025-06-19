@@ -8,6 +8,7 @@ from app.enricher.models import Input, InputType, NodeType, OperatorNode, Operat
 from app.enricher.operator import OperatorEnricherStrategy
 from app.model.CompileRequest import OperatorNode as FrontendOperatorNode
 from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNode
+from app.model.CompileRequest import SingleInsertMetaData
 from app.model.data_types import FloatType, QubitType
 from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 from tests.enricher.utils import assert_enrichments
@@ -87,8 +88,7 @@ async def test_insert_enrichtment(engine: AsyncEngine) -> None:
         node=node,
         implementation="operator_impl",
         requested_inputs={0: QubitType(size=2), 1: QubitType(size=3)},
-        width=1,
-        depth=1,
+        meta_data=SingleInsertMetaData(width=1, depth=1),
     )
 
     assert result is True
