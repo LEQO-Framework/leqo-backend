@@ -125,7 +125,9 @@ async def update_status_response_in_db(
         completedAt=new_state.completedAt,
         progressPercentage=new_state.progress.percentage,
         progressCurrentStep=new_state.progress.currentStep,
-        result=new_state.result,
+        result=new_state.result.model_dump_json()
+        if isinstance(new_state.result, LeqoProblemDetails)
+        else new_state.result,
     )
     async with AsyncSession(engine) as session:
         await session.merge(new_process_state)
