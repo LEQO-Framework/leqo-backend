@@ -193,8 +193,8 @@ async def process_enrich_request(
     completedAt: datetime | None = None
 
     try:
-        result_as_impl_node = await processor.enrich_all()
-        await add_result_to_db(engine, uuid, result_as_impl_node)
+        result_as_impl_nodes = await processor.enrich_all()
+        await add_result_to_db(engine, uuid, result_as_impl_nodes)
 
         result_url = get_result_url(uuid, settings)
         status = StatusType.COMPLETED
