@@ -82,7 +82,7 @@ def duplicates[T](list: list[T]) -> set[T]:
     return result
 
 
-async def addStatusResponseToDB(engine: AsyncEngine, status: StatusResponse) -> None:
+async def add_status_response_to_DB(engine: AsyncEngine, status: StatusResponse) -> None:
     """Add the :class:`StatusResponse` to the database
 
     :param engine: Database to insert the :class:`StatusResponse` in
@@ -103,7 +103,7 @@ async def addStatusResponseToDB(engine: AsyncEngine, status: StatusResponse) -> 
         await session.commit()
 
 
-async def updateStatusResponseInDB(
+async def update_status_response_in_DB(
     engine: AsyncEngine, newState: StatusResponse
 ) -> None:
     """Update the :class:`StatusResponse` in the database by replacing the row."""
@@ -121,7 +121,7 @@ async def updateStatusResponseInDB(
         await session.commit()
 
 
-async def getStatusResponseFromDB(
+async def get_status_response_from_DB(
     engine: AsyncEngine, uuid: UUID
 ) -> StatusResponse | None:
     """Get the instance of :class:`StatusResponse` with the given uuid from the database
@@ -149,7 +149,7 @@ async def getStatusResponseFromDB(
         return None
 
 
-async def addResultToDB(
+async def add_result_to_DB(
     engine: AsyncEngine, uuid: UUID, results: list[ImplementationNode]
 ) -> None:
     """Add a result to the database for the given uuid
@@ -175,7 +175,7 @@ async def addResultToDB(
         await session.commit()
 
 
-async def getResultsFromDB(
+async def get_results_from_DB(
     engine: AsyncEngine, uuid: UUID
 ) -> list[ImplementationNode] | None:
     async with AsyncSession(engine) as session:

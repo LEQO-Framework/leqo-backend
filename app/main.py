@@ -24,11 +24,11 @@ from app.model.StatusResponse import Progress, StatusResponse, StatusType
 from app.processing import EnrichingProcessor, MergingProcessor
 from app.services import get_db_engine, get_result_url, get_settings, leqo_lifespan
 from app.utils import (
-    addResultToDB,
-    addStatusResponseToDB,
-    getResultsFromDB,
-    getStatusResponseFromDB,
-    updateStatusResponseInDB,
+    add_result_to_DB,
+    add_status_response_to_DB,
+    get_results_from_DB,
+    get_status_response_from_DB,
+    update_status_response_in_DB,
 )
 
 app = FastAPI(lifespan=leqo_lifespan)
@@ -57,7 +57,7 @@ async def post_compile(
 
     uuid: UUID = uuid4()
     statusResponse = StatusResponse.init_status(uuid)
-    await addStatusResponseToDB(engine, statusResponse)
+    await add_status_response_to_DB(engine, statusResponse)
 
     background_tasks.add_task(
         process_compile_request, uuid, processor, settings, engine
@@ -84,7 +84,7 @@ async def post_enrich(
 
     uuid: UUID = uuid4()
     statusResponse = StatusResponse.init_status(uuid)
-    await addStatusResponseToDB(engine, statusResponse)
+    await add_status_response_to_DB(engine, statusResponse)
 
     background_tasks.add_task(process_enrich_request, uuid, processor, settings, engine)
 
@@ -104,7 +104,7 @@ async def get_status(
     :raises HTTPException: (Status 404) If no compile request with uuid is found
     """
 
-    state = await getStatusResponseFromDB(engine, uuid)
+    state = await get_status_response_from_DB(engine, uuid)
 
     if state is None:
         raise HTTPException(
@@ -124,7 +124,7 @@ async def get_result(
     :raises HTTPException: (Status 404) If no compile request with uuid is found
     """
 
-    result = await getResultsFromDB(engine, uuid)
+    result = await get_results_from_DB(engine, uuid)
 
     if result is None:
         raise HTTPException(
@@ -161,7 +161,7 @@ async def process_compile_request(
     except Exception as exception:
         result_url = str(exception) or type(exception).__name__
 
-    state = await getStatusResponseFromDB(engine, uuid)
+    state = await get_status_response_from_DB(engine, uuid)
     if state is None:
         raise HTTPException(
             status_code=404, detail=f"No compile request with uuid '{uuid}' found."
@@ -171,8 +171,8 @@ async def process_compile_request(
     state.completedAt = completedAt
     state.progress = Progress(percentage=100, currentStep="done")
     state.result = result_url
-    await updateStatusResponseInDB(engine, state)
-    await addResultToDB(
+    await update_status_response_in_DB(engine, state)
+    await add_result_to_DB(
         engine,
         uuid,
         [
@@ -203,7 +203,7 @@ async def process_enrich_request(
 
     try:
         resultsAsImplNode = await processor.enrich_all()
-        await addResultToDB(engine, uuid, resultsAsImplNode)
+        await add_result_to_DB(engine, uuid, resultsAsImplNode)
 
         result_url = get_result_url(uuid, settings)
         status = StatusType.COMPLETED
@@ -211,7 +211,7 @@ async def process_enrich_request(
     except Exception as exception:
         result_url = str(exception) or type(exception).__name__
 
-    state = await getStatusResponseFromDB(engine, uuid)
+    state = await get_status_response_from_DB(engine, uuid)
     if state is None:
         raise HTTPException(
             status_code=404, detail=f"No compile request with uuid '{uuid}' found."
@@ -221,7 +221,7 @@ async def process_enrich_request(
     state.completedAt = completedAt
     state.progress = Progress(percentage=100, currentStep="done")
     state.result = result_url
-    await updateStatusResponseInDB(engine, state)
+    await update_status_response_in_DB(engine, state)
 
 
 @app.post("/debug/compile", response_class=PlainTextResponse)
