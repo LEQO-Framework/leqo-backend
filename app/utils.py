@@ -14,8 +14,8 @@ from app.model.CompileRequest import ImplementationNode
 from app.model.database_model import (
     CompileResult,
     EnrichResult,
-    ProcessStates,
     SingleEnrichResult,
+    StatusResponseDb,
 )
 from app.model.StatusResponse import Progress, StatusResponse
 
@@ -91,7 +91,7 @@ async def add_status_response_to_db(
     :param engine: Database to insert the :class:`StatusResponse` in
     :param status: The :class:`StatusResponse` to add to the database
     """
-    process_state = ProcessStates(
+    process_state = StatusResponseDb(
         id=status.uuid,
         status=status.status,
         createdAt=status.createdAt,
@@ -110,7 +110,7 @@ async def update_status_response_in_db(
     engine: AsyncEngine, newState: StatusResponse
 ) -> None:
     """Update the :class:`StatusResponse` in the database by replacing the row."""
-    new_process_state = ProcessStates(
+    new_process_state = StatusResponseDb(
         id=newState.uuid,
         status=newState.status,
         createdAt=newState.createdAt,
@@ -136,7 +136,7 @@ async def get_status_response_from_db(
     :return: The :class:`StatusResponse` if found, otherwise None
     """
     async with AsyncSession(engine) as session:
-        process_state_db = await session.get(ProcessStates, uuid)
+        process_state_db = await session.get(StatusResponseDb, uuid)
         if process_state_db:
             return StatusResponse(
                 uuid=uuid,

@@ -13,7 +13,7 @@ class Base(DeclarativeBase):
     pass
 
 
-class ProcessStates(Base):
+class StatusResponseDb(Base):
     """Class to store the states of all current processes
     which await processing or a currently processed.
     """
