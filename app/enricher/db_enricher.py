@@ -47,14 +47,14 @@ class DataBaseEnricherStrategy(EnricherStrategy, ABC):
         depth: int | None,
     ) -> BaseNode | None:
         """
-        Generate an :class:`~app.enricher.models.BaseNode` which can then be inserted into the database.
+        Generate a :class:`~app.enricher.models.BaseNode` which can then be inserted into the database.
 
         :param node: The frontend node.
         :param implementation: The implementation of the node.
         :param requested_inputs: Dictionary where the key is the input index and value the type of the node.
         :param width: Width of the node implementation.
         :param depth: Depth of the node implementation.
-        :return: Whether the insert was successful.
+        :return: The generated BaseNode if possible
         """
         return None
 
