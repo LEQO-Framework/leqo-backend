@@ -12,9 +12,10 @@ from sqlalchemy.orm import selectinload
 
 from app.model.CompileRequest import ImplementationNode
 from app.model.database_model import (
-    ProcessedResults,
+    EnrichmentResult,
+    ProcessedEnrichmentResults,
+    ProcessedResult,
     ProcessStates,
-    ResultImplementation,
 )
 from app.model.StatusResponse import Progress, StatusResponse
 
@@ -82,7 +83,7 @@ def duplicates[T](list: list[T]) -> set[T]:
     return result
 
 
-async def add_status_response_to_DB(engine: AsyncEngine, status: StatusResponse) -> None:
+async def add_status_response_to_db(engine: AsyncEngine, status: StatusResponse) -> None:
     """Add the :class:`StatusResponse` to the database
 
     :param engine: Database to insert the :class:`StatusResponse` in
@@ -103,7 +104,7 @@ async def add_status_response_to_DB(engine: AsyncEngine, status: StatusResponse)
         await session.commit()
 
 
-async def update_status_response_in_DB(
+async def update_status_response_in_db(
     engine: AsyncEngine, newState: StatusResponse
 ) -> None:
     """Update the :class:`StatusResponse` in the database by replacing the row."""
@@ -121,7 +122,7 @@ async def update_status_response_in_DB(
         await session.commit()
 
 
-async def get_status_response_from_DB(
+async def get_status_response_from_db(
     engine: AsyncEngine, uuid: UUID
 ) -> StatusResponse | None:
     """Get the instance of :class:`StatusResponse` with the given uuid from the database
@@ -149,8 +150,8 @@ async def get_status_response_from_DB(
         return None
 
 
-async def add_result_to_DB(
-    engine: AsyncEngine, uuid: UUID, results: list[ImplementationNode]
+async def add_result_to_db(
+    engine: AsyncEngine, uuid: UUID, results: str | list[ImplementationNode]
 ) -> None:
     """Add a result to the database for the given uuid
 
@@ -158,41 +159,54 @@ async def add_result_to_DB(
     :param uuid: UUID of the process state this result belongs
     :param result: List of :class:`ImplementationNode` to add as results
     """
-    async with AsyncSession(engine) as session:
-        processed_result = ProcessedResults(id=uuid)
-        result_impls = [
-            ResultImplementation(
+    result: ProcessedResult | ProcessedEnrichmentResults
+    if isinstance(results, str):
+        result = ProcessedResult(
+            id=uuid, implementation=results
+        )
+    else:
+        result = ProcessedEnrichmentResults(id=uuid)
+        enrichment_results = [
+            EnrichmentResult(
                 impl_id=result.id,
                 impl_label=result.label,
                 implementation=result.implementation,
-                processed_result=processed_result,
+                processed_enrichment_result=result,
             )
             for result in results
         ]
-        processed_result.results = result_impls
-
-        session.add(processed_result)
+        result.results = enrichment_results
+    
+    async with AsyncSession(engine) as session:
+        session.add(result)
         await session.commit()
 
 
-async def get_results_from_DB(
+async def get_results_from_db(
     engine: AsyncEngine, uuid: UUID
-) -> list[ImplementationNode] | None:
+) -> str | list[ImplementationNode] | None:
     async with AsyncSession(engine) as session:
-        result = await session.execute(
-            select(ProcessedResults)
-            .options(selectinload(ProcessedResults.results))
-            .where(ProcessedResults.id == uuid)
+        db_result = await session.execute(
+            select(ProcessedResult).where(ProcessedResult.id == uuid)
         )
-        processed_result = result.scalar_one_or_none()
+        processed_result = db_result.scalar_one_or_none()
         if processed_result:
+            return processed_result.implementation
+
+        enrichment_db_result = await session.execute(
+            select(ProcessedEnrichmentResults)
+            .options(selectinload(ProcessedEnrichmentResults.results))
+            .where(ProcessedEnrichmentResults.id == uuid)
+        )
+        processed_enrichment_result = enrichment_db_result.scalar_one_or_none()
+        if processed_enrichment_result:
             return [
                 ImplementationNode(
-                    id=result.impl_id,
-                    label=result.impl_label,
+                    id=res.impl_id,
+                    label=res.impl_label,
                     type="implementation",
-                    implementation=result.implementation,
+                    implementation=res.implementation,
                 )
-                for result in processed_result.results
+                for res in processed_enrichment_result.results
             ]
         return None

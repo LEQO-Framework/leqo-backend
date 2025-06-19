@@ -29,20 +29,30 @@ class ProcessStates(Base):
     result: Mapped[str] = mapped_column(nullable=True)
 
 
-class ProcessedResults(Base):
+class ProcessedResult(Base):
     """Class to store the processed results."""
 
     __tablename__ = "processed_results"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
-    results: Mapped[list["ResultImplementation"]] = relationship(
-        "ResultImplementation",
-        back_populates="processed_result",
+    implementation: Mapped[str] = mapped_column(nullable=False)
+
+    
+class ProcessedEnrichmentResults(Base):
+    """Class to store the processed results."""
+
+    __tablename__ = "processed_enrichment_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    results: Mapped[list["EnrichmentResult"]] = relationship(
+        "EnrichmentResult",
+        back_populates="processed_enrichment_results",
         cascade="all, delete-orphan",
     )
 
 
-class ResultImplementation(Base):
+class EnrichmentResult(Base):
+    """Class to store the implementation of a result."""
     __tablename__ = "result_implementations"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -51,10 +61,10 @@ class ResultImplementation(Base):
     impl_id: Mapped[str] = mapped_column(nullable=False)
     impl_label: Mapped[str] = mapped_column(nullable=True)
     implementation: Mapped[str] = mapped_column(nullable=False)
-    processed_result_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("processed_results.id"), nullable=False
+    processed_enrichment_result: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("processed_enrichment_results.id"), nullable=False
     )
 
-    processed_result: Mapped["ProcessedResults"] = relationship(
-        "ProcessedResults", back_populates="results"
+    processed_enrichment_results: Mapped["ProcessedEnrichmentResults"] = relationship(
+        "ProcessedEnrichmentResults", back_populates="results"
     )
