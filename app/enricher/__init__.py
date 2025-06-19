@@ -126,11 +126,11 @@ class EnricherStrategy(ABC):
 
     async def insert_enrichment(
         self,
-        _node: FrontendNode,
-        _implementation: str,
-        _requested_inputs: dict[int, LeqoSupportedType],
-        _meta_data: SingleInsertMetaData,
-        _session: AsyncSession | None = None,
+        node: FrontendNode,  # noqa ARG002
+        implementation: str,  # noqa ARG002
+        requested_inputs: dict[int, LeqoSupportedType],  # noqa ARG002
+        meta_data: SingleInsertMetaData,  # noqa ARG002
+        session: AsyncSession | None = None,  # noqa ARG002
     ) -> bool:
         """
         Insert an enrichment :class:`~app.model.CompileRequest.ImplementationNode` for a given :class:`~app.model.CompileRequest.Node`.
