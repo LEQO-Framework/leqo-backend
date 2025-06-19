@@ -17,7 +17,15 @@ from app.model.database_model import (
     SingleEnrichResult,
     StatusResponseDb,
 )
-from app.model.StatusResponse import Progress, StatusResponse
+from app.model.exceptions import LeqoProblemDetails
+from app.model.StatusResponse import (
+    CreatedStatus,
+    FailedStatus,
+    Progress,
+    StatusResponse,
+    StatusType,
+    SuccessStatus,
+)
 
 TParam = TypeVar("TParam")
 TReturn = TypeVar("TReturn")
@@ -108,21 +116,21 @@ async def add_status_response_to_db(
 
 
 async def update_status_response_in_db(
-    engine: AsyncEngine, newState: StatusResponse
+    engine: AsyncEngine, new_state: StatusResponse
 ) -> None:
     """
     Update the :class:`~app.model.StatusResponse.StatusResponse` in the database by replacing the row.
     """
     new_process_state = StatusResponseDb(
-        id=newState.uuid,
-        status=newState.status,
-        createdAt=newState.createdAt,
-        completedAt=newState.completedAt,
-        progressPercentage=newState.progress.percentage if newState.progress else None,
-        progressCurrentStep=newState.progress.currentStep
-        if newState.progress
-        else None,
-        result=newState.result,
+        id=new_state.uuid,
+        status=new_state.status,
+        createdAt=new_state.createdAt,
+        completedAt=new_state.completedAt,
+        progressPercentage=new_state.progress.percentage,
+        progressCurrentStep=new_state.progress.currentStep,
+        result=new_state.result.model_dump_json()
+        if isinstance(new_state.result, LeqoProblemDetails)
+        else new_state.result,
     )
     async with AsyncSession(engine) as session:
         await session.merge(new_process_state)
@@ -141,21 +149,36 @@ async def get_status_response_from_db(
     """
     async with AsyncSession(engine) as session:
         process_state_db = await session.get(StatusResponseDb, uuid)
-        if process_state_db:
-            return StatusResponse(
-                uuid=uuid,
-                status=process_state_db.status,
-                createdAt=process_state_db.createdAt,
-                completedAt=process_state_db.completedAt,
-                progress=Progress(
-                    percentage=process_state_db.progressPercentage,
-                    currentStep=process_state_db.progressCurrentStep,
+        if process_state_db is None:
+            return None
+
+        progress = Progress(
+            percentage=process_state_db.progressPercentage,
+            currentStep=process_state_db.progressCurrentStep,
+        )
+
+        match process_state_db.status:
+            case StatusType.IN_PROGRESS:
+                return CreatedStatus(
+                    uuid=uuid, createdAt=process_state_db.createdAt, progress=progress
                 )
-                if process_state_db.progressPercentage is not None
-                else None,
-                result=process_state_db.result,
-            )
-        return None
+            case StatusType.COMPLETED:
+                return SuccessStatus(
+                    uuid=uuid,
+                    createdAt=process_state_db.createdAt,
+                    completedAt=process_state_db.completedAt,
+                    progress=progress,
+                    result=process_state_db.result,
+                )
+            case StatusType.FAILED:
+                return FailedStatus(
+                    uuid=uuid,
+                    createdAt=process_state_db.createdAt,
+                    progress=progress,
+                    result=LeqoProblemDetails.model_validate_json(
+                        process_state_db.result
+                    ),
+                )
 
 
 async def add_result_to_db(
