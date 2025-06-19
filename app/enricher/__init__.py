@@ -245,6 +245,7 @@ class Enricher:
             raise UnableToInsertImplementation(node)
 
         success = False
+        exceptions: list[Exception] = []
 
         async for result in asyncio.as_completed(
             strategy.insert_enrichment(
@@ -252,7 +253,15 @@ class Enricher:
             )
             for strategy in self.strategies
         ):
-            success = success or await result
+            try:
+                success = success or await result
+            except Exception as ex:
+                exceptions.append(ex)
 
         if not success:
+            if len(exceptions) > 1:
+                raise ExceptionGroup(
+                    "Insertion failed with some exceptions.", exceptions
+                )
+
             raise UnableToInsertImplementation(node)
