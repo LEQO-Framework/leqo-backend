@@ -170,5 +170,6 @@ def test_insert(test: tuple[str, InsertBaseline], client: TestClient) -> None:
         headers={"Content-Type": "application/json"},
         content=base.merge_request,
     )
+    print(response.text)
     assert base.merge_result == response.text
     assert base.merge_status == response.status_code
