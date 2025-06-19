@@ -245,7 +245,7 @@ class SingleInsert(BaseModel):
 
     node: Annotated[EnrichableNode, Field(discriminator="type")]
     implementation: str
-    meta: SingleInsertMetaData
+    metadata: SingleInsertMetaData
 
 
 class InsertRequest(BaseModel):

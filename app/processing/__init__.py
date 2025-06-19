@@ -340,16 +340,19 @@ class EnrichmentInserter:
                 requested_inputs = {k: v.type for k, v in processed.io.inputs.items()}
                 actual_width = processed.qubit.get_width()
 
-                if insert.meta.width is not None and actual_width != insert.meta.width:
-                    msg = f"Specified width does not match parsed width: {insert.meta.width} != {actual_width}"
+                if (
+                    insert.metadata.width is not None
+                    and actual_width != insert.metadata.width
+                ):
+                    msg = f"Specified width does not match parsed width: {insert.metadata.width} != {actual_width}"
                     raise UnsupportedOperation(msg)
-                insert.meta.width = actual_width
+                insert.metadata.width = actual_width
 
                 await self.enricher.insert_enrichment(
                     insert.node,
                     insert.implementation,
                     requested_inputs,
-                    insert.meta,
+                    insert.metadata,
                     session,
                 )
             await session.commit()

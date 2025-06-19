@@ -4,7 +4,7 @@ insert_request: |
       {
         "node": { "id": "any-id", "type": "operator", "operator": "+" },
         "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[3] q31;\n@leqo.input 1\nqubit[3] q32;\nqubit[2] q33;ccx q31[1], q32[1], q32[2];\ncx q31[1], q32[1];\nccx q31[0], q32[0], q33[1];\ncx q31[0], q32[0];\nccx q33[0], q32[0], q33[1];\nccx q33[1], q32[1], q32[2];\ncx q33[1], q32[1];\nccx q33[0], q32[0], q33[1];\ncx q31[0], q32[0];\nccx q31[0], q32[0], q33[1];\ncx q33[0], q32[0];\ncx q31[0], q32[0];\n@leqo.output 0\nlet out = q32;",
-        "meta": { "width": 8, "depth": 10 }
+        "metadata": { "width": 8, "depth": 10 }
       }
     ]
   }
