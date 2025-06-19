@@ -1,7 +1,7 @@
 LEQO Backend
 ============
 
-This project is part of the `LEQO-Framework <https://github.com/LEQO-Framework>`_ .
+This `project <https://github.com/LEQO-Framework/leqo-backend>`_ is part of the `LEQO-Framework <https://github.com/LEQO-Framework>`_ .
 It primarily desinged to be the backend for the `LEQO low-code-modeler <https://github.com/LEQO-Framework/low-code-modeler>`_.
 However, since it provides its services via a simple REST-API, it can also be used as a standalone tool.
 
