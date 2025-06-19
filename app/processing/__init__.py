@@ -12,7 +12,6 @@ from networkx.algorithms.dag import topological_sort
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
     CompileRequest,
-    EnrichableNode,
     IfThenElseNode,
     ImplementationNode,
     InsertRequest,
