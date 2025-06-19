@@ -1,7 +1,11 @@
 name: LEQO
 services:
+  leqo-frontend:
+    image: ghcr.io/leqo-framework/low-code-modeler:main
+    ports:
+      - 127.0.0.1:80:4242
   leqo-backend:
-    build: .
+    image: ghcr.io/leqo-framework/leqo-backend:main
     env_file: ".env"
     restart: unless-stopped
     depends_on:
@@ -18,7 +22,5 @@ services:
     restart: unless-stopped
     volumes:
       - db-data:/var/lib/postgresql/data
-    ports:
-      - "${POSTGRES_PORT}:5432"
 volumes:
   db-data:
