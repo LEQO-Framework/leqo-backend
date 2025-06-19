@@ -39,6 +39,10 @@ Once started, access the backend at:
 
 For architecture, API reference, and developer guides, see our [full documentation site](https://leqo-framework.github.io/leqo-backend/).
 
+## 📑 License
+
+The LEQO-backend is available under the [Apache 2.0 LICENSE](./LICENSE).
+
 ## ⚠️ Disclaimer of Warranty
 
 Unless required by applicable law or agreed to in writing, Licensor provides the Work (and each Contributor provides its
