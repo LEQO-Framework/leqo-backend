@@ -12,6 +12,7 @@ from openqasm3.ast import (
 )
 
 from app.openqasm3.visitor import LeqoTransformer
+from app.processing.pre.utils import PreprocessingException
 
 
 class InliningTransformer(LeqoTransformer[None]):
@@ -44,7 +45,7 @@ class InliningTransformer(LeqoTransformer[None]):
                 return node
 
         if self.lookup.get(node.identifier.name) is not None:
-            raise Exception("Constant already defined")
+            raise PreprocessingException("Constant already defined")
 
         self.lookup[node.identifier.name] = node
         return None  # Remove node

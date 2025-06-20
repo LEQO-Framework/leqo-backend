@@ -1,0 +1,37 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "int", "value": 1 },
+      {
+        "id": "newNode1",
+        "type": "implementation",
+        "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\nint[32] val;\nqubit[3] q;\nx q[0];\nlet out = q;"
+      }
+    ],
+    "edges": [
+      { "source": ["newNode0", 0], "target": ["newNode1", 0] }
+    ]
+  }
+
+expected_status: 400
+expected_result: |
+  {
+    "type": "MergeException",
+    "title": "Bad Request",
+    "status": 400,
+    "detail": "Unsupported: Missing input index in connection\n\nIndex 0 from newNode1 modeled,\nbut no such annotation was found.\n",
+    "instance": null,
+    "node": {
+      "id": "newNode1",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\nint[32] leqo_15b97591d2d252d4932c57137d560388_val;\nqubit[3] leqo_15b97591d2d252d4932c57137d560388_q;\nx leqo_15b97591d2d252d4932c57137d560388_q[0];\nlet leqo_15b97591d2d252d4932c57137d560388_out = leqo_15b97591d2d252d4932c57137d560388_q;\n"
+    },
+    "inputIndex": null
+  }

@@ -1,5 +1,4 @@
 import re
-from io import UnsupportedOperation
 
 import pytest
 from openqasm3.parser import parse
@@ -12,6 +11,7 @@ from app.processing.graph import (
     QubitIOInstance,
 )
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
+from app.processing.pre.utils import PreprocessingException
 from app.processing.utils import normalize_qasm_string
 
 
@@ -397,7 +397,7 @@ def test_raise_on_missing_input_index() -> None:
     qubit[2] q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: Missing input index 1, next index was 2",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -414,7 +414,7 @@ def test_raise_on_missing_output_index() -> None:
     let b = q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: Missing output index 1, next index was 2",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -428,7 +428,7 @@ def test_raise_on_duplicate_input_index() -> None:
     qubit[2] q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: duplicate input id: 0",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -445,7 +445,7 @@ def test_raise_on_duplicate_output_index() -> None:
     let b = q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: duplicate output id: 0",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -459,7 +459,7 @@ def test_raise_on_input_index_not_starting_at_zero() -> None:
     qubit[2] q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: Missing input index 0, next index was 1",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -476,7 +476,7 @@ def test_raise_on_output_index_not_starting_at_zero() -> None:
     let b = q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: Missing output index 0, next index was 1",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -490,7 +490,7 @@ def test_raise_on_index_on_reusable() -> None:
     let a = q1;
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: found 3 over reusable annotations a",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -502,7 +502,7 @@ def test_raise_on_index_on_dirty() -> None:
     qubit[2] q1;
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: found 3 over dirty annotations q1",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -522,7 +522,7 @@ def test_raise_on_uncompute_in_uncompute() -> None:
     }
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: nested uncompute blocks",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -539,7 +539,7 @@ def test_raise_on_invalid_uncompute_expr() -> None:
     }
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match=re.escape(
             "Unsupported: invalid expression in uncompute-annotated if-then-else-block: BooleanLiteral(span=Span(start_line=5, start_column=8, end_line=5, end_column=8), value=True)",
         ),
@@ -558,7 +558,7 @@ def test_raise_on_output_in_uncompute() -> None:
     }
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: output declaration over a in uncompute block",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -577,7 +577,7 @@ def test_raise_on_else_in_uncompute() -> None:
     }
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: uncompute-annotated if-then-else-block has else-block",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -590,7 +590,7 @@ def test_raise_on_duplicate_declaration_annotation() -> None:
     qubit[2] q0;
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: two input annotations over q0",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -605,7 +605,7 @@ def test_raise_on_duplicate_alias_annotation() -> None:
     let tmp = q0;
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: two output annotations over tmp",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -619,7 +619,7 @@ def test_raise_on_input_annotation_over_alias() -> None:
     let tmp = q0;
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: leqo.input annotations over AliasStatement tmp",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -631,7 +631,7 @@ def test_raise_on_output_annotation_over_declaration() -> None:
     qubit[2] q0;
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: leqo.output annotations over QubitDeclaration q0",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -647,7 +647,7 @@ def test_raise_on_reusable_and_output() -> None:
     let b = q0[2];
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: qubit with 2 was parsed as reusable or output twice",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -663,7 +663,7 @@ def test_raise_on_double_output_declaration_on_single_qubit() -> None:
     let b = q0[1];
     """
     with pytest.raises(
-        UnsupportedOperation,
+        PreprocessingException,
         match="Unsupported: qubit with 1 was parsed as reusable or output twice",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))

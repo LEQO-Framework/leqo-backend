@@ -126,7 +126,7 @@ class EnricherStrategy(ABC):
         if isinstance(result, Iterable):
             return result
 
-        raise Exception("Invalid enrichment result")
+        raise RuntimeError("Invalid enrichment result")
 
     async def insert_enrichment(
         self,

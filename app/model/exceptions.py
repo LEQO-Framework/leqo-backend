@@ -165,7 +165,7 @@ class LeqoProblemDetails(ProblemDetails):
     :class:`~app.model.exceptions.ProblemDetails` specific for the leqo backend.
     """
 
-    nodeId: str | None = Field(default=None)
+    node: Node | None = Field(default=None)
     inputIndex: int | None = Field(default=None)
 
     def to_response(self) -> JSONResponse:
@@ -184,12 +184,16 @@ class LeqoProblemDetails(ProblemDetails):
 
         if not isinstance(ex, DiagnosticError):
             return LeqoProblemDetails(
-                status=500, title="Internal Server Error", detail=stream.getvalue()
+                status=500,
+                type=type(ex).__name__ if is_debug else "<Redacted>",
+                title="Internal Server Error",
+                detail=stream.getvalue(),
             )
 
         return LeqoProblemDetails(
             status=400,
+            type=type(ex).__name__,
             title="Bad Request",
             detail=stream.getvalue(),
-            nodeId=ex.node.id if ex.node else None,
+            node=ex.node,
         )

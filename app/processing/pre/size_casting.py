@@ -5,7 +5,6 @@ Allow for smaller inputs by reducing the size of the type in the AST and parsed 
 from __future__ import annotations
 
 from copy import deepcopy
-from io import UnsupportedOperation
 
 from openqasm3.ast import (
     AliasStatement,
@@ -27,7 +26,7 @@ from app.processing.graph import (
     ProcessedProgramNode,
     QubitIOInstance,
 )
-from app.processing.utils import parse_io_annotation
+from app.processing.pre.utils import PreprocessingException, parse_io_annotation
 
 
 class CreateUnseenNamesVisitor(LeqoTransformer[None]):
@@ -116,7 +115,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
             requested is not None and actual is not None and requested > actual
         ):
             msg = f"Try to make {ioinstance} bigger, only smaller is possible."
-            raise UnsupportedOperation(msg)
+            raise PreprocessingException(msg)
 
     def visit_ClassicalDeclaration(
         self,
@@ -178,7 +177,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
             case IntType() | FloatType():
                 if requested is None:
                     msg = "can't cast int/float to None"
-                    raise UnsupportedOperation(msg)
+                    raise PreprocessingException(msg)
 
                 # create new declaration with old name + size pointing to new
                 new_input_node = ClassicalDeclaration(

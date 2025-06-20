@@ -3,7 +3,6 @@ Unroll the repeat node.
 """
 
 from copy import deepcopy
-from io import UnsupportedOperation
 
 from app.enricher import ParsedImplementationNode
 from app.model.CompileRequest import RepeatNode
@@ -11,6 +10,13 @@ from app.model.data_types import LeqoSupportedType
 from app.processing.frontend_graph import FrontendGraph
 from app.processing.graph import ProgramNode
 from app.processing.nested.utils import generate_pass_node_implementation
+from app.processing.utils import ProcessingException
+
+
+class RepeatException(ProcessingException):
+    """
+    Exception raises during :mod:`app.processing.nested.repeat`.
+    """
 
 
 def unroll_repeat(
@@ -25,7 +31,7 @@ def unroll_repeat(
     """
     if node.iterations < 1:  # should have been checked by fastapi
         msg = f"RepeatNode can't have {node.iterations} < 1 iterations."
-        raise UnsupportedOperation(msg)
+        raise RepeatException(msg, node)
 
     parent_id = ProgramNode(node.id).id
     pass_node_impl = generate_pass_node_implementation(requested_inputs)

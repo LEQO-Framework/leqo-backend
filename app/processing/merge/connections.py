@@ -3,7 +3,6 @@ Connect input/output by modifying the AST based on :class:`~app.processing.graph
 """
 
 from dataclasses import dataclass
-from io import UnsupportedOperation
 from textwrap import dedent
 from uuid import UUID
 
@@ -29,6 +28,8 @@ from app.processing.graph import (
     QubitInfo,
     QubitIOInstance,
 )
+from app.processing.merge.utils import MergeException
+from app.utils import safe_generate_implementation_node
 
 
 @dataclass(frozen=True, order=True)
@@ -190,7 +191,7 @@ class _Connections:
         output_type, input_type = output.type, input.type
         if output_type != input_type:
             msg = f"Unsupported: Mismatched types in IOConnection {output_type} != {input_type}"
-            raise UnsupportedOperation(msg)
+            raise MergeException(msg)
         output_ids = output.ids if isinstance(output.ids, list) else [output.ids]
         input_ids = input.ids if isinstance(input.ids, list) else [input.ids]
         for s_id, t_id in zip(output_ids, input_ids, strict=True):
@@ -218,7 +219,7 @@ class _Connections:
                 output {output.name} has type {output.type}
                 input {input.name} has type {input.type}
                 """)
-            raise UnsupportedOperation(msg)
+            raise MergeException(msg)
         if input.name in self.classical_input_to_output:
             msg = dedent(f"""\
                 Unsupported: Multiple inputs into classical
@@ -226,7 +227,7 @@ class _Connections:
                 Both {self.classical_input_to_output[input.name]} and {output.name}
                 are input to {input.name} but only one is allowed.
                 """)
-            raise UnsupportedOperation(msg)
+            raise MergeException(msg)
         self.classical_input_to_output[input.name] = output.name
 
     def handle_connection(
@@ -249,7 +250,13 @@ class _Connections:
                         Index {edge.source[1]} from {edge.source[0].name} modeled,
                         but no such annotation was found.
                         """)
-                    raise UnsupportedOperation(msg)
+                    node = self.graph.node_data[edge.source[0]]
+                    raise MergeException(
+                        msg,
+                        safe_generate_implementation_node(
+                            node.raw.name, node.implementation
+                        ),
+                    )
                 if input is None:
                     msg = dedent(f"""\
                         Unsupported: Missing input index in connection
@@ -257,7 +264,14 @@ class _Connections:
                         Index {edge.target[1]} from {edge.target[0].name} modeled,
                         but no such annotation was found.
                         """)
-                    raise UnsupportedOperation(msg)
+                    node = self.graph.node_data[edge.target[0]]
+                    raise MergeException(
+                        msg,
+                        safe_generate_implementation_node(
+                            node.raw.name, node.implementation
+                        ),
+                    )
+
                 match output, input:
                     case QubitIOInstance(), QubitIOInstance():
                         self.handle_qubit_connection(
@@ -275,7 +289,7 @@ class _Connections:
                             Index {edge.target[1]} from {edge.target[0].name} tries to
                             connect to index {edge.source[1]} from {edge.target[0].name}
                             """)
-                        raise UnsupportedOperation(msg)
+                        raise MergeException(msg)
             case AncillaConnection():
                 self.handle_qubit_connection(
                     # the name __ancilla__ is only used in errors
@@ -361,7 +375,15 @@ class _Connections:
         for source_node, target_node in self.graph.edges():
             edges = self.graph.get_data_edges(source_node, target_node)
             for edge in edges:
-                self.handle_connection(edge)
+                try:
+                    self.handle_connection(edge)
+                except MergeException as exc:
+                    if exc.node is None:
+                        node = self.graph.node_data[edge.source[0]]
+                        exc.node = safe_generate_implementation_node(
+                            node.raw.name, node.implementation
+                        )
+                    raise exc
 
         qubit_to_reg_index: dict[SingleQubit, int]
         reg_index: int
