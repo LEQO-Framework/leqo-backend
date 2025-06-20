@@ -13,9 +13,7 @@ The steps are:
 """
 
 from openqasm3.ast import Program
-from openqasm3.printer import dumps
 
-from app.model.CompileRequest import ImplementationNode
 from app.model.data_types import LeqoSupportedType
 from app.processing.graph import IOInfo, ProcessedProgramNode, ProgramNode, QubitInfo
 from app.processing.pre.converter import parse_to_openqasm3
