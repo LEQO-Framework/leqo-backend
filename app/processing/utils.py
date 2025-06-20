@@ -33,5 +33,5 @@ def cast_to_program(node: QASMNode | None) -> Program:
     """
     if not isinstance(node, Program):
         msg = f"Tried to cast {type(node)} to Program."
-        raise TypeError(msg)
+        raise ProcessingException(msg)
     return node

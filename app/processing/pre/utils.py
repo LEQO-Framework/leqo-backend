@@ -49,11 +49,11 @@ def expr_to_int(expr: Expression | None) -> int:
                     return -expr_to_int(expr.expression)
                 case _:
                     msg = f"Unsported op: {op=}"
-                    raise TypeError(msg)
+                    raise PreprocessingException(msg)
 
         case _:
             msg = f"Could not resolve {expr=} of type {type(expr)=} to an integer"
-            raise TypeError(msg)
+            raise PreprocessingException(msg)
 
 
 TQasmStatement = TypeVar("TQasmStatement", bound=Statement)
@@ -131,7 +131,7 @@ def parse_qasm_index(index: list[IndexElement], length: int) -> list[int] | int:
             case list():
                 if len(subindex) != 1:
                     msg = "only 1D indexers are supported"  # qiskit 1.4.2 also raises this
-                    raise TypeError(msg)
+                    raise PreprocessingException(msg)
                 match subindex[0]:
                     case Expression():
                         tmp = result[expr_to_int(subindex[0])]

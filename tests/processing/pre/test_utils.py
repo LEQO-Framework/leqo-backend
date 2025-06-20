@@ -43,12 +43,10 @@ def test_parse_qasm_index() -> None:
         ast = parse(f"x q{index_str};")
         statement = ast.statements[0]
         if not isinstance(statement, QuantumGate):
-            msg = "This should not be possible..."
-            raise TypeError(msg)
+            raise TypeError
         qubit = statement.qubits[0]
         if not isinstance(qubit, IndexedIdentifier):
-            msg = "This should not be possible..."
-            raise TypeError(msg)
+            raise TypeError
         result = parse_qasm_index(qubit.indices, length)
         assert result == expected
 

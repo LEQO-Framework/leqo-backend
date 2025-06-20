@@ -59,7 +59,7 @@ def not_none[T](value: T | None, error_msg: str) -> T:
     """
 
     if value is None:
-        raise Exception(error_msg)
+        raise RuntimeError(error_msg)
 
     return value
 
