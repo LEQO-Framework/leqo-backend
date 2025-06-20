@@ -5,10 +5,12 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Split
 from typing import override
 
 from openqasm3.ast import (
+    AliasStatement,
     DiscreteSet,
     Identifier,
     IndexExpression,
     IntegerLiteral,
+    QubitDeclaration,
 )
 
 from app.enricher import (
@@ -65,19 +67,19 @@ class SplitterEnricherStrategy(EnricherStrategy):
                 node, input_index=0, actual=reg_size, expected=node.numberOutputs
             )
 
-        stmts = []
+        stmts: list[QubitDeclaration | AliasStatement] = []
         identifier = "splitter_input"
         stmts.append(leqo_input(identifier, 0, reg_size))
-        for index in range(reg_size):
-            stmts.append(
-                leqo_output(  # type: ignore[arg-type]
-                    f"splitter_output_{index}",
-                    index,
-                    IndexExpression(  # type: ignore[arg-type]
-                        Identifier(identifier), DiscreteSet([IntegerLiteral(index)])
-                    ),
-                )
+        stmts.extend(
+            leqo_output(
+                f"splitter_output_{index}",
+                index,
+                IndexExpression(  # type: ignore[arg-type]
+                    Identifier(identifier), DiscreteSet([IntegerLiteral(index)])
+                ),
             )
+            for index in range(reg_size)
+        )
 
         enriched_node = implementation(node, stmts)  # type: ignore[arg-type]
         metadata = ImplementationMetaData(width=reg_size, depth=0)
