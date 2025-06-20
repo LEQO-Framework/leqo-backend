@@ -339,13 +339,12 @@ class NoPredCheckNeedDiffScore(NoPred):
             None,
         )
         for node in self.nopred:
-            required_dirty = len(node.qubit.dirty_ids)
-            required_reusable = len(node.qubit.clean_ids)
+            dirty = len(node.qubit.dirty_ids)
+            clean = len(node.qubit.clean_ids)
             satisfied = (
-                required_dirty < total_dirty + total_uncomputable
-                and required_reusable < total_reusable + total_uncomputable
-                and required_dirty + required_reusable
-                < total_dirty + total_reusable + total_uncomputable
+                dirty < total_dirty + total_uncomputable
+                and clean < total_reusable + total_uncomputable
+                and dirty + clean < total_dirty + total_reusable + total_uncomputable
             )
             if not satisfied and current_best[0]:
                 continue
@@ -353,8 +352,8 @@ class NoPredCheckNeedDiffScore(NoPred):
                 len(node.qubit.reusable_ids) * self.weight_reusable
                 + len(node.qubit.uncomputable_ids) * self.weight_uncomp
                 + len(node.qubit.entangled_ids) * self.weight_dirty
-                - required_reusable * self.weight_reusable
-                - required_dirty * self.weight_dirty
+                - clean * self.weight_reusable
+                - dirty * self.weight_dirty
             )
             if score < current_best[1]:
                 continue
