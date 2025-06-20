@@ -1,0 +1,37 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "int", "value": 1, "bitSize": 1 },
+      {
+        "id": "newNode1",
+        "type": "implementation",
+        "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] val;\n"
+      }
+    ],
+    "edges": [
+      { "source": ["newNode0", 0], "target": ["newNode1", 0] }
+    ]
+  }
+
+expected_status: 400
+expected_result: |
+  {
+    "type": "MergeException",
+    "title": "Bad Request",
+    "status": 400,
+    "detail": "Unsupported: Try to connect qubit with classical\n\nIndex 0 from newNode1 tries to\nconnect to index 0 from newNode1\n",
+    "instance": null,
+    "node": {
+      "id": "newNode0",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nint[1] leqo_a802199cae985ea28977fed1a6977cfe_literal = 1;\n@leqo.output 0\nlet leqo_a802199cae985ea28977fed1a6977cfe_out = leqo_a802199cae985ea28977fed1a6977cfe_literal;\n"
+    },
+    "inputIndex": null
+  }

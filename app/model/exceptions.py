@@ -188,5 +188,9 @@ class LeqoProblemDetails(ProblemDetails):
             )
 
         return LeqoProblemDetails(
-            status=400, title="Bad Request", detail=stream.getvalue(), node=ex.node
+            status=400,
+            type=type(ex).__name__,
+            title="Bad Request",
+            detail=stream.getvalue(),
+            node=ex.node,
         )

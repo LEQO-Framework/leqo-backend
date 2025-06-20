@@ -19,7 +19,7 @@ request: |
 expected_status: 400
 expected_result: |
   {
-    "type": null,
+    "type": "PreprocessingException",
     "title": "Bad Request",
     "status": 400,
     "detail": "Unsupported: duplicate input id: 0\n",

@@ -22,7 +22,7 @@ request: |
 expected_status: 400
 expected_result: |
   {
-    "type": null,
+    "type": "MergeException",
     "title": "Bad Request",
     "status": 400,
     "detail": "Unsupported: Missing input index in connection\n\nIndex 0 from newNode1 modeled,\nbut no such annotation was found.\n",

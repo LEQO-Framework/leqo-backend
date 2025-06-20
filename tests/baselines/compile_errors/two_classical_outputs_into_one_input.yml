@@ -1,0 +1,39 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "int", "value": 1 },
+      { "id": "newNode1", "type": "int", "value": 1 },
+      {
+        "id": "newNode2",
+        "type": "implementation",
+        "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n@leqo.input 0\nint[32] val;\n@leqo.input 1\nint[32] val;\n"
+      }
+    ],
+    "edges": [
+      { "source": ["newNode0", 0], "target": ["newNode2", 0] },
+      { "source": ["newNode1", 0], "target": ["newNode2", 0] }
+    ]
+  }
+
+expected_status: 400
+expected_result: |
+  {
+    "type": "MergeException",
+    "title": "Bad Request",
+    "status": 400,
+    "detail": "Unsupported: Multiple inputs into classical\n\nBoth leqo_a802199cae985ea28977fed1a6977cfe_out and leqo_15b97591d2d252d4932c57137d560388_out\nare input to leqo_44e2e1b30b905cfcac7970c851f892df_val but only one is allowed.\n",
+    "instance": null,
+    "node": {
+      "id": "newNode1",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nint[32] leqo_15b97591d2d252d4932c57137d560388_literal = 1;\n@leqo.output 0\nlet leqo_15b97591d2d252d4932c57137d560388_out = leqo_15b97591d2d252d4932c57137d560388_literal;\n"
+    },
+    "inputIndex": null
+  }
