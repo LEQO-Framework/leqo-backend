@@ -1,0 +1,35 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "qubit" },
+      { "id": "newNode1", "type": "qubit" },
+      { "id": "newNode2", "type": "operator", "operator": "*" }
+    ],
+    "edges": [
+      { "source": ["newNode0", 0], "target": ["newNode2", 0] },
+      { "source": ["newNode1", 0], "target": ["newNode2", 1] }
+    ]
+  }
+
+expected_status: 400
+expected_result: |
+  {
+    "type": "NoImplementationFound",
+    "title": "Bad Request",
+    "status": 400,
+    "detail": "No implementations were found\n",
+    "instance": null,
+    "node": {
+      "id": "newNode2",
+      "label": null,
+      "type": "operator",
+      "operator": "*"
+    },
+    "inputIndex": null
+  }
