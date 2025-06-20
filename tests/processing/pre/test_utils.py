@@ -1,10 +1,12 @@
-from io import UnsupportedOperation
-
 import pytest
 from openqasm3.ast import Annotation, IndexedIdentifier, QuantumGate
 from openqasm3.parser import parse
 
-from app.processing.utils import parse_io_annotation, parse_qasm_index
+from app.processing.pre.utils import (
+    PreprocessingException,
+    parse_io_annotation,
+    parse_qasm_index,
+)
 
 
 def test_parse_io_annotation() -> None:
@@ -17,10 +19,10 @@ def test_parse_io_annotation() -> None:
         )
 
     def assert_parse_failure(command: str | None, match: str) -> None:
-        with pytest.raises(UnsupportedOperation, match=match):
+        with pytest.raises(PreprocessingException, match=match):
             parse_io_annotation(Annotation("leqo.input", command))
 
-        with pytest.raises(UnsupportedOperation, match=match):
+        with pytest.raises(PreprocessingException, match=match):
             parse_io_annotation(Annotation("leqo.output", command))
 
     assert_parse("1", 1)

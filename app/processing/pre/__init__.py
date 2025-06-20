@@ -13,7 +13,9 @@ The steps are:
 """
 
 from openqasm3.ast import Program
+from openqasm3.printer import dumps
 
+from app.model.CompileRequest import ImplementationNode
 from app.model.data_types import LeqoSupportedType
 from app.processing.graph import IOInfo, ProcessedProgramNode, ProgramNode, QubitInfo
 from app.processing.pre.converter import parse_to_openqasm3
@@ -21,6 +23,7 @@ from app.processing.pre.inlining import InliningTransformer
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.pre.renaming import RenameRegisterTransformer
 from app.processing.pre.size_casting import size_cast
+from app.processing.pre.utils import PreprocessingException
 from app.processing.utils import cast_to_program
 
 
@@ -37,21 +40,32 @@ def preprocess(
     :param requested_inputs: Optional inputs specification for size_casting
     :return: The preprocessed program.
     """
-    if isinstance(implementation, Program):
-        ast = implementation
-    else:
-        ast = parse_to_openqasm3(implementation)
-    ast = RenameRegisterTransformer().visit(ast, node.id)
-    ast = cast_to_program(InliningTransformer().visit(ast))
+    try:
+        if isinstance(implementation, Program):
+            ast = implementation
+        else:
+            ast = parse_to_openqasm3(implementation)
+        ast = RenameRegisterTransformer().visit(ast, node.id)
+        ast = cast_to_program(InliningTransformer().visit(ast))
 
-    io = IOInfo()
-    qubit = QubitInfo()
-    _ = ParseAnnotationsVisitor(io, qubit).visit(ast)
+        io = IOInfo()
+        qubit = QubitInfo()
+        _ = ParseAnnotationsVisitor(io, qubit).visit(ast)
 
-    processed_node = ProcessedProgramNode(node, ast, io, qubit)
-    if requested_inputs is not None:
-        size_cast(
-            processed_node,
-            {index: type.size for index, type in requested_inputs.items()},
+        processed_node = ProcessedProgramNode(node, ast, io, qubit)
+        if requested_inputs is not None:
+            size_cast(
+                processed_node,
+                {index: type.size for index, type in requested_inputs.items()},
+            )
+
+    except PreprocessingException as e:
+        e.node = ImplementationNode(
+            id=node.name,
+            implementation=dumps(implementation)
+            if isinstance(implementation, Program)
+            else implementation,
         )
+        raise e
+
     return processed_node
