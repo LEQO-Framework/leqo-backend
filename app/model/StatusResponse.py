@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.model.exceptions import LeqoProblemDetails
 
@@ -28,8 +28,10 @@ class Progress(BaseModel):
     Models the progress of a compile request.
     """
 
-    percentage: int
-    currentStep: str
+    percentage: int = Field(
+        ge=0, le=100, description="Progress percentage between 0 and 100."
+    )
+    currentStep: str = Field(description="Step that is currently executing.")
 
 
 class StatusBase(BaseModel):
@@ -37,9 +39,9 @@ class StatusBase(BaseModel):
     Models the status of a process.
     """
 
-    uuid: UUID
-    createdAt: datetime
-    progress: Progress
+    uuid: UUID = Field(description="Id of the operation represented by this status.")
+    createdAt: datetime = Field(description="When this operation started.")
+    progress: Progress = Field(description="Progress of this operation.")
 
 
 class CreatedStatus(StatusBase):
@@ -58,14 +60,18 @@ class CreatedStatus(StatusBase):
 
 class SuccessStatus(StatusBase):
     status: Literal[StatusType.COMPLETED] = StatusType.COMPLETED
-    completedAt: datetime
-    result: str
+    completedAt: datetime = Field(
+        description="When this operation completed successfully."
+    )
+    result: str = Field(description="Location of the result of this operation.")
 
 
 class FailedStatus(StatusBase):
     status: Literal[StatusType.FAILED] = StatusType.FAILED
     completedAt: None = None
-    result: LeqoProblemDetails
+    result: LeqoProblemDetails = Field(
+        description="Machine-readable error information."
+    )
 
 
 StatusResponse = CreatedStatus | SuccessStatus | FailedStatus
