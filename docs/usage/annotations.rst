@@ -116,6 +116,9 @@ The annotation specifies the index of the corresponding input.
     @leqo.input 0
     qubit someName;
 
+.. warning::
+    `input` cannot be used as an identifier as it is a keyword in OpenQASM3.
+
 OpenQASM 2
 ~~~~~~~~~~
 
@@ -200,6 +203,9 @@ The annotation specifies the index of the corresponding output.
 .. note::
     Even if the ouput alias is not used in code, an alias must be defined to mark qubits as linking qubits.
     The identifier is insignificant.
+
+.. warning::
+    `output` cannot be used as an identifier as it is a keyword in OpenQASM3.
 
 OpenQASM 2
 ~~~~~~~~~~
