@@ -184,7 +184,10 @@ class LeqoProblemDetails(ProblemDetails):
 
         if not isinstance(ex, DiagnosticError):
             return LeqoProblemDetails(
-                status=500, title="Internal Server Error", detail=stream.getvalue()
+                status=500,
+                type=type(ex).__name__ if is_debug else "<Redacted>",
+                title="Internal Server Error",
+                detail=stream.getvalue(),
             )
 
         return LeqoProblemDetails(
