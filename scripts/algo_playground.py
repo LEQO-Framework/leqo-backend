@@ -136,7 +136,7 @@ class AlgoPerf(ABC):
     def __init__(self, graph: ProgramGraph) -> None:
         self.graph = graph
         self.added_edges = []
-        self.uncomputed = {n: False for n in self.graph.nodes()}
+        self.uncomputed = dict.fromkeys(self.graph.nodes(), False)
 
     def add_edge(self, edge: AncillaConnection) -> None:
         self.graph.append_edge(edge)
