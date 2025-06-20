@@ -31,7 +31,7 @@ Further Information
 -------------------
 
 - Instructions on how to use the low-code-modeler with the backend: :doc:`Setup <usage/setup>`
-- Endpoints provided by the backend: :doc:`REST Api <usage/rest-api>`
+- Endpoints provided by the backend: :doc:`REST API <usage/rest-api>`
 - Information on the configuration options of the backend: :doc:`Configuration <usage/config>`
 - Annotation specification for custom implementations: :doc:`Annotations <usage/annotations>`.
 - Information for further development: :doc:`Development <dev/overview>`
