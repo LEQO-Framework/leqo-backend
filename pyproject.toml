@@ -64,6 +64,11 @@ extend-select = [
     "T1", # flake8-debugger
     "UP", # pyupgrade
     "YTT", # flake8-2020
+    "D213", # multi-line-summary-second-line  
+    "EXE", # flake8-executable
+    "TID", # flake8-tidy-imports
+    "PERF", # detects performance anti-patterns
+    "Q", # quotes
 ]
 ignore = ["UP047"] # ignore this warning so that we can use TypeVar("...", bound=...) and make mypy happy
 
