@@ -5,8 +5,8 @@ Simple helper script to communicate with the LEQO backend.
 
 import argparse
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from time import sleep
 from urllib import request
 
