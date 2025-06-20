@@ -6,6 +6,8 @@ from collections.abc import Callable
 from typing import TypeVar
 from uuid import UUID
 
+from openqasm3.ast import Program
+from openqasm3.printer import dumps
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import selectinload
@@ -89,6 +91,24 @@ def duplicates[T](list: list[T]) -> set[T]:
         else:
             seen.add(item)
     return result
+
+
+def save_generate_implementation_node(
+    node_id: str, impl: Program | str
+) -> ImplementationNode:
+    """
+    Generate an ImplementationNode without raising an error.
+
+    This is used when an error occurred to get the implementation during failure.
+    :param node_id: the id used in the frontend
+    :param impl: the implementation to use
+    """
+    if isinstance(impl, Program):
+        try:
+            impl = dumps(impl)
+        except Exception as dump_exc:
+            impl = f"Unable to determine implementation because of {dump_exc}"
+    return ImplementationNode(id=node_id, implementation=impl)
 
 
 async def add_status_response_to_db(

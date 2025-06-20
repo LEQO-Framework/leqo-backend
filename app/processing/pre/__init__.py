@@ -25,6 +25,7 @@ from app.processing.pre.renaming import RenameRegisterTransformer
 from app.processing.pre.size_casting import size_cast
 from app.processing.pre.utils import PreprocessingException
 from app.processing.utils import cast_to_program
+from app.utils import save_generate_implementation_node
 
 
 def preprocess(
@@ -59,13 +60,8 @@ def preprocess(
                 {index: type.size for index, type in requested_inputs.items()},
             )
 
-    except PreprocessingException as e:
-        e.node = ImplementationNode(
-            id=node.name,
-            implementation=dumps(implementation)
-            if isinstance(implementation, Program)
-            else implementation,
-        )
-        raise e
+    except PreprocessingException as exc:
+        exc.node = save_generate_implementation_node(node.name, implementation)
+        raise exc
 
     return processed_node

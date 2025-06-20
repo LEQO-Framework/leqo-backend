@@ -1,6 +1,7 @@
 import json
 import os
 from collections.abc import Iterator
+from json import JSONDecodeError, dumps
 from pathlib import Path
 from time import sleep
 from typing import TypeVar
@@ -69,9 +70,12 @@ def handle_endpoints(client: TestClient, request: str, first_endpoint: str) -> R
     done = False
     for _ in range(MAX_ATTEMPTS):
         response = client.get(f"/status/{uuid}")
-        if json.loads(response.text)["status"] == "completed":
+        status = response.json()["status"]
+        if status == "completed":
             done = True
             break
+        if status == "failed":
+            return response
         sleep(POLL_INTERVAL)
     assert done, (
         f"Timeout while waiting {MAX_ATTEMPTS * POLL_INTERVAL}s for the request"
@@ -80,13 +84,16 @@ def handle_endpoints(client: TestClient, request: str, first_endpoint: str) -> R
     return client.get(f"/result/{uuid}")
 
 
-def json_assert(expected: str, response: Response) -> None:
-    if response.status_code == SUCCESS_CODE:
-        pretty_text = prettify_json(response.text)
-        print(pretty_text)
-        assert prettify_json(expected) == pretty_text
-    else:
-        assert expected == response.text
+def json_assert(expected: str, actual: str) -> None:
+    try:
+        pretty_expected = prettify_json(expected)
+        pretty_actual = prettify_json(actual)
+        print(pretty_actual)
+        assert pretty_expected == pretty_actual
+    except JSONDecodeError as exc:
+        print(exc)
+        print(actual)
+        assert expected == actual
 
 
 @pytest.mark.parametrize(
@@ -98,8 +105,22 @@ def test_compile(test: tuple[str, Baseline], client: TestClient) -> None:
     _file, base = test
     response = handle_endpoints(client, base.request, "/compile")
 
-    assert response.text == base.expected_result
-    assert response.status_code == base.expected_status
+    assert base.expected_result == response.text
+    assert base.expected_status == response.status_code
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(TEST_DIR / "errors", Baseline),
+    ids=lambda test: test[0],
+)
+def test_compile_errors(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = handle_endpoints(client, base.request, "/compile")
+
+    result = response.json()["result"]
+    json_assert(base.expected_result, dumps(result))
+    assert base.expected_status == result["status"]
 
 
 @pytest.mark.parametrize(
@@ -111,8 +132,8 @@ def test_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
     _file, base = test
     response = handle_endpoints(client, base.request, "/enrich")
 
-    json_assert(base.expected_result, response)
-    assert response.status_code == base.expected_status
+    json_assert(base.expected_result, response.text)
+    assert base.expected_status == response.status_code
 
 
 @pytest.mark.parametrize(
@@ -128,8 +149,9 @@ def test_debug_compile(test: tuple[str, Baseline], client: TestClient) -> None:
         content=base.request,
     )
 
-    assert response.text == base.expected_result
-    assert response.status_code == base.expected_status
+    print(response.text)
+    assert base.expected_result == response.text
+    assert base.expected_status == response.status_code
 
 
 @pytest.mark.parametrize(
@@ -145,8 +167,8 @@ def test_debug_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
         content=base.request,
     )
 
-    json_assert(base.expected_result, response)
-    assert response.status_code == base.expected_status
+    json_assert(base.expected_result, response.text)
+    assert base.expected_status == response.status_code
 
 
 @pytest.mark.parametrize(

@@ -16,9 +16,7 @@ from openqasm3.ast import (
     QASMNode,
     QubitDeclaration,
 )
-from openqasm3.printer import dumps
 
-from app.model.CompileRequest import ImplementationNode
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     AncillaConnection,
@@ -31,6 +29,7 @@ from app.processing.graph import (
     QubitIOInstance,
 )
 from app.processing.merge.utils import MergeException
+from app.utils import save_generate_implementation_node
 
 
 @dataclass(frozen=True, order=True)
@@ -251,7 +250,13 @@ class _Connections:
                         Index {edge.source[1]} from {edge.source[0].name} modeled,
                         but no such annotation was found.
                         """)
-                    raise MergeException(msg)
+                    node = self.graph.node_data[edge.source[0]]
+                    raise MergeException(
+                        msg,
+                        save_generate_implementation_node(
+                            node.raw.name, node.implementation
+                        ),
+                    )
                 if input is None:
                     msg = dedent(f"""\
                         Unsupported: Missing input index in connection
@@ -259,7 +264,14 @@ class _Connections:
                         Index {edge.target[1]} from {edge.target[0].name} modeled,
                         but no such annotation was found.
                         """)
-                    raise MergeException(msg)
+                    node = self.graph.node_data[edge.target[0]]
+                    raise MergeException(
+                        msg,
+                        save_generate_implementation_node(
+                            node.raw.name, node.implementation
+                        ),
+                    )
+
                 match output, input:
                     case QubitIOInstance(), QubitIOInstance():
                         self.handle_qubit_connection(
@@ -366,16 +378,11 @@ class _Connections:
                 try:
                     self.handle_connection(edge)
                 except MergeException as exc:
-                    node = self.graph.node_data[edge.source[0]]
-                    try:
-                        implementation = dumps(node.implementation)
-                    except Exception as dump_exc:
-                        implementation = (
-                            f"Unable to determine implementation because of {dump_exc}"
+                    if exc.node is None:
+                        node = self.graph.node_data[edge.source[0]]
+                        exc.node = save_generate_implementation_node(
+                            node.raw.name, node.implementation
                         )
-                    exc.node = ImplementationNode(
-                        id=node.raw.name, implementation=implementation
-                    )
                     raise exc
 
         qubit_to_reg_index: dict[SingleQubit, int]
