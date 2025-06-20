@@ -79,9 +79,14 @@ For sending this request, you have two options:
 **Use Python:** Run the following command in the project directory:
     .. code-block:: shell
 
-        ./scripts/insert_helper.py ./scripts/addition_insert.json
+        ./scripts/request_helper.py ./scripts/addition_insert.json /insert
 
 **Use curl:** Run the following command next to the json file:
     .. code-block:: shell
 
         curl -X POST -H "Content-Type: application/json" --data @./addition_insert.json http://localhost:8000/insert
+
+**Use Powershell:** Run the following command next to the json file:
+    .. code-block:: Powershell
+
+        irm -Method Post -Headers @{ "Content-Type" = "application/json" } -Uri http://localhost:8000/insert -InFile ./addition_insert.json
