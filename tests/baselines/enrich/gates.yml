@@ -1,0 +1,117 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "Gates",
+      "description": "Testing all gates",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "q0", "type": "qubit" },
+      { "id": "gate_h", "type": "gate", "gate": "h" },
+      { "id": "gate_x", "type": "gate", "gate": "x" },
+      { "id": "gate_y", "type": "gate", "gate": "y" },
+      { "id": "gate_z", "type": "gate", "gate": "z" },
+  
+      { "id": "q1", "type": "qubit" },
+      { "id": "gate_rx", "type": "gate-with-param", "gate": "rx", "parameter": 0.1 },
+      { "id": "gate_ry", "type": "gate-with-param", "gate": "ry", "parameter": 0.2 },
+      { "id": "gate_rz", "type": "gate-with-param", "gate": "rz", "parameter": 0.3 },
+  
+      { "id": "q2", "type": "qubit" },
+      { "id": "gate_cx", "type": "gate", "gate": "cnot" },
+      { "id": "gate_ccx", "type": "gate", "gate": "toffoli" }
+    ],
+    "edges": [
+      { "source": ["q0", 0], "target": ["gate_h", 0] },
+      { "source": ["gate_h", 0], "target": ["gate_x", 0] },
+      { "source": ["gate_x", 0], "target": ["gate_y", 0] },
+      { "source": ["gate_y", 0], "target": ["gate_z", 0] },
+      { "source": ["gate_z", 0], "target": ["gate_cx", 0] },
+  
+      { "source": ["q1", 0], "target": ["gate_rx", 0] },
+      { "source": ["gate_rx", 0], "target": ["gate_ry", 0] },
+      { "source": ["gate_ry", 0], "target": ["gate_rz", 0] },
+      { "source": ["gate_rz", 0], "target": ["gate_cx", 1] },
+  
+      { "source": ["gate_cx", 0], "target": ["gate_ccx", 0] },
+      { "source": ["gate_cx", 1], "target": ["gate_ccx", 1] },
+      { "source": ["q2", 0], "target": ["gate_ccx", 2] }
+    ]
+  }
+expected_status: 200
+expected_result: |
+  [
+    {
+      "id": "q0",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+    },
+    {
+      "id": "q1",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+    },
+    {
+      "id": "q2",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+    },
+    {
+      "id": "gate_h",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nh q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    },
+    {
+      "id": "gate_rx",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nrx(0.1) q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    },
+    {
+      "id": "gate_x",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nx q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    },
+    {
+      "id": "gate_ry",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nry(0.2) q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    },
+    {
+      "id": "gate_y",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\ny q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    },
+    {
+      "id": "gate_rz",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nrz(0.3) q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    },
+    {
+      "id": "gate_z",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nz q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+    },
+    {
+      "id": "gate_cx",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\n@leqo.input 1\nqubit[1] q1;\ncx q0, q1;\n@leqo.output 0\nlet q0_out = q0;\n@leqo.output 1\nlet q1_out = q1;\n"
+    },
+    {
+      "id": "gate_ccx",
+      "label": null,
+      "type": "implementation",
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\n@leqo.input 1\nqubit[1] q1;\n@leqo.input 2\nqubit[1] q2;\nccx q0, q1, q2;\n@leqo.output 0\nlet q0_out = q0;\n@leqo.output 1\nlet q1_out = q1;\n@leqo.output 2\nlet q2_out = q2;\n"
+    }
+  ]

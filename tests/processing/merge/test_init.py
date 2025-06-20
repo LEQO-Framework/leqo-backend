@@ -1,10 +1,11 @@
 from app.openqasm3.printer import leqo_dumps
-from app.processing import merge_nodes, preprocess
 from app.processing.graph import (
     IOConnection,
     ProgramGraph,
     ProgramNode,
 )
+from app.processing.merge import merge_nodes
+from app.processing.pre import preprocess
 from app.processing.utils import normalize_qasm_string
 
 
@@ -15,7 +16,7 @@ def assert_merge(
 ) -> None:
     nodes = []
     for i, code in enumerate(codes):
-        nodes.append(preprocess(ProgramNode(str(i), code)))
+        nodes.append(preprocess(ProgramNode(str(i)), code))
 
     graph = ProgramGraph()
     graph.append_nodes(*nodes)
@@ -30,7 +31,7 @@ def assert_merge(
     actual = normalize_qasm_string(leqo_dumps(merge_nodes(graph)))
 
     for i, node in enumerate(nodes):
-        expected = expected.replace(f"leqo_node{i}", f"leqo_{node.info.id.hex}")
+        expected = expected.replace(f"leqo_node{i}", f"leqo_{node.id.hex}")
     expected = normalize_qasm_string(expected)
 
     assert actual == expected
@@ -40,7 +41,7 @@ def test_pseudo_merge_single() -> None:
     codes = [
         """
         OPENQASM 3.1;
-        qubit a;
+        qubit[1] a;
         """,
     ]
     connections: list[tuple[tuple[int, int], tuple[int, int]]] = []
@@ -58,14 +59,14 @@ def test_merge_two_nodes() -> None:
     codes = [
         """
         OPENQASM 3.1;
-        qubit a;
+        qubit[1] a;
         @leqo.output 0
         let _out = a;
         """,
         """
         OPENQASM 3.1;
         @leqo.input 0
-        qubit a;
+        qubit[1] a;
         """,
     ]
     connections = [((0, 0), (1, 0))]
@@ -93,19 +94,19 @@ def test_complex_merge() -> None:
         @leqo.output 0
         let _out0 = q[0:2];
         @leqo.output 1
-        let _out1 = q[3];
+        let _out1 = q[{3}];
         """,
         """
         OPENQASM 3.1;
         @leqo.input 0
-        qubit q;
+        qubit[1] q;
         @leqo.output 0
         let _out0 = q;
         """,
         """
         OPENQASM 3.1;
         @leqo.input 0
-        qubit q0;
+        qubit[1] q0;
         @leqo.input 1
         qubit[3] q1;
         """,
@@ -123,7 +124,7 @@ def test_complex_merge() -> None:
     @leqo.output 0
     let leqo_node0__out0 = leqo_node0_q[0:2];
     @leqo.output 1
-    let leqo_node0__out1 = leqo_node0_q[3];
+    let leqo_node0__out1 = leqo_node0_q[{3}];
     /* End node 0 */
     /* Start node 1 */
     @leqo.input 0

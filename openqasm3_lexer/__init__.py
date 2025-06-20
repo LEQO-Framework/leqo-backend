@@ -1,4 +1,5 @@
-from openqasm_pygments import OpenQASM2Lexer, OpenQASM3Lexer
+from openqasm_pygments.qasm2 import OpenQASM2Lexer
+from openqasm_pygments.qasm3 import OpenQASM3Lexer
 from sphinx.application import Sphinx
 from sphinx.highlighting import lexers
 

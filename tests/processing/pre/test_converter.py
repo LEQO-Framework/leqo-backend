@@ -2,7 +2,7 @@ import pytest
 from openqasm3.ast import Program
 from openqasm3.printer import dumps
 
-from app.converter.qasm_converter import QASMConversionError, QASMConverter
+from app.processing.pre.converter import QASMConversionError, QASMConverter
 from app.processing.utils import normalize_qasm_string
 
 
@@ -127,6 +127,71 @@ def test_single_custom_gate() -> None:
         u2(0, pi) c;
     }
     rccx q[0], q[1], q[2];
+    """
+    check_out(converter.parse_to_qasm3(input_qasm2), expected)
+
+
+def test_simple_annotation_convert() -> None:
+    converter = QASMConverter()
+    input_qasm2 = """
+    OPENQASM 2.0;
+    //@leqo.input 0
+    qreg q0[5];
+    //    @some_other xyz :)
+    qreg q1[5];
+    """
+    expected = """
+    OPENQASM 3.1;
+    @leqo.input 0
+    qubit[5] q0;
+    @some_other xyz :)
+    qubit[5] q1;
+    """
+    check_out(converter.parse_to_qasm3(input_qasm2), expected)
+
+
+def test_alias_with_annotation() -> None:
+    converter = QASMConverter()
+    input_qasm2 = """
+    OPENQASM 2.0;
+    qreg q0[5];
+    // @leqo.input 0
+    // let _out = q0[1:2];
+    //     @leqo.reusable
+    //let _reuse = q0[3];
+    // let xxx = not_converted();
+    """
+    expected = """
+    OPENQASM 3.1;
+    qubit[5] q0;
+    @leqo.input 0
+    let _out = q0[1:2];
+    @leqo.reusable
+    let _reuse = q0[3];
+    """
+    check_out(converter.parse_to_qasm3(input_qasm2), expected)
+
+
+def test_uncompute_block() -> None:
+    converter = QASMConverter()
+    input_qasm2 = """
+    OPENQASM 2.0;
+    qreg q0[5];
+    // @leqo.uncompute start
+    // @leqo.reusable
+    // let _reuse = q0[3];
+    // @leqo.uncompute end
+    qreg q1[5];
+    """
+    expected = """
+    OPENQASM 3.1;
+    qubit[5] q0;
+    @leqo.uncompute
+    if (false) {
+        @leqo.reusable
+        let _reuse = q0[3];
+    }
+    qubit[5] q1;
     """
     check_out(converter.parse_to_qasm3(input_qasm2), expected)
 

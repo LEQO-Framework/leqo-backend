@@ -1,5 +1,5 @@
+import re
 from io import UnsupportedOperation
-from uuid import uuid4
 
 import pytest
 from openqasm3.parser import parse
@@ -12,27 +12,23 @@ from app.processing.graph import (
     ProcessedProgramNode,
     ProgramGraph,
     ProgramNode,
-    SectionInfo,
+    QubitInfo,
 )
 from app.processing.merge.connections import connect_qubits
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.utils import normalize_qasm_string
 
 
-def str_to_nodes(index: int, code: str) -> tuple[ProgramNode, ProcessedProgramNode]:
-    ast = parse(code)
+def str_to_nodes(index: int, code: str) -> ProcessedProgramNode:
+    node = ProgramNode(str(index), code)
+
+    implementation = parse(code)
+
     io = IOInfo()
-    ParseAnnotationsVisitor(io).visit(ast)
-    node = ProgramNode(str(index), code, None)
-    return (
-        node,
-        ProcessedProgramNode(
-            node,
-            ast,
-            SectionInfo(uuid4(), io),
-            None,
-        ),
-    )
+    qubit = QubitInfo()
+    _ = ParseAnnotationsVisitor(io, qubit).visit(implementation)
+
+    return ProcessedProgramNode(node, implementation, io, qubit)
 
 
 def assert_connections(
@@ -45,8 +41,8 @@ def assert_connections(
     graph = ProgramGraph()
     nodes = [str_to_nodes(i, code) for i, code in enumerate(inputs)]
     raw_nodes = []
-    for node, processed in nodes:
-        raw_nodes.append(node)
+    for processed in nodes:
+        raw_nodes.append(processed.raw)
         graph.append_node(processed)
     if io_connections is not None:
         graph.append_edges(
@@ -93,6 +89,25 @@ def test_no_connections() -> None:
         """,
         """
         let c1_q0 = leqo_reg[{3, 4, 5}];
+        """,
+    ]
+    assert_connections(inputs, expected, connections)
+
+
+def test_keep_qubit_type() -> None:
+    inputs = [
+        """
+        qubit[3] q0;
+        qubit[1] q1;
+        qubit q2;
+        """,
+    ]
+    connections: list[tuple[tuple[int, int], tuple[int, int]]] = []
+    expected = [
+        """
+        let q0 = leqo_reg[{0, 1, 2}];
+        let q1 = leqo_reg[{3}];
+        let q2 = leqo_reg[4];
         """,
     ]
     assert_connections(inputs, expected, connections)
@@ -384,9 +399,9 @@ def test_complex() -> None:
         """
         @leqo.input 0
         qubit[2] c1_q0;
-        qubit c1_q1;
+        qubit[1] c1_q1;
         @leqo.output 0
-        let _out_c1_0 = c1_q0[0] ++ c1_q1;
+        let _out_c1_0 = c1_q0[{0}] ++ c1_q1;
         """,
         """
         @leqo.input 0
@@ -395,7 +410,7 @@ def test_complex() -> None:
         qubit[2] c2_q1;
         @leqo.input 2
         int c2_i0;
-        qubit c2_q2;
+        qubit[1] c2_q2;
         """,
     ]
     io_connections = [
@@ -424,7 +439,7 @@ def test_complex() -> None:
         let c1_q0 = leqo_reg[{0, 1}];
         let c1_q1 = leqo_reg[{4}];
         @leqo.output 0
-        let _out_c1_0 = c1_q0[0] ++ c1_q1;
+        let _out_c1_0 = c1_q0[{0}] ++ c1_q1;
         """,
         """
         @leqo.input 0
@@ -456,7 +471,9 @@ def test_raise_on_mismatched_qubit_size() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Mismatched sizes in IOConnection of type qubits-register\n\noutput _out has size 1\ninput c1_q0 has size 100\n",
+        match=re.escape(
+            "Unsupported: Mismatched types in IOConnection QubitType(size=1) != QubitType(size=100)"
+        ),
     ):
         assert_connections(inputs, [], connections)
 
@@ -478,7 +495,7 @@ def test_raise_on_classical_to_qubit() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Try to connect qubit with classical\n\nIndex 0 from 1 tries to\nconnect to index 0 from 1\n",
+        match="^Unsupported: Try to connect qubit with classical\n\nIndex 0 from 1 tries to\nconnect to index 0 from 1$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -500,7 +517,7 @@ def test_raise_on_mismatched_classic_type() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Mismatched types in IOConnection\n\noutput _out has type <class 'openqasm3.ast.IntType'>\ninput c1_b0 has type <class 'openqasm3.ast.BoolType'>\n",
+        match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(size=32\\)\ninput c1_b0 has type BoolType\\(\\)$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -522,7 +539,7 @@ def test_raise_on_mismatched_classic_size() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Mismatched sizes in IOConnection of type <class 'openqasm3.ast.IntType'>\n\noutput _out has size 16\ninput c1_i0 has size 32\n",
+        match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(size=16\\)\ninput c1_i0 has type IntType\\(size=32\\)$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -550,7 +567,7 @@ def test_raise_two_classical_outputs_into_one_input() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Multiply inputs into classical\n\nBoth _out0 and _out1\nare input to c2_i0 but only one is allowed.\n",
+        match="^Unsupported: Multiple inputs into classical\n\nBoth _out0 and _out1\nare input to c2_i0 but only one is allowed.$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -571,7 +588,7 @@ def test_raise_on_missing_input_index() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Missing input index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.\n",
+        match="^Unsupported: Missing input index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.$",
     ):
         assert_connections(inputs, [], connections)
 
@@ -592,6 +609,6 @@ def test_raise_on_missing_output_index() -> None:
     ]
     with pytest.raises(
         UnsupportedOperation,
-        match="\nUnsupported: Missing output index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.\n",
+        match="^Unsupported: Missing output index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.$",
     ):
         assert_connections(inputs, [], connections)

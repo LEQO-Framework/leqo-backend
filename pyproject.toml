@@ -8,6 +8,11 @@ dependencies = [
     "fastapi[standard]>=0.115.8",
     "networkx>=3.4.2",
     "openqasm3[parser]>=1.0.1",
+    "psycopg>=3.2.6",
+    "psycopg-binary>=3.2.6",
+    "pydantic-settings>=2.9.1",
+    "python-dotenv>=1.0.1",
+    "sqlalchemy[asyncio,mypy]>=2.0.38",
 ]
 
 [dependency-groups]
@@ -18,6 +23,7 @@ dev = [
     "pytest>=8.3.4",
     "ruff>=0.9.4",
     "types-networkx>=3.4.2",
+    "testcontainers[postgres]>=4.10.0",
     "sphinx>=8.1.3",
     "sphinx-autobuild>=2024.10.3",
     "sphinx-rtd-theme>=3.0.2",
@@ -25,6 +31,10 @@ dev = [
     "sphobjinv>=2.3.1.2",
     "sphinx-autoapi>=3.6.0",
     "pytest-cov>=6.1.1",
+    "pytest-asyncio>=0.26.0",
+    "types-pyyaml>=6.0.12.20250516",
+    "cyclonedx-bom>=6.1.1",
+    "sphinxcontrib-datatemplates>=0.11.0",
 ]
 
 # https://github.com/DSD-DBS/py-capellambse/blob/b0d63fac33c90d15f0d2d4c6c111184a5801ce6c/pyproject.toml#L174-L204
@@ -55,10 +65,18 @@ extend-select = [
     "UP", # pyupgrade
     "YTT", # flake8-2020
 ]
+ignore = ["UP047"] # ignore this warning so that we can use TypeVar("...", bound=...) and make mypy happy
 
 [tool.mypy]
 ignore_missing_imports = true
+plugins = "sqlalchemy.ext.mypy.plugin"
 
 [[tool.mypy.overrides]]
 module = "qiskit.qasm3"
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.uv.sources]
+openqasm-pygments = { url = "https://github.com/LEQO-Framework/openqasm-pygments/releases/download/patch-annotation-lexing/openqasm_pygments-0.2.1a0-py3-none-any.whl" }

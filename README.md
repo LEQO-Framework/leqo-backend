@@ -1,41 +1,51 @@
 # LEQO Back-End
 
 [![Docker image on ghcr.io](https://img.shields.io/badge/Docker-GitHub%20Container%20Registry-green?style=flat&logo=docker&logoColor=%23fff)](https://github.com/LEQO-Framework/leqo-backend/pkgs/container/leqo-backend)
+[![Documentation](https://img.shields.io/badge/docs-live-green?style=flat&logo=read-the-docs&logoColor=white)](https://leqo-framework.github.io/leqo-backend/)
 
-The back-end for the QASM low-code platform LEQO.
-It does:
+The backend for the [LEQO-Framework](https://github.com/LEQO-Framework) - a low-code platform for developing quantum algorithms.
 
-- provide a REST-API for the LEQO front-end
-- enrich QASM programs via ID-based imports
-- merge multiple QASM programs into one
+## 🔧 Features
 
-This project uses the [uv package manager](https://docs.astral.sh/uv/#getting-started).
+- Provide a REST-API for the [LEQO frontend](https://github.com/LEQO-Framework/low-code-modeler)
+- Retrieve [OpenQASM](https://openqasm.com/) implementations for low-code nodes
+- Merge low-code models into a single [OpenQASM](https://openqasm.com/) program compatible with [Qiskit](https://github.com/Qiskit/qiskit)
+- Support OpenQASM 2 input via an internal converter
+- Optimize circuits by reusing ancilla qubits automatically
+- Can handle nested low-code nodes: If-Then-Else and Repeat
+- Build to be extensible
 
-## Deployment
+The project uses:
 
-Run the following command:
+- [uv](https://docs.astral.sh/uv/#getting-started) as the Python package manager
+- [mypy](https://mypy.readthedocs.io/en/stable/getting_started.html) for static type checking
+- [ruff](https://docs.astral.sh/ruff/) for code formatting and linting
+
+## 🚀 Quick Start
+
+Make sure Docker and [Docker Compose](https://docs.docker.com/compose/install/) are installed.
+
+Run the following commands:
 
 ```bash
-docker compose build && docker compose up -d
+cp .env.template .env
+docker compose -f compose-dev.yaml up --build
 ```
 
-Then you can access the back-end on:  
-http://localhost:8000  
-http://localhost:8000/docs
+Once started, access the backend at: 
 
-## Development
+- API: http://localhost:8000  
+- Swagger UI: http://localhost:8000/redoc
 
-Run the following command:
+## 📚 Documentation
 
-```bash
-uv run fastapi dev
-```
+For architecture, API reference, and developer guides, see our [full documentation site](https://leqo-framework.github.io/leqo-backend/).
 
-Then you can access the back-end on:  
-http://localhost:8000  
-http://localhost:8000/docs
+## 📑 License
 
-## Disclaimer of Warranty
+The LEQO-backend is available under the [Apache 2.0 LICENSE](./LICENSE).
+
+## ⚠️ Disclaimer of Warranty
 
 Unless required by applicable law or agreed to in writing, Licensor provides the Work (and each Contributor provides its
 Contributions) on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied, including,
@@ -43,7 +53,7 @@ without limitation, any warranties or conditions of TITLE, NON-INFRINGEMENT, MER
 PARTICULAR PURPOSE. You are solely responsible for determining the appropriateness of using or redistributing the Work
 and assume any risks associated with Your exercise of permissions under this License.
 
-## Haftungsausschluss
+## ⚠️ Haftungsausschluss
 
 Dies ist ein Forschungsprototyp. Die Haftung für entgangenen Gewinn, Produktionsausfall, Betriebsunterbrechung,
 entgangene Nutzungen, Verlust von Daten und Informationen, Finanzierungsaufwendungen sowie sonstige Vermögens- und

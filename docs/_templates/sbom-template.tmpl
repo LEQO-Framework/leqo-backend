@@ -1,0 +1,18 @@
+.. list-table:: Software Bill of Materials
+   :widths: 25 50 25
+   :header-rows: 1
+
+   * - Package
+     - Version
+     - License
+   {% for component in data["components"] %}
+   * - {{ component.name }}
+     - {{ component.version }}
+     -  {% for license in component.licenses or [] %}
+            {% if license["license"] %}
+                {{ license.license["id"] or license.license["name"] }}
+            {% elif license["expression"] %}
+                {{ license["expression"] }}
+            {% endif %}
+        {% endfor %}
+   {% endfor %}

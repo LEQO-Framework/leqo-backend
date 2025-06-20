@@ -1,4 +1,6 @@
-"""Parse input/output info for single code snippet over leqo-annotations."""
+"""
+Parse input/output info for single code snippet over leqo-annotations.
+"""
 
 from __future__ import annotations
 
@@ -25,22 +27,41 @@ from openqasm3.ast import (
     QubitDeclaration,
 )
 
+from app.model.data_types import (
+    DEFAULT_FLOAT_SIZE,
+    DEFAULT_INT_SIZE,
+    LeqoSupportedType,
+)
+from app.model.data_types import (
+    BitType as LeqoBitType,
+)
+from app.model.data_types import (
+    BoolType as LeqoBoolType,
+)
+from app.model.data_types import (
+    FloatType as LeqoFloatType,
+)
+from app.model.data_types import (
+    IntType as LeqoIntType,
+)
 from app.openqasm3.visitor import LeqoTransformer
 from app.processing.graph import (
     ClassicalIOInstance,
     IOInfo,
+    QubitInfo,
     QubitIOInstance,
 )
 from app.processing.utils import expr_to_int, parse_io_annotation, parse_qasm_index
-
-DEFAULT_BIT_SIZE = 32
-DEFAULT_INT_SIZE = 32
-DEFAULT_FLOAT_SIZE = 32
-BOOL_SIZE = 1
+from app.utils import not_none_or, opt_call
 
 
 class ParseAnnotationsVisitor(LeqoTransformer[None]):
-    """Non-modifying visitor to parse io info."""
+    """
+    Non-modifying visitor to parse leqo annotations.
+
+    :param io: The :class:`~app.processing.graph.IOInfo` to be modified in-place.
+    :param qubit: The :class:`~app.processing.graph.QubitInfo` to be modified in-place.
+    """
 
     __next_qubit_id: int
     __name_to_info: dict[str, QubitIOInstance | ClassicalIOInstance]
@@ -48,14 +69,12 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     __found_output_ids: set[int]
     __in_uncompute: bool
     io: IOInfo
+    qubit: QubitInfo
 
-    def __init__(self, io: IOInfo) -> None:
-        """Construct the ParseAnnotationsVisitor.
-
-        :param io: The IOInfo to be modified in-place.
-        """
+    def __init__(self, io: IOInfo, qubit: QubitInfo) -> None:
         super().__init__()
         self.io = io
+        self.qubit = qubit
         self.__next_qubit_id = 0
         self.__name_to_info = {}
         self.__found_input_ids = set()
@@ -67,7 +86,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         name: str,
         annotations: list[Annotation],
     ) -> tuple[int | None, bool]:
-        """Extract annotation info for declaration, throw error on bad usage."""
+        """
+        Extract annotation info for declaration, throw error on bad usage.
+        """
         input_id: int | None = None
         dirty = False
         for annotation in annotations:
@@ -103,7 +124,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         name: str,
         annotations: list[Annotation],
     ) -> tuple[int | None, bool]:
-        """Extract annotation info for alias, throw error on bad usage."""
+        """
+        Extract annotation info for alias, throw error on bad usage.
+        """
         output_id: int | None = None
         reusable = False
         for annotation in annotations:
@@ -133,25 +156,25 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         return (output_id, reusable)
 
     def get_branching_annotation_info(self, annotations: list[Annotation]) -> bool:
-        """Extract annotation info for branching statement, throw error on bad usage."""
+        """
+        Extract annotation info for branching statement, throw error on bad usage.
+        """
         uncompute = False
         for annotation in annotations:
             match annotation.keyword:
                 case "leqo.uncompute":
                     if uncompute:
-                        msg = (
-                            "Unsupported: two uncompute annotations over if-else-block"
-                        )
+                        msg = "Unsupported: two uncompute annotations over if-then-else-block"
                         raise UnsupportedOperation(msg)
                     if (
                         annotation.command is not None
                         and annotation.command.strip() != ""
                     ):
-                        msg = f"Unsupported: found {annotation.command} over uncompute annotation over if-else-block"
+                        msg = f"Unsupported: found {annotation.command} over uncompute annotation over if-then-else-block"
                         raise UnsupportedOperation(msg)
                     uncompute = True
                 case "leqo.input" | "leqo.dirty" | "leqo.output" | "leqo.reusable":
-                    msg = f"Unsupported: {annotation.keyword} annotations over BranchingStatement if-else-block"
+                    msg = f"Unsupported: {annotation.keyword} annotations over BranchingStatement if-then-else-block"
                     raise UnsupportedOperation(msg)
         return uncompute
 
@@ -160,7 +183,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         name: str,
         value: Identifier | IndexExpression | Concatenation | Expression,
     ) -> QubitIOInstance | ClassicalIOInstance | None:
-        """Recursivly get new (Qubit/Classical)IOInstance from alias expression.
+        """
+        Recursively get new (Qubit/Classical)IOInstance from alias expression.
 
         :param name: New name to use in the info.
         :param value: The alias expression to parse.
@@ -176,15 +200,27 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                         return None
                     case QubitIOInstance():
                         qubit_ids = source.ids
+                        if not isinstance(qubit_ids, list):
+                            msg = "Unsupported: Can't Index single qubit (non reg)"
+                            raise UnsupportedOperation(msg)
                         indices = parse_qasm_index([value.index], len(qubit_ids))
-                        return QubitIOInstance(name, [source.ids[i] for i in indices])
+                        return QubitIOInstance(
+                            name,
+                            [qubit_ids[i] for i in indices]
+                            if isinstance(indices, list)
+                            else qubit_ids[indices],
+                        )
                     case ClassicalIOInstance():
-                        if source.type == BitType:
+                        if isinstance(source.type, LeqoBitType):
+                            source_size = source.type.size
+                            if source_size is None:
+                                msg = "Unsupported: Can't Index single bit (non array)"
+                                raise UnsupportedOperation(msg)
+                            result = parse_qasm_index([value.index], source_size)
                             return ClassicalIOInstance(
                                 name,
-                                BitType,
-                                len(
-                                    parse_qasm_index([value.index], source.size),
+                                LeqoBitType(
+                                    len(result) if isinstance(result, list) else None
                                 ),
                             )
                         msg = f"Unsupported: Can't handle indexed {source.type}"
@@ -199,15 +235,21 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 rhs = self.__alias_expr_to_new_info(name, value.rhs)
                 match lhs, rhs:
                     case QubitIOInstance(ids=li), QubitIOInstance(ids=ri):
+                        if not (isinstance(li, list) and isinstance(ri, list)):
+                            msg = "Unsupported: Can't concatenate single qubits."
+                            raise UnsupportedOperation(msg)
                         return QubitIOInstance(name, li + ri)
                     case ClassicalIOInstance(), ClassicalIOInstance():
-                        if lhs.type == rhs.type == BitType:
+                        if (
+                            isinstance(lhs.type, LeqoBitType)
+                            and isinstance(rhs.type, LeqoBitType)
+                            and lhs.type.size is not None
+                            and rhs.type.size is not None
+                        ):
                             return ClassicalIOInstance(
-                                name,
-                                BitType,
-                                lhs.size + rhs.size,
+                                name, LeqoBitType(lhs.type.size + rhs.type.size)
                             )
-                        msg = f"Unsupported: Can't handle concatenation of non-bit types: {lhs.type} {rhs.type}"
+                        msg = f"Unsupported: Can't concatenate non-bit-array types: {lhs.type} {rhs.type}"
                         raise UnsupportedOperation(msg)
                 return None
             case _:
@@ -215,16 +257,24 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 raise RuntimeError(msg)
 
     def visit_QubitDeclaration(self, node: QubitDeclaration) -> QASMNode:
-        """Parse qubit-declarations and their corresponding input/dirty annotations."""
+        """
+        Parse qubit-declarations and their corresponding input/dirty annotations.
+        """
         name = node.qubit.name
-        reg_size = expr_to_int(node.size) if node.size is not None else 1
+        reg_size = expr_to_int(node.size) if node.size is not None else None
         input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
 
-        qubit_ids = []
-        for _ in range(reg_size):
-            qubit_ids.append(self.__next_qubit_id)
+        if reg_size is None:
+            qubit_ids: int | list[int] = self.__next_qubit_id
             self.__next_qubit_id += 1
-        self.io.qubits.declaration_to_ids[name] = qubit_ids
+        else:
+            qubit_ids = []
+            for _ in range(reg_size):
+                qubit_ids.append(self.__next_qubit_id)
+                self.__next_qubit_id += 1
+        self.qubit.declaration_to_ids[name] = (
+            qubit_ids if isinstance(qubit_ids, list) else [qubit_ids]
+        )
 
         info = QubitIOInstance(name, qubit_ids)
         self.__name_to_info[name] = info
@@ -235,43 +285,48 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             self.__found_input_ids.add(input_id)
             self.io.inputs[input_id] = info
         elif dirty:
-            self.io.qubits.required_dirty_ids.extend(qubit_ids)
-        else:  # non-input and non-dirty
-            self.io.qubits.required_reusable_ids.extend(qubit_ids)
+            if isinstance(qubit_ids, list):
+                self.qubit.dirty_ids.extend(qubit_ids)
+            else:
+                self.qubit.dirty_ids.append(qubit_ids)
+        elif isinstance(qubit_ids, list):
+            self.qubit.clean_ids.extend(qubit_ids)
+        else:
+            self.qubit.clean_ids.append(qubit_ids)
 
         return self.generic_visit(node)
 
-    def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:  # noqa: PLR0912
-        """Parse classical-declarations and their corresponding input annotations."""
+    def visit_ClassicalDeclaration(self, node: ClassicalDeclaration) -> QASMNode:
+        """
+        Parse classical-declarations and their corresponding input annotations.
+        """
         name = node.identifier.name
         input_id, dirty = self.get_declaration_annotation_info(name, node.annotations)
 
         if dirty:
-            msg = f"""Unsupported: dirty annotation over classical {name}"""
+            msg = f"Unsupported: dirty annotation over classical {name}"
             raise UnsupportedOperation(msg)
 
+        leqo_type: LeqoSupportedType
         match node.type:
             case BitType():
-                if node.type.size is None:
-                    size = DEFAULT_BIT_SIZE
-                else:
-                    size = expr_to_int(node.type.size)
+                leqo_type = LeqoBitType(opt_call(expr_to_int, node.type.size))
             case IntType():
-                if node.type.size is None:
-                    size = DEFAULT_INT_SIZE
-                else:
-                    size = expr_to_int(node.type.size)
+                leqo_type = LeqoIntType(
+                    not_none_or(opt_call(expr_to_int, node.type.size), DEFAULT_INT_SIZE)
+                )
             case FloatType():
-                if node.type.size is None:
-                    size = DEFAULT_FLOAT_SIZE
-                else:
-                    size = expr_to_int(node.type.size)
+                leqo_type = LeqoFloatType(
+                    not_none_or(
+                        opt_call(expr_to_int, node.type.size), DEFAULT_FLOAT_SIZE
+                    )
+                )
             case BoolType():
-                size = BOOL_SIZE
+                leqo_type = LeqoBoolType()
             case _:
                 return self.generic_visit(node)
 
-        info = ClassicalIOInstance(name, type(node.type), size)
+        info = ClassicalIOInstance(name, leqo_type)
         self.__name_to_info[name] = info
         if input_id is not None:
             if input_id in self.__found_input_ids:
@@ -286,7 +341,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         return self.generic_visit(node)
 
     def visit_AliasStatement(self, node: AliasStatement) -> QASMNode:
-        """Parse alias and their corresponding output/reusalbe annotations."""
+        """
+        Parse alias and their corresponding output/reusalbe annotations.
+        """
         name = node.target.name
         info = self.__alias_expr_to_new_info(name, node.value)
         if info is None:
@@ -310,14 +367,21 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 msg = f"Unsupported: reusable annotation over classical {info.name}"
                 raise UnsupportedOperation(msg)
             if self.__in_uncompute:
-                self.io.qubits.returned_reusable_after_uncompute_ids.extend(info.ids)
+                if isinstance(info.ids, list):
+                    self.qubit.uncomputable_ids.extend(info.ids)
+                else:
+                    self.qubit.uncomputable_ids.append(info.ids)
+            elif isinstance(info.ids, list):
+                self.qubit.reusable_ids.extend(info.ids)
             else:
-                self.io.qubits.returned_reusable_ids.extend(info.ids)
+                self.qubit.reusable_ids.append(info.ids)
 
         return self.generic_visit(node)
 
     def visit_BranchingStatement(self, node: BranchingStatement) -> QASMNode:
-        """Parse if-else-block and their corresponding uncompute annotations."""
+        """
+        Parse if-then-else-block and their corresponding uncompute annotations.
+        """
         uncompute = self.get_branching_annotation_info(node.annotations)
         if not uncompute:
             return self.generic_visit(node)
@@ -325,10 +389,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             msg = "Unsupported: nested uncompute blocks"
             raise UnsupportedOperation(msg)
         if not isinstance(node.condition, BooleanLiteral) or node.condition.value:
-            msg = f"Unsupported: invalid expression in uncompute-annotated if-else-block: {node.condition}"
+            msg = f"Unsupported: invalid expression in uncompute-annotated if-then-else-block: {node.condition}"
             raise UnsupportedOperation(msg)
         if len(node.else_block) > 0:
-            msg = "Unsupported: uncompute-annotated if-else-block has else-block"
+            msg = "Unsupported: uncompute-annotated if-then-else-block has else-block"
             raise UnsupportedOperation(msg)
         self.__in_uncompute = True
         result = self.generic_visit(node)
@@ -337,7 +401,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
 
     @staticmethod
     def raise_on_non_contiguous_range(numbers: set[int], name_of_check: str) -> None:
-        """Check if int-set is contiguous and starting from 0."""
+        """
+        Check if int-set is contiguous and starting from 0.
+        """
         for i, j in enumerate(sorted(numbers)):
             if i == j:
                 continue
@@ -345,20 +411,22 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             raise IndexError(msg)
 
     def visit_Program(self, node: Program) -> QASMNode:
-        """Ensure contiguous input/output indexes and compute returned-dirty qubits."""
+        """
+        Ensure contiguous input/output indexes and compute returned-dirty qubits.
+        """
         result = self.generic_visit(node)
 
         self.raise_on_non_contiguous_range(self.__found_input_ids, "input")
         self.raise_on_non_contiguous_range(self.__found_output_ids, "output")
 
-        returned_dirty = set(chain(*self.io.qubits.declaration_to_ids.values()))
-        for qubit_id in self.io.qubits.returned_reusable_ids:
+        returned_dirty = set(chain(*self.qubit.declaration_to_ids.values()))
+        for qubit_id in self.qubit.reusable_ids:
             try:
                 returned_dirty.remove(qubit_id)
             except KeyError:
                 msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable twice"
                 raise UnsupportedOperation(msg) from None
-        for qubit_id in self.io.qubits.returned_reusable_after_uncompute_ids:
+        for qubit_id in self.qubit.uncomputable_ids:
             try:
                 returned_dirty.remove(qubit_id)
             except KeyError:
@@ -366,12 +434,15 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 raise UnsupportedOperation(msg) from None
         for output in self.io.outputs.values():
             if isinstance(output, QubitIOInstance):
-                for qubit_id in output.ids:
+                output_ids = (
+                    output.ids if isinstance(output.ids, list) else [output.ids]
+                )
+                for qubit_id in output_ids:
                     try:
                         returned_dirty.remove(qubit_id)
                     except KeyError:
                         msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable or output twice"
                         raise UnsupportedOperation(msg) from None
-        self.io.qubits.returned_dirty_ids = sorted(returned_dirty)
+        self.qubit.entangled_ids = sorted(returned_dirty)
 
         return result

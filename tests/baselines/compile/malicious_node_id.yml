@@ -1,0 +1,22 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "This is a very bad, node id!*/", "type": "qubit" }
+    ],
+    "edges": []
+  }
+expected_status: 200
+expected_result: |
+  OPENQASM 3.1;
+  qubit[1] leqo_reg;
+  /* Start node This is a very bad, node id!*\/ */
+  let leqo_9bcbc1bc8bc353bbbe1c53bb5f426c41_literal = leqo_reg[{0}];
+  @leqo.output 0
+  let leqo_9bcbc1bc8bc353bbbe1c53bb5f426c41_out = leqo_9bcbc1bc8bc353bbbe1c53bb5f426c41_literal;
+  /* End node This is a very bad, node id!*\/ */

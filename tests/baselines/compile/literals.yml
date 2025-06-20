@@ -1,0 +1,46 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "My Model",
+      "description": "This is a model.",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "newNode0", "type": "bit", "value": 1 },
+      { "id": "newNode1", "type": "bool", "value": false },
+      { "id": "newNode2", "type": "int", "value": 42 },
+      { "id": "newNode3", "type": "float", "value": 42.42 },
+      { "id": "newNode4", "type": "qubit" }
+    ],
+    "edges": []
+  }
+expected_status: 200
+expected_result: |
+  OPENQASM 3.1;
+  qubit[1] leqo_reg;
+  /* Start node newNode0 */
+  bit leqo_a802199cae985ea28977fed1a6977cfe_literal = 1;
+  @leqo.output 0
+  let leqo_a802199cae985ea28977fed1a6977cfe_out = leqo_a802199cae985ea28977fed1a6977cfe_literal;
+  /* End node newNode0 */
+  /* Start node newNode1 */
+  bool leqo_15b97591d2d252d4932c57137d560388_literal = false;
+  @leqo.output 0
+  let leqo_15b97591d2d252d4932c57137d560388_out = leqo_15b97591d2d252d4932c57137d560388_literal;
+  /* End node newNode1 */
+  /* Start node newNode2 */
+  int[32] leqo_44e2e1b30b905cfcac7970c851f892df_literal = 42;
+  @leqo.output 0
+  let leqo_44e2e1b30b905cfcac7970c851f892df_out = leqo_44e2e1b30b905cfcac7970c851f892df_literal;
+  /* End node newNode2 */
+  /* Start node newNode3 */
+  float[32] leqo_86fcd33a58435474a455551021ccead2_literal = 42.42;
+  @leqo.output 0
+  let leqo_86fcd33a58435474a455551021ccead2_out = leqo_86fcd33a58435474a455551021ccead2_literal;
+  /* End node newNode3 */
+  /* Start node newNode4 */
+  let leqo_d67adc3fd7245579afa7dc4430b1b59b_literal = leqo_reg[{0}];
+  @leqo.output 0
+  let leqo_d67adc3fd7245579afa7dc4430b1b59b_out = leqo_d67adc3fd7245579afa7dc4430b1b59b_literal;
+  /* End node newNode4 */

@@ -1,0 +1,136 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "Gates",
+      "description": "Testing all gates",
+      "author": ""
+    },
+    "nodes": [
+      { "id": "q0", "type": "qubit", "size": 2 },
+      { "id": "gate_h", "type": "gate", "gate": "h" },
+      { "id": "gate_x", "type": "gate", "gate": "x" },
+      { "id": "gate_y", "type": "gate", "gate": "y" },
+      { "id": "gate_z", "type": "gate", "gate": "z" },
+  
+      { "id": "q1", "type": "qubit", "size": 2 },
+      { "id": "gate_rx", "type": "gate-with-param", "gate": "rx", "parameter": 0.1 },
+      { "id": "gate_ry", "type": "gate-with-param", "gate": "ry", "parameter": 0.2 },
+      { "id": "gate_rz", "type": "gate-with-param", "gate": "rz", "parameter": 0.3 },
+  
+      { "id": "q2", "type": "qubit", "size": 2 },
+      { "id": "gate_cx", "type": "gate", "gate": "cnot" },
+      { "id": "gate_ccx", "type": "gate", "gate": "toffoli" }
+    ],
+    "edges": [
+      { "source": ["q0", 0], "target": ["gate_h", 0] },
+      { "source": ["gate_h", 0], "target": ["gate_x", 0] },
+      { "source": ["gate_x", 0], "target": ["gate_y", 0] },
+      { "source": ["gate_y", 0], "target": ["gate_z", 0] },
+      { "source": ["gate_z", 0], "target": ["gate_cx", 0] },
+  
+      { "source": ["q1", 0], "target": ["gate_rx", 0] },
+      { "source": ["gate_rx", 0], "target": ["gate_ry", 0] },
+      { "source": ["gate_ry", 0], "target": ["gate_rz", 0] },
+      { "source": ["gate_rz", 0], "target": ["gate_cx", 1] },
+  
+      { "source": ["gate_cx", 0], "target": ["gate_ccx", 0] },
+      { "source": ["gate_cx", 1], "target": ["gate_ccx", 1] },
+      { "source": ["q2", 0], "target": ["gate_ccx", 2] }
+    ]
+  }
+expected_status: 200
+expected_result: |
+  OPENQASM 3.1;
+  include "stdgates.inc";
+  qubit[6] leqo_reg;
+  /* Start node q0 */
+  let leqo_677c62829b2f503e829851dd8911e48a_literal = leqo_reg[{0, 1}];
+  @leqo.output 0
+  let leqo_677c62829b2f503e829851dd8911e48a_out = leqo_677c62829b2f503e829851dd8911e48a_literal;
+  /* End node q0 */
+  /* Start node q1 */
+  let leqo_64bc2e5f2880544d8c66cf84e4146b48_literal = leqo_reg[{2, 3}];
+  @leqo.output 0
+  let leqo_64bc2e5f2880544d8c66cf84e4146b48_out = leqo_64bc2e5f2880544d8c66cf84e4146b48_literal;
+  /* End node q1 */
+  /* Start node q2 */
+  let leqo_d27ae4e9247b51b7a31ef707aa4284d1_literal = leqo_reg[{4, 5}];
+  @leqo.output 0
+  let leqo_d27ae4e9247b51b7a31ef707aa4284d1_out = leqo_d27ae4e9247b51b7a31ef707aa4284d1_literal;
+  /* End node q2 */
+  /* Start node gate_h */
+  @leqo.input 0
+  let leqo_e43a67bf75f9513e8e47811ceb82577e_q0 = leqo_reg[{0, 1}];
+  h leqo_e43a67bf75f9513e8e47811ceb82577e_q0;
+  @leqo.output 0
+  let leqo_e43a67bf75f9513e8e47811ceb82577e_q0_out = leqo_e43a67bf75f9513e8e47811ceb82577e_q0;
+  /* End node gate_h */
+  /* Start node gate_rx */
+  @leqo.input 0
+  let leqo_ce47746331755bf8b9ebbbefb43a6b14_q0 = leqo_reg[{2, 3}];
+  rx(0.1) leqo_ce47746331755bf8b9ebbbefb43a6b14_q0;
+  @leqo.output 0
+  let leqo_ce47746331755bf8b9ebbbefb43a6b14_q0_out = leqo_ce47746331755bf8b9ebbbefb43a6b14_q0;
+  /* End node gate_rx */
+  /* Start node gate_x */
+  @leqo.input 0
+  let leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0 = leqo_reg[{0, 1}];
+  x leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0;
+  @leqo.output 0
+  let leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0_out = leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0;
+  /* End node gate_x */
+  /* Start node gate_ry */
+  @leqo.input 0
+  let leqo_712277296484507f80d34028c03d1979_q0 = leqo_reg[{2, 3}];
+  ry(0.2) leqo_712277296484507f80d34028c03d1979_q0;
+  @leqo.output 0
+  let leqo_712277296484507f80d34028c03d1979_q0_out = leqo_712277296484507f80d34028c03d1979_q0;
+  /* End node gate_ry */
+  /* Start node gate_y */
+  @leqo.input 0
+  let leqo_af82c2749e92513582f813f753c1d2ca_q0 = leqo_reg[{0, 1}];
+  y leqo_af82c2749e92513582f813f753c1d2ca_q0;
+  @leqo.output 0
+  let leqo_af82c2749e92513582f813f753c1d2ca_q0_out = leqo_af82c2749e92513582f813f753c1d2ca_q0;
+  /* End node gate_y */
+  /* Start node gate_rz */
+  @leqo.input 0
+  let leqo_b36e84364da85c109a5bbae0f535f1b1_q0 = leqo_reg[{2, 3}];
+  rz(0.3) leqo_b36e84364da85c109a5bbae0f535f1b1_q0;
+  @leqo.output 0
+  let leqo_b36e84364da85c109a5bbae0f535f1b1_q0_out = leqo_b36e84364da85c109a5bbae0f535f1b1_q0;
+  /* End node gate_rz */
+  /* Start node gate_z */
+  @leqo.input 0
+  let leqo_9b180d9930555db79a4baad5e12b0c61_q0 = leqo_reg[{0, 1}];
+  z leqo_9b180d9930555db79a4baad5e12b0c61_q0;
+  @leqo.output 0
+  let leqo_9b180d9930555db79a4baad5e12b0c61_q0_out = leqo_9b180d9930555db79a4baad5e12b0c61_q0;
+  /* End node gate_z */
+  /* Start node gate_cx */
+  @leqo.input 0
+  let leqo_45b540ec3ba35e7585b4ae3c3d5e9d55_q0 = leqo_reg[{0, 1}];
+  @leqo.input 1
+  let leqo_45b540ec3ba35e7585b4ae3c3d5e9d55_q1 = leqo_reg[{2, 3}];
+  cx leqo_45b540ec3ba35e7585b4ae3c3d5e9d55_q0, leqo_45b540ec3ba35e7585b4ae3c3d5e9d55_q1;
+  @leqo.output 0
+  let leqo_45b540ec3ba35e7585b4ae3c3d5e9d55_q0_out = leqo_45b540ec3ba35e7585b4ae3c3d5e9d55_q0;
+  @leqo.output 1
+  let leqo_45b540ec3ba35e7585b4ae3c3d5e9d55_q1_out = leqo_45b540ec3ba35e7585b4ae3c3d5e9d55_q1;
+  /* End node gate_cx */
+  /* Start node gate_ccx */
+  @leqo.input 0
+  let leqo_0fe048b7b253587cbe9ab1b10a0a8718_q0 = leqo_reg[{0, 1}];
+  @leqo.input 1
+  let leqo_0fe048b7b253587cbe9ab1b10a0a8718_q1 = leqo_reg[{2, 3}];
+  @leqo.input 2
+  let leqo_0fe048b7b253587cbe9ab1b10a0a8718_q2 = leqo_reg[{4, 5}];
+  ccx leqo_0fe048b7b253587cbe9ab1b10a0a8718_q0, leqo_0fe048b7b253587cbe9ab1b10a0a8718_q1, leqo_0fe048b7b253587cbe9ab1b10a0a8718_q2;
+  @leqo.output 0
+  let leqo_0fe048b7b253587cbe9ab1b10a0a8718_q0_out = leqo_0fe048b7b253587cbe9ab1b10a0a8718_q0;
+  @leqo.output 1
+  let leqo_0fe048b7b253587cbe9ab1b10a0a8718_q1_out = leqo_0fe048b7b253587cbe9ab1b10a0a8718_q1;
+  @leqo.output 2
+  let leqo_0fe048b7b253587cbe9ab1b10a0a8718_q2_out = leqo_0fe048b7b253587cbe9ab1b10a0a8718_q2;
+  /* End node gate_ccx */

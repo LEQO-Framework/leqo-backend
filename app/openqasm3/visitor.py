@@ -1,4 +1,6 @@
-"""Fix QASMTransformer ignoring lists in lists and tuples."""
+"""
+Fix QASMTransformer ignoring lists in lists and tuples.
+"""
 
 from typing import TypeVar, override
 
@@ -9,11 +11,15 @@ T = TypeVar("T")
 
 
 class LeqoTransformer(QASMTransformer[T]):
-    """Fixes an issue in the parent, walk through lists/tuples recursively."""
+    """
+    Fixes an issue in the parent, walk through lists/tuples recursively.
+    """
 
     @override
     def generic_visit(self, node: QASMNode, context: T | None = None) -> QASMNode:
-        """Almost a clone of the parent method, but handles lists/tuples recursively."""
+        """
+        Almost a clone of the parent method, but handles lists/tuples recursively.
+        """
         for field, old_value in node.__dict__.items():
             if isinstance(old_value, list):
                 setattr(node, field, self.list_visit(old_value, context))
@@ -36,7 +42,9 @@ class LeqoTransformer(QASMTransformer[T]):
         values: list[object],
         context: T | None,
     ) -> list[object]:
-        """Recursively visits lists in lists."""
+        """
+        Recursively visits lists in lists.
+        """
         new_values: list[object] = []
         for value in values:
             if isinstance(value, list):
@@ -64,5 +72,7 @@ class LeqoTransformer(QASMTransformer[T]):
         values: tuple[object, ...],
         context: T | None,
     ) -> tuple[object, ...]:
-        """Wrap list_visit for tuples."""
+        """
+        Wrap list_visit for tuples.
+        """
         return tuple(self.list_visit(list(values), context))

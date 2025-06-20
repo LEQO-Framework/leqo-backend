@@ -19,16 +19,24 @@ from openqasm3.ast import (
     UnaryExpression,
 )
 
+from app.openqasm3.printer import leqo_dumps
+from app.processing.frontend_graph import FrontendGraph
+from app.processing.graph import ProgramGraph
+
 REMOVE_INDENT = re.compile(r"\n +", re.MULTILINE)
 
 
 def normalize_qasm_string(program: str) -> str:
-    """Normalize QASM-string."""
+    """
+    Normalize QASM-string.
+    """
     return REMOVE_INDENT.sub("\n", program).strip()
 
 
 def cast_to_program(node: QASMNode | None) -> Program:
-    """Cast to Program or raise error."""
+    """
+    Cast to Program or raise error.
+    """
     if not isinstance(node, Program):
         msg = f"Tried to cast {type(node)} to Program."
         raise TypeError(msg)
@@ -36,7 +44,8 @@ def cast_to_program(node: QASMNode | None) -> Program:
 
 
 def expr_to_int(expr: Expression | None) -> int:
-    """Get an integer from an expression.
+    """
+    Get an integer from an expression.
 
     This method does no analysis of the overall AST.
     If it cannot extract an integer from an expression, it throws.
@@ -82,7 +91,8 @@ def annotate(
 
 
 def parse_io_annotation(annotation: Annotation) -> int:
-    """Parse the :attr:`~openqasm3.ast.Annotation.command` of a `@leqo.input` or `@leqo.output` :class:`~openqasm3.ast.Annotation`.
+    """
+    Parse the :attr:`~openqasm3.ast.Annotation.command` of a `@leqo.input` or `@leqo.output` :class:`~openqasm3.ast.Annotation`.
 
     :param annotation: The annotation to parse
     :return: The indices
@@ -97,7 +107,8 @@ def parse_io_annotation(annotation: Annotation) -> int:
 
 
 def parse_range_definition(range_def: RangeDefinition, length: int) -> list[int]:
-    """Return list of integers expressed by qasm3-range.
+    """
+    Return list of integers expressed by qasm3-range.
 
     The complexity of this function arises because openqasm3 includes the last element
     and python does not.
@@ -116,13 +127,19 @@ def parse_range_definition(range_def: RangeDefinition, length: int) -> list[int]
     return list(range(start, end, step))
 
 
-def parse_qasm_index(index: list[IndexElement], length: int) -> list[int]:
-    """Parse list of qasm3 indexes and returns them as a list of integers.
+def parse_qasm_index(index: list[IndexElement], length: int) -> list[int] | int:
+    """
+    Parse list of qasm3 indexes.
 
+    This can return either a single index or a subset of them.
     Multiple indexes are applied iteratively (as qiskit also does it).
     """
-    result = list(range(length))
+    result: list[int] | int = list(range(length))
+    tmp: list[int] | int
     for subindex in index:
+        if not isinstance(result, list):
+            msg = "Unsupported: Can't further index single instance."
+            raise UnsupportedOperation(msg)
         match subindex:
             case DiscreteSet():
                 indecies = [expr_to_int(expr) for expr in subindex.values]
@@ -133,7 +150,7 @@ def parse_qasm_index(index: list[IndexElement], length: int) -> list[int]:
                     raise TypeError(msg)
                 match subindex[0]:
                     case Expression():
-                        tmp = [result[expr_to_int(subindex[0])]]
+                        tmp = result[expr_to_int(subindex[0])]
                     case RangeDefinition():
                         tmp = [
                             result[i]
@@ -141,3 +158,32 @@ def parse_qasm_index(index: list[IndexElement], length: int) -> list[int]:
                         ]
         result = tmp
     return result
+
+
+def print_program_graph(graph: ProgramGraph) -> None:
+    print("\n=== Nodes ===")
+    node_index = {}
+    for i, node in enumerate(graph.nodes):
+        node_index[node] = i
+        print(f"== Node {i} ==")
+        print(leqo_dumps(graph.node_data[node].implementation))
+
+    print("\n=== Edges ===")
+    for source, target in graph.edges:
+        i, j = node_index[source], node_index[target]
+        print(f"== Edge {i} -> {j} ==")
+        print(graph.edge_data[(source, target)])
+
+
+def print_frontend_graph(graph: FrontendGraph) -> None:
+    print("\n=== Nodes ===")
+    node_index = {}
+    for i, node in enumerate(graph.nodes):
+        node_index[node] = i
+        print(f"Node {i}: {node} with {graph.node_data[node]}")
+
+    print("\n=== Edges ===")
+    for source, target in graph.edges:
+        i, j = node_index[source], node_index[target]
+        print(f"== Edge {i} -> {j} ==")
+        print(graph.edge_data[(source, target)])
