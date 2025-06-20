@@ -42,26 +42,21 @@ def polling_send_json(json_path: Path, host: str, endpoint: str) -> None:
             method="POST",
         )
     ) as response:
-        uuid = json.loads(response.read().decode("utf-8"))["uuid"]
+        status_url = response.url
 
-    done = False
+    result_url: str | None = None
     for _ in range(MAX_ATTEMPTS):
-        with request.urlopen(
-            request.Request(host + f"/status/{uuid}", method="GET")
-        ) as response:
+        with request.urlopen(request.Request(status_url, method="GET")) as response:
             content = json.loads(response.read().decode("utf-8"))
             if content["status"] == "completed":
-                done = True
-                break
+                result_url = content["result"]
             if content["status"] == "failed":
                 print(content["result"])
                 sys.exit(1)
         sleep(POLL_INTERVAL)
-    assert done, f"No success after {MAX_ATTEMPTS * POLL_INTERVAL}s"
+    assert result_url is not None, f"No success after {MAX_ATTEMPTS * POLL_INTERVAL}s"
 
-    with request.urlopen(
-        request.Request(host + f"/result/{uuid}", method="GET")
-    ) as response:
+    with request.urlopen(request.Request(result_url, method="GET")) as response:
         print(response.read().decode("utf-8"))
 
 
