@@ -397,7 +397,7 @@ def test_raise_on_missing_input_index() -> None:
     qubit[2] q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: Missing input index 1, next index was 2",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -414,7 +414,7 @@ def test_raise_on_missing_output_index() -> None:
     let b = q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: Missing output index 1, next index was 2",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -428,7 +428,7 @@ def test_raise_on_duplicate_input_index() -> None:
     qubit[2] q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: duplicate input id: 0",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -445,7 +445,7 @@ def test_raise_on_duplicate_output_index() -> None:
     let b = q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: duplicate output id: 0",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -459,7 +459,7 @@ def test_raise_on_input_index_not_starting_at_zero() -> None:
     qubit[2] q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: Missing input index 0, next index was 1",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
@@ -476,7 +476,7 @@ def test_raise_on_output_index_not_starting_at_zero() -> None:
     let b = q1;
     """
     with pytest.raises(
-        IndexError,
+        PreprocessingException,
         match="Unsupported: Missing output index 0, next index was 1",
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))

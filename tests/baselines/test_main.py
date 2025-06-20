@@ -36,15 +36,16 @@ class InsertBaseline(BaseModel):
     merge_result: str
 
 
-def find_files(path: Path, model: type[TModel]) -> Iterator[tuple[str, TModel]]:
-    for _, _, files in os.walk(path):
-        for file_name in files:
-            file = path / file_name
-            with file.open() as f:
-                yield (
-                    str(file.relative_to(Path.cwd())),
-                    model.model_validate(yaml.safe_load(f)),
-                )
+def find_files(model: type[TModel], *paths: Path) -> Iterator[tuple[str, TModel]]:
+    for path in paths:
+        for _, _, files in os.walk(path):
+            for file_name in files:
+                file = path / file_name
+                with file.open() as f:
+                    yield (
+                        str(file.relative_to(Path.cwd())),
+                        model.model_validate(yaml.safe_load(f)),
+                    )
 
 
 def prettify_json(s: str) -> str:
@@ -98,7 +99,7 @@ def json_assert(expected: str, actual: str) -> None:
 
 @pytest.mark.parametrize(
     "test",
-    find_files(TEST_DIR / "compile", Baseline),
+    find_files(Baseline, TEST_DIR / "compile"),
     ids=lambda test: test[0],
 )
 def test_compile(test: tuple[str, Baseline], client: TestClient) -> None:
@@ -111,7 +112,7 @@ def test_compile(test: tuple[str, Baseline], client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "test",
-    find_files(TEST_DIR / "errors", Baseline),
+    find_files(Baseline, TEST_DIR / "compile_errors", TEST_DIR / "enrich_errors"),
     ids=lambda test: test[0],
 )
 def test_compile_errors(test: tuple[str, Baseline], client: TestClient) -> None:
@@ -125,7 +126,7 @@ def test_compile_errors(test: tuple[str, Baseline], client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "test",
-    find_files(TEST_DIR / "enrich", Baseline),
+    find_files(Baseline, TEST_DIR / "enrich"),
     ids=lambda test: test[0],
 )
 def test_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
@@ -138,7 +139,21 @@ def test_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "test",
-    find_files(TEST_DIR / "compile", Baseline),
+    find_files(Baseline, TEST_DIR / "enrich_errors"),
+    ids=lambda test: test[0],
+)
+def test_enrich_errors(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = handle_endpoints(client, base.request, "/enrich")
+
+    result = response.json()["result"]
+    json_assert(base.expected_result, dumps(result))
+    assert base.expected_status == result["status"]
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(Baseline, TEST_DIR / "compile"),
     ids=lambda test: test[0],
 )
 def test_debug_compile(test: tuple[str, Baseline], client: TestClient) -> None:
@@ -156,7 +171,24 @@ def test_debug_compile(test: tuple[str, Baseline], client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "test",
-    find_files(TEST_DIR / "enrich", Baseline),
+    find_files(Baseline, TEST_DIR / "compile_errors", TEST_DIR / "enrich_errors"),
+    ids=lambda test: test[0],
+)
+def test_debug_compile_errors(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = client.post(
+        "/debug/compile",
+        headers={"Content-Type": "application/json"},
+        content=base.request,
+    )
+
+    json_assert(base.expected_result, response.text)
+    assert base.expected_status == response.status_code
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(Baseline, TEST_DIR / "enrich"),
     ids=lambda test: test[0],
 )
 def test_debug_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
@@ -173,7 +205,24 @@ def test_debug_enrich(test: tuple[str, Baseline], client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "test",
-    find_files(TEST_DIR / "insert", InsertBaseline),
+    find_files(Baseline, TEST_DIR / "enrich_errors"),
+    ids=lambda test: test[0],
+)
+def test_debug_enrich_errors(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = client.post(
+        "/debug/enrich",
+        headers={"Content-Type": "application/json"},
+        content=base.request,
+    )
+
+    json_assert(base.expected_result, response.text)
+    assert base.expected_status == response.status_code
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(InsertBaseline, TEST_DIR / "insert"),
     ids=lambda test: test[0],
 )
 def test_insert(test: tuple[str, InsertBaseline], client: TestClient) -> None:

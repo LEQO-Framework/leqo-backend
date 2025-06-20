@@ -285,7 +285,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         if input_id is not None:
             if input_id in self.__found_input_ids:
                 msg = f"Unsupported: duplicate input id: {input_id}"
-                raise IndexError(msg)
+                raise PreprocessingException(msg)
             self.__found_input_ids.add(input_id)
             self.io.inputs[input_id] = info
         elif dirty:
@@ -335,7 +335,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         if input_id is not None:
             if input_id in self.__found_input_ids:
                 msg = f"Unsupported: duplicate input id: {input_id}"
-                raise IndexError(msg)
+                raise PreprocessingException(msg)
             if self.__in_uncompute:
                 msg = f"Unsupported: input declaration over {info.name} in uncompute block"
                 raise PreprocessingException(msg)
@@ -357,7 +357,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         if output_id is not None:
             if output_id in self.__found_output_ids:
                 msg = f"Unsupported: duplicate output id: {output_id}"
-                raise IndexError(msg)
+                raise PreprocessingException(msg)
             self.__found_output_ids.add(output_id)
 
         self.__name_to_info[name] = info
@@ -412,7 +412,7 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             if i == j:
                 continue
             msg = f"Unsupported: Missing {name_of_check} index {i}, next index was {j}"
-            raise IndexError(msg)
+            raise PreprocessingException(msg)
 
     def visit_Program(self, node: Program) -> QASMNode:
         """
