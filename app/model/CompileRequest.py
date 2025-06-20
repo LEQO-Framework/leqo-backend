@@ -8,7 +8,7 @@ from __future__ import annotations
 from abc import ABC
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.openqasm3.stdgates import (
     OneQubitGate,
@@ -23,13 +23,13 @@ from app.openqasm3.stdgates import (
 class OptimizeSettings(ABC):
     """
     Abstract base class providing optimization settings.
-
-    :param int | None optimizeWidth: If set, enables circuit width optimization with a user-defined priority.
-    :param int | None optimizeDepth: If set, enables circuit depth optimization with a user-defined priority.
     """
 
     optimizeWidth: int | None
+    """If set, enables circuit width optimization with a user-defined priority."""
+
     optimizeDepth: int | None
+    """If set, enables circuit depth optimization with a user-defined priority."""
 
 
 class MetaData(BaseModel, OptimizeSettings):
@@ -37,18 +37,25 @@ class MetaData(BaseModel, OptimizeSettings):
     Contains metadata for a compile request, including versioning and optimization preferences.
     """
 
-    version: str = Field(description="Version identifier of the project or model.")
-    name: str = Field(description="Name of the quantum circuit or model.")
-    description: str = Field(description="Human-readable description of the model.")
-    author: str = Field(description="Author of the model.")
-    optimizeWidth: Annotated[int, Field(gt=0)] | None = Field(
-        default=None,
-        description="Optimization setting for reducing circuit width (optional).",
-    )
-    optimizeDepth: Annotated[int, Field(gt=0)] | None = Field(
-        default=None,
-        description="Optimization setting for reducing circuit depth (optional).",
-    )
+    version: str
+    """Version identifier of the project or model."""
+
+    name: str
+    """Name of the quantum circuit or model."""
+
+    description: str
+    """Human-readable description of the model."""
+
+    author: str
+    """Author of the model."""
+
+    optimizeWidth: Annotated[int, Field(gt=0)] | None = None
+    """Optimization setting for reducing circuit width (optional)."""
+
+    optimizeDepth: Annotated[int, Field(gt=0)] | None = None
+    """Optimization setting for reducing circuit depth (optional)."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class BaseNode(BaseModel):
@@ -56,11 +63,13 @@ class BaseNode(BaseModel):
     Abstract base class for all node types used in a compile request.
     """
 
-    id: str = Field(description="Unique identifier for the node.")
-    label: str | None = Field(
-        default=None,
-        description="Optional label for the node used for display purposes.",
-    )
+    id: str
+    """Unique identifier for the node."""
+
+    label: str | None = None
+    """Optional label for the node used for display purposes."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class ImplementationNode(BaseNode):
@@ -69,9 +78,11 @@ class ImplementationNode(BaseNode):
     """
 
     type: Literal["implementation"] = "implementation"
-    implementation: str = Field(
-        description="Raw OpenQASM code associated with the node."
-    )
+
+    implementation: str
+    """Raw OpenQASM code associated with the node."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 # region Boundary Nodes
@@ -81,15 +92,14 @@ class EncodeValueNode(BaseNode):
     """
 
     type: Literal["encode"] = "encode"
-    encoding: Literal["amplitude", "angle", "basis", "custom", "matrix", "schmidt"] = (
-        Field(description='Encoding scheme used (e.g. "amplitude", "basis", etc.).')
-    )
-    bounds: int = Field(
-        ge=0,
-        default=0,
-        le=1,
-        description="Indicates whether values are clamped (0 or 1).",
-    )
+
+    encoding: Literal["amplitude", "angle", "basis", "custom", "matrix", "schmidt"]
+    """Encoding scheme used (e.g. "amplitude", "basis", etc.)."""
+
+    bounds: int = Field(ge=0, default=0, le=1)
+    """Indicates whether values are clamped (0 or 1)."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class PrepareStateNode(BaseNode):
@@ -98,12 +108,14 @@ class PrepareStateNode(BaseNode):
     """
 
     type: Literal["prepare"] = "prepare"
-    quantumState: Literal["ϕ+", "ϕ-", "ψ+", "ψ-", "custom", "ghz", "uniform", "w"] = (
-        Field(description='Type of quantum state to prepare (e.g. "ψ+", "ghz").')
-    )
-    size: int = Field(
-        gt=0, description="Number of qubits involved in state preparation."
-    )
+
+    quantumState: Literal["ϕ+", "ϕ-", "ψ+", "ψ-", "custom", "ghz", "uniform", "w"]
+    """Type of quantum state to prepare (e.g. "ψ+", "ghz")."""
+
+    size: int = Field(gt=0)
+    """Number of qubits involved in state preparation."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class SplitterNode(BaseNode):
@@ -112,7 +124,11 @@ class SplitterNode(BaseNode):
     """
 
     type: Literal["splitter"] = "splitter"
-    numberOutputs: int = Field(ge=2, description="Number of output branches created.")
+
+    numberOutputs: int = Field(ge=2)
+    """Number of output branches created."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class MergerNode(BaseNode):
@@ -121,7 +137,11 @@ class MergerNode(BaseNode):
     """
 
     type: Literal["merger"] = "merger"
-    numberInputs: int = Field(ge=2, description="Number of input branches merged.")
+
+    numberInputs: int = Field(ge=2)
+    """Number of input branches merged."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class MeasurementNode(BaseNode):
@@ -130,9 +150,11 @@ class MeasurementNode(BaseNode):
     """
 
     type: Literal["measure"] = "measure"
-    indices: list[Annotated[int, Field(ge=0)]] = Field(
-        description="List of qubit indices to measure."
-    )
+
+    indices: list[Annotated[int, Field(ge=0)]]
+    """List of qubit indices to measure."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 BoundaryNode = (
@@ -147,7 +169,11 @@ class QubitNode(BaseNode):
     """
 
     type: Literal["qubit"] = "qubit"
-    size: int = Field(default=1, ge=1, description="Number of qubits to allocate.")
+
+    size: int = Field(default=1, ge=1)
+    """Number of qubits to allocate."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class GateNode(BaseNode):
@@ -156,9 +182,11 @@ class GateNode(BaseNode):
     """
 
     type: Literal["gate"] = "gate"
-    gate: OneQubitGate | TwoQubitGate | ThreeQubitGate | Literal["cnot", "toffoli"] = (
-        Field(description='The gate to apply (e.g., "x", "cnot", etc.).')
-    )
+
+    gate: OneQubitGate | TwoQubitGate | ThreeQubitGate | Literal["cnot", "toffoli"]
+    """The gate to apply (e.g., "x", "cnot", etc.)."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class ParameterizedGateNode(BaseNode):
@@ -167,10 +195,14 @@ class ParameterizedGateNode(BaseNode):
     """
 
     type: Literal["gate-with-param"] = "gate-with-param"
-    gate: OneQubitGateWithAngle | TwoQubitGateWithParam | TwoQubitGateWithAngle = Field(
-        description="The parameterized gate to apply."
-    )
-    parameter: float = Field(description="Value of the gate's parameter.")
+
+    gate: OneQubitGateWithAngle | TwoQubitGateWithParam | TwoQubitGateWithAngle
+    """The parameterized gate to apply."""
+
+    parameter: float
+    """Value of the gate's parameter."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 # region Literals
@@ -180,7 +212,11 @@ class BitLiteralNode(BaseNode):
     """
 
     type: Literal["bit"] = "bit"
-    value: Literal[0, 1] = Field(description="Bit value.")
+
+    value: Literal[0, 1]
+    """Bit value."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class BoolLiteralNode(BaseNode):
@@ -189,7 +225,11 @@ class BoolLiteralNode(BaseNode):
     """
 
     type: Literal["bool"] = "bool"
-    value: bool = Field(description="Boolean value.")
+
+    value: bool
+    """Boolean value."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class IntLiteralNode(BaseNode):
@@ -198,10 +238,14 @@ class IntLiteralNode(BaseNode):
     """
 
     type: Literal["int"] = "int"
-    bitSize: int = Field(
-        default=32, ge=1, description="Bit size of the integer (optional)."
-    )
-    value: int = Field(description="Integer value.")
+
+    bitSize: int = Field(default=32, ge=1)
+    """"Bit size of the integer (optional)."""
+
+    value: int
+    """Integer value."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class FloatLiteralNode(BaseNode):
@@ -210,10 +254,14 @@ class FloatLiteralNode(BaseNode):
     """
 
     type: Literal["float"] = "float"
-    bitSize: int = Field(
-        default=32, ge=1, description="Bit size of the float (optional)."
-    )
-    value: float = Field(description="Float value.")
+
+    bitSize: int = Field(default=32, ge=1)
+    """Bit size of the float (optional)."""
+
+    value: float
+    """Float value."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 LiteralNode = BitLiteralNode | BoolLiteralNode | IntLiteralNode | FloatLiteralNode
@@ -226,9 +274,11 @@ class AncillaNode(BaseNode):
     """
 
     type: Literal["ancilla"] = "ancilla"
-    size: int = Field(
-        default=1, ge=1, description="Number of ancilla qubits allocated."
-    )
+
+    size: int = Field(default=1, ge=1)
+    """Number of ancilla qubits allocated."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 # region ControlFlow
@@ -237,8 +287,13 @@ class NestedBlock(BaseModel):
     Represents a subgraph or code block used inside control flow nodes.
     """
 
-    nodes: list[NestableNode] = Field(description="List of nodes within the block.")
-    edges: list[Edge] = Field(description="Connections between the nodes.")
+    nodes: list[NestableNode]
+    """List of nodes within the block."""
+
+    edges: list[Edge]
+    """Connections between the nodes."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class IfThenElseNode(BaseNode):
@@ -247,13 +302,17 @@ class IfThenElseNode(BaseNode):
     """
 
     type: Literal["if-then-else"] = "if-then-else"
-    condition: str = Field(description="Condition expression used to branch execution.")
-    thenBlock: NestedBlock = Field(
-        description="Code block executed if the condition is true."
-    )
-    elseBlock: NestedBlock = Field(
-        description="Code block executed if the condition is false."
-    )
+
+    condition: str
+    """Condition expression used to branch execution."""
+
+    thenBlock: NestedBlock
+    """Code block executed if the condition is true."""
+
+    elseBlock: NestedBlock
+    """Code block executed if the condition is false."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class RepeatNode(BaseNode):
@@ -262,8 +321,14 @@ class RepeatNode(BaseNode):
     """
 
     type: Literal["repeat"] = "repeat"
-    iterations: int = Field(gt=0, description="Number of loop iterations.")
-    block: NestedBlock = Field(description="Code block to repeat.")
+
+    iterations: int = Field(gt=0)
+    """Number of loop iterations."""
+
+    block: NestedBlock
+    """Code block to repeat."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 ControlFlowNode = IfThenElseNode | RepeatNode
@@ -294,7 +359,10 @@ class OperatorNode(BaseNode):
         "!=",
         "min",
         "max",
-    ] = Field(description='Type of operator (e.g., "+", "&", "==").')
+    ]
+    """Type of operator (e.g., "+", "&", "==")."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 NestableNode = (
@@ -317,17 +385,22 @@ class Edge(BaseModel):
     source: tuple[
         Annotated[str, Field(description="Source node Id")],
         Annotated[int, Field(ge=0, description="Output index of source node")],
-    ] = Field(description="Tuple of (node_id, output_index).")
+    ]
+    """Tuple of (node_id, output_index)."""
+
     target: tuple[
         Annotated[str, Field(description="Target node id")],
         Annotated[int, Field(ge=0, description="Input index of target node")],
-    ] = Field(description="Tuple of (node_id, input_index).")
-    size: int | None = Field(
-        default=None, description="Optional size override for the edge."
-    )
-    identifier: str | None = Field(
-        default=None, description="Optional name or alias of the connection."
-    )
+    ]
+    """Tuple of (node_id, input_index)."""
+
+    size: int | None = None
+    """Optional size override for the edge"""
+
+    identifier: str | None = None
+    """Optional name or alias of the connection."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class CompileRequest(BaseModel):
@@ -335,15 +408,16 @@ class CompileRequest(BaseModel):
     Top-level object representing a full graph-based quantum compile request.
     """
 
-    metadata: MetaData = Field(
-        description="General information and optimization preferences."
-    )
-    nodes: list[Annotated[Node, Field(discriminator="type")]] = Field(
-        description="List of all nodes forming the program graph."
-    )
-    edges: list[Edge] = Field(
-        description="Directed edges defining input-output relationships between nodes."
-    )
+    metadata: MetaData
+    """General information and optimization preferences."""
+
+    nodes: list[Annotated[Node, Field(discriminator="type")]]
+    """List of all nodes forming the program graph."""
+
+    edges: list[Edge]
+    """Directed edges defining input-output relationships between nodes."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 EnrichableNode = (
