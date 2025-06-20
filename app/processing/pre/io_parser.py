@@ -419,16 +419,16 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         self.raise_on_non_contiguous_range(self.__found_input_ids, "input")
         self.raise_on_non_contiguous_range(self.__found_output_ids, "output")
 
-        returned_dirty = set(chain(*self.qubit.declaration_to_ids.values()))
+        entangled = set(chain(*self.qubit.declaration_to_ids.values()))
         for qubit_id in self.qubit.reusable_ids:
             try:
-                returned_dirty.remove(qubit_id)
+                entangled.remove(qubit_id)
             except KeyError:
                 msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable twice"
                 raise UnsupportedOperation(msg) from None
         for qubit_id in self.qubit.uncomputable_ids:
             try:
-                returned_dirty.remove(qubit_id)
+                entangled.remove(qubit_id)
             except KeyError:
                 msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable (in uncompute) twice"
                 raise UnsupportedOperation(msg) from None
@@ -439,10 +439,10 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 )
                 for qubit_id in output_ids:
                     try:
-                        returned_dirty.remove(qubit_id)
+                        entangled.remove(qubit_id)
                     except KeyError:
                         msg = f"Unsupported: qubit with {qubit_id} was parsed as reusable or output twice"
                         raise UnsupportedOperation(msg) from None
-        self.qubit.entangled_ids = sorted(returned_dirty)
+        self.qubit.entangled_ids = sorted(entangled)
 
         return result
