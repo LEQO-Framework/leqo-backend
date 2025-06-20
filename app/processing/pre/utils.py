@@ -35,11 +35,9 @@ def expr_to_int(expr: Expression | None) -> int:
     If it cannot extract an integer from an expression, it throws.
 
     :param expr: Expression to be analyses
-    :return: Integer or None if input was None
+    :return: the resulting integer parsed from the Expression
     """
     match expr:
-        case None:
-            return 0
         case IntegerLiteral():
             return expr.value
         case UnaryExpression():
