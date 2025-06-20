@@ -21,7 +21,9 @@ from app.processing.pre.inlining import InliningTransformer
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.pre.renaming import RenameRegisterTransformer
 from app.processing.pre.size_casting import size_cast
+from app.processing.pre.utils import PreprocessingException
 from app.processing.utils import cast_to_program
+from app.utils import safe_generate_implementation_node
 
 
 def preprocess(
@@ -37,21 +39,27 @@ def preprocess(
     :param requested_inputs: Optional inputs specification for size_casting
     :return: The preprocessed program.
     """
-    if isinstance(implementation, Program):
-        ast = implementation
-    else:
-        ast = parse_to_openqasm3(implementation)
-    ast = RenameRegisterTransformer().visit(ast, node.id)
-    ast = cast_to_program(InliningTransformer().visit(ast))
+    try:
+        if isinstance(implementation, Program):
+            ast = implementation
+        else:
+            ast = parse_to_openqasm3(implementation)
+        ast = RenameRegisterTransformer().visit(ast, node.id)
+        ast = cast_to_program(InliningTransformer().visit(ast))
 
-    io = IOInfo()
-    qubit = QubitInfo()
-    _ = ParseAnnotationsVisitor(io, qubit).visit(ast)
+        io = IOInfo()
+        qubit = QubitInfo()
+        _ = ParseAnnotationsVisitor(io, qubit).visit(ast)
 
-    processed_node = ProcessedProgramNode(node, ast, io, qubit)
-    if requested_inputs is not None:
-        size_cast(
-            processed_node,
-            {index: type.size for index, type in requested_inputs.items()},
-        )
+        processed_node = ProcessedProgramNode(node, ast, io, qubit)
+        if requested_inputs is not None:
+            size_cast(
+                processed_node,
+                {index: type.size for index, type in requested_inputs.items()},
+            )
+
+    except PreprocessingException as exc:
+        exc.node = safe_generate_implementation_node(node.name, implementation)
+        raise exc
+
     return processed_node

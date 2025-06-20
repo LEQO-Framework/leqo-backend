@@ -5,7 +5,7 @@ Database schema for everything stored in the database.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import UUID, ForeignKey
+from sqlalchemy import UUID, ForeignKey, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.model.StatusResponse import StatusType
@@ -31,7 +31,7 @@ class StatusResponseDb(Base):
     completedAt: Mapped[datetime] = mapped_column(nullable=True)
     progressPercentage: Mapped[int] = mapped_column(nullable=False)
     progressCurrentStep: Mapped[str] = mapped_column(nullable=False)
-    result: Mapped[str] = mapped_column(nullable=True)
+    result: Mapped[str] = mapped_column(Text, nullable=True)
 
 
 class CompileResult(Base):

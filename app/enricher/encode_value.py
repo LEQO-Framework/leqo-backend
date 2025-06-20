@@ -54,7 +54,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             case QubitType():
                 input_type = InputType.QubitType.value
             case _:
-                raise Exception(f"Unsupported input type: {input}")
+                raise RuntimeError(f"Unsupported input type: {input}")
 
         return input_type
 

@@ -5,7 +5,6 @@ Provides the core logic of the backend.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from io import UnsupportedOperation
 from typing import Annotated
 
 from fastapi import Depends
@@ -40,6 +39,7 @@ from app.processing.nested.utils import generate_pass_node_implementation
 from app.processing.optimize import optimize
 from app.processing.post import postprocess
 from app.processing.pre import preprocess
+from app.processing.pre.utils import PreprocessingException
 from app.services import get_db_engine, get_enricher
 from app.utils import not_none
 
@@ -96,7 +96,11 @@ class CommonProcessor:
                 output = source_node_data.io.outputs.get(output_index)
                 if output is None:  # https://github.com/python/mypy/issues/17383
                     msg = f"Node '{source_node}' does not define an output with index {output_index}"
-                    raise UnsupportedOperation(msg)
+                    node = self.frontend_graph.node_data[source_node]
+                    raise PreprocessingException(
+                        msg,
+                        None if isinstance(node, ParsedImplementationNode) else node,
+                    )
 
                 input_index = edge.target[1]
                 requested_inputs[input_index] = output.type
@@ -368,7 +372,7 @@ class EnrichmentInserter:
                     and actual_width != insert.metadata.width
                 ):
                     msg = f"Specified width does not match parsed width: {insert.metadata.width} != {actual_width}"
-                    raise UnsupportedOperation(msg)
+                    raise PreprocessingException(msg, insert.node)
                 insert.metadata.width = actual_width
 
                 await self.enricher.insert_enrichment(

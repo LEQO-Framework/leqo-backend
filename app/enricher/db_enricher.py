@@ -35,7 +35,7 @@ class DataBaseEnricherStrategy(EnricherStrategy, ABC):
     def _generate_query(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> Select[tuple[BaseNode]] | None:
-        raise Exception("Not implemented")
+        raise NotImplementedError
 
     @abstractmethod
     def _generate_database_node(

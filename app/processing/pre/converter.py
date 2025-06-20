@@ -39,6 +39,7 @@ from openqasm3.ast import Include, Program, QASMNode, QuantumGate, QuantumGateDe
 from openqasm3.parser import parse
 
 from app.openqasm3.visitor import LeqoTransformer
+from app.processing.pre.utils import PreprocessingException
 from app.processing.utils import cast_to_program
 
 OPAQUE_STATEMENT_PATTERN = re.compile(
@@ -85,7 +86,7 @@ class CustomOpenqasmLib:
                 self.gates.append(statement)
 
 
-class QASMConversionError(Exception):
+class QASMConversionError(PreprocessingException):
     """
     Custom exception raised for errors occurring during QASM conversion.
     """

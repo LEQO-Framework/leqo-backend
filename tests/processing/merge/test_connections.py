@@ -1,5 +1,4 @@
 import re
-from io import UnsupportedOperation
 
 import pytest
 from openqasm3.parser import parse
@@ -15,6 +14,7 @@ from app.processing.graph import (
     QubitInfo,
 )
 from app.processing.merge.connections import connect_qubits
+from app.processing.merge.utils import MergeException
 from app.processing.pre.io_parser import ParseAnnotationsVisitor
 from app.processing.utils import normalize_qasm_string
 
@@ -470,7 +470,7 @@ def test_raise_on_mismatched_qubit_size() -> None:
         ((0, 0), (1, 0)),
     ]
     with pytest.raises(
-        UnsupportedOperation,
+        MergeException,
         match=re.escape(
             "Unsupported: Mismatched types in IOConnection QubitType(size=1) != QubitType(size=100)"
         ),
@@ -494,7 +494,7 @@ def test_raise_on_classical_to_qubit() -> None:
         ((0, 0), (1, 0)),
     ]
     with pytest.raises(
-        UnsupportedOperation,
+        MergeException,
         match="^Unsupported: Try to connect qubit with classical\n\nIndex 0 from 1 tries to\nconnect to index 0 from 1$",
     ):
         assert_connections(inputs, [], connections)
@@ -516,7 +516,7 @@ def test_raise_on_mismatched_classic_type() -> None:
         ((0, 0), (1, 0)),
     ]
     with pytest.raises(
-        UnsupportedOperation,
+        MergeException,
         match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(size=32\\)\ninput c1_b0 has type BoolType\\(\\)$",
     ):
         assert_connections(inputs, [], connections)
@@ -538,7 +538,7 @@ def test_raise_on_mismatched_classic_size() -> None:
         ((0, 0), (1, 0)),
     ]
     with pytest.raises(
-        UnsupportedOperation,
+        MergeException,
         match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(size=16\\)\ninput c1_i0 has type IntType\\(size=32\\)$",
     ):
         assert_connections(inputs, [], connections)
@@ -566,7 +566,7 @@ def test_raise_two_classical_outputs_into_one_input() -> None:
         ((1, 0), (2, 0)),
     ]
     with pytest.raises(
-        UnsupportedOperation,
+        MergeException,
         match="^Unsupported: Multiple inputs into classical\n\nBoth _out0 and _out1\nare input to c2_i0 but only one is allowed.$",
     ):
         assert_connections(inputs, [], connections)
@@ -587,7 +587,7 @@ def test_raise_on_missing_input_index() -> None:
         ((0, 0), (0, 0)),
     ]
     with pytest.raises(
-        UnsupportedOperation,
+        MergeException,
         match="^Unsupported: Missing input index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.$",
     ):
         assert_connections(inputs, [], connections)
@@ -608,7 +608,7 @@ def test_raise_on_missing_output_index() -> None:
         ((0, 0), (0, 0)),
     ]
     with pytest.raises(
-        UnsupportedOperation,
+        MergeException,
         match="^Unsupported: Missing output index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.$",
     ):
         assert_connections(inputs, [], connections)
