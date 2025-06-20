@@ -3,7 +3,6 @@ Merge all nodes from :class:`~app.processing.graph.ProgramGraph` into a single Q
 """
 
 from copy import deepcopy
-from io import UnsupportedOperation
 
 from networkx import topological_sort
 from openqasm3.ast import (
@@ -30,6 +29,7 @@ from app.processing.graph import (
     ProgramNode,
 )
 from app.processing.merge.connections import connect_qubits
+from app.processing.merge.utils import MergeException
 from app.processing.utils import cast_to_program
 
 GLOBAL_REG_NAME = "leqo_reg"
@@ -87,7 +87,7 @@ def graph_to_statements(
         for statement in implementation.statements:
             if isinstance(statement, Pragma):
                 msg = f"Can't handle pragma inside if-then-else: {statement}"
-                raise UnsupportedOperation(msg)
+                raise MergeException(msg)
             result.append(statement)
     return result
 
