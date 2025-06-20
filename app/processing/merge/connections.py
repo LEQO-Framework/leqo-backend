@@ -29,7 +29,7 @@ from app.processing.graph import (
     QubitIOInstance,
 )
 from app.processing.merge.utils import MergeException
-from app.utils import save_generate_implementation_node
+from app.utils import safe_generate_implementation_node
 
 
 @dataclass(frozen=True, order=True)
@@ -253,7 +253,7 @@ class _Connections:
                     node = self.graph.node_data[edge.source[0]]
                     raise MergeException(
                         msg,
-                        save_generate_implementation_node(
+                        safe_generate_implementation_node(
                             node.raw.name, node.implementation
                         ),
                     )
@@ -267,7 +267,7 @@ class _Connections:
                     node = self.graph.node_data[edge.target[0]]
                     raise MergeException(
                         msg,
-                        save_generate_implementation_node(
+                        safe_generate_implementation_node(
                             node.raw.name, node.implementation
                         ),
                     )
@@ -380,7 +380,7 @@ class _Connections:
                 except MergeException as exc:
                     if exc.node is None:
                         node = self.graph.node_data[edge.source[0]]
-                        exc.node = save_generate_implementation_node(
+                        exc.node = safe_generate_implementation_node(
                             node.raw.name, node.implementation
                         )
                     raise exc

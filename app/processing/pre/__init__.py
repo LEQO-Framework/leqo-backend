@@ -23,7 +23,7 @@ from app.processing.pre.renaming import RenameRegisterTransformer
 from app.processing.pre.size_casting import size_cast
 from app.processing.pre.utils import PreprocessingException
 from app.processing.utils import cast_to_program
-from app.utils import save_generate_implementation_node
+from app.utils import safe_generate_implementation_node
 
 
 def preprocess(
@@ -59,7 +59,7 @@ def preprocess(
             )
 
     except PreprocessingException as exc:
-        exc.node = save_generate_implementation_node(node.name, implementation)
+        exc.node = safe_generate_implementation_node(node.name, implementation)
         raise exc
 
     return processed_node

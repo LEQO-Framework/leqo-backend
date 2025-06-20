@@ -93,7 +93,7 @@ def duplicates[T](list: list[T]) -> set[T]:
     return result
 
 
-def save_generate_implementation_node(
+def safe_generate_implementation_node(
     node_id: str, impl: Program | str
 ) -> ImplementationNode:
     """
