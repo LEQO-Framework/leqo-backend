@@ -9,7 +9,15 @@ from openqasm3.ast import (
     QASMNode,
 )
 
+from app.model.exceptions import DiagnosticError
+
 REMOVE_INDENT = re.compile(r"\n +", re.MULTILINE)
+
+
+class ProcessingException(DiagnosticError):
+    """
+    Exception raises during :mod:`app.processing`.
+    """
 
 
 def normalize_qasm_string(program: str) -> str:

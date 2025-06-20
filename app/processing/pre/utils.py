@@ -15,13 +15,13 @@ from openqasm3.ast import (
     UnaryExpression,
 )
 
-from app.model.exceptions import DiagnosticError
 from app.openqasm3.printer import leqo_dumps
 from app.processing.frontend_graph import FrontendGraph
 from app.processing.graph import ProgramGraph
+from app.processing.utils import ProcessingException
 
 
-class PreprocessingException(DiagnosticError):
+class PreprocessingException(ProcessingException):
     """
     Exception raises during :mod:`app.processing.pre`.
     """
