@@ -13,8 +13,10 @@ The steps are:
 """
 
 from openqasm3.ast import Program
+from openqasm3.parser import QASM3ParsingError
 
 from app.model.data_types import LeqoSupportedType
+from app.openqasm3.parse_errors import handle_parsing_error
 from app.processing.graph import IOInfo, ProcessedProgramNode, ProgramNode, QubitInfo
 from app.processing.pre.converter import parse_to_openqasm3
 from app.processing.pre.inlining import InliningTransformer
@@ -43,7 +45,11 @@ def preprocess(
         if isinstance(implementation, Program):
             ast = implementation
         else:
-            ast = parse_to_openqasm3(implementation)
+            try:
+                ast = parse_to_openqasm3(implementation)
+            except QASM3ParsingError as e:
+                handle_parsing_error(e, None)
+
         ast = RenameRegisterTransformer().visit(ast, node.id)
         ast = cast_to_program(InliningTransformer().visit(ast))
 
