@@ -39,6 +39,12 @@ Once started, access the backend at:
 
 ## 📚 Documentation
 
+Build the docs locally via:
+
+    uv run --no-sync extract-openapi.py
+    uv run cyclonedx-py venv -o docs/_static/sbom.json
+    uv run sphinx-autobuild --port 8080 ./docs/ ./docs/_build
+
 For architecture, API reference, and developer guides, see our [full documentation site](https://leqo-framework.github.io/leqo-backend/).
 
 ## 📑 License
