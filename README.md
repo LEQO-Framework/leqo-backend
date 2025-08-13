@@ -37,6 +37,20 @@ Once started, access the backend at:
 - API: http://localhost:8000  
 - Swagger UI: http://localhost:8000/redoc
 
+Alternative: Local setup
+
+ Install `uv` – see getting started with [uv](https://docs.astral.sh/uv/#getting-started)
+
+ Run:
+
+      uv sync --all-groups --all-extras
+      cp .env.template .env
+      nano .env # update POSTGRES_HOST to your needs (try POSTGRES_HOST=localhost)
+      docker compose up postgres -d
+      uv run fastapi run app/main.py --port 8000
+
+ Open `localhost:8000 <http://localhost:8000/redoc>` to verify the backend is running
+
 ## 📚 Documentation
 
 Build the docs locally via:
