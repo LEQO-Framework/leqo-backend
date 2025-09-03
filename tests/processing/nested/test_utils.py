@@ -1,7 +1,7 @@
 from app.model.data_types import BitType, BoolType, IntType, QubitType
 from app.openqasm3.printer import leqo_dumps
-from app.processing.nested.utils import generate_pass_node_implementation
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.nested.utils import generate_pass_node_implementation
+from app.transformation_manager.utils import normalize_qasm_string
 
 
 def test_pass_node_impl() -> None:

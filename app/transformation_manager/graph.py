@@ -1,5 +1,5 @@
 """
-Basic program graph used withing the :mod:`app.processing`.
+Basic program graph used withing the :mod:`app.transformation_manager`.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ class AncillaConnection:
     """
     Map output qubits from source to target input qubits.
 
-    The qubits are identified via the id specified in :class:`~app.processing.graph.IOInfo`.
+    The qubits are identified via the id specified in :class:`~app.transformation_manager.graph.IOInfo`.
     """
 
     source: tuple[ProgramNode, QubitIDs]

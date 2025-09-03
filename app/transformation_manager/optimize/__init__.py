@@ -7,8 +7,8 @@ from copy import deepcopy
 from openqasm3.ast import BranchingStatement, QASMNode, Statement
 
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import ProgramGraph
-from app.processing.optimize.algos import NoPredCheckNeedDiffScore
+from app.transformation_manager.graph import ProgramGraph
+from app.transformation_manager.optimize.algos import NoPredCheckNeedDiffScore
 
 
 class ApplyUncomputeTransformer(LeqoTransformer[None]):
@@ -39,7 +39,7 @@ class ApplyUncomputeTransformer(LeqoTransformer[None]):
 
 def optimize(graph: ProgramGraph) -> None:
     """
-    Optimize the given graph in-place based on :class:`~app.processing.graph.IOInfo`.
+    Optimize the given graph in-place based on :class:`~app.transformation_manager.graph.IOInfo`.
 
     :param graph: Graph of all nodes representing the program
     """

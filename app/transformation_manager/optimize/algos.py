@@ -33,7 +33,7 @@ from abc import ABC, abstractmethod
 from sys import maxsize
 from typing import override
 
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     AncillaConnection,
     ProcessedProgramNode,
     ProgramGraph,

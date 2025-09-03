@@ -4,7 +4,7 @@ import pytest
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     AncillaConnection,
     IOConnection,
     IOInfo,
@@ -13,10 +13,10 @@ from app.processing.graph import (
     ProgramNode,
     QubitInfo,
 )
-from app.processing.merge.connections import connect_qubits
-from app.processing.merge.utils import MergeException
-from app.processing.pre.io_parser import ParseAnnotationsVisitor
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.merge.connections import connect_qubits
+from app.transformation_manager.merge.utils import MergeException
+from app.transformation_manager.pre.io_parser import ParseAnnotationsVisitor
+from app.transformation_manager.utils import normalize_qasm_string
 
 
 def str_to_nodes(index: int, code: str) -> ProcessedProgramNode:

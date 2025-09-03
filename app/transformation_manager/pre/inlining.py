@@ -12,7 +12,7 @@ from openqasm3.ast import (
 )
 
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.pre.utils import PreprocessingException
+from app.transformation_manager.pre.utils import PreprocessingException
 
 
 class InliningTransformer(LeqoTransformer[None]):

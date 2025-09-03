@@ -1,7 +1,7 @@
 """
 Enrich the if-then-else node.
 
-The core logic is in :func:`app.processing.merge.merge_if_nodes`,
+The core logic is in :func:`app.transformation_manager.merge.merge_if_nodes`,
 this module calls this function and handles the extensive pre- and postprocessing.
 """
 
@@ -21,11 +21,11 @@ from app.model.CompileRequest import (
 )
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.rename import simple_rename
-from app.processing.frontend_graph import FrontendGraph
-from app.processing.graph import ProgramGraph, ProgramNode
-from app.processing.merge import merge_if_nodes
-from app.processing.nested.utils import generate_pass_node_implementation
-from app.processing.post import postprocess
+from app.transformation_manager.frontend_graph import FrontendGraph
+from app.transformation_manager.graph import ProgramGraph, ProgramNode
+from app.transformation_manager.merge import merge_if_nodes
+from app.transformation_manager.nested.utils import generate_pass_node_implementation
+from app.transformation_manager.post import postprocess
 
 
 def parse_condition(value: str) -> Expression:

@@ -15,14 +15,14 @@ The steps are:
 from openqasm3.ast import Program
 
 from app.model.data_types import LeqoSupportedType
-from app.processing.graph import IOInfo, ProcessedProgramNode, ProgramNode, QubitInfo
-from app.processing.pre.converter import parse_to_openqasm3
-from app.processing.pre.inlining import InliningTransformer
-from app.processing.pre.io_parser import ParseAnnotationsVisitor
-from app.processing.pre.renaming import RenameRegisterTransformer
-from app.processing.pre.size_casting import size_cast
-from app.processing.pre.utils import PreprocessingException
-from app.processing.utils import cast_to_program
+from app.transformation_manager.graph import IOInfo, ProcessedProgramNode, ProgramNode, QubitInfo
+from app.transformation_manager.pre.converter import parse_to_openqasm3
+from app.transformation_manager.pre.inlining import InliningTransformer
+from app.transformation_manager.pre.io_parser import ParseAnnotationsVisitor
+from app.transformation_manager.pre.renaming import RenameRegisterTransformer
+from app.transformation_manager.pre.size_casting import size_cast
+from app.transformation_manager.pre.utils import PreprocessingException
+from app.transformation_manager.utils import cast_to_program
 from app.utils import safe_generate_implementation_node
 
 

@@ -1,12 +1,12 @@
 from app.openqasm3.printer import leqo_dumps
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     IOConnection,
     ProgramGraph,
     ProgramNode,
 )
-from app.processing.merge import merge_nodes
-from app.processing.pre import preprocess
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.merge import merge_nodes
+from app.transformation_manager.pre import preprocess
+from app.transformation_manager.utils import normalize_qasm_string
 
 
 def assert_merge(

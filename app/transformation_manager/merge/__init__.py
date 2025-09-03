@@ -1,5 +1,5 @@
 """
-Merge all nodes from :class:`~app.processing.graph.ProgramGraph` into a single QASM program.
+Merge all nodes from :class:`~app.transformation_manager.graph.ProgramGraph` into a single QASM program.
 """
 
 from copy import deepcopy
@@ -22,15 +22,15 @@ from openqasm3.ast import (
 
 from app.openqasm3.ast import CommentStatement
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     ClassicalIOInstance,
     IOConnection,
     ProgramGraph,
     ProgramNode,
 )
-from app.processing.merge.connections import connect_qubits
-from app.processing.merge.utils import MergeException
-from app.processing.utils import cast_to_program
+from app.transformation_manager.merge.connections import connect_qubits
+from app.transformation_manager.merge.utils import MergeException
+from app.transformation_manager.utils import cast_to_program
 
 GLOBAL_REG_NAME = "leqo_reg"
 IF_REG_NAME = "if_reg"

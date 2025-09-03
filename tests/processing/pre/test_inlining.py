@@ -3,7 +3,7 @@ from textwrap import dedent
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
-from app.processing.pre.inlining import InliningTransformer
+from app.transformation_manager.pre.inlining import InliningTransformer
 
 
 def test_inline_aliases() -> None:

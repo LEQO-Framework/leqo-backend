@@ -13,8 +13,8 @@ from app.model.data_types import (
     QubitType,
 )
 from app.openqasm3.printer import leqo_dumps
-from app.processing.nested.if_then_else import enrich_if_then_else
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.nested.if_then_else import enrich_if_then_else
+from app.transformation_manager.utils import normalize_qasm_string
 from tests.processing.nested.utils import H_IMPL, X_IMPL, build_graph
 
 

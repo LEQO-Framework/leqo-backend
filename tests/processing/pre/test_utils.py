@@ -2,7 +2,7 @@ import pytest
 from openqasm3.ast import Annotation, IndexedIdentifier, QuantumGate
 from openqasm3.parser import parse
 
-from app.processing.pre.utils import (
+from app.transformation_manager.pre.utils import (
     PreprocessingException,
     parse_io_annotation,
     parse_qasm_index,

@@ -25,21 +25,21 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
-from app.processing.frontend_graph import FrontendGraph
-from app.processing.graph import (
+from app.transformation_manager.frontend_graph import FrontendGraph
+from app.transformation_manager.graph import (
     IOConnection,
     ProcessedProgramNode,
     ProgramGraph,
     ProgramNode,
 )
-from app.processing.merge import merge_nodes
-from app.processing.nested.if_then_else import enrich_if_then_else
-from app.processing.nested.repeat import unroll_repeat
-from app.processing.nested.utils import generate_pass_node_implementation
-from app.processing.optimize import optimize
-from app.processing.post import postprocess
-from app.processing.pre import preprocess
-from app.processing.pre.utils import PreprocessingException
+from app.transformation_manager.merge import merge_nodes
+from app.transformation_manager.nested.if_then_else import enrich_if_then_else
+from app.transformation_manager.nested.repeat import unroll_repeat
+from app.transformation_manager.nested.utils import generate_pass_node_implementation
+from app.transformation_manager.optimize import optimize
+from app.transformation_manager.post import postprocess
+from app.transformation_manager.pre import preprocess
+from app.transformation_manager.pre.utils import PreprocessingException
 from app.services import get_db_engine, get_enricher
 from app.utils import not_none
 
@@ -48,7 +48,7 @@ TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 
 class CommonProcessor:
     """
-    Process a :class:`~app.processing.frontend_graph.FrontendGraph`.
+    Process a :class:`~app.transformation_manager.frontend_graph.FrontendGraph`.
 
     :param enricher: The enricher to use to get node implementations
     :frontend_graph: The graph to process
@@ -153,13 +153,13 @@ class MergingProcessor(CommonProcessor):
                     requested_inputs = self._resolve_inputs(
                         node, frontend_name_to_index
                     )
-                    enriched_node: (
-                        ImplementationNode | ParsedImplementationNode
-                    ) = await enrich_if_then_else(
-                        frontend_node,
-                        requested_inputs,
-                        frontend_name_to_index,
-                        self._build_inner_graph,
+                    enriched_node: ImplementationNode | ParsedImplementationNode = (
+                        await enrich_if_then_else(
+                            frontend_node,
+                            requested_inputs,
+                            frontend_name_to_index,
+                            self._build_inner_graph,
+                        )
                     )
                 else:
                     requested_inputs = self._resolve_inputs(node)
@@ -195,7 +195,7 @@ class MergingProcessor(CommonProcessor):
 
     async def _build_inner_graph(self, frontend_graph: FrontendGraph) -> ProgramGraph:
         """
-        Convert :class:`~app.processing.frontend_graph.FrontendGraph` to :class:`~app.processing.graph.ProgramGraph`.
+        Convert :class:`~app.transformation_manager.frontend_graph.FrontendGraph` to :class:`~app.transformation_manager.graph.ProgramGraph`.
 
         This is used as dependency injection for nested nodes.
 
@@ -215,10 +215,10 @@ class MergingProcessor(CommonProcessor):
         Process the :class:`~app.model.CompileRequest`.
 
         #. Enrich frontend nodes.
-        #. :meth:`~app.processing.pre.preprocess` frontend nodes.
-        #. Optionally :meth:`~app.processing.optimize.optimize` graph width.
-        #. :meth:`~app.processing.merge.merge_nodes` and
-        #. :meth:`~app.processing.post.postprocess` into final program.
+        #. :meth:`~app.transformation_manager.pre.preprocess` frontend nodes.
+        #. Optionally :meth:`~app.transformation_manager.optimize.optimize` graph width.
+        #. :meth:`~app.transformation_manager.merge.merge_nodes` and
+        #. :meth:`~app.transformation_manager.post.postprocess` into final program.
 
         :return: The final QASM program as a string.
         """

@@ -19,7 +19,7 @@ from openqasm3.ast import (
 )
 from openqasm3.visitor import QASMTransformer
 
-from app.processing.pre.utils import annotate
+from app.transformation_manager.pre.utils import annotate
 
 
 class RenameRegisterTransformer(QASMTransformer[UUID]):

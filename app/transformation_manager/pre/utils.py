@@ -1,5 +1,5 @@
 """
-Utils used within :mod:`app.processing.pre`.
+Utils used within :mod:`app.transformation_manager.pre`.
 """
 
 from typing import TypeVar
@@ -16,14 +16,14 @@ from openqasm3.ast import (
 )
 
 from app.openqasm3.printer import leqo_dumps
-from app.processing.frontend_graph import FrontendGraph
-from app.processing.graph import ProgramGraph
-from app.processing.utils import ProcessingException
+from app.transformation_manager.frontend_graph import FrontendGraph
+from app.transformation_manager.graph import ProgramGraph
+from app.transformation_manager.utils import ProcessingException
 
 
 class PreprocessingException(ProcessingException):
     """
-    Exception raises during :mod:`app.processing.pre`.
+    Exception raises during :mod:`app.transformation_manager.pre`.
     """
 
 

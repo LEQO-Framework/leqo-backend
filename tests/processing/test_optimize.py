@@ -1,7 +1,7 @@
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     IOConnection,
     IOInfo,
     ProcessedProgramNode,
@@ -9,10 +9,10 @@ from app.processing.graph import (
     ProgramNode,
     QubitInfo,
 )
-from app.processing.merge import merge_nodes
-from app.processing.optimize import optimize
-from app.processing.pre.io_parser import ParseAnnotationsVisitor
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.merge import merge_nodes
+from app.transformation_manager.optimize import optimize
+from app.transformation_manager.pre.io_parser import ParseAnnotationsVisitor
+from app.transformation_manager.utils import normalize_qasm_string
 
 IOConIndexed = tuple[tuple[int, int], tuple[int, int]]
 AncillaConIndexed = tuple[tuple[int, list[int]], tuple[int, list[int]]]

@@ -44,13 +44,13 @@ from app.model.data_types import (
     IntType as LeqoIntType,
 )
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     ClassicalIOInstance,
     IOInfo,
     QubitInfo,
     QubitIOInstance,
 )
-from app.processing.pre.utils import (
+from app.transformation_manager.pre.utils import (
     PreprocessingException,
     expr_to_int,
     parse_io_annotation,
@@ -63,8 +63,8 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     """
     Non-modifying visitor to parse leqo annotations.
 
-    :param io: The :class:`~app.processing.graph.IOInfo` to be modified in-place.
-    :param qubit: The :class:`~app.processing.graph.QubitInfo` to be modified in-place.
+    :param io: The :class:`~app.transformation_manager.graph.IOInfo` to be modified in-place.
+    :param qubit: The :class:`~app.transformation_manager.graph.QubitInfo` to be modified in-place.
     """
 
     __next_qubit_id: int
@@ -210,9 +210,11 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                         indices = parse_qasm_index([value.index], len(qubit_ids))
                         return QubitIOInstance(
                             name,
-                            [qubit_ids[i] for i in indices]
-                            if isinstance(indices, list)
-                            else qubit_ids[indices],
+                            (
+                                [qubit_ids[i] for i in indices]
+                                if isinstance(indices, list)
+                                else qubit_ids[indices]
+                            ),
                         )
                     case ClassicalIOInstance():
                         if isinstance(source.type, LeqoBitType):

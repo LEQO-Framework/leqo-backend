@@ -7,15 +7,15 @@ from copy import deepcopy
 from app.enricher import ParsedImplementationNode
 from app.model.CompileRequest import RepeatNode
 from app.model.data_types import LeqoSupportedType
-from app.processing.frontend_graph import FrontendGraph
-from app.processing.graph import ProgramNode
-from app.processing.nested.utils import generate_pass_node_implementation
-from app.processing.utils import ProcessingException
+from app.transformation_manager.frontend_graph import FrontendGraph
+from app.transformation_manager.graph import ProgramNode
+from app.transformation_manager.nested.utils import generate_pass_node_implementation
+from app.transformation_manager.utils import ProcessingException
 
 
 class RepeatException(ProcessingException):
     """
-    Exception raises during :mod:`app.processing.nested.repeat`.
+    Exception raises during :mod:`app.transformation_manager.nested.repeat`.
     """
 
 

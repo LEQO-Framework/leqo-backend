@@ -15,7 +15,7 @@ from openqasm3.ast import (
 )
 
 from app.model.data_types import ClassicalType, LeqoSupportedType, QubitType
-from app.processing.pre import converter
+from app.transformation_manager.pre import converter
 
 
 def generate_pass_node_implementation(

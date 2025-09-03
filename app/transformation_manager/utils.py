@@ -1,5 +1,5 @@
 """
-Utils used within :mod:`app.processing`.
+Utils used within :mod:`app.transformation_manager`.
 """
 
 import re
@@ -16,7 +16,7 @@ REMOVE_INDENT = re.compile(r"\n +", re.MULTILINE)
 
 class ProcessingException(DiagnosticError):
     """
-    Exception raises during :mod:`app.processing`.
+    Exception raises during :mod:`app.transformation_manager`.
     """
 
 

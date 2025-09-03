@@ -26,7 +26,7 @@ class FrontendGraph(FrontendGraphBase):
     """
     Graph representing the frontend model.
 
-    Mainly used to be converted to internal class:`app.processing.graph.ProgramGraph`.
+    Mainly used to be converted to internal class:`app.transformation_manager.graph.ProgramGraph`.
     """
 
     node_data: dict[str, TBaseNode]

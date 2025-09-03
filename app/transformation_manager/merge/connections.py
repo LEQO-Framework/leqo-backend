@@ -1,5 +1,5 @@
 """
-Connect input/output by modifying the AST based on :class:`~app.processing.graph.IOInfo`.
+Connect input/output by modifying the AST based on :class:`~app.transformation_manager.graph.IOInfo`.
 """
 
 from dataclasses import dataclass
@@ -18,7 +18,7 @@ from openqasm3.ast import (
 )
 
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     AncillaConnection,
     ClassicalIOInstance,
     IOConnection,
@@ -28,7 +28,7 @@ from app.processing.graph import (
     QubitInfo,
     QubitIOInstance,
 )
-from app.processing.merge.utils import MergeException
+from app.transformation_manager.merge.utils import MergeException
 from app.utils import safe_generate_implementation_node
 
 
@@ -82,7 +82,7 @@ class ApplyConnectionsTransformer(LeqoTransformer[None]):
 
     def id_to_qubit(self, id: int) -> SingleQubit:
         """
-        Create a :class:`~app.processing.merging.connections.SingleQubit` for the encountered ID.
+        Create a :class:`~app.transformation_manager.merging.connections.SingleQubit` for the encountered ID.
         """
         return SingleQubit(self.section_id, id)
 
@@ -137,7 +137,7 @@ class _Connections:
     Helper class for creating connections in a graph.
 
     Not intended to be constructed by hand,
-    usage over :class:`~app.processing.merging.connections.connect_qubits`
+    usage over :class:`~app.transformation_manager.merging.connections.connect_qubits`
 
     :param graph: The graph to modify in place.
     :param global_reg_name: The name of the qubit reg to use in aliases.
@@ -213,20 +213,24 @@ class _Connections:
         Let input point to output in classical connection.
         """
         if input.type != output.type:
-            msg = dedent(f"""\
+            msg = dedent(
+                f"""\
                 Unsupported: Mismatched types in IOConnection
 
                 output {output.name} has type {output.type}
                 input {input.name} has type {input.type}
-                """)
+                """
+            )
             raise MergeException(msg)
         if input.name in self.classical_input_to_output:
-            msg = dedent(f"""\
+            msg = dedent(
+                f"""\
                 Unsupported: Multiple inputs into classical
 
                 Both {self.classical_input_to_output[input.name]} and {output.name}
                 are input to {input.name} but only one is allowed.
-                """)
+                """
+            )
             raise MergeException(msg)
         self.classical_input_to_output[input.name] = output.name
 
@@ -244,12 +248,14 @@ class _Connections:
                 output = processed_source.io.outputs.get(edge.source[1])
                 input = processed_target.io.inputs.get(edge.target[1])
                 if output is None:
-                    msg = dedent(f"""\
+                    msg = dedent(
+                        f"""\
                         Unsupported: Missing output index in connection
 
                         Index {edge.source[1]} from {edge.source[0].name} modeled,
                         but no such annotation was found.
-                        """)
+                        """
+                    )
                     node = self.graph.node_data[edge.source[0]]
                     raise MergeException(
                         msg,
@@ -258,12 +264,14 @@ class _Connections:
                         ),
                     )
                 if input is None:
-                    msg = dedent(f"""\
+                    msg = dedent(
+                        f"""\
                         Unsupported: Missing input index in connection
 
                         Index {edge.target[1]} from {edge.target[0].name} modeled,
                         but no such annotation was found.
-                        """)
+                        """
+                    )
                     node = self.graph.node_data[edge.target[0]]
                     raise MergeException(
                         msg,
@@ -283,12 +291,14 @@ class _Connections:
                     case ClassicalIOInstance(), ClassicalIOInstance():
                         self.handle_classical_connection(output, input)
                     case _:
-                        msg = dedent(f"""\
+                        msg = dedent(
+                            f"""\
                             Unsupported: Try to connect qubit with classical
 
                             Index {edge.target[1]} from {edge.target[0].name} tries to
                             connect to index {edge.source[1]} from {edge.target[0].name}
-                            """)
+                            """
+                        )
                         raise MergeException(msg)
             case AncillaConnection():
                 self.handle_qubit_connection(

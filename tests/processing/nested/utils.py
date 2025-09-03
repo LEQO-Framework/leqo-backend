@@ -1,8 +1,8 @@
 from app.enricher import Enricher
 from app.enricher.gates import GateEnricherStrategy
 from app.model.CompileRequest import OptimizeSettings
-from app.processing import MergingProcessor
-from app.processing.frontend_graph import FrontendGraph
+from app.transformation_manager import MergingProcessor
+from app.transformation_manager.frontend_graph import FrontendGraph
 
 H_IMPL = """
 OPENQASM 3.1;

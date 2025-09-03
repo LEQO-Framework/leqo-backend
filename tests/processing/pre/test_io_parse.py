@@ -4,15 +4,15 @@ import pytest
 from openqasm3.parser import parse
 
 from app.model.data_types import BitType, BoolType, IntType
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     ClassicalIOInstance,
     IOInfo,
     QubitInfo,
     QubitIOInstance,
 )
-from app.processing.pre.io_parser import ParseAnnotationsVisitor
-from app.processing.pre.utils import PreprocessingException
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.pre.io_parser import ParseAnnotationsVisitor
+from app.transformation_manager.pre.utils import PreprocessingException
+from app.transformation_manager.utils import normalize_qasm_string
 
 
 def test_simple_input() -> None:

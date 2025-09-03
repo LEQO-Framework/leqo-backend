@@ -27,7 +27,11 @@ from app.model.StatusResponse import (
     StatusResponse,
     SuccessStatus,
 )
-from app.processing import EnrichingProcessor, EnrichmentInserter, MergingProcessor
+from app.transformation_manager import (
+    EnrichingProcessor,
+    EnrichmentInserter,
+    MergingProcessor,
+)
 from app.services import get_db_engine, get_result_url, get_settings, leqo_lifespan
 from app.utils import (
     add_result_to_db,

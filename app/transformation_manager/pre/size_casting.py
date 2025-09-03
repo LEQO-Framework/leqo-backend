@@ -21,12 +21,12 @@ from openqasm3.ast import (
 )
 
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     ClassicalIOInstance,
     ProcessedProgramNode,
     QubitIOInstance,
 )
-from app.processing.pre.utils import PreprocessingException, parse_io_annotation
+from app.transformation_manager.pre.utils import PreprocessingException, parse_io_annotation
 
 
 class CreateUnseenNamesVisitor(LeqoTransformer[None]):
