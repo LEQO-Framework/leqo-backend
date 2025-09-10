@@ -42,10 +42,10 @@ from app.utils import (
 )
 import sys, asyncio
 
-# On Windows, use the selector-based event loop. The default Proactor loop
-# does not support add_reader/add_writer, which some async DB drivers (e.g.,
-# aiosqlite/aiomysql) rely on. Set this as early as possible, before any
-# event loop or DB engine/session is created.
+"""
+Ensure we use the old `WindowsSelectorEventLoopPolicy` on windows
+as the postgresql driver cannot work with the modern `ProactorEventLoop`.
+"""
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
