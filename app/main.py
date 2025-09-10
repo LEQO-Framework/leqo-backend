@@ -40,6 +40,14 @@ from app.utils import (
     get_status_response_from_db,
     update_status_response_in_db,
 )
+import sys, asyncio
+
+# On Windows, use the selector-based event loop. The default Proactor loop
+# does not support add_reader/add_writer, which some async DB drivers (e.g.,
+# aiosqlite/aiomysql) rely on. Set this as early as possible, before any
+# event loop or DB engine/session is created.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 app = FastAPI(lifespan=leqo_lifespan)
 
@@ -202,7 +210,13 @@ async def process_compile_request(
 
     status: SuccessStatus | FailedStatus
     try:
-        result = await processor.process()
+        if getattr(processor, "target", "qasm") == "workflow":
+            workflow_processor = EnrichingProcessor(
+                processor.enricher, processor.frontend_graph, processor.optimize
+            )
+            result = await workflow_processor.enrich_all()
+        else:
+            result = await processor.process()
         await add_result_to_db(engine, uuid, result)
 
         status = SuccessStatus(
