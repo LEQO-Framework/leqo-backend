@@ -29,6 +29,7 @@ from app.enricher.models import Base as EnricherBase
 from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.enricher.splitter import SplitterEnricherStrategy
+from app.enricher.workflow import WorkflowEnricherStrategy
 from app.model.database_model import Base
 from app.utils import not_none
 
@@ -88,6 +89,8 @@ def get_db_engine() -> AsyncEngine:
 
 def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enricher:
     return Enricher(
+        # Stub workflow strategy (placeholder for future logic)
+        WorkflowEnricherStrategy(),
         LiteralEnricherStrategy(),
         MeasurementEnricherStrategy(),
         SplitterEnricherStrategy(),

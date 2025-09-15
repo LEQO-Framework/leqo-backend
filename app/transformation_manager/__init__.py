@@ -5,7 +5,7 @@ Provides the core logic of the backend.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
@@ -60,6 +60,7 @@ class CommonProcessor:
     enricher: Enricher
     optimize: OptimizeSettings
     frontend_to_processed: dict[str, ProcessedProgramNode]
+    target: Literal["qasm", "workflow"] = "qasm"
 
     def __init__(
         self,
@@ -124,7 +125,9 @@ class MergingProcessor(CommonProcessor):
         enricher: Annotated[Enricher, Depends(get_enricher)],
     ) -> MergingProcessor:
         graph = FrontendGraph.create(request.nodes, request.edges)
-        return MergingProcessor(enricher, graph, request.metadata)
+        processor = MergingProcessor(enricher, graph, request.metadata)
+        processor.target = getattr(request, "target", "qasm")
+        return processor
 
     async def process_nodes(self) -> None:
         """
@@ -241,7 +244,9 @@ class EnrichingProcessor(CommonProcessor):
         enricher: Annotated[Enricher, Depends(get_enricher)],
     ) -> EnrichingProcessor:
         graph = FrontendGraph.create(request.nodes, request.edges)
-        return EnrichingProcessor(enricher, graph, request.metadata)
+        processor = EnrichingProcessor(enricher, graph, request.metadata)
+        processor.target = getattr(request, "target", "qasm")
+        return processor
 
     def _get_dummy_enrichment(
         self, node_id: str, requested_inputs: dict[int, LeqoSupportedType]
