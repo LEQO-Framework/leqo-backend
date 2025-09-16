@@ -31,6 +31,7 @@ from app.transformation_manager import (
     EnrichingProcessor,
     EnrichmentInserter,
     MergingProcessor,
+    WorkflowProcessor,
 )
 from app.services import get_db_engine, get_result_url, get_settings, leqo_lifespan
 from app.utils import (
@@ -74,8 +75,9 @@ async def post_compile(
     """
 
     uuid: UUID = uuid4()
+    target = getattr(processor, "target", "qasm")
     status_response = CreatedStatus.init_status(uuid)
-    await add_status_response_to_db(engine, status_response)
+    await add_status_response_to_db(engine, status_response, target)
 
     background_tasks.add_task(
         process_compile_request,
@@ -106,8 +108,9 @@ async def post_enrich(
     """
 
     uuid: UUID = uuid4()
+    target = getattr(processor, "target", "qasm")
     status_response = CreatedStatus.init_status(uuid)
-    await add_status_response_to_db(engine, status_response)
+    await add_status_response_to_db(engine, status_response, target)
 
     background_tasks.add_task(
         process_enrich_request,
@@ -208,16 +211,20 @@ async def process_compile_request(
     :param engine: Database engine to use
     """
 
+    target = getattr(processor, "target", "qasm")
     status: SuccessStatus | FailedStatus
     try:
-        if getattr(processor, "target", "qasm") == "workflow":
-            workflow_processor = EnrichingProcessor(
-                processor.enricher, processor.frontend_graph, processor.optimize
+        if target == "workflow":
+            workflow_processor = WorkflowProcessor(
+                processor.enricher,
+                processor.frontend_graph,
+                processor.optimize,
             )
-            result = await workflow_processor.enrich_all()
+            workflow_processor.target = target
+            result = await workflow_processor.process()
         else:
             result = await processor.process()
-        await add_result_to_db(engine, uuid, result)
+        await add_result_to_db(engine, uuid, result, target)
 
         status = SuccessStatus(
             uuid=uuid,
@@ -234,7 +241,7 @@ async def process_compile_request(
             result=LeqoProblemDetails.from_exception(ex),
         )
 
-    await update_status_response_in_db(engine, status)
+    await update_status_response_in_db(engine, status, target)
 
 
 async def process_enrich_request(
@@ -253,10 +260,11 @@ async def process_enrich_request(
     :param engine: Database engine to use
     """
 
+    target = getattr(processor, "target", "qasm")
     status: SuccessStatus | FailedStatus
     try:
         result = await processor.enrich_all()
-        await add_result_to_db(engine, uuid, result)
+        await add_result_to_db(engine, uuid, result, target)
 
         status = SuccessStatus(
             uuid=uuid,
@@ -273,7 +281,7 @@ async def process_enrich_request(
             result=LeqoProblemDetails.from_exception(ex),
         )
 
-    await update_status_response_in_db(engine, status)
+    await update_status_response_in_db(engine, status, target)
 
 
 @app.post(
@@ -298,6 +306,17 @@ async def post_debug_compile(
     """
 
     try:
+        target = getattr(processor, "target", "qasm")
+        if target == "workflow":
+            workflow_processor = WorkflowProcessor(
+                processor.enricher,
+                processor.frontend_graph,
+                processor.optimize,
+            )
+            workflow_processor.target = target
+            result = await workflow_processor.process()
+            return JSONResponse(status_code=200, content=jsonable_encoder(result))
+
         return await processor.process()
     except Exception as ex:
         return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()

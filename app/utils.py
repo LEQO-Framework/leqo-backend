@@ -112,13 +112,16 @@ def safe_generate_implementation_node(
 
 
 async def add_status_response_to_db(
-    engine: AsyncEngine, status: StatusResponse
+    engine: AsyncEngine,
+    status: StatusResponse,
+    compilation_target: str,
 ) -> None:
     """
     Add the :class:`~app.model.StatusResponse.StatusResponse` to the database
 
     :param engine: Database to insert the :class:`~app.model.StatusResponse.StatusResponse` in
     :param status: The :class:`~app.model.StatusResponse.StatusResponse` to add to the database
+    :param compilation_target: Compilation target associated with this request
     """
     process_state = StatusResponseDb(
         id=status.uuid,
@@ -128,6 +131,7 @@ async def add_status_response_to_db(
         progressPercentage=status.progress.percentage if status.progress else None,
         progressCurrentStep=status.progress.currentStep if status.progress else None,
         result=status.result,
+        compilationTarget=compilation_target,
     )
 
     async with AsyncSession(engine) as session:
@@ -136,7 +140,9 @@ async def add_status_response_to_db(
 
 
 async def update_status_response_in_db(
-    engine: AsyncEngine, new_state: StatusResponse
+    engine: AsyncEngine,
+    new_state: StatusResponse,
+    compilation_target: str,
 ) -> None:
     """
     Update the :class:`~app.model.StatusResponse.StatusResponse` in the database by replacing the row.
@@ -151,6 +157,7 @@ async def update_status_response_in_db(
         result=new_state.result.model_dump_json()
         if isinstance(new_state.result, LeqoProblemDetails)
         else new_state.result,
+        compilationTarget=compilation_target,
     )
     async with AsyncSession(engine) as session:
         await session.merge(new_process_state)
@@ -202,7 +209,10 @@ async def get_status_response_from_db(
 
 
 async def add_result_to_db(
-    engine: AsyncEngine, uuid: UUID, results: str | list[ImplementationNode]
+    engine: AsyncEngine,
+    uuid: UUID,
+    results: str | list[ImplementationNode],
+    compilation_target: str,
 ) -> None:
     """
     Add a result to the database for the given uuid
@@ -210,12 +220,15 @@ async def add_result_to_db(
     :param engine: Database engine to add the result to
     :param uuid: UUID of the process state this result belongs
     :param result: List of :class:`~app.model.CompileRequest.ImplementationNode` to add as results
+    :param compilation_target: Compilation target associated with this result
     """
     processed_result: CompileResult | EnrichResult
     if isinstance(results, str):
-        processed_result = CompileResult(id=uuid, implementation=results)
+        processed_result = CompileResult(
+            id=uuid, implementation=results, compilationTarget=compilation_target
+        )
     else:
-        processed_result = EnrichResult(id=uuid)
+        processed_result = EnrichResult(id=uuid, compilationTarget=compilation_target)
         enrichment_results = [
             SingleEnrichResult(
                 impl_id=result.id,

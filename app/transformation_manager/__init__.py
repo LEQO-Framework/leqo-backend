@@ -126,7 +126,7 @@ class MergingProcessor(CommonProcessor):
     ) -> MergingProcessor:
         graph = FrontendGraph.create(request.nodes, request.edges)
         processor = MergingProcessor(enricher, graph, request.metadata)
-        processor.target = getattr(request, "target", "qasm")
+        processor.target = request.compilation_target
         return processor
 
     async def process_nodes(self) -> None:
@@ -245,8 +245,9 @@ class EnrichingProcessor(CommonProcessor):
     ) -> EnrichingProcessor:
         graph = FrontendGraph.create(request.nodes, request.edges)
         processor = EnrichingProcessor(enricher, graph, request.metadata)
-        processor.target = getattr(request, "target", "qasm")
+        processor.target = request.compilation_target
         return processor
+
 
     def _get_dummy_enrichment(
         self, node_id: str, requested_inputs: dict[int, LeqoSupportedType]
@@ -337,6 +338,31 @@ class EnrichingProcessor(CommonProcessor):
         Get list of all enrichments.
         """
         return [x async for x in self.enrich()]
+
+
+class WorkflowProcessor(CommonProcessor):
+    """Process a request to a workflow representation."""
+
+    @staticmethod
+    def from_compile_request(
+        request: CompileRequest,
+        enricher: Annotated[Enricher, Depends(get_enricher)],
+    ) -> WorkflowProcessor:
+        graph = FrontendGraph.create(request.nodes, request.edges)
+        processor = WorkflowProcessor(enricher, graph, request.metadata)
+        processor.target = request.compilation_target
+        return processor
+
+    async def process(self) -> list[ImplementationNode]:
+        """Create workflow steps by enriching all nodes."""
+
+        enriching_processor = EnrichingProcessor(
+            self.enricher,
+            self.frontend_graph,
+            self.optimize,
+        )
+        enriching_processor.target = "workflow"
+        return await enriching_processor.enrich_all()
 
 
 class EnrichmentInserter:
