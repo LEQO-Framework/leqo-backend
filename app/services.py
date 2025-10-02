@@ -28,6 +28,7 @@ from app.enricher.merger import MergerEnricherStrategy
 from app.enricher.models import Base as EnricherBase
 from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
+from app.enricher.qiskit_prepare import HAS_QISKIT, QiskitPrepareStateEnricherStrategy
 from app.enricher.splitter import SplitterEnricherStrategy
 from app.enricher.workflow import WorkflowEnricherStrategy
 from app.model.database_model import Base
@@ -88,7 +89,7 @@ def get_db_engine() -> AsyncEngine:
 
 
 def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enricher:
-    return Enricher(
+    strategies = [
         # Stub workflow strategy (placeholder for future logic)
         WorkflowEnricherStrategy(),
         LiteralEnricherStrategy(),
@@ -97,9 +98,16 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         MergerEnricherStrategy(),
         EncodeValueEnricherStrategy(engine),
         PrepareStateEnricherStrategy(engine),
-        OperatorEnricherStrategy(engine),
-        GateEnricherStrategy(),
+    ]
+    if HAS_QISKIT:
+        strategies.append(QiskitPrepareStateEnricherStrategy())
+    strategies.extend(
+        [
+            OperatorEnricherStrategy(engine),
+            GateEnricherStrategy(),
+        ]
     )
+    return Enricher(*strategies)
 
 
 @lru_cache
