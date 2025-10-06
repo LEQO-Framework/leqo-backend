@@ -33,6 +33,7 @@ from app.enricher.splitter import SplitterEnricherStrategy
 from app.enricher.workflow import WorkflowEnricherStrategy
 from app.model.database_model import Base
 from app.utils import not_none
+from app.db_migrations import apply_migrations
 
 
 @asynccontextmanager
@@ -56,7 +57,7 @@ async def use_leqo_db() -> AsyncGenerator[AsyncEngine]:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
             await conn.run_sync(EnricherBase.metadata.create_all)
-
+            await apply_migrations(conn)
         yield engine
     finally:
         await engine.dispose()

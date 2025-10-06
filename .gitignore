@@ -23,3 +23,5 @@ wheels/
 # Coverage
 .coverage-report/
 .coverage
+*.node-runtime
+.vscode/settings.json
