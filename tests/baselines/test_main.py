@@ -301,6 +301,8 @@ def test_result_endpoint_overview(client: TestClient) -> None:
 
     result_response = client.get(f"/result/{uuid}")
     assert result_response.status_code == SUCCESS_CODE
+    link_header = result_response.headers.get("Link")
+    assert link_header is not None and f"/request/{uuid}" in link_header
 
     overview_response = client.get("/result")
     assert overview_response.status_code == SUCCESS_CODE
@@ -325,3 +327,27 @@ def test_result_endpoint_overview(client: TestClient) -> None:
     by_uuid_response = client.get(f"/result?uuid={uuid}")
     assert by_uuid_response.status_code == SUCCESS_CODE
     assert by_uuid_response.text == result_response.text
+    link_header_query = by_uuid_response.headers.get("Link")
+    assert link_header_query is not None and f"/request/{uuid}" in link_header_query
+
+    stored_request = client.get(f"/request/{uuid}")
+    assert stored_request.status_code == SUCCESS_CODE
+    stored_payload = stored_request.json()
+    expected_payload = json.loads(compile_request)
+    assert stored_payload["metadata"]["name"] == expected_payload["metadata"]["name"]
+    assert (
+        stored_payload["metadata"]["description"]
+        == expected_payload["metadata"]["description"]
+    )
+    assert len(stored_payload["nodes"]) == len(expected_payload["nodes"])
+    for stored_node, expected_node in zip(
+        stored_payload["nodes"], expected_payload["nodes"], strict=True
+    ):
+        for key, value in expected_node.items():
+            assert str(stored_node.get(key)) == str(value)
+    assert len(stored_payload["edges"]) == len(expected_payload["edges"])
+    for stored_edge, expected_edge in zip(
+        stored_payload["edges"], expected_payload["edges"], strict=True
+    ):
+        for key, value in expected_edge.items():
+            assert str(stored_edge.get(key)) == str(value)
