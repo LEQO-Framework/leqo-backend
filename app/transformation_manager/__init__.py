@@ -127,6 +127,7 @@ class MergingProcessor(CommonProcessor):
         graph = FrontendGraph.create(request.nodes, request.edges)
         processor = MergingProcessor(enricher, graph, request.metadata)
         processor.target = request.compilation_target
+        processor.original_request = request
         return processor
 
     async def process_nodes(self) -> None:
@@ -246,6 +247,7 @@ class EnrichingProcessor(CommonProcessor):
         graph = FrontendGraph.create(request.nodes, request.edges)
         processor = EnrichingProcessor(enricher, graph, request.metadata)
         processor.target = request.compilation_target
+        processor.original_request = request
         return processor
 
 
@@ -351,6 +353,7 @@ class WorkflowProcessor(CommonProcessor):
         graph = FrontendGraph.create(request.nodes, request.edges)
         processor = WorkflowProcessor(enricher, graph, request.metadata)
         processor.target = request.compilation_target
+        processor.original_request = request
         return processor
 
     async def process(self) -> list[ImplementationNode]:
