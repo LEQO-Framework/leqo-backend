@@ -42,6 +42,21 @@ MIGRATIONS: tuple[Migration, ...] = (
             "ALTER TABLE \"process_states\" ADD COLUMN IF NOT EXISTS \"description\" TEXT",
         ),
     ),
+    Migration(
+        name="0003_update_in_progress_status_value",
+        statements=(
+            "DO $$ BEGIN "
+            "IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'statustype') "
+            "AND EXISTS ("
+            "SELECT 1 FROM pg_enum e "
+            "JOIN pg_type t ON t.oid = e.enumtypid "
+            "WHERE t.typname = 'statustype' AND e.enumlabel = 'in progress'"
+            ") THEN "
+            "ALTER TYPE \"statustype\" RENAME VALUE 'in progress' TO 'in_progress'; "
+            "END IF; "
+            "END $$",
+        ),
+    ),
 )
 
 

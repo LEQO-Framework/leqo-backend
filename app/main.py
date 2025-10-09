@@ -21,6 +21,7 @@ from app.model.StatusResponse import (
     FailedStatus,
     Progress,
     StatusResponse,
+    StatusType,
     SuccessStatus,
 )
 from app.transformation_manager import (
@@ -217,13 +218,14 @@ async def _resolve_result_response(
 async def get_result(
     engine: Annotated[AsyncEngine, Depends(get_db_engine)],
     uuid: UUID | None = None,
+    status: StatusType | None = None,
 ) -> PlainTextResponse | JSONResponse:
     """
     Fetch all results metadata or a specific result if a UUID is provided.
     """
 
     if uuid is None:
-        overview = await get_results_overview_from_db(engine)
+        overview = await get_results_overview_from_db(engine, status=status)
         return JSONResponse(status_code=200, content=jsonable_encoder(overview))
 
     return await _resolve_result_response(engine, uuid)

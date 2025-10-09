@@ -315,6 +315,13 @@ def test_result_endpoint_overview(client: TestClient) -> None:
     assert summary["status"] == "completed"
     assert summary["created"] is not None
 
+    filtered_response = client.get("/result", params={"status": "completed"})
+    assert filtered_response.status_code == SUCCESS_CODE
+    filtered = filtered_response.json()
+    assert all(entry["status"] == "completed" for entry in filtered)
+    filtered_matches = [entry for entry in filtered if entry["uuid"] == uuid]
+    assert filtered_matches, "Filtered results did not include the created request"
+
     by_uuid_response = client.get(f"/result?uuid={uuid}")
     assert by_uuid_response.status_code == SUCCESS_CODE
     assert by_uuid_response.text == result_response.text

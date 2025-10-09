@@ -309,20 +309,24 @@ async def get_results_from_db(
 
 async def get_results_overview_from_db(
     engine: AsyncEngine,
+    status: StatusType | None = None,
 ) -> list[dict[str, object]]:
     """
     Retrieve basic metadata for every stored request.
     """
     async with AsyncSession(engine) as session:
-        rows = await session.execute(
-            select(
-                StatusResponseDb.id,
-                StatusResponseDb.createdAt,
-                StatusResponseDb.name,
-                StatusResponseDb.description,
-                StatusResponseDb.status,
-            ).order_by(StatusResponseDb.createdAt.desc())
-        )
+        query = select(
+            StatusResponseDb.id,
+            StatusResponseDb.createdAt,
+            StatusResponseDb.name,
+            StatusResponseDb.description,
+            StatusResponseDb.status,
+        ).order_by(StatusResponseDb.createdAt.desc())
+
+        if status is not None:
+            query = query.where(StatusResponseDb.status == status)
+
+        rows = await session.execute(query)
 
         return [
             {
