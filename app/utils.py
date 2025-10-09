@@ -14,6 +14,7 @@ from sqlalchemy.orm import selectinload
 
 from app.model.CompileRequest import ImplementationNode
 from app.model.database_model import (
+    CompileRequestPayload,
     CompileResult,
     EnrichResult,
     SingleEnrichResult,
@@ -338,3 +339,25 @@ async def get_results_overview_from_db(
             }
             for row in rows.all()
         ]
+
+
+async def store_compile_request_payload(
+    engine: AsyncEngine, uuid: UUID, payload: str
+) -> None:
+    """
+    Persist the original compile request payload.
+    """
+    async with AsyncSession(engine) as session:
+        await session.merge(CompileRequestPayload(id=uuid, payload=payload))
+        await session.commit()
+
+
+async def get_compile_request_payload(
+    engine: AsyncEngine, uuid: UUID
+) -> str | None:
+    """
+    Retrieve the original compile request payload if available.
+    """
+    async with AsyncSession(engine) as session:
+        entity = await session.get(CompileRequestPayload, uuid)
+        return entity.payload if entity is not None else None

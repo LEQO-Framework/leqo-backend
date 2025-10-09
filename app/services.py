@@ -128,3 +128,13 @@ def get_result_url(
     """
 
     return f"{settings.api_base_url}result/{uuid}"
+
+
+def get_request_url(
+    uuid: UUID, settings: Annotated[Settings, Depends(get_settings)]
+) -> str:
+    """
+    Return the full URL for a stored compile request identified by its UUID.
+    """
+
+    return f"{settings.api_base_url}request/{uuid}"

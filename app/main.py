@@ -2,6 +2,7 @@
 All fastapi endpoints available.
 """
 
+import json
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
@@ -30,13 +31,21 @@ from app.transformation_manager import (
     MergingProcessor,
     WorkflowProcessor,
 )
-from app.services import get_db_engine, get_result_url, get_settings, leqo_lifespan
+from app.services import (
+    get_db_engine,
+    get_request_url,
+    get_result_url,
+    get_settings,
+    leqo_lifespan,
+)
 from app.utils import (
     add_result_to_db,
     add_status_response_to_db,
+    get_compile_request_payload,
     get_results_overview_from_db,
     get_results_from_db,
     get_status_response_from_db,
+    store_compile_request_payload,
     update_status_response_in_db,
 )
 import sys, asyncio
@@ -80,6 +89,11 @@ async def post_compile(
     request_description = (
         getattr(metadata, "description", None) if metadata is not None else None
     )
+    original_request = getattr(processor, "original_request", None)
+    if original_request is not None:
+        await store_compile_request_payload(
+            engine, uuid, original_request.model_dump_json()
+        )
     await add_status_response_to_db(
         engine,
         status_response,
@@ -124,6 +138,11 @@ async def post_enrich(
     request_description = (
         getattr(metadata, "description", None) if metadata is not None else None
     )
+    original_request = getattr(processor, "original_request", None)
+    if original_request is not None:
+        await store_compile_request_payload(
+            engine, uuid, original_request.model_dump_json()
+        )
     await add_status_response_to_db(
         engine,
         status_response,
@@ -208,10 +227,15 @@ async def _resolve_result_response(
             status_code=404, detail=f"No compile request with uuid '{uuid}' found."
         )
 
-    if isinstance(result, str):
-        return PlainTextResponse(status_code=200, content=result)
+    request_link = get_request_url(uuid, get_settings())
+    headers = {"Link": f'<{request_link}>; rel="request"'}
 
-    return JSONResponse(status_code=200, content=jsonable_encoder(result))
+    if isinstance(result, str):
+        return PlainTextResponse(status_code=200, content=result, headers=headers)
+
+    return JSONResponse(
+        status_code=200, content=jsonable_encoder(result), headers=headers
+    )
 
 
 @app.get("/result", response_model=None)
@@ -240,6 +264,23 @@ async def get_result_by_path(
     """
 
     return await _resolve_result_response(engine, uuid)
+
+
+@app.get("/request/{uuid}", response_model=None)
+async def get_request_payload(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> JSONResponse:
+    """
+    Fetch the original compile request payload associated with a UUID.
+    """
+
+    payload = await get_compile_request_payload(engine, uuid)
+    if payload is None:
+        raise HTTPException(
+            status_code=404, detail=f"No compile request with uuid '{uuid}' found."
+        )
+
+    return JSONResponse(status_code=200, content=json.loads(payload))
 
 
 async def process_compile_request(

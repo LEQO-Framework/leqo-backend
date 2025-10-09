@@ -57,6 +57,17 @@ MIGRATIONS: tuple[Migration, ...] = (
             "END $$",
         ),
     ),
+    Migration(
+        name="0004_add_compile_request_payloads",
+        statements=(
+            """
+            CREATE TABLE IF NOT EXISTS "compile_request_payloads" (
+                "id" UUID PRIMARY KEY,
+                "payload" TEXT NOT NULL
+            )
+            """,
+        ),
+    ),
 )
 
 
