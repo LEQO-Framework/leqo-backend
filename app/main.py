@@ -11,11 +11,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
 from sqlalchemy.ext.asyncio import AsyncEngine
-from starlette.responses import (
-    JSONResponse,
-    PlainTextResponse,
-    RedirectResponse,
-)
+from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse
 
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
@@ -37,6 +33,7 @@ from app.services import get_db_engine, get_result_url, get_settings, leqo_lifes
 from app.utils import (
     add_result_to_db,
     add_status_response_to_db,
+    get_results_overview_from_db,
     get_results_from_db,
     get_status_response_from_db,
     update_status_response_in_db,
@@ -77,7 +74,18 @@ async def post_compile(
     uuid: UUID = uuid4()
     target = getattr(processor, "target", "qasm")
     status_response = CreatedStatus.init_status(uuid)
-    await add_status_response_to_db(engine, status_response, target)
+    metadata = getattr(processor, "optimize", None)
+    request_name = getattr(metadata, "name", None) if metadata is not None else None
+    request_description = (
+        getattr(metadata, "description", None) if metadata is not None else None
+    )
+    await add_status_response_to_db(
+        engine,
+        status_response,
+        target,
+        name=request_name,
+        description=request_description,
+    )
 
     background_tasks.add_task(
         process_compile_request,
@@ -110,7 +118,18 @@ async def post_enrich(
     uuid: UUID = uuid4()
     target = getattr(processor, "target", "qasm")
     status_response = CreatedStatus.init_status(uuid)
-    await add_status_response_to_db(engine, status_response, target)
+    metadata = getattr(processor, "optimize", None)
+    request_name = getattr(metadata, "name", None) if metadata is not None else None
+    request_description = (
+        getattr(metadata, "description", None) if metadata is not None else None
+    )
+    await add_status_response_to_db(
+        engine,
+        status_response,
+        target,
+        name=request_name,
+        description=request_description,
+    )
 
     background_tasks.add_task(
         process_enrich_request,
@@ -172,9 +191,8 @@ async def get_status(
     return state
 
 
-@app.get("/result/{uuid}", response_model=None)
-async def get_result(
-    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+async def _resolve_result_response(
+    engine: AsyncEngine, uuid: UUID
 ) -> PlainTextResponse | JSONResponse:
     """
     Fetch result of a compile request.
@@ -193,6 +211,33 @@ async def get_result(
         return PlainTextResponse(status_code=200, content=result)
 
     return JSONResponse(status_code=200, content=jsonable_encoder(result))
+
+
+@app.get("/result", response_model=None)
+async def get_result(
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+    uuid: UUID | None = None,
+) -> PlainTextResponse | JSONResponse:
+    """
+    Fetch all results metadata or a specific result if a UUID is provided.
+    """
+
+    if uuid is None:
+        overview = await get_results_overview_from_db(engine)
+        return JSONResponse(status_code=200, content=jsonable_encoder(overview))
+
+    return await _resolve_result_response(engine, uuid)
+
+
+@app.get("/result/{uuid}", response_model=None)
+async def get_result_by_path(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> PlainTextResponse | JSONResponse:
+    """
+    Fetch result of a compile request by UUID path parameter.
+    """
+
+    return await _resolve_result_response(engine, uuid)
 
 
 async def process_compile_request(

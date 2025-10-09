@@ -115,6 +115,9 @@ async def add_status_response_to_db(
     engine: AsyncEngine,
     status: StatusResponse,
     compilation_target: str,
+    *,
+    name: str | None = None,
+    description: str | None = None,
 ) -> None:
     """
     Add the :class:`~app.model.StatusResponse.StatusResponse` to the database
@@ -122,7 +125,14 @@ async def add_status_response_to_db(
     :param engine: Database to insert the :class:`~app.model.StatusResponse.StatusResponse` in
     :param status: The :class:`~app.model.StatusResponse.StatusResponse` to add to the database
     :param compilation_target: Compilation target associated with this request
+    :param name: Optional name originating from the request metadata
+    :param description: Optional description originating from the request metadata
     """
+    result_value = (
+        status.result.model_dump_json()
+        if isinstance(status.result, LeqoProblemDetails)
+        else status.result
+    )
     process_state = StatusResponseDb(
         id=status.uuid,
         status=status.status,
@@ -130,7 +140,9 @@ async def add_status_response_to_db(
         completedAt=status.completedAt,
         progressPercentage=status.progress.percentage if status.progress else None,
         progressCurrentStep=status.progress.currentStep if status.progress else None,
-        result=status.result,
+        result=result_value,
+        name=name,
+        description=description,
         compilationTarget=compilation_target,
     )
 
@@ -143,23 +155,43 @@ async def update_status_response_in_db(
     engine: AsyncEngine,
     new_state: StatusResponse,
     compilation_target: str,
+    *,
+    name: str | None = None,
+    description: str | None = None,
 ) -> None:
     """
     Update the :class:`~app.model.StatusResponse.StatusResponse` in the database by replacing the row.
+
+    :param engine: Database engine to use.
+    :param new_state: New status information to persist.
+    :param compilation_target: Compilation target associated with this request.
+    :param name: Optional updated name metadata.
+    :param description: Optional updated description metadata.
     """
-    new_process_state = StatusResponseDb(
-        id=new_state.uuid,
-        status=new_state.status,
-        createdAt=new_state.createdAt,
-        completedAt=new_state.completedAt,
-        progressPercentage=new_state.progress.percentage,
-        progressCurrentStep=new_state.progress.currentStep,
-        result=new_state.result.model_dump_json()
-        if isinstance(new_state.result, LeqoProblemDetails)
-        else new_state.result,
-        compilationTarget=compilation_target,
-    )
     async with AsyncSession(engine) as session:
+        existing_state = await session.get(StatusResponseDb, new_state.uuid)
+        stored_name = name if name is not None else getattr(existing_state, "name", None)
+        stored_description = (
+            description
+            if description is not None
+            else getattr(existing_state, "description", None)
+        )
+
+        new_process_state = StatusResponseDb(
+            id=new_state.uuid,
+            status=new_state.status,
+            createdAt=new_state.createdAt,
+            completedAt=new_state.completedAt,
+            progressPercentage=new_state.progress.percentage,
+            progressCurrentStep=new_state.progress.currentStep,
+            result=new_state.result.model_dump_json()
+            if isinstance(new_state.result, LeqoProblemDetails)
+            else new_state.result,
+            name=stored_name,
+            description=stored_description,
+            compilationTarget=compilation_target,
+        )
+
         await session.merge(new_process_state)
         await session.commit()
 
@@ -273,3 +305,32 @@ async def get_results_from_db(
                 for res in processed_enrichment_result.results
             ]
         return None
+
+
+async def get_results_overview_from_db(
+    engine: AsyncEngine,
+) -> list[dict[str, object]]:
+    """
+    Retrieve basic metadata for every stored request.
+    """
+    async with AsyncSession(engine) as session:
+        rows = await session.execute(
+            select(
+                StatusResponseDb.id,
+                StatusResponseDb.createdAt,
+                StatusResponseDb.name,
+                StatusResponseDb.description,
+                StatusResponseDb.status,
+            ).order_by(StatusResponseDb.createdAt.desc())
+        )
+
+        return [
+            {
+                "uuid": row.id,
+                "created": row.createdAt,
+                "name": row.name,
+                "description": row.description,
+                "status": row.status.value if hasattr(row.status, "value") else row.status,
+            }
+            for row in rows.all()
+        ]

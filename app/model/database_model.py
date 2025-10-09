@@ -32,6 +32,8 @@ class StatusResponseDb(Base):
     progressPercentage: Mapped[int] = mapped_column(nullable=False)
     progressCurrentStep: Mapped[str] = mapped_column(nullable=False)
     result: Mapped[str] = mapped_column(Text, nullable=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     compilationTarget: Mapped[str] = mapped_column(String, nullable=False, default="qasm")
 
 

@@ -35,6 +35,13 @@ MIGRATIONS: tuple[Migration, ...] = (
             "ALTER TABLE \"enrich_result\" ALTER COLUMN \"compilationTarget\" SET NOT NULL",
         ),
     ),
+    Migration(
+        name="0002_add_request_metadata_to_process_states",
+        statements=(
+            "ALTER TABLE \"process_states\" ADD COLUMN IF NOT EXISTS \"name\" VARCHAR",
+            "ALTER TABLE \"process_states\" ADD COLUMN IF NOT EXISTS \"description\" TEXT",
+        ),
+    ),
 )
 
 
