@@ -61,6 +61,7 @@ class CommonProcessor:
     optimize: OptimizeSettings
     frontend_to_processed: dict[str, ProcessedProgramNode]
     target: Literal["qasm", "workflow"] = "qasm"
+    original_request: CompileRequest | None = None
 
     def __init__(
         self,
