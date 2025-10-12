@@ -2,6 +2,7 @@
 Provides enricher strategy for enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
 """
 
+from math import pi
 from typing import cast, override
 
 from openqasm3.ast import (
@@ -10,6 +11,7 @@ from openqasm3.ast import (
     BinaryOperator,
     BranchingStatement,
     ClassicalDeclaration,
+    FloatLiteral,
     Identifier,
     Include,
     IndexedIdentifier,
@@ -145,7 +147,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     async def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
-        if isinstance(node, EncodeValueNode) and node.encoding == "basis":
+        if isinstance(node, EncodeValueNode) and node.encoding in {"basis", "angle"}:
             # Prefer database-backed implementations first to keep behaviour consistent
             # with other encoders and reuse vetted circuits when available.
             db_results = await super()._enrich_impl(node, constraints)
@@ -157,8 +159,12 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
             # On cache miss, synthesise the basis encoding implementation on the fly.
             classical_input = constraints.requested_inputs[0]
+            if node.encoding == "basis":
+                return [
+                    self._generate_basis_enrichment(node, classical_input),
+                ]
             return [
-                self._generate_basis_enrichment(node, classical_input),
+                self._generate_angle_enrichment(node, classical_input),
             ]
 
         return await super()._enrich_impl(node, constraints)
@@ -205,14 +211,26 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     ) -> EnrichmentResult:
         # The target register width is derived from the classical input type so that
         # we emit the minimum amount of qubits required for its binary representation.
-        size = self._determine_basis_register_size(node, classical_input)
+        size = self._determine_register_size(node, classical_input)
         statements = self._build_basis_statements(classical_input, size)
         return EnrichmentResult(
             implementation(node, statements),
             ImplementationMetaData(width=size, depth=size),
         )
 
-    def _determine_basis_register_size(
+    def _generate_angle_enrichment(
+        self,
+        node: EncodeValueNode,
+        classical_input: LeqoSupportedClassicalType,
+    ) -> EnrichmentResult:
+        size = self._determine_register_size(node, classical_input)
+        statements = self._build_angle_statements(classical_input, size)
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(width=size, depth=size),
+        )
+
+    def _determine_register_size(
         self,
         node: EncodeValueNode,
         classical_input: LeqoSupportedClassicalType,
@@ -225,12 +243,10 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             case IntType():
                 size = classical_input.size
             case FloatType():
-                raise InputTypeMismatch(
-                    node, 0, actual=classical_input, expected="bit, int or bool"
-                )
+                size = 1
             case _:
                 raise InputTypeMismatch(
-                    node, 0, actual=classical_input, expected="bit, int or bool"
+                    node, 0, actual=classical_input, expected="bit, int, bool or float"
                 )
 
         if size <= 0:
@@ -263,7 +279,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         # Flip each target qubit conditionally based on the requested basis symbol.
         for index in range(register_size):
-            condition = self._basis_condition_expression(
+            condition = self._bit_condition_expression(
                 classical_input, value_identifier, index
             )
             target = IndexedIdentifier(
@@ -282,7 +298,59 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         statements.append(leqo_output("out", 0, qubit_identifier))
         return statements
 
-    def _basis_condition_expression(
+    def _build_angle_statements(
+        self,
+        classical_input: LeqoSupportedClassicalType,
+        register_size: int,
+    ) -> list[Statement]:
+        value_identifier = Identifier("value")
+        qubit_identifier = Identifier("encoded")
+
+        classical_decl = ClassicalDeclaration(
+            classical_input.to_ast(), value_identifier, None
+        )
+        classical_decl.annotations = [Annotation("leqo.input", "0")]
+
+        qubit_decl = QubitDeclaration(qubit_identifier, IntegerLiteral(register_size))
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            classical_decl,
+            qubit_decl,
+        ]
+
+        if isinstance(classical_input, FloatType):
+            rotation_gate = QuantumGate(
+                modifiers=[],
+                name=Identifier("ry"),
+                arguments=[value_identifier],
+                qubits=[qubit_identifier],
+                duration=None,
+            )
+            statements.append(rotation_gate)
+            statements.append(leqo_output("out", 0, qubit_identifier))
+            return statements
+
+        for index in range(register_size):
+            condition = self._bit_condition_expression(
+                classical_input, value_identifier, index
+            )
+            target = IndexedIdentifier(
+                qubit_identifier, [[IntegerLiteral(index)]]
+            )
+            rotation_gate = QuantumGate(
+                modifiers=[],
+                name=Identifier("ry"),
+                arguments=[FloatLiteral(pi)],
+                qubits=[target],
+                duration=None,
+            )
+            statements.append(BranchingStatement(condition, [rotation_gate], []))
+
+        statements.append(leqo_output("out", 0, qubit_identifier))
+        return statements
+
+    def _bit_condition_expression(
         self,
         classical_input: LeqoSupportedClassicalType,
         value_identifier: Identifier,

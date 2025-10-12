@@ -1,6 +1,6 @@
 import pytest
 import pytest_asyncio
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import Constraints
@@ -288,6 +288,51 @@ async def test_enrich_encode_value_node_not_in_db(engine: AsyncEngine) -> None:
     assert implementation_str.count('if') == 32
     assert 'x encoded[0];' in implementation_str
     assert 'x encoded[31];' in implementation_str
+    assert '@leqo.output 0' in implementation_str
+    assert 'let out = encoded;' in implementation_str
+    assert result.meta_data.width == 32
+    assert result.meta_data.depth == 32
+
+
+@pytest.mark.asyncio
+async def test_enrich_angle_encode_value_node_not_in_db(engine: AsyncEngine) -> None:
+    async with AsyncSession(engine) as session:
+        await session.execute(
+            delete(EncodeValueNode).where(
+                EncodeValueNode.encoding == EncodingType.ANGLE
+            )
+        )
+        await session.commit()
+
+    node = FrontendEncodeValueNode(
+        id="1",
+        label=None,
+        type="encode",
+        encoding="angle",
+        bounds=0,
+    )
+    constraints = Constraints(
+        requested_inputs={0: IntType(size=32)},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    results = list(await EncodeValueEnricherStrategy(engine).enrich(node, constraints))
+
+    assert len(results) == 1
+
+    result = results[0]
+    implementation = result.enriched_node.implementation
+    implementation_str = (
+        implementation
+        if isinstance(implementation, str)
+        else leqo_dumps(implementation)
+    )
+
+    assert '@leqo.input 0' in implementation_str
+    assert 'int[32] value;' in implementation_str
+    assert 'qubit[32] encoded;' in implementation_str
+    assert implementation_str.count('ry(3.141592653589793)') == 32
     assert '@leqo.output 0' in implementation_str
     assert 'let out = encoded;' in implementation_str
     assert result.meta_data.width == 32

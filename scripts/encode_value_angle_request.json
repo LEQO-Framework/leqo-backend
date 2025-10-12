@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Encode Value (angle) demo",
+    "description": "Drive the angle encoder with a floating-point literal and measure the qubit.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    {
+      "id": "literal",
+      "type": "float",
+      "label": "Angle input",
+      "bitSize": 32,
+      "value": 1.5707963267948966
+    },
+    {
+      "id": "encode",
+      "type": "encode",
+      "label": "Angle encoder",
+      "encoding": "angle",
+      "bounds": 0
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": [0]
+    }
+  ],
+  "edges": [
+    { "source": ["literal", 0], "target": ["encode", 0] },
+    { "source": ["encode", 0], "target": ["measure", 0] }
+  ]
+}

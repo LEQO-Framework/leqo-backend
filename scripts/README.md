@@ -34,6 +34,7 @@ Example payloads:
 
 - `compile_request.json` – small sanity check with a custom implementation.
 - `encode_value_basis_request.json` – uses the basis encoder with a 3-bit integer input and measures the resulting register.
+- `encode_value_angle_request.json` – uses the angle encoder with a floating-point literal and measures the encoded qubit.
 
 #### `result`
 
