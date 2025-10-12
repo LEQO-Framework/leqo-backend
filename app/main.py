@@ -238,7 +238,7 @@ async def _resolve_result_response(
     )
 
 
-@app.get("/result", response_model=None)
+@app.get("/results", response_model=None)
 async def get_result(
     engine: Annotated[AsyncEngine, Depends(get_db_engine)],
     uuid: UUID | None = None,
@@ -255,7 +255,7 @@ async def get_result(
     return await _resolve_result_response(engine, uuid)
 
 
-@app.get("/result/{uuid}", response_model=None)
+@app.get("/results/{uuid}", response_model=None)
 async def get_result_by_path(
     uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
 ) -> PlainTextResponse | JSONResponse:

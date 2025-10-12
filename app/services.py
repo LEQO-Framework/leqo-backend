@@ -127,7 +127,7 @@ def get_result_url(
     Return the full URL for a result identified by its UUID.
     """
 
-    return f"{settings.api_base_url}result/{uuid}"
+    return f"{settings.api_base_url}results/{uuid}"
 
 
 def get_request_url(

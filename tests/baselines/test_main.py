@@ -82,7 +82,7 @@ def handle_endpoints(client: TestClient, request: str, first_endpoint: str) -> R
         f"Timeout while waiting {MAX_ATTEMPTS * POLL_INTERVAL}s for the request"
     )
 
-    return client.get(f"/result/{uuid}")
+    return client.get(f"/results/{uuid}")
 
 
 def json_assert(expected: str, actual: str) -> None:
@@ -299,12 +299,12 @@ def test_result_endpoint_overview(client: TestClient) -> None:
     else:
         pytest.fail("Timeout while waiting for compilation request to finish")
 
-    result_response = client.get(f"/result/{uuid}")
+    result_response = client.get(f"/results/{uuid}")
     assert result_response.status_code == SUCCESS_CODE
     link_header = result_response.headers.get("Link")
     assert link_header is not None and f"/request/{uuid}" in link_header
 
-    overview_response = client.get("/result")
+    overview_response = client.get("/results")
     assert overview_response.status_code == SUCCESS_CODE
     overview = overview_response.json()
     assert isinstance(overview, list)
@@ -317,14 +317,14 @@ def test_result_endpoint_overview(client: TestClient) -> None:
     assert summary["status"] == "completed"
     assert summary["created"] is not None
 
-    filtered_response = client.get("/result", params={"status": "completed"})
+    filtered_response = client.get("/results", params={"status": "completed"})
     assert filtered_response.status_code == SUCCESS_CODE
     filtered = filtered_response.json()
     assert all(entry["status"] == "completed" for entry in filtered)
     filtered_matches = [entry for entry in filtered if entry["uuid"] == uuid]
     assert filtered_matches, "Filtered results did not include the created request"
 
-    by_uuid_response = client.get(f"/result?uuid={uuid}")
+    by_uuid_response = client.get(f"/results?uuid={uuid}")
     assert by_uuid_response.status_code == SUCCESS_CODE
     assert by_uuid_response.text == result_response.text
     link_header_query = by_uuid_response.headers.get("Link")

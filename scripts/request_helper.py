@@ -76,7 +76,7 @@ def polling_send_json(json_path: Path, host: str, endpoint: str) -> None:
 def fetch_result(host: str, uuid: str | None = None) -> None:
     """Fetch results either as an overview or by UUID."""
 
-    endpoint = f"{host}/result"
+    endpoint = f"{host}/results"
     if uuid:
         endpoint += f"?uuid={uuid}"
 
