@@ -212,7 +212,7 @@ async def get_status(
 
 
 async def _resolve_result_response(
-    engine: AsyncEngine, uuid: UUID
+    engine: AsyncEngine, uuid: UUID, settings: Settings | None = None
 ) -> PlainTextResponse | JSONResponse:
     """
     Fetch result of a compile request.
@@ -227,8 +227,19 @@ async def _resolve_result_response(
             status_code=404, detail=f"No compile request with uuid '{uuid}' found."
         )
 
-    request_link = get_request_url(uuid, get_settings())
-    headers = {"Link": f'<{request_link}>; rel="request"'}
+    if settings is None:
+        settings = get_settings()
+
+    request_link = get_request_url(uuid, settings)
+    result_link = get_result_url(uuid, settings)
+    headers = {
+        "Link": ", ".join(
+            (
+                f'<{request_link}>; rel="request"',
+                f'<{result_link}>; rel="result"',
+            )
+        )
+    }
 
     if isinstance(result, str):
         return PlainTextResponse(status_code=200, content=result, headers=headers)
@@ -248,11 +259,25 @@ async def get_result(
     Fetch all results metadata or a specific result if a UUID is provided.
     """
 
+    settings = get_settings()
+
     if uuid is None:
         overview = await get_results_overview_from_db(engine, status=status)
-        return JSONResponse(status_code=200, content=jsonable_encoder(overview))
+        overview_with_links = [
+            {
+                **item,
+                "links": {
+                    "result": get_result_url(item["uuid"], settings),
+                    "request": get_request_url(item["uuid"], settings),
+                },
+            }
+            for item in overview
+        ]
+        return JSONResponse(
+            status_code=200, content=jsonable_encoder(overview_with_links)
+        )
 
-    return await _resolve_result_response(engine, uuid)
+    return await _resolve_result_response(engine, uuid, settings)
 
 
 @app.get("/results/{uuid}", response_model=None)
