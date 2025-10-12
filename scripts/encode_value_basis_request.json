@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Encode Value (basis) demo",
+    "description": "Drive the basis encoder with a 3-bit integer and read the register back.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    {
+      "id": "literal",
+      "type": "int",
+      "label": "Input value",
+      "bitSize": 3,
+      "value": 5
+    },
+    {
+      "id": "encode",
+      "type": "encode",
+      "label": "Basis encoder",
+      "encoding": "basis",
+      "bounds": 1
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": [0, 1, 2]
+    }
+  ],
+  "edges": [
+    { "source": ["literal", 0], "target": ["encode", 0] },
+    { "source": ["encode", 0], "target": ["measure", 0] }
+  ]
+}

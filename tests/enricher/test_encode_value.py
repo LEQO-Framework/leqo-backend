@@ -19,6 +19,7 @@ from app.model.CompileRequest import SingleInsertMetaData
 from app.model.data_types import BitType, BoolType, FloatType, IntType, QubitType
 from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 from tests.enricher.utils import assert_enrichments
+from app.openqasm3.printer import leqo_dumps
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -269,4 +270,25 @@ async def test_enrich_encode_value_node_not_in_db(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    assert (await EncodeValueEnricherStrategy(engine).enrich(node, constraints)) == []
+    results = list(await EncodeValueEnricherStrategy(engine).enrich(node, constraints))
+
+    assert len(results) == 1
+
+    result = results[0]
+    implementation = result.enriched_node.implementation
+    implementation_str = (
+        implementation
+        if isinstance(implementation, str)
+        else leqo_dumps(implementation)
+    )
+
+    assert '@leqo.input 0' in implementation_str
+    assert 'int[32] value;' in implementation_str
+    assert 'qubit[32] encoded;' in implementation_str
+    assert implementation_str.count('if') == 32
+    assert 'x encoded[0];' in implementation_str
+    assert 'x encoded[31];' in implementation_str
+    assert '@leqo.output 0' in implementation_str
+    assert 'let out = encoded;' in implementation_str
+    assert result.meta_data.width == 32
+    assert result.meta_data.depth == 32

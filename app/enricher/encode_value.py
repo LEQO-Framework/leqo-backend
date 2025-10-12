@@ -4,14 +4,29 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Encod
 
 from typing import cast, override
 
+from openqasm3.ast import (
+    Annotation,
+    BinaryExpression,
+    BinaryOperator,
+    BranchingStatement,
+    ClassicalDeclaration,
+    Identifier,
+    Include,
+    IndexedIdentifier,
+    IntegerLiteral,
+    QuantumGate,
+    QubitDeclaration,
+    Statement,
+)
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.enricher import Constraints
+from app.enricher import Constraints, EnrichmentResult, ImplementationMetaData
 from app.enricher.db_enricher import DataBaseEnricherStrategy
 from app.enricher.exceptions import BoundsOutOfRange, EncodingNotSupported
 from app.enricher.models import BaseNode, EncodingType, Input, InputType, NodeType
 from app.enricher.models import EncodeValueNode as EncodeNodeTable
+from app.enricher.utils import implementation, leqo_output
 from app.model.CompileRequest import (
     EncodeValueNode,
 )
@@ -27,7 +42,7 @@ from app.model.data_types import (
     LeqoSupportedType,
     QubitType,
 )
-from app.model.exceptions import InputCountMismatch, InputTypeMismatch
+from app.model.exceptions import InputCountMismatch, InputSizeMismatch, InputTypeMismatch
 
 
 class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
@@ -121,10 +136,32 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             index=0,
             type=converted_input_type,
             size=requested_inputs[0].size,
-        )
+            )
         new_node.inputs.append(input_node)
 
         return new_node
+
+    @override
+    async def _enrich_impl(
+        self, node: FrontendNode, constraints: Constraints | None
+    ) -> list[EnrichmentResult]:
+        if isinstance(node, EncodeValueNode) and node.encoding == "basis":
+            # Prefer database-backed implementations first to keep behaviour consistent
+            # with other encoders and reuse vetted circuits when available.
+            db_results = await super()._enrich_impl(node, constraints)
+            if db_results:
+                return db_results
+
+            if constraints is None:
+                raise InputCountMismatch(node, actual=0, should_be="equal", expected=1)
+
+            # On cache miss, synthesise the basis encoding implementation on the fly.
+            classical_input = constraints.requested_inputs[0]
+            return [
+                self._generate_basis_enrichment(node, classical_input),
+            ]
+
+        return await super()._enrich_impl(node, constraints)
 
     @override
     def _generate_query(
@@ -160,3 +197,129 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 Input.size >= constraints.requested_inputs[0].size,
             ),
         )
+
+    def _generate_basis_enrichment(
+        self,
+        node: EncodeValueNode,
+        classical_input: LeqoSupportedClassicalType,
+    ) -> EnrichmentResult:
+        # The target register width is derived from the classical input type so that
+        # we emit the minimum amount of qubits required for its binary representation.
+        size = self._determine_basis_register_size(node, classical_input)
+        statements = self._build_basis_statements(classical_input, size)
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(width=size, depth=size),
+        )
+
+    def _determine_basis_register_size(
+        self,
+        node: EncodeValueNode,
+        classical_input: LeqoSupportedClassicalType,
+    ) -> int:
+        match classical_input:
+            case BoolType():
+                size = classical_input.size
+            case BitType():
+                size = classical_input.size or 1
+            case IntType():
+                size = classical_input.size
+            case FloatType():
+                raise InputTypeMismatch(
+                    node, 0, actual=classical_input, expected="bit, int or bool"
+                )
+            case _:
+                raise InputTypeMismatch(
+                    node, 0, actual=classical_input, expected="bit, int or bool"
+                )
+
+        if size <= 0:
+            raise InputSizeMismatch(node, 0, actual=size, expected=1)
+
+        return size
+
+    def _build_basis_statements(
+        self,
+        classical_input: LeqoSupportedClassicalType,
+        register_size: int,
+    ) -> list[Statement]:
+        value_identifier = Identifier("value")
+        qubit_identifier = Identifier("encoded")
+
+        # Declare the classical input and attach the leqo metadata so the
+        # transformation pipeline understands which input feed to wire in.
+        classical_decl = ClassicalDeclaration(
+            classical_input.to_ast(), value_identifier, None
+        )
+        classical_decl.annotations = [Annotation("leqo.input", "0")]
+
+        qubit_decl = QubitDeclaration(qubit_identifier, IntegerLiteral(register_size))
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            classical_decl,
+            qubit_decl,
+        ]
+
+        # Flip each target qubit conditionally based on the requested basis symbol.
+        for index in range(register_size):
+            condition = self._basis_condition_expression(
+                classical_input, value_identifier, index
+            )
+            target = IndexedIdentifier(
+                qubit_identifier, [[IntegerLiteral(index)]]
+            )
+            gate = QuantumGate(
+                modifiers=[],
+                name=Identifier("x"),
+                arguments=[],
+                qubits=[target],
+                duration=None,
+            )
+            statements.append(BranchingStatement(condition, [gate], []))
+
+        # Expose the encoded register as the sole output of the node.
+        statements.append(leqo_output("out", 0, qubit_identifier))
+        return statements
+
+    def _basis_condition_expression(
+        self,
+        classical_input: LeqoSupportedClassicalType,
+        value_identifier: Identifier,
+        index: int,
+    ) -> BinaryExpression | Identifier:
+        match classical_input:
+            case BoolType():
+                return value_identifier
+            case BitType(size=None):
+                return value_identifier
+            case BitType():
+                element = IndexedIdentifier(
+                    value_identifier, [[IntegerLiteral(index)]]
+                )
+                return BinaryExpression(
+                    BinaryOperator["=="],
+                    element,
+                    IntegerLiteral(1),
+                )
+            case IntType():
+                shifted = BinaryExpression(
+                    BinaryOperator[">>"],
+                    value_identifier,
+                    IntegerLiteral(index),
+                )
+                masked = BinaryExpression(
+                    BinaryOperator["&"],
+                    shifted,
+                    IntegerLiteral(1),
+                )
+                return BinaryExpression(
+                    BinaryOperator["=="],
+                    masked,
+                    IntegerLiteral(1),
+                )
+            case FloatType():
+                # Unsupported but handled earlier.
+                raise RuntimeError("FloatType not supported for basis encoding")
+            case _:
+                raise RuntimeError("Unsupported classical input for basis encoding")

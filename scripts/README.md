@@ -30,6 +30,11 @@ Options:
 
 For long-running endpoints (`/compile`, `/enrich`) the script polls `/status`, prints the result, and follows the `Link` header to show the stored request payload.
 
+Example payloads:
+
+- `compile_request.json` – small sanity check with a custom implementation.
+- `encode_value_basis_request.json` – uses the basis encoder with a 3-bit integer input and measures the resulting register.
+
 #### `result`
 
 Fetch result information:
