@@ -12,8 +12,8 @@ import asyncio
 import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Coroutine, Iterable
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
 from openqasm3.ast import Program
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,11 +48,13 @@ class Constraints:
     :param requested_inputs: Dictionary where the key is the input index and value the type of the node.
     :param optimizeWidth: If the width of the implementation should be optimized.
     :param optimizeDepth: If the depth of the implementation should be optimized.
+    :param requested_input_values: Optional literal values resolved from the model for the inputs.
     """
 
     requested_inputs: dict[int, LeqoSupportedType]
-    optimizeWidth: bool
-    optimizeDepth: bool
+    optimizeWidth: bool = False
+    optimizeDepth: bool = False
+    requested_input_values: dict[int, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

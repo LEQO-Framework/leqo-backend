@@ -3,7 +3,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Encod
 """
 
 from math import pi
-from typing import cast, override
+from typing import Any, cast, override
 
 from openqasm3.ast import (
     Annotation,
@@ -161,7 +161,11 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             classical_input = constraints.requested_inputs[0]
             if node.encoding == "basis":
                 return [
-                    self._generate_basis_enrichment(node, classical_input),
+                    self._generate_basis_enrichment(
+                        node,
+                        classical_input,
+                        constraints.requested_input_values.get(0),
+                    ),
                 ]
             return [
                 self._generate_angle_enrichment(node, classical_input),
@@ -208,14 +212,29 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         self,
         node: EncodeValueNode,
         classical_input: LeqoSupportedClassicalType,
+        input_value: Any | None,
     ) -> EnrichmentResult:
         # The target register width is derived from the classical input type so that
         # we emit the minimum amount of qubits required for its binary representation.
         size = self._determine_register_size(node, classical_input)
-        statements = self._build_basis_statements(classical_input, size)
+        constant_indices: list[int] | None = None
+        if input_value is not None:
+            try:
+                constant_indices = self._constant_basis_indices(
+                    classical_input, size, input_value
+                )
+            except RuntimeError:
+                constant_indices = None
+
+        statements = self._build_basis_statements(
+            classical_input, size, constant_indices
+        )
+        depth = (
+            size if constant_indices is None else len(constant_indices)
+        )
         return EnrichmentResult(
             implementation(node, statements),
-            ImplementationMetaData(width=size, depth=size),
+            ImplementationMetaData(width=size, depth=depth),
         )
 
     def _generate_angle_enrichment(
@@ -254,45 +273,81 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         return size
 
+    def _constant_basis_indices(
+        self,
+        classical_input: LeqoSupportedClassicalType,
+        register_size: int,
+        raw_value: Any,
+    ) -> list[int]:
+        if isinstance(classical_input, FloatType):
+            raise RuntimeError("FloatType not supported for basis encoding")
+
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+            msg = "Unsupported classical input for basis encoding"
+            raise RuntimeError(msg) from exc
+
+        mask = value & ((1 << register_size) - 1)
+        return [
+            index
+            for index in range(register_size)
+            if (mask >> index) & 1
+        ]
+
     def _build_basis_statements(
         self,
         classical_input: LeqoSupportedClassicalType,
         register_size: int,
+        constant_indices: list[int] | None,
     ) -> list[Statement]:
-        value_identifier = Identifier("value")
         qubit_identifier = Identifier("encoded")
 
-        # Declare the classical input and attach the leqo metadata so the
-        # transformation pipeline understands which input feed to wire in.
-        classical_decl = ClassicalDeclaration(
-            classical_input.to_ast(), value_identifier, None
-        )
-        classical_decl.annotations = [Annotation("leqo.input", "0")]
+        statements: list[Statement] = [Include("stdgates.inc")]
+
+        if constant_indices is None:
+            value_identifier = Identifier("value")
+            classical_decl = ClassicalDeclaration(
+                classical_input.to_ast(), value_identifier, None
+            )
+            classical_decl.annotations = [Annotation("leqo.input", "0")]
+            statements.append(classical_decl)
+        else:
+            value_identifier = None
 
         qubit_decl = QubitDeclaration(qubit_identifier, IntegerLiteral(register_size))
+        statements.append(qubit_decl)
 
-        statements: list[Statement] = [
-            Include("stdgates.inc"),
-            classical_decl,
-            qubit_decl,
-        ]
-
-        # Flip each target qubit conditionally based on the requested basis symbol.
-        for index in range(register_size):
-            condition = self._bit_condition_expression(
-                classical_input, value_identifier, index
-            )
-            target = IndexedIdentifier(
-                qubit_identifier, [[IntegerLiteral(index)]]
-            )
-            gate = QuantumGate(
-                modifiers=[],
-                name=Identifier("x"),
-                arguments=[],
-                qubits=[target],
-                duration=None,
-            )
-            statements.append(BranchingStatement(condition, [gate], []))
+        if constant_indices is None:
+            assert value_identifier is not None
+            for index in range(register_size):
+                condition = self._bit_condition_expression(
+                    classical_input, value_identifier, index
+                )
+                target = IndexedIdentifier(
+                    qubit_identifier, [[IntegerLiteral(index)]]
+                )
+                gate = QuantumGate(
+                    modifiers=[],
+                    name=Identifier("x"),
+                    arguments=[],
+                    qubits=[target],
+                    duration=None,
+                )
+                statements.append(BranchingStatement(condition, [gate], []))
+        else:
+            for index in constant_indices:
+                target = IndexedIdentifier(
+                    qubit_identifier, [[IntegerLiteral(index)]]
+                )
+                gate = QuantumGate(
+                    modifiers=[],
+                    name=Identifier("x"),
+                    arguments=[],
+                    qubits=[target],
+                    duration=None,
+                )
+                statements.append(gate)
 
         # Expose the encoded register as the sole output of the node.
         statements.append(leqo_output("out", 0, qubit_identifier))
