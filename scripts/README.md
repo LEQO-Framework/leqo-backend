@@ -26,15 +26,25 @@ python scripts/request_helper.py send payload.json /compile
 
 Options:
 
-- `--host http://localhost:8000` (default) – base URL for the API.
+- `--host http://localhost:8000` (default) - base URL for the API.
 
 For long-running endpoints (`/compile`, `/enrich`) the script polls `/status`, prints the result, and follows the `Link` header to show the stored request payload.
 
 Example payloads:
 
-- `compile_request.json` – small sanity check with a custom implementation.
-- `encode_value_basis_request.json` – uses the basis encoder with a 3-bit integer input and measures the resulting register.
-- `encode_value_angle_request.json` – uses the angle encoder with a floating-point literal and measures the encoded qubit.
+- `compile_request.json` - small sanity check with a custom implementation.
+- `encode_value_basis_request.json` - uses the basis encoder with a 3-bit integer input and measures the resulting register.
+- `basis_addition_request.json` - encodes two integers in the basis, sums them via an `operator` node, and measures the summed register.
+- `encode_value_angle_request.json` - uses the angle encoder with a floating-point literal and measures the encoded qubit.
+- `enrich_operator_plus_request.json` - targets a `+` operator where the lhs register is wider to showcase the flexible fallback.
+- `enrich_operator_plus_valid_request.json` - hits the `+` operator with inputs that match the seeded database entry and returns the stored implementation.
+- `addition_insert.json` - ready-made payload for inserting the fallback addition circuit into the database.
+
+To inspect the enrichment result directly without polling, run:
+
+```bash
+python scripts/request_helper.py send scripts/enrich_operator_plus_request.json /debug/enrich
+```
 
 #### `result`
 
@@ -54,7 +64,7 @@ Fetch result information:
 
 Options:
 
-- `--host` – base URL for the API (default: `http://localhost:8000`).
+- `--host` - base URL for the API (default: `http://localhost:8000`).
 
 When a result is returned, the script also prints any `Link` header pointing to the stored request payload.
 
@@ -68,6 +78,6 @@ python scripts/request_helper.py request 123e4567-e89b-12d3-a456-426614174000
 
 Options:
 
-- `--host` – base URL for the API (default: `http://localhost:8000`).
+- `--host` - base URL for the API (default: `http://localhost:8000`).
 
 The response is printed as pretty JSON for inspection.

@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Operator Plus Enrichment",
+    "description": "Enriches a + operator where the lhs register is wider to exercise the dynamic fallback.",
+    "author": "CLI Tester",
+    "optimizeWidth": 1,
+    "optimizeDepth": 1
+  },
+  "nodes": [
+    { "id": "arg1", "type": "qubit", "size": 10 },
+    { "id": "arg2", "type": "qubit", "size": 5 },
+    { "id": "adder", "type": "operator", "operator": "+" }
+  ],
+  "edges": [
+    { "source": ["arg1", 0], "target": ["adder", 0] },
+    { "source": ["arg2", 0], "target": ["adder", 1] }
+  ]
+}

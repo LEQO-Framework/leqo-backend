@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Basis Encode + Add demo",
+    "description": "Encode two integers in the computational basis, add them, and measure the summed register.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    {
+      "id": "literal_a",
+      "type": "int",
+      "label": "Augend",
+      "bitSize": 4,
+      "value": 11
+    },
+    {
+      "id": "literal_b",
+      "type": "int",
+      "label": "Addend",
+      "bitSize": 4,
+      "value": 12
+    },
+    {
+      "id": "encode_a",
+      "type": "encode",
+      "label": "Encode Augend",
+      "encoding": "basis",
+      "bounds": 1
+    },
+    {
+      "id": "encode_b",
+      "type": "encode",
+      "label": "Encode Addend",
+      "encoding": "basis",
+      "bounds": 1
+    },
+    {
+      "id": "adder",
+      "type": "operator",
+      "label": "Binary addition",
+      "operator": "+"
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Result readout",
+      "indices": [0, 1, 2, 3, 4]
+    }
+  ],
+  "edges": [
+    { "source": ["literal_a", 0], "target": ["encode_a", 0] },
+    { "source": ["literal_b", 0], "target": ["encode_b", 0] },
+    { "source": ["encode_a", 0], "target": ["adder", 0] },
+    { "source": ["encode_b", 0], "target": ["adder", 1] },
+    { "source": ["adder", 0], "target": ["measure", 0] }
+  ]
+}

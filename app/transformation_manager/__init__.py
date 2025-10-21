@@ -5,7 +5,7 @@ Provides the core logic of the backend.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
@@ -13,10 +13,15 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
+    EncodeValueNode,
+    BitLiteralNode,
+    BoolLiteralNode,
     CompileRequest,
+    FloatLiteralNode,
     IfThenElseNode,
     ImplementationNode,
     InsertRequest,
+    IntLiteralNode,
     NestedBlock,
     OptimizeSettings,
     RepeatNode,
@@ -79,16 +84,18 @@ class CommonProcessor:
         self,
         target_node: str,
         frontend_name_to_index: dict[str, int] | None = None,
-    ) -> dict[int, LeqoSupportedType]:
+    ) -> tuple[dict[int, LeqoSupportedType], dict[int, Any]]:
         """
         Get inputs of current node from previous processed nodes.
         """
         requested_inputs: dict[int, LeqoSupportedType] = {}
+        requested_values: dict[int, Any] = {}
         for source_node in self.frontend_graph.predecessors(target_node):
             source_node_data = not_none(
                 self.frontend_to_processed.get(source_node),
                 f"Node '{source_node}' should already be enriched",
             )
+            source_frontend_node = self.frontend_graph.node_data[source_node]
 
             for edge in not_none(
                 self.frontend_graph.edge_data.get((source_node, target_node)),
@@ -106,13 +113,40 @@ class CommonProcessor:
 
                 input_index = edge.target[1]
                 requested_inputs[input_index] = output.type
+                constant_value = self._extract_literal_value(
+                    source_frontend_node, output_index
+                )
+                if constant_value is not None:
+                    requested_values[input_index] = constant_value
 
                 if edge.identifier is None or frontend_name_to_index is None:
                     continue
 
                 frontend_name_to_index[edge.identifier] = input_index
 
-        return requested_inputs
+        return requested_inputs, requested_values
+
+    @staticmethod
+    def _extract_literal_value(
+        node: FrontendNode, output_index: int
+    ) -> Any | None:
+        """
+        Try to resolve a literal value flowing from the given node.
+        """
+        if output_index != 0:
+            return None
+
+        match node:
+            case IntLiteralNode(value=value):
+                return value
+            case BitLiteralNode(value=value):
+                return int(value)
+            case BoolLiteralNode(value=value):
+                return value
+            case FloatLiteralNode(value=value):
+                return value
+            case _:
+                return None
 
 
 class MergingProcessor(CommonProcessor):
@@ -138,8 +172,10 @@ class MergingProcessor(CommonProcessor):
         for node in topological_sort(self.frontend_graph):
             frontend_node = self.frontend_graph.node_data[node]
 
+            missing_constant_inputs: set[int] = set()
+
             if isinstance(frontend_node, RepeatNode):
-                requested_inputs = self._resolve_inputs(node)
+                requested_inputs, _ = self._resolve_inputs(node)
                 entry_node_id, exit_node_id, enrolled_graph = unroll_repeat(
                     frontend_node,
                     requested_inputs,
@@ -153,9 +189,10 @@ class MergingProcessor(CommonProcessor):
                     self.graph.append_edges(*sub_graph.edge_data[e])
                 self.frontend_to_processed[node] = exit_node
             else:
+                requested_values: dict[int, Any]
                 if isinstance(frontend_node, IfThenElseNode):
                     frontend_name_to_index: dict[str, int] = {}
-                    requested_inputs = self._resolve_inputs(
+                    requested_inputs, requested_values = self._resolve_inputs(
                         node, frontend_name_to_index
                     )
                     enriched_node: ImplementationNode | ParsedImplementationNode = (
@@ -167,13 +204,14 @@ class MergingProcessor(CommonProcessor):
                         )
                     )
                 else:
-                    requested_inputs = self._resolve_inputs(node)
+                    requested_inputs, requested_values = self._resolve_inputs(node)
                     enriched_node = await self.enricher.enrich(
                         frontend_node,
                         Constraints(
-                            requested_inputs,
+                            requested_inputs=requested_inputs,
                             optimizeWidth=self.optimize.optimizeWidth is not None,
                             optimizeDepth=self.optimize.optimizeDepth is not None,
+                            requested_input_values=requested_values,
                         ),
                     )
                 processed_node = preprocess(
@@ -181,11 +219,24 @@ class MergingProcessor(CommonProcessor):
                     enriched_node.implementation,
                     requested_inputs,
                 )
+                if (
+                    isinstance(frontend_node, EncodeValueNode)
+                    and requested_values
+                ):
+                    missing_constant_inputs = {
+                        index
+                        for index in requested_values
+                        if index not in processed_node.io.inputs
+                    }
+                else:
+                    missing_constant_inputs = set()
                 self.frontend_to_processed[node] = processed_node
                 self.graph.append_node(processed_node)
 
             for pred in self.frontend_graph.predecessors(node):
                 for edge in self.frontend_graph.edge_data[(pred, node)]:
+                    if edge.target[1] in missing_constant_inputs:
+                        continue
                     self.graph.append_edge(
                         IOConnection(
                             (
@@ -296,7 +347,7 @@ class EnrichingProcessor(CommonProcessor):
         """
         for node in topological_sort(self.frontend_graph):
             frontend_node = self.frontend_graph.node_data[node]
-            requested_inputs = self._resolve_inputs(node)
+            requested_inputs, requested_values = self._resolve_inputs(node)
 
             match frontend_node:
                 case RepeatNode():
@@ -315,13 +366,13 @@ class EnrichingProcessor(CommonProcessor):
                         ):
                             yield enriched_node
                 case _:
-                    requested_inputs = self._resolve_inputs(node)
                     enriched = await self.enricher.enrich(
                         frontend_node,
                         Constraints(
-                            requested_inputs,
+                            requested_inputs=requested_inputs,
                             optimizeWidth=self.optimize.optimizeWidth is not None,
                             optimizeDepth=self.optimize.optimizeDepth is not None,
+                            requested_input_values=requested_values,
                         ),
                     )
                     enriched_node = (
