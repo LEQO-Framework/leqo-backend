@@ -71,3 +71,7 @@ The following environment variables are available for configuring the backend:
    * - ``CORS_ALLOW_HEADERS``
      - list of HTTP headers allowed in CORS requests.
      - ``["*"]`` (allow all headers)
+
+   * - ``QISKIT_COMPAT_MODE``
+     - Enables Qiskit compatibility tweaks (e.g. removing literal nodes from the emitted QASM).
+     - ``FALSE``

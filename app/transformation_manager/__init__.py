@@ -11,6 +11,7 @@ from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from app.config import Settings
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
     EncodeValueNode,
@@ -45,7 +46,7 @@ from app.transformation_manager.optimize import optimize
 from app.transformation_manager.post import postprocess
 from app.transformation_manager.pre import preprocess
 from app.transformation_manager.pre.utils import PreprocessingException
-from app.services import get_db_engine, get_enricher
+from app.services import get_db_engine, get_enricher, get_settings
 from app.utils import not_none
 
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
@@ -73,12 +74,14 @@ class CommonProcessor:
         enricher: Enricher,
         frontend_graph: FrontendGraph,
         optimize_settings: OptimizeSettings,
+        qiskit_compat: bool = False,
     ) -> None:
         self.enricher = enricher
         self.frontend_graph = frontend_graph
         self.optimize = optimize_settings
         self.graph = ProgramGraph()
         self.frontend_to_processed = {}
+        self.qiskit_compat = qiskit_compat
 
     def _resolve_inputs(
         self,
@@ -158,9 +161,15 @@ class MergingProcessor(CommonProcessor):
     def from_compile_request(
         request: CompileRequest,
         enricher: Annotated[Enricher, Depends(get_enricher)],
+        settings: Annotated[Settings, Depends(get_settings)],
     ) -> MergingProcessor:
         graph = FrontendGraph.create(request.nodes, request.edges)
-        processor = MergingProcessor(enricher, graph, request.metadata)
+        processor = MergingProcessor(
+            enricher,
+            graph,
+            request.metadata,
+            qiskit_compat=settings.qiskit_compat_mode,
+        )
         processor.target = request.compilation_target
         processor.original_request = request
         return processor
@@ -258,13 +267,33 @@ class MergingProcessor(CommonProcessor):
         :param frontend_graph: The graph to transform
         :return: the enriched + preprocessed graph
         """
-        processor = MergingProcessor(self.enricher, frontend_graph, self.optimize)
+        processor = MergingProcessor(
+            self.enricher,
+            frontend_graph,
+            self.optimize,
+            qiskit_compat=self.qiskit_compat,
+        )
         await processor.process_nodes()
 
         if self.optimize.optimizeWidth is not None:
             optimize(self.graph)
 
         return processor.graph
+
+    def _collect_literal_nodes(self) -> tuple[set[str], set[str]]:
+        literal_ids = {
+            node_id
+            for node_id, frontend_node in self.frontend_graph.node_data.items()
+            if isinstance(
+                frontend_node,
+                (IntLiteralNode, FloatLiteralNode, BitLiteralNode, BoolLiteralNode),
+            )
+        }
+        used_ids: set[str] = set()
+        for (source, _target), edges in self.frontend_graph.edge_data.items():
+            if source in literal_ids and edges:
+                used_ids.add(source)
+        return literal_ids, used_ids
 
     async def process(self) -> str:
         """
@@ -283,7 +312,22 @@ class MergingProcessor(CommonProcessor):
         if self.optimize.optimizeWidth is not None:
             optimize(self.graph)
 
-        return leqo_dumps(postprocess(merge_nodes(self.graph)))
+        literal_nodes: set[str]
+        used_literal_nodes: set[str]
+        if self.qiskit_compat and self.target == "qasm":
+            literal_nodes, used_literal_nodes = self._collect_literal_nodes()
+        else:
+            literal_nodes = set()
+            used_literal_nodes = set()
+
+        merged_program = merge_nodes(self.graph)
+        processed_program = postprocess(
+            merged_program,
+            qiskit_compat=self.qiskit_compat and self.target == "qasm",
+            literal_nodes=literal_nodes,
+            literal_nodes_with_consumers=used_literal_nodes,
+        )
+        return leqo_dumps(processed_program)
 
 
 class EnrichingProcessor(CommonProcessor):
