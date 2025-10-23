@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.config import Settings
+from app.db_migrations import apply_migrations
 from app.enricher import Enricher
 from app.enricher.encode_value import EncodeValueEnricherStrategy
 from app.enricher.gates import GateEnricherStrategy
@@ -33,7 +34,6 @@ from app.enricher.splitter import SplitterEnricherStrategy
 from app.enricher.workflow import WorkflowEnricherStrategy
 from app.model.database_model import Base
 from app.utils import not_none
-from app.db_migrations import apply_migrations
 
 
 @asynccontextmanager

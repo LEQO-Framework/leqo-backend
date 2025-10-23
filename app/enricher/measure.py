@@ -87,7 +87,7 @@ class MeasurementEnricherStrategy(EnricherStrategy):
                 ),
                 ImplementationMetaData(width=0, depth=1),
             )
-
+        # TODO Implement default logic for empty measurement indices
         if len(node.indices) < 1:
             raise NoIndices(node)
 

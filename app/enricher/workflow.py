@@ -5,7 +5,8 @@ Currently acts as a no-op placeholder. It does not enrich any node,
 but provides an extension point for future workflow-specific logic.
 """
 
-from typing import Iterable, override
+from collections.abc import Iterable
+from typing import override
 
 from app.enricher import (
     Constraints,
@@ -28,4 +29,3 @@ class WorkflowEnricherStrategy(EnricherStrategy):
         self, node: FrontendNode, constraints: Constraints | None
     ) -> Iterable[EnrichmentResult]:
         return []
-

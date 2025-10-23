@@ -14,10 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from app.config import Settings
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
-    EncodeValueNode,
     BitLiteralNode,
     BoolLiteralNode,
     CompileRequest,
+    EncodeValueNode,
     FloatLiteralNode,
     IfThenElseNode,
     ImplementationNode,
@@ -31,6 +31,7 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
+from app.services import get_db_engine, get_enricher, get_settings
 from app.transformation_manager.frontend_graph import FrontendGraph
 from app.transformation_manager.graph import (
     IOConnection,
@@ -46,7 +47,6 @@ from app.transformation_manager.optimize import optimize
 from app.transformation_manager.post import postprocess
 from app.transformation_manager.pre import preprocess
 from app.transformation_manager.pre.utils import PreprocessingException
-from app.services import get_db_engine, get_enricher, get_settings
 from app.utils import not_none
 
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
@@ -131,7 +131,7 @@ class CommonProcessor:
 
     @staticmethod
     def _extract_literal_value(
-        node: FrontendNode, output_index: int
+        node: FrontendNode | ParsedImplementationNode, output_index: int
     ) -> Any | None:
         """
         Try to resolve a literal value flowing from the given node.
@@ -204,13 +204,13 @@ class MergingProcessor(CommonProcessor):
                     requested_inputs, requested_values = self._resolve_inputs(
                         node, frontend_name_to_index
                     )
-                    enriched_node: ImplementationNode | ParsedImplementationNode = (
-                        await enrich_if_then_else(
-                            frontend_node,
-                            requested_inputs,
-                            frontend_name_to_index,
-                            self._build_inner_graph,
-                        )
+                    enriched_node: (
+                        ImplementationNode | ParsedImplementationNode
+                    ) = await enrich_if_then_else(
+                        frontend_node,
+                        requested_inputs,
+                        frontend_name_to_index,
+                        self._build_inner_graph,
                     )
                 else:
                     requested_inputs, requested_values = self._resolve_inputs(node)
@@ -228,10 +228,7 @@ class MergingProcessor(CommonProcessor):
                     enriched_node.implementation,
                     requested_inputs,
                 )
-                if (
-                    isinstance(frontend_node, EncodeValueNode)
-                    and requested_values
-                ):
+                if isinstance(frontend_node, EncodeValueNode) and requested_values:
                     missing_constant_inputs = {
                         index
                         for index in requested_values
@@ -286,7 +283,10 @@ class MergingProcessor(CommonProcessor):
             for node_id, frontend_node in self.frontend_graph.node_data.items()
             if isinstance(
                 frontend_node,
-                (IntLiteralNode, FloatLiteralNode, BitLiteralNode, BoolLiteralNode),
+                IntLiteralNode
+                | FloatLiteralNode
+                | BitLiteralNode
+                | BoolLiteralNode,
             )
         }
         used_ids: set[str] = set()
@@ -345,7 +345,6 @@ class EnrichingProcessor(CommonProcessor):
         processor.target = request.compilation_target
         processor.original_request = request
         return processor
-
 
     def _get_dummy_enrichment(
         self, node_id: str, requested_inputs: dict[int, LeqoSupportedType]

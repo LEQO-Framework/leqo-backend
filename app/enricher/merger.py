@@ -90,8 +90,9 @@ class MergerEnricherStrategy(EnricherStrategy):
                 node, actual=out_size, should_be="at-least", expected=2
             )
 
-        stmts.append(leqo_output("merger_output", 0, concatenation))  # type: ignore[arg-type]
+        assert concatenation is not None
+        stmts.append(leqo_output("merger_output", 0, concatenation))
 
-        enriched_node = implementation(node, stmts)  # type: ignore[arg-type]
+        enriched_node = implementation(node, stmts)
         metadata = ImplementationMetaData(width=out_size, depth=0)
         return EnrichmentResult(enriched_node=enriched_node, meta_data=metadata)

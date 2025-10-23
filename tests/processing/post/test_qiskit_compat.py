@@ -28,7 +28,9 @@ def test_apply_qiskit_compatibility_strips_literal_blocks() -> None:
         literal_nodes_with_consumers=set(),
     )
 
-    comments = [stmt.comment for stmt in result.statements if isinstance(stmt, CommentStatement)]
+    comments = [
+        stmt.comment for stmt in result.statements if isinstance(stmt, CommentStatement)
+    ]
     assert "Start node literal_a" not in comments
     assert "End node literal_a" not in comments
     assert any(comment == "Start node useful" for comment in comments)

@@ -74,13 +74,13 @@ class SplitterEnricherStrategy(EnricherStrategy):
             leqo_output(
                 f"splitter_output_{index}",
                 index,
-                IndexExpression(  # type: ignore[arg-type]
+                IndexExpression(
                     Identifier(identifier), DiscreteSet([IntegerLiteral(index)])
                 ),
             )
             for index in range(reg_size)
         )
 
-        enriched_node = implementation(node, stmts)  # type: ignore[arg-type]
+        enriched_node = implementation(node, stmts)
         metadata = ImplementationMetaData(width=reg_size, depth=0)
         return EnrichmentResult(enriched_node=enriched_node, meta_data=metadata)

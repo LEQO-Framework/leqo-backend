@@ -15,7 +15,12 @@ The steps are:
 from openqasm3.ast import Program
 
 from app.model.data_types import LeqoSupportedType
-from app.transformation_manager.graph import IOInfo, ProcessedProgramNode, ProgramNode, QubitInfo
+from app.transformation_manager.graph import (
+    IOInfo,
+    ProcessedProgramNode,
+    ProgramNode,
+    QubitInfo,
+)
 from app.transformation_manager.pre.converter import parse_to_openqasm3
 from app.transformation_manager.pre.inlining import InliningTransformer
 from app.transformation_manager.pre.io_parser import ParseAnnotationsVisitor

@@ -171,7 +171,9 @@ async def update_status_response_in_db(
     """
     async with AsyncSession(engine) as session:
         existing_state = await session.get(StatusResponseDb, new_state.uuid)
-        stored_name = name if name is not None else getattr(existing_state, "name", None)
+        stored_name = (
+            name if name is not None else getattr(existing_state, "name", None)
+        )
         stored_description = (
             description
             if description is not None
@@ -335,7 +337,9 @@ async def get_results_overview_from_db(
                 "created": row.createdAt,
                 "name": row.name,
                 "description": row.description,
-                "status": row.status.value if hasattr(row.status, "value") else row.status,
+                "status": row.status.value
+                if hasattr(row.status, "value")
+                else row.status,
             }
             for row in rows.all()
         ]
@@ -352,9 +356,7 @@ async def store_compile_request_payload(
         await session.commit()
 
 
-async def get_compile_request_payload(
-    engine: AsyncEngine, uuid: UUID
-) -> str | None:
+async def get_compile_request_payload(engine: AsyncEngine, uuid: UUID) -> str | None:
     """
     Retrieve the original compile request payload if available.
     """

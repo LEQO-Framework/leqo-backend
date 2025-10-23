@@ -26,7 +26,10 @@ from app.transformation_manager.graph import (
     ProcessedProgramNode,
     QubitIOInstance,
 )
-from app.transformation_manager.pre.utils import PreprocessingException, parse_io_annotation
+from app.transformation_manager.pre.utils import (
+    PreprocessingException,
+    parse_io_annotation,
+)
 
 
 class CreateUnseenNamesVisitor(LeqoTransformer[None]):

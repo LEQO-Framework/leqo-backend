@@ -15,6 +15,7 @@ from openqasm3.ast import (
     Identifier,
     Include,
     IndexedIdentifier,
+    IndexExpression,
     IntegerLiteral,
     QuantumGate,
     QubitDeclaration,
@@ -26,15 +27,19 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.enricher import Constraints, EnrichmentResult, ImplementationMetaData
 from app.enricher.db_enricher import DataBaseEnricherStrategy
 from app.enricher.exceptions import BoundsOutOfRange, EncodingNotSupported
-from app.enricher.models import BaseNode, EncodingType, Input, InputType, NodeType
-from app.enricher.models import EncodeValueNode as EncodeNodeTable
+from app.enricher.models import (
+    BaseNode,
+    EncodingType,
+    Input,
+    InputType,
+    NodeType,
+)
+from app.enricher.models import (
+    EncodeValueNode as EncodeNodeTable,
+)
 from app.enricher.utils import implementation, leqo_output
-from app.model.CompileRequest import (
-    EncodeValueNode,
-)
-from app.model.CompileRequest import (
-    Node as FrontendNode,
-)
+from app.model.CompileRequest import EncodeValueNode
+from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import (
     BitType,
     BoolType,
@@ -44,7 +49,11 @@ from app.model.data_types import (
     LeqoSupportedType,
     QubitType,
 )
-from app.model.exceptions import InputCountMismatch, InputSizeMismatch, InputTypeMismatch
+from app.model.exceptions import (
+    InputCountMismatch,
+    InputSizeMismatch,
+    InputTypeMismatch,
+)
 
 
 class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
@@ -138,7 +147,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             index=0,
             type=converted_input_type,
             size=requested_inputs[0].size,
-            )
+        )
         new_node.inputs.append(input_node)
 
         return new_node
@@ -157,8 +166,12 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             if constraints is None:
                 raise InputCountMismatch(node, actual=0, should_be="equal", expected=1)
 
+            self._check_constraints(node, constraints.requested_inputs)
+
             # On cache miss, synthesise the basis encoding implementation on the fly.
-            classical_input = constraints.requested_inputs[0]
+            classical_input = cast(
+                LeqoSupportedClassicalType, constraints.requested_inputs[0]
+            )
             if node.encoding == "basis":
                 return [
                     self._generate_basis_enrichment(
@@ -229,9 +242,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         statements = self._build_basis_statements(
             classical_input, size, constant_indices
         )
-        depth = (
-            size if constant_indices is None else len(constant_indices)
-        )
+        depth = size if constant_indices is None else len(constant_indices)
         return EnrichmentResult(
             implementation(node, statements),
             ImplementationMetaData(width=size, depth=depth),
@@ -289,11 +300,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             raise RuntimeError(msg) from exc
 
         mask = value & ((1 << register_size) - 1)
-        return [
-            index
-            for index in range(register_size)
-            if (mask >> index) & 1
-        ]
+        return [index for index in range(register_size) if (mask >> index) & 1]
 
     def _build_basis_statements(
         self,
@@ -324,9 +331,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 condition = self._bit_condition_expression(
                     classical_input, value_identifier, index
                 )
-                target = IndexedIdentifier(
-                    qubit_identifier, [[IntegerLiteral(index)]]
-                )
+                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
                 gate = QuantumGate(
                     modifiers=[],
                     name=Identifier("x"),
@@ -337,9 +342,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 statements.append(BranchingStatement(condition, [gate], []))
         else:
             for index in constant_indices:
-                target = IndexedIdentifier(
-                    qubit_identifier, [[IntegerLiteral(index)]]
-                )
+                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
                 gate = QuantumGate(
                     modifiers=[],
                     name=Identifier("x"),
@@ -390,9 +393,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             condition = self._bit_condition_expression(
                 classical_input, value_identifier, index
             )
-            target = IndexedIdentifier(
-                qubit_identifier, [[IntegerLiteral(index)]]
-            )
+            target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
             rotation_gate = QuantumGate(
                 modifiers=[],
                 name=Identifier("ry"),
@@ -417,8 +418,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             case BitType(size=None):
                 return value_identifier
             case BitType():
-                element = IndexedIdentifier(
-                    value_identifier, [[IntegerLiteral(index)]]
+                element = IndexExpression(
+                    collection=value_identifier,
+                    index=[IntegerLiteral(index)],
                 )
                 return BinaryExpression(
                     BinaryOperator["=="],

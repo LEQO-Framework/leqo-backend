@@ -18,8 +18,11 @@ from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNod
 from app.model.CompileRequest import SingleInsertMetaData
 from app.model.data_types import BitType, BoolType, FloatType, IntType, QubitType
 from app.model.exceptions import InputCountMismatch, InputTypeMismatch
-from tests.enricher.utils import assert_enrichments
 from app.openqasm3.printer import leqo_dumps
+from tests.enricher.utils import assert_enrichments
+
+ENCODE_REGISTER_SIZE = 32
+LITERAL_ENCODE_DEPTH = 2
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -282,16 +285,16 @@ async def test_enrich_encode_value_node_not_in_db(engine: AsyncEngine) -> None:
         else leqo_dumps(implementation)
     )
 
-    assert '@leqo.input 0' in implementation_str
-    assert 'int[32] value;' in implementation_str
-    assert 'qubit[32] encoded;' in implementation_str
-    assert implementation_str.count('if') == 32
-    assert 'x encoded[0];' in implementation_str
-    assert 'x encoded[31];' in implementation_str
-    assert '@leqo.output 0' in implementation_str
-    assert 'let out = encoded;' in implementation_str
-    assert result.meta_data.width == 32
-    assert result.meta_data.depth == 32
+    assert "@leqo.input 0" in implementation_str
+    assert "int[32] value;" in implementation_str
+    assert "qubit[32] encoded;" in implementation_str
+    assert implementation_str.count("if") == ENCODE_REGISTER_SIZE
+    assert "x encoded[0];" in implementation_str
+    assert "x encoded[31];" in implementation_str
+    assert "@leqo.output 0" in implementation_str
+    assert "let out = encoded;" in implementation_str
+    assert result.meta_data.width == ENCODE_REGISTER_SIZE
+    assert result.meta_data.depth == ENCODE_REGISTER_SIZE
 
 
 @pytest.mark.asyncio
@@ -324,17 +327,17 @@ async def test_enrich_encode_value_node_not_in_db_with_literal_value(
         else leqo_dumps(implementation)
     )
 
-    assert '@leqo.input 0' not in implementation_str
-    assert 'int[32] value;' not in implementation_str
-    assert 'if' not in implementation_str
-    assert 'qubit[32] encoded;' in implementation_str
-    assert implementation_str.count('x encoded[0];') == 1
-    assert implementation_str.count('x encoded[2];') == 1
-    assert 'x encoded[1];' not in implementation_str
-    assert '@leqo.output 0' in implementation_str
-    assert 'let out = encoded;' in implementation_str
-    assert result.meta_data.width == 32
-    assert result.meta_data.depth == 2
+    assert "@leqo.input 0" not in implementation_str
+    assert "int[32] value;" not in implementation_str
+    assert "if" not in implementation_str
+    assert "qubit[32] encoded;" in implementation_str
+    assert implementation_str.count("x encoded[0];") == 1
+    assert implementation_str.count("x encoded[2];") == 1
+    assert "x encoded[1];" not in implementation_str
+    assert "@leqo.output 0" in implementation_str
+    assert "let out = encoded;" in implementation_str
+    assert result.meta_data.width == ENCODE_REGISTER_SIZE
+    assert result.meta_data.depth == LITERAL_ENCODE_DEPTH
 
 
 @pytest.mark.asyncio
@@ -372,11 +375,11 @@ async def test_enrich_angle_encode_value_node_not_in_db(engine: AsyncEngine) -> 
         else leqo_dumps(implementation)
     )
 
-    assert '@leqo.input 0' in implementation_str
-    assert 'int[32] value;' in implementation_str
-    assert 'qubit[32] encoded;' in implementation_str
-    assert implementation_str.count('ry(3.141592653589793)') == 32
-    assert '@leqo.output 0' in implementation_str
-    assert 'let out = encoded;' in implementation_str
-    assert result.meta_data.width == 32
-    assert result.meta_data.depth == 32
+    assert "@leqo.input 0" in implementation_str
+    assert "int[32] value;" in implementation_str
+    assert "qubit[32] encoded;" in implementation_str
+    assert implementation_str.count("ry(3.141592653589793)") == ENCODE_REGISTER_SIZE
+    assert "@leqo.output 0" in implementation_str
+    assert "let out = encoded;" in implementation_str
+    assert result.meta_data.width == ENCODE_REGISTER_SIZE
+    assert result.meta_data.depth == ENCODE_REGISTER_SIZE

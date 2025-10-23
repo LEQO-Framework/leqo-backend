@@ -26,10 +26,10 @@ from app.enricher.models import OperatorNode as OperatorNodeTable
 from app.enricher.utils import implementation, leqo_input, leqo_output
 from app.model.CompileRequest import (
     ImplementationNode,
-    Node as FrontendNode,
+    OperatorNode,
 )
 from app.model.CompileRequest import (
-    OperatorNode,
+    Node as FrontendNode,
 )
 from app.model.data_types import LeqoSupportedType, QubitType
 from app.model.exceptions import InputCountMismatch, InputTypeMismatch
@@ -162,10 +162,7 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
 
         enriched_node = implementation(node, statements)
         width = (
-            addend0.effective_size
-            + addend1.effective_size
-            + result_size
-            + carry_count
+            addend0.effective_size + addend1.effective_size + result_size + carry_count
         )
         return EnrichmentResult(
             enriched_node,
@@ -196,9 +193,7 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         query = query.options(selectinload(OperatorNodeTable.inputs))
 
         async with AsyncSession(self.engine) as session:
-            result_nodes = (
-                (await session.execute(query)).unique().scalars().all()
-            )
+            result_nodes = (await session.execute(query)).unique().scalars().all()
 
         if not result_nodes:
             return []
@@ -208,7 +203,9 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
 
             filtered_nodes: list[BaseNode] = []
             for result_node in result_nodes:
-                inputs_by_index = {input_entry.index: input_entry for input_entry in result_node.inputs}
+                inputs_by_index = {
+                    input_entry.index: input_entry for input_entry in result_node.inputs
+                }
 
                 lhs = inputs_by_index.get(0)
                 rhs = inputs_by_index.get(1)
@@ -218,6 +215,11 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                 lhs_request = requested_inputs.get(0)
                 rhs_request = requested_inputs.get(1)
                 if lhs_request is None or rhs_request is None:
+                    continue
+
+                if not isinstance(lhs_request, QubitType):
+                    continue
+                if not isinstance(rhs_request, QubitType):
                     continue
 
                 if not self._input_satisfies_request(lhs, lhs_request):
@@ -252,9 +254,7 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
             )
         ]
 
-    def _input_satisfies_request(
-        self, db_input: Input, requested: QubitType
-    ) -> bool:
+    def _input_satisfies_request(self, db_input: Input, requested: QubitType) -> bool:
         if requested.size is None:
             return True
         if db_input.size is None:
@@ -323,20 +323,15 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         depth = 0
 
         for index in range(max_bits):
-            addend0_bit = (
-                addend0_bits[index] if index < len(addend0_bits) else None
-            )
-            addend1_bit = (
-                addend1_bits[index] if index < len(addend1_bits) else None
-            )
+            addend0_bit = addend0_bits[index] if index < len(addend0_bits) else None
+            addend1_bit = addend1_bits[index] if index < len(addend1_bits) else None
             result_bit = result_bits[index]
             carry_in = carry_bits[index - 1] if index > 0 else None
             carry_out: Identifier | IndexedIdentifier
 
-            if index < carry_count:
-                carry_out = carry_bits[index]
-            else:
-                carry_out = result_bits[-1]
+            carry_out = (
+                carry_bits[index] if index < carry_count else result_bits[-1]
+            )
 
             if addend0_bit is not None and addend1_bit is not None:
                 gate_statements.append(
@@ -357,23 +352,17 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                     depth += 1
 
             if addend0_bit is not None:
-                gate_statements.append(
-                    self._cx_gate(addend0_bit, result_bit)
-                )
+                gate_statements.append(self._cx_gate(addend0_bit, result_bit))
                 depth += 1
             if addend1_bit is not None:
-                gate_statements.append(
-                    self._cx_gate(addend1_bit, result_bit)
-                )
+                gate_statements.append(self._cx_gate(addend1_bit, result_bit))
                 depth += 1
             if carry_in is not None:
                 gate_statements.append(self._cx_gate(carry_in, result_bit))
                 depth += 1
 
         statements.extend(gate_statements)
-        statements.append(
-            leqo_output("out", 0, Identifier("sum"))
-        )
+        statements.append(leqo_output("out", 0, Identifier("sum")))
 
         return statements, result_size, carry_count, depth
 
@@ -386,9 +375,7 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         if declared_size is None:
             return [self._qubit_reference(name, None)]
 
-        return [
-            self._qubit_reference(name, index) for index in range(effective_size)
-        ]
+        return [self._qubit_reference(name, index) for index in range(effective_size)]
 
     def _qubit_reference(
         self, name: str, index: int | None

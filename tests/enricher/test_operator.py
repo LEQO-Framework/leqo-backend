@@ -1,6 +1,6 @@
 import pytest
 import pytest_asyncio
-from openqasm3.ast import AliasStatement, Identifier
+from openqasm3.ast import AliasStatement, Identifier, Program
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
@@ -134,16 +134,17 @@ async def test_enrich_plus_operator(engine: AsyncEngine) -> None:
     max_bits = max(lhs_size, rhs_size)
     expected_result_size = max_bits + 1
     expected_carry = max(max_bits - 1, 0)
-    expected_width = (
-        lhs_size + rhs_size + expected_result_size + expected_carry
-    )
+    expected_width = lhs_size + rhs_size + expected_result_size + expected_carry
 
     assert result.meta_data.width == expected_width
-    assert result.meta_data.depth is not None and result.meta_data.depth > 0
+    assert result.meta_data.depth is not None
+    assert result.meta_data.depth > 0
 
     program = result.enriched_node.implementation
-    assert isinstance(program.statements[-1], AliasStatement)
-    output_value = program.statements[-1].value
+    assert isinstance(program, Program)
+    alias_statement = program.statements[-1]
+    assert isinstance(alias_statement, AliasStatement)
+    output_value = alias_statement.value
     assert isinstance(output_value, Identifier)
     assert output_value.name == "sum"
 
@@ -166,15 +167,16 @@ async def test_addition_enrichment_handles_larger_lhs(engine: AsyncEngine) -> No
     max_bits = max(lhs_size, rhs_size)
     expected_result_size = max_bits + 1
     expected_carry = max(max_bits - 1, 0)
-    expected_width = (
-        lhs_size + rhs_size + expected_result_size + expected_carry
-    )
+    expected_width = lhs_size + rhs_size + expected_result_size + expected_carry
     assert enrichment.meta_data.width == expected_width
-    assert enrichment.meta_data.depth is not None and enrichment.meta_data.depth > 0
+    assert enrichment.meta_data.depth is not None
+    assert enrichment.meta_data.depth > 0
 
     program = enrichment.enriched_node.implementation
-    assert isinstance(program.statements[-1], AliasStatement)
-    output_value = program.statements[-1].value
+    assert isinstance(program, Program)
+    alias_statement = program.statements[-1]
+    assert isinstance(alias_statement, AliasStatement)
+    output_value = alias_statement.value
     assert isinstance(output_value, Identifier)
     assert output_value.name == "sum"
 

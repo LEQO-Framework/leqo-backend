@@ -2,11 +2,11 @@
 Database migrations applied at startup.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
-from sqlalchemy.ext.asyncio import AsyncConnection
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 
 @dataclass(frozen=True)
@@ -21,25 +21,25 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(
         name="0001_add_compilation_target",
         statements=(
-            "ALTER TABLE \"process_states\" ADD COLUMN IF NOT EXISTS \"compilationTarget\" VARCHAR",
-            "ALTER TABLE \"process_states\" ALTER COLUMN \"compilationTarget\" SET DEFAULT 'qasm'",
-            "UPDATE \"process_states\" SET \"compilationTarget\" = 'qasm' WHERE \"compilationTarget\" IS NULL",
-            "ALTER TABLE \"process_states\" ALTER COLUMN \"compilationTarget\" SET NOT NULL",
-            "ALTER TABLE \"compile_results\" ADD COLUMN IF NOT EXISTS \"compilationTarget\" VARCHAR",
-            "ALTER TABLE \"compile_results\" ALTER COLUMN \"compilationTarget\" SET DEFAULT 'qasm'",
-            "UPDATE \"compile_results\" SET \"compilationTarget\" = 'qasm' WHERE \"compilationTarget\" IS NULL",
-            "ALTER TABLE \"compile_results\" ALTER COLUMN \"compilationTarget\" SET NOT NULL",
-            "ALTER TABLE \"enrich_result\" ADD COLUMN IF NOT EXISTS \"compilationTarget\" VARCHAR",
-            "ALTER TABLE \"enrich_result\" ALTER COLUMN \"compilationTarget\" SET DEFAULT 'qasm'",
-            "UPDATE \"enrich_result\" SET \"compilationTarget\" = 'qasm' WHERE \"compilationTarget\" IS NULL",
-            "ALTER TABLE \"enrich_result\" ALTER COLUMN \"compilationTarget\" SET NOT NULL",
+            'ALTER TABLE "process_states" ADD COLUMN IF NOT EXISTS "compilationTarget" VARCHAR',
+            'ALTER TABLE "process_states" ALTER COLUMN "compilationTarget" SET DEFAULT \'qasm\'',
+            'UPDATE "process_states" SET "compilationTarget" = \'qasm\' WHERE "compilationTarget" IS NULL',
+            'ALTER TABLE "process_states" ALTER COLUMN "compilationTarget" SET NOT NULL',
+            'ALTER TABLE "compile_results" ADD COLUMN IF NOT EXISTS "compilationTarget" VARCHAR',
+            'ALTER TABLE "compile_results" ALTER COLUMN "compilationTarget" SET DEFAULT \'qasm\'',
+            'UPDATE "compile_results" SET "compilationTarget" = \'qasm\' WHERE "compilationTarget" IS NULL',
+            'ALTER TABLE "compile_results" ALTER COLUMN "compilationTarget" SET NOT NULL',
+            'ALTER TABLE "enrich_result" ADD COLUMN IF NOT EXISTS "compilationTarget" VARCHAR',
+            'ALTER TABLE "enrich_result" ALTER COLUMN "compilationTarget" SET DEFAULT \'qasm\'',
+            'UPDATE "enrich_result" SET "compilationTarget" = \'qasm\' WHERE "compilationTarget" IS NULL',
+            'ALTER TABLE "enrich_result" ALTER COLUMN "compilationTarget" SET NOT NULL',
         ),
     ),
     Migration(
         name="0002_add_request_metadata_to_process_states",
         statements=(
-            "ALTER TABLE \"process_states\" ADD COLUMN IF NOT EXISTS \"name\" VARCHAR",
-            "ALTER TABLE \"process_states\" ADD COLUMN IF NOT EXISTS \"description\" TEXT",
+            'ALTER TABLE "process_states" ADD COLUMN IF NOT EXISTS "name" VARCHAR',
+            'ALTER TABLE "process_states" ADD COLUMN IF NOT EXISTS "description" TEXT',
         ),
     ),
     Migration(

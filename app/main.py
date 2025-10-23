@@ -2,9 +2,11 @@
 All fastapi endpoints available.
 """
 
+import asyncio
 import json
+import sys
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal, cast
 from uuid import UUID, uuid4
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
@@ -25,12 +27,6 @@ from app.model.StatusResponse import (
     StatusType,
     SuccessStatus,
 )
-from app.transformation_manager import (
-    EnrichingProcessor,
-    EnrichmentInserter,
-    MergingProcessor,
-    WorkflowProcessor,
-)
 from app.services import (
     get_db_engine,
     get_request_url,
@@ -38,17 +34,22 @@ from app.services import (
     get_settings,
     leqo_lifespan,
 )
+from app.transformation_manager import (
+    EnrichingProcessor,
+    EnrichmentInserter,
+    MergingProcessor,
+    WorkflowProcessor,
+)
 from app.utils import (
     add_result_to_db,
     add_status_response_to_db,
     get_compile_request_payload,
-    get_results_overview_from_db,
     get_results_from_db,
+    get_results_overview_from_db,
     get_status_response_from_db,
     store_compile_request_payload,
     update_status_response_in_db,
 )
-import sys, asyncio
 
 """
 Ensure we use the old `WindowsSelectorEventLoopPolicy` on windows
@@ -68,6 +69,17 @@ app.add_middleware(
 )
 
 
+def _get_processor_target(processor: object) -> Literal["qasm", "workflow"]:
+    """
+    Safely resolve the target representation advertised by a processor.
+    """
+
+    value = getattr(processor, "target", "qasm")
+    if isinstance(value, str) and value in {"qasm", "workflow"}:
+        return cast(Literal["qasm", "workflow"], value)
+    return "qasm"
+
+
 @app.post("/compile")
 async def post_compile(
     processor: Annotated[
@@ -82,7 +94,7 @@ async def post_compile(
     """
 
     uuid: UUID = uuid4()
-    target = getattr(processor, "target", "qasm")
+    target = _get_processor_target(processor)
     status_response = CreatedStatus.init_status(uuid)
     metadata = getattr(processor, "optimize", None)
     request_name = getattr(metadata, "name", None) if metadata is not None else None
@@ -131,7 +143,7 @@ async def post_enrich(
     """
 
     uuid: UUID = uuid4()
-    target = getattr(processor, "target", "qasm")
+    target = _get_processor_target(processor)
     status_response = CreatedStatus.init_status(uuid)
     metadata = getattr(processor, "optimize", None)
     request_name = getattr(metadata, "name", None) if metadata is not None else None
@@ -263,16 +275,21 @@ async def get_result(
 
     if uuid is None:
         overview = await get_results_overview_from_db(engine, status=status)
-        overview_with_links = [
-            {
-                **item,
-                "links": {
-                    "result": get_result_url(item["uuid"], settings),
-                    "request": get_request_url(item["uuid"], settings),
-                },
-            }
-            for item in overview
-        ]
+        overview_with_links: list[dict[str, object]] = []
+        for item in overview:
+            item_uuid = item.get("uuid")
+            if not isinstance(item_uuid, UUID):
+                msg = "Result overview entry is missing a valid UUID."
+                raise RuntimeError(msg)
+            overview_with_links.append(
+                {
+                    **item,
+                    "links": {
+                        "result": get_result_url(item_uuid, settings),
+                        "request": get_request_url(item_uuid, settings),
+                    },
+                }
+            )
         return JSONResponse(
             status_code=200, content=jsonable_encoder(overview_with_links)
         )
@@ -324,9 +341,10 @@ async def process_compile_request(
     :param engine: Database engine to use
     """
 
-    target = getattr(processor, "target", "qasm")
+    target = _get_processor_target(processor)
     status: SuccessStatus | FailedStatus
     try:
+        result: str | list[ImplementationNode]
         if target == "workflow":
             workflow_processor = WorkflowProcessor(
                 processor.enricher,
@@ -373,7 +391,7 @@ async def process_enrich_request(
     :param engine: Database engine to use
     """
 
-    target = getattr(processor, "target", "qasm")
+    target = _get_processor_target(processor)
     status: SuccessStatus | FailedStatus
     try:
         result = await processor.enrich_all()
@@ -419,7 +437,7 @@ async def post_debug_compile(
     """
 
     try:
-        target = getattr(processor, "target", "qasm")
+        target = _get_processor_target(processor)
         if target == "workflow":
             workflow_processor = WorkflowProcessor(
                 processor.enricher,

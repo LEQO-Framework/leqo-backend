@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from json import JSONDecodeError, dumps
 from pathlib import Path
 from time import sleep
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import pytest
 import yaml
@@ -95,6 +95,34 @@ def json_assert(expected: str, actual: str) -> None:
         print(exc)
         print(actual)
         assert expected == actual
+
+
+def _assert_link_header(response: Response, uuid: str) -> None:
+    link_header = response.headers.get("Link")
+    assert link_header is not None
+    assert f"/request/{uuid}" in link_header
+
+
+def _assert_request_matches(
+    stored_payload: dict[str, Any], expected_payload: dict[str, Any]
+) -> None:
+    assert stored_payload["metadata"]["name"] == expected_payload["metadata"]["name"]
+    assert (
+        stored_payload["metadata"]["description"]
+        == expected_payload["metadata"]["description"]
+    )
+    assert len(stored_payload["nodes"]) == len(expected_payload["nodes"])
+    for stored_node, expected_node in zip(
+        stored_payload["nodes"], expected_payload["nodes"], strict=True
+    ):
+        for key, value in expected_node.items():
+            assert str(stored_node.get(key)) == str(value)
+    assert len(stored_payload["edges"]) == len(expected_payload["edges"])
+    for stored_edge, expected_edge in zip(
+        stored_payload["edges"], expected_payload["edges"], strict=True
+    ):
+        for key, value in expected_edge.items():
+            assert str(stored_edge.get(key)) == str(value)
 
 
 @pytest.mark.parametrize(
@@ -301,8 +329,7 @@ def test_result_endpoint_overview(client: TestClient) -> None:
 
     result_response = client.get(f"/results/{uuid}")
     assert result_response.status_code == SUCCESS_CODE
-    link_header = result_response.headers.get("Link")
-    assert link_header is not None and f"/request/{uuid}" in link_header
+    _assert_link_header(result_response, uuid)
 
     overview_response = client.get("/results")
     assert overview_response.status_code == SUCCESS_CODE
@@ -327,27 +354,10 @@ def test_result_endpoint_overview(client: TestClient) -> None:
     by_uuid_response = client.get(f"/results?uuid={uuid}")
     assert by_uuid_response.status_code == SUCCESS_CODE
     assert by_uuid_response.text == result_response.text
-    link_header_query = by_uuid_response.headers.get("Link")
-    assert link_header_query is not None and f"/request/{uuid}" in link_header_query
+    _assert_link_header(by_uuid_response, uuid)
 
     stored_request = client.get(f"/request/{uuid}")
     assert stored_request.status_code == SUCCESS_CODE
     stored_payload = stored_request.json()
     expected_payload = json.loads(compile_request)
-    assert stored_payload["metadata"]["name"] == expected_payload["metadata"]["name"]
-    assert (
-        stored_payload["metadata"]["description"]
-        == expected_payload["metadata"]["description"]
-    )
-    assert len(stored_payload["nodes"]) == len(expected_payload["nodes"])
-    for stored_node, expected_node in zip(
-        stored_payload["nodes"], expected_payload["nodes"], strict=True
-    ):
-        for key, value in expected_node.items():
-            assert str(stored_node.get(key)) == str(value)
-    assert len(stored_payload["edges"]) == len(expected_payload["edges"])
-    for stored_edge, expected_edge in zip(
-        stored_payload["edges"], expected_payload["edges"], strict=True
-    ):
-        for key, value in expected_edge.items():
-            assert str(stored_edge.get(key)) == str(value)
+    _assert_request_matches(stored_payload, expected_payload)
