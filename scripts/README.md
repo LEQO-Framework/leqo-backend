@@ -101,6 +101,7 @@ This pulls in the main `qiskit` bundle and the Aer simulator backend, which the 
 - `prepare_bell_state_request.json` – prepares a ϕ⁺ Bell state and measures both qubits.
 - `prepare_ghz_state_request.json` – synthesizes a three-qubit GHZ state with measurements on every output.
 - `prepare_uniform_state_request.json` – builds a four-qubit uniform superposition and reads out all qubits.
+- `prepare_w_state_request.json` – generates a three-qubit W state and measures each qubit. IMPORTANT NOTE: The resulting circuit need to be transpiled even when using the Aer-Simlator, as QASM 3 custom gates are not directly compatible. 
 
 ### Running the scenarios
 

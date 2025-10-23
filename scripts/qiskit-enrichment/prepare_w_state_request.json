@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "W State Demo",
+    "description": "Prepare a three-qubit W state and measure all qubits.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    {
+      "id": "prepare",
+      "type": "prepare",
+      "label": "W state",
+      "quantumState": "w",
+      "size": 3
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": [0, 1, 2]
+    }
+  ],
+  "edges": [
+    { "source": ["prepare", 0], "target": ["measure", 0] }
+  ]
+}

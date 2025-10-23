@@ -9,6 +9,7 @@ the backend still works without Qiskit installed.
 from __future__ import annotations
 
 from collections.abc import Iterable
+from math import sqrt
 from typing import override
 
 from openqasm3 import parse as parse_qasm
@@ -32,15 +33,18 @@ from app.model.exceptions import InputCountMismatch
 
 _MIN_QISKIT_MAJOR = 2
 _MIN_GHZ_SIZE = 2
+_MIN_W_SIZE = 2
 _BELL_STATE_SIZE = 2
 
 try:  # pragma: no cover - optional dependency
     import qiskit
     from qiskit.circuit import QuantumCircuit, QuantumRegister
+    from qiskit.circuit.library import StatePreparation
     from qiskit.qasm3 import dumps as qasm3_dumps
 except ModuleNotFoundError:  # pragma: no cover - exercised when qiskit is absent
     QuantumCircuit = None
     QuantumRegister = None
+    StatePreparation = None
     qasm3_dumps = None
     _QISKIT_VERSION = None
 else:  # pragma: no cover - exercised when qiskit is available
@@ -53,6 +57,7 @@ else:  # pragma: no cover - exercised when qiskit is available
     if _QISKIT_MAJOR < _MIN_QISKIT_MAJOR:
         QuantumCircuit = None
         QuantumRegister = None
+        StatePreparation = None
         qasm3_dumps = None
 
 HAS_QISKIT = (
@@ -151,9 +156,10 @@ class QiskitPrepareStateEnricherStrategy(EnricherStrategy):
             return circuit
 
         if state == "w":
-            register = QuantumRegister(node.size, self._register_name)
-            # TODO
-            return QuantumCircuit(register, name="w_state")
+            if node.size < _MIN_W_SIZE:
+                raise QuantumStateNotSupported(node)
+
+            return self._build_w_state(node)
 
         if state == "custom":
             raise QuantumStateNotSupported(node)
@@ -200,6 +206,32 @@ class QiskitPrepareStateEnricherStrategy(EnricherStrategy):
             )
         )
         return program
+
+    def _build_w_state(self, node: PrepareStateNode) -> QuantumCircuit:
+        assert HAS_QISKIT
+        assert QuantumCircuit is not None
+        assert QuantumRegister is not None
+
+        register = QuantumRegister(node.size, self._register_name)
+        circuit = QuantumCircuit(register, name="w_state")
+
+        amplitude_count = 1 << node.size
+        amplitudes = [0.0] * amplitude_count
+        norm = sqrt(node.size)
+        # Populate amplitudes so that exactly one qubit is excited per basis state, producing the equal-weight W superposition.
+        for index in range(node.size):
+            amplitudes[1 << index] = 1 / norm
+
+        if StatePreparation is not None:
+            circuit.compose(
+                StatePreparation(amplitudes),
+                qubits=register,
+                inplace=True,
+            )
+        else:  # pragma: no cover - fallback path for older Qiskit
+            circuit.initialize(amplitudes, register)
+
+        return circuit
 
 
 __all__ = ["HAS_QISKIT", "QiskitPrepareStateEnricherStrategy"]
