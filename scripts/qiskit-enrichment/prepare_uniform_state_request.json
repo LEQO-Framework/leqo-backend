@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Uniform Superposition",
+    "description": "Prepare a four-qubit uniform superposition and measure every output.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    {
+      "id": "prepare",
+      "type": "prepare",
+      "label": "Uniform state",
+      "quantumState": "uniform",
+      "size": 4
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": [0, 1, 2, 3]
+    }
+  ],
+  "edges": [
+    { "source": ["prepare", 0], "target": ["measure", 0] }
+  ]
+}

@@ -81,3 +81,33 @@ Options:
 - `--host` - base URL for the API (default: `http://localhost:8000`).
 
 The response is printed as pretty JSON for inspection.
+
+## Qiskit Enrichment Scenarios
+
+The `scripts/qiskit-enrichment` folder contains ready-made payloads for exercising the Qiskit-backed state preparation strategy (`QiskitPrepareStateEnricherStrategy`) along with a requirements file for setting up the simulator stack locally.
+
+### Install Qiskit prerequisites
+
+When running locally, install the required Qiskit packages into the active virtual environment:
+
+```bash
+pip install -r scripts/qiskit-enrichment/qiskit_requirements.txt
+```
+
+This pulls in the main `qiskit` bundle and the Aer simulator backend, which the enricher relies on when synthesizing circuits.
+
+### Sample payloads
+
+- `prepare_bell_state_request.json` – prepares a ϕ⁺ Bell state and measures both qubits.
+- `prepare_ghz_state_request.json` – synthesizes a three-qubit GHZ state with measurements on every output.
+- `prepare_uniform_state_request.json` – builds a four-qubit uniform superposition and reads out all qubits.
+
+### Running the scenarios
+
+Use the `request_helper.py` CLI to submit a payload to the `/debug/enrich` endpoint (or `/compile` if you want the full pipeline):
+
+```bash
+python scripts/request_helper.py send scripts/qiskit-enrichment/prepare_bell_state_request.json /debug/enrich
+```
+
+If Qiskit is installed, the backend will generate an implementation via the Qiskit enricher. When Qiskit is absent, the enrichment falls back to database-only strategies and these payloads will return an empty result, so verifying the enriched response confirms the Qiskit integration is active.
