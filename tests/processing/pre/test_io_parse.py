@@ -4,15 +4,15 @@ import pytest
 from openqasm3.parser import parse
 
 from app.model.data_types import BitType, BoolType, IntType
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     ClassicalIOInstance,
     IOInfo,
     QubitInfo,
     QubitIOInstance,
 )
-from app.processing.pre.io_parser import ParseAnnotationsVisitor
-from app.processing.pre.utils import PreprocessingException
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.pre.io_parser import ParseAnnotationsVisitor
+from app.transformation_manager.pre.utils import PreprocessingException
+from app.transformation_manager.utils import normalize_qasm_string
 
 
 def test_simple_input() -> None:
@@ -620,7 +620,7 @@ def test_raise_on_input_annotation_over_alias() -> None:
     """
     with pytest.raises(
         PreprocessingException,
-        match="Unsupported: leqo.input annotations over AliasStatement tmp",
+        match=re.escape("Unsupported: leqo.input annotations over AliasStatement tmp"),
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
 
@@ -632,7 +632,9 @@ def test_raise_on_output_annotation_over_declaration() -> None:
     """
     with pytest.raises(
         PreprocessingException,
-        match="Unsupported: leqo.output annotations over QubitDeclaration q0",
+        match=re.escape(
+            "Unsupported: leqo.output annotations over QubitDeclaration q0"
+        ),
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
 

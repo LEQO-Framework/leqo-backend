@@ -4,7 +4,7 @@ from uuid import uuid4
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
-from app.processing.pre.renaming import RenameRegisterTransformer
+from app.transformation_manager.pre.renaming import RenameRegisterTransformer
 
 
 def test_register_renaming() -> None:

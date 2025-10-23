@@ -12,45 +12,45 @@ The following diagram shows the architecture of the backend:
 
 The backend is composed of the following main components:
 
-- **Processing** (:py:mod:`app.processing`):
+- **Processing** (:py:mod:`app.transformation_manager`):
   Coordinates the end-to-end handling of :class:`~app.model.CompileRequest.CompileRequest`, including compilation and enrichment.
 
 - **Enricher** (:py:mod:`app.enricher`):
   Retrieves implementations and is extendable via strategies that implement :class:`~app.enricher.EnricherStrategy`
 
-- **Preprocessing** (:py:mod:`app.processing.pre`):
+- **Preprocessing** (:py:mod:`app.transformation_manager.pre`):
   Contains logic for individual node transformations that do not require global graph context, such as:
 
-  - **Converter** (:py:mod:`app.processing.pre.converter`):
+  - **Converter** (:py:mod:`app.transformation_manager.pre.converter`):
     Converts OpenQASM 2 to OpenQASM 3.
 
-  - **Renaming** (:py:mod:`app.processing.pre.renaming`):
+  - **Renaming** (:py:mod:`app.transformation_manager.pre.renaming`):
     Ensures unique and conflict-free identifiers.
 
-  - **Inlining** (:py:mod:`app.processing.pre.inlining`):
+  - **Inlining** (:py:mod:`app.transformation_manager.pre.inlining`):
     Replaces aliases with their resolved content.
 
-  - **IO Parser** (:py:mod:`app.processing.pre.io_parser`):
+  - **IO Parser** (:py:mod:`app.transformation_manager.pre.io_parser`):
     Parses input/output annotations.
 
-  - **Size Casting** (:py:mod:`app.processing.pre.size_casting`):
+  - **Size Casting** (:py:mod:`app.transformation_manager.pre.size_casting`):
     Aligns input register sizes.
 
-- **Optimization** (:py:mod:`app.processing.optimize`):
+- **Optimization** (:py:mod:`app.transformation_manager.optimize`):
   Attempts to reduce circuit width via ancilla reuse heuristics.
 
-- **Merging** (:py:mod:`app.processing.merge`):
+- **Merging** (:py:mod:`app.transformation_manager.merge`):
   Applies the graph connections and flattens the node structure into a single, linear OpenQASM program.
 
-- **Postprocessing** (:py:mod:`app.processing.post`):
+- **Postprocessing** (:py:mod:`app.transformation_manager.post`):
   Performs cleanup steps such as removing duplicate imports and rendering the final program into OpenQASM 3.1.
 
-- **Nested Structures** (:py:mod:`app.processing.nested`):
+- **Nested Structures** (:py:mod:`app.transformation_manager.nested`):
 
-  - **Repeat** (:py:mod:`app.processing.nested.repeat`):
+  - **Repeat** (:py:mod:`app.transformation_manager.nested.repeat`):
     Unrolls the repeat node to be processed by the pipeline.
 
-  - **If-Then-Else** (:py:mod:`app.processing.nested.if_then_else`):
+  - **If-Then-Else** (:py:mod:`app.transformation_manager.nested.if_then_else`):
     Merges two subgraphs into one big if-then-else statement by using parts of processing
 
 Pipeline Flow

@@ -5,7 +5,7 @@ from openqasm3.ast import BinaryExpression, BinaryOperator, BooleanLiteral, Iden
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     AncillaConnection,
     IOConnection,
     IOInfo,
@@ -14,9 +14,9 @@ from app.processing.graph import (
     ProgramNode,
     QubitInfo,
 )
-from app.processing.merge import merge_if_nodes
-from app.processing.pre.io_parser import ParseAnnotationsVisitor
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.merge import merge_if_nodes
+from app.transformation_manager.pre.io_parser import ParseAnnotationsVisitor
+from app.transformation_manager.utils import normalize_qasm_string
 
 manual_ios = tuple[tuple[int, int], tuple[int, int]]
 manual_ancillas = tuple[tuple[int, list[int]], tuple[int, list[int]]]

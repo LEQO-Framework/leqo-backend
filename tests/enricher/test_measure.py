@@ -172,7 +172,7 @@ async def test_at_least_one_index() -> None:
     )
 
     strategy = MeasurementEnricherStrategy()
-    with pytest.raises(NoIndices, match="^No indices were specified$"):
+    with pytest.raises(NoIndices, match=r"^No indices were specified$"):
         await strategy.enrich(node, constraints)
 
 
@@ -185,7 +185,7 @@ async def test_index_out_of_range_1() -> None:
 
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
-        IndicesOutOfRange, match="^Indices \\[3\\] out of range \\[0, 3\\)$"
+        IndicesOutOfRange, match=r"^Indices \[3\] out of range \[0, 3\)$"
     ):
         await strategy.enrich(node, constraints)
 
@@ -199,7 +199,7 @@ async def test_index_out_of_range_2() -> None:
 
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(
-        IndicesOutOfRange, match="^Indices \\[5, 3\\] out of range \\[0, 3\\)$"
+        IndicesOutOfRange, match=r"^Indices \[5, 3\] out of range \[0, 3\)$"
     ):
         await strategy.enrich(node, constraints)
 
@@ -212,5 +212,5 @@ async def test_duplicate_indices() -> None:
     )
 
     strategy = MeasurementEnricherStrategy()
-    with pytest.raises(DuplicateIndices, match="^Duplicate indices \\[1, 2\\]$"):
+    with pytest.raises(DuplicateIndices, match=r"^Duplicate indices \[1, 2\]$"):
         await strategy.enrich(node, constraints)

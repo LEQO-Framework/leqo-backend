@@ -1,8 +1,8 @@
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
-from app.processing.post.sort_imports import SortImportsTransformer
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.post.sort_imports import SortImportsTransformer
+from app.transformation_manager.utils import normalize_qasm_string
 
 
 def test_move_to_top() -> None:

@@ -19,7 +19,7 @@ from typing import override
 from networkx import topological_sort
 from openqasm3.ast import Program
 
-from app.processing.graph import (
+from app.transformation_manager.graph import (
     AncillaConnection,
     IOConnection,
     IOInfo,

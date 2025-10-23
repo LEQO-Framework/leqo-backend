@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Example Circuit",
+    "description": "Minimal compile request for local testing.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    { "id": "n0", "type": "qubit" },
+    { "id": "n1", "type": "qubit" },
+    { "id": "n2", "type": "implementation", "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[2] q;" }
+  ],
+  "edges": [
+    { "source": ["n0", 0], "target": ["n2", 0] },
+    { "source": ["n1", 0], "target": ["n2", 0] }
+  ]
+}

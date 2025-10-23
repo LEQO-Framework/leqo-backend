@@ -6,6 +6,9 @@ dist/
 wheels/
 *.egg-info
 
+#vscode
+.vscode/
+
 # Virtual environments
 .venv
 
@@ -20,3 +23,5 @@ wheels/
 # Coverage
 .coverage-report/
 .coverage
+*.node-runtime
+.vscode/settings.json

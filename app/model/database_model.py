@@ -5,7 +5,7 @@ Database schema for everything stored in the database.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import UUID, ForeignKey, Text
+from sqlalchemy import UUID, ForeignKey, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.model.StatusResponse import StatusType
@@ -32,6 +32,11 @@ class StatusResponseDb(Base):
     progressPercentage: Mapped[int] = mapped_column(nullable=False)
     progressCurrentStep: Mapped[str] = mapped_column(nullable=False)
     result: Mapped[str] = mapped_column(Text, nullable=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    compilationTarget: Mapped[str] = mapped_column(
+        String, nullable=False, default="qasm"
+    )
 
 
 class CompileResult(Base):
@@ -43,6 +48,20 @@ class CompileResult(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     implementation: Mapped[str] = mapped_column(nullable=False)
+    compilationTarget: Mapped[str] = mapped_column(
+        String, nullable=False, default="qasm"
+    )
+
+
+class CompileRequestPayload(Base):
+    """
+    Store the original compile request payload.
+    """
+
+    __tablename__ = "compile_request_payloads"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class EnrichResult(Base):
@@ -53,6 +72,9 @@ class EnrichResult(Base):
     __tablename__ = "enrich_result"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    compilationTarget: Mapped[str] = mapped_column(
+        String, nullable=False, default="qasm"
+    )
     results: Mapped[list["SingleEnrichResult"]] = relationship(
         "SingleEnrichResult",
         back_populates="enrich_result",

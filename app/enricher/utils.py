@@ -2,11 +2,15 @@
 Utils for generating implementations for a :class:`~app.model.CompileRequest.Node` in an :class:`~app.enricher.EnricherStrategy`.
 """
 
+from collections.abc import Sequence
+from typing import cast
+
 from openqasm3.ast import (
     AliasStatement,
     Annotation,
     Concatenation,
     Identifier,
+    IndexExpression,
     IntegerLiteral,
     Pragma,
     Program,
@@ -19,7 +23,7 @@ from app.model.CompileRequest import Node
 
 
 def implementation(
-    node: Node, statements: list[Statement | Pragma]
+    node: Node, statements: Sequence[Statement | Pragma]
 ) -> ParsedImplementationNode:
     """
     Creates an :class:`~app.model.CompileRequest.ImplementationNode` from partial syntax tree.
@@ -28,7 +32,7 @@ def implementation(
     :param statements: Implementation as list of :class:`openqasm3.ast.Statement`
     """
 
-    program = Program(statements, version="3.1")
+    program = Program(list(statements), version="3.1")
     return ParsedImplementationNode(id=node.id, implementation=program)
 
 
@@ -48,9 +52,10 @@ def leqo_input(name: str, index: int, size: int | None) -> QubitDeclaration:
     return result
 
 
-def leqo_output(
-    name: str, index: int, value: Concatenation | Identifier
-) -> AliasStatement:
+AliasableExpression = Concatenation | Identifier | IndexExpression
+
+
+def leqo_output(name: str, index: int, value: AliasableExpression) -> AliasStatement:
     """
     Creates an output declaration.
 
@@ -59,6 +64,7 @@ def leqo_output(
     :param value: Openqasm3 construct that should be the output
     """
 
-    result = AliasStatement(Identifier(name), value)
+    alias_value = cast(Concatenation | Identifier, value)
+    result = AliasStatement(Identifier(name), alias_value)
     result.annotations = [Annotation("leqo.output", f"{index}")]
     return result

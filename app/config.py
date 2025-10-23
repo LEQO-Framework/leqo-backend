@@ -24,4 +24,7 @@ class Settings(BaseSettings):
     cors_allow_methods: list[str] = ["*"]
     cors_allow_headers: list[str] = ["*"]
 
+    qiskit_compat_mode: bool = False
+    """Enable Qiskit compatibility adjustments (e.g. stripping literal nodes)."""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

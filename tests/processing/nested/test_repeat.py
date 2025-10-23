@@ -10,12 +10,12 @@ from app.model.CompileRequest import (
 )
 from app.model.data_types import LeqoSupportedType, QubitType
 from app.openqasm3.printer import leqo_dumps
-from app.processing.frontend_graph import FrontendGraph
-from app.processing.graph import ProgramNode
-from app.processing.merge import merge_nodes
-from app.processing.nested.repeat import unroll_repeat
-from app.processing.nested.utils import generate_pass_node_implementation
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.frontend_graph import FrontendGraph
+from app.transformation_manager.graph import ProgramNode
+from app.transformation_manager.merge import merge_nodes
+from app.transformation_manager.nested.repeat import unroll_repeat
+from app.transformation_manager.nested.utils import generate_pass_node_implementation
+from app.transformation_manager.utils import normalize_qasm_string
 from tests.processing.nested.utils import H_IMPL, build_graph
 
 

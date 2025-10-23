@@ -18,7 +18,7 @@ class StatusType(StrEnum):
     Enumeration of possible status values.
     """
 
-    IN_PROGRESS = "in progress"
+    IN_PROGRESS = "in_progress"
     """The operation is still in progress"""
 
     FAILED = "failed"

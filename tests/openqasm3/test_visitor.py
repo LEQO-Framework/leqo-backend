@@ -4,7 +4,7 @@ from openqasm3.printer import dumps
 from openqasm3.visitor import QASMTransformer
 
 from app.openqasm3.visitor import LeqoTransformer
-from app.processing.utils import normalize_qasm_string
+from app.transformation_manager.utils import normalize_qasm_string
 
 
 class AllToYDefault(QASMTransformer[None]):

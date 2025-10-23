@@ -411,6 +411,9 @@ class CompileRequest(BaseModel):
     metadata: MetaData
     """General information and optimization preferences."""
 
+    compilation_target: Literal["qasm", "workflow"] = "qasm"
+    """Compilation target. Either "qasm" (default) or "workflow"."""
+
     nodes: list[Annotated[Node, Field(discriminator="type")]]
     """List of all nodes forming the program graph."""
 
