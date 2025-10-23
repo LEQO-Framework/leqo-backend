@@ -259,6 +259,41 @@ async def test_enrich_encode_value_quibit_input(engine: AsyncEngine) -> None:
 
 
 @pytest.mark.asyncio
+async def test_enrich_encode_value_bit_literal(engine: AsyncEngine) -> None:
+    node = FrontendEncodeValueNode(
+        id="1",
+        label=None,
+        type="encode",
+        encoding="basis",
+        bounds=0,
+    )
+    constraints = Constraints(
+        requested_inputs={0: BitType(size=None)},
+        requested_input_values={0: 1},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    results = list(await EncodeValueEnricherStrategy(engine).enrich(node, constraints))
+
+    assert len(results) == 1
+
+    result = results[0]
+    implementation = result.enriched_node.implementation
+    implementation_str = (
+        implementation
+        if isinstance(implementation, str)
+        else leqo_dumps(implementation)
+    )
+
+    assert "qubit[1] encoded;" in implementation_str
+    assert implementation_str.count("x encoded[0];") == 1
+    assert "@leqo.output 0" in implementation_str
+    assert result.meta_data.width == 1
+    assert result.meta_data.depth == 1
+
+
+@pytest.mark.asyncio
 async def test_enrich_encode_value_node_not_in_db(engine: AsyncEngine) -> None:
     node = FrontendEncodeValueNode(
         id="1",

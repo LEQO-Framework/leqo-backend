@@ -167,7 +167,9 @@ class SizeCastTransformer(LeqoTransformer[None]):
 
         if requested == actual:
             return node
-        assert actual is not None
+
+        if not isinstance(node.type, BitType):
+            assert actual is not None
 
         old_name = node.identifier.name
         new_input_name = self.name_factory.generate_new_name(node.identifier.name)
@@ -201,6 +203,9 @@ class SizeCastTransformer(LeqoTransformer[None]):
             case BitType():
                 statements: list[QASMNode] = []
 
+                actual_bits = actual if actual is not None else 1
+                requested_bits = requested if requested is not None else 1
+
                 # modify old node in-place (keep annotations)
                 node.identifier.name = new_input_name
                 node.type = BitType(
@@ -210,7 +215,7 @@ class SizeCastTransformer(LeqoTransformer[None]):
 
                 # if casting from array -> single: intermediate bit reg with size 1 is needed
                 bit_reg1_name: str | None = None
-                if requested is None:
+                if requested is None and actual_bits > 1:
                     bit_reg1_name = self.name_factory.generate_new_name(
                         node.identifier.name
                     )
@@ -221,30 +226,33 @@ class SizeCastTransformer(LeqoTransformer[None]):
                             Identifier(new_input_name),
                         )
                     )
-                    requested = 1
+                    requested_bits = 1
 
-                # create new dummy node for remaining bits
-                new_dummy_name = self.name_factory.generate_new_name(old_name)
-                statements.append(
-                    ClassicalDeclaration(
-                        BitType(IntegerLiteral(actual - requested)),
-                        Identifier(new_dummy_name),
-                        None,
-                    )
+                head_identifier = Identifier(
+                    bit_reg1_name if bit_reg1_name is not None else new_input_name
                 )
+                remaining_bits = actual_bits - requested_bits
 
-                # create alias with old name pointing to concatenation
+                if remaining_bits > 0:
+                    new_dummy_name = self.name_factory.generate_new_name(old_name)
+                    statements.append(
+                        ClassicalDeclaration(
+                            BitType(IntegerLiteral(remaining_bits)),
+                            Identifier(new_dummy_name),
+                            None,
+                        )
+                    )
+                    alias_value: Concatenation | Identifier = Concatenation(
+                        head_identifier,
+                        Identifier(new_dummy_name),
+                    )
+                else:
+                    alias_value = head_identifier
+
                 statements.append(
                     AliasStatement(
                         target=Identifier(old_name),
-                        value=Concatenation(
-                            Identifier(
-                                new_input_name
-                                if bit_reg1_name is None
-                                else bit_reg1_name
-                            ),
-                            Identifier(new_dummy_name),
-                        ),
+                        value=alias_value,
                     )
                 )
 

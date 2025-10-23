@@ -34,6 +34,9 @@ Example payloads:
 
 - `compile_request.json` - small sanity check with a custom implementation.
 - `encode_value_basis_request.json` - uses the basis encoder with a 3-bit integer input and measures the resulting register.
+- `encode_value_basis_negative_request.json` - drives the basis encoder with a negative integer to inspect the two's-complement bit pattern.
+- `encode_value_basis_list_request.json` - illustrates encoding multiple integers in the basis, concatenating the registers, and reading all outputs at once.
+- `encode_value_bool_request.json` - runs the basis encoder with a boolean literal to toggle a single qubit.
 - `basis_addition_request.json` - encodes two integers in the basis, sums them via an `operator` node, and measures the summed register.
 - `encode_value_angle_request.json` - uses the angle encoder with a floating-point literal and measures the encoded qubit.
 - `enrich_operator_plus_request.json` - targets a `+` operator where the lhs register is wider to showcase the flexible fallback.
