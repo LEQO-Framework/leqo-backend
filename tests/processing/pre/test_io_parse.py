@@ -620,7 +620,9 @@ def test_raise_on_input_annotation_over_alias() -> None:
     """
     with pytest.raises(
         PreprocessingException,
-        match="Unsupported: leqo.input annotations over AliasStatement tmp",
+        match=re.escape(
+            "Unsupported: leqo.input annotations over AliasStatement tmp"
+        ),
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
 
@@ -632,7 +634,9 @@ def test_raise_on_output_annotation_over_declaration() -> None:
     """
     with pytest.raises(
         PreprocessingException,
-        match="Unsupported: leqo.output annotations over QubitDeclaration q0",
+        match=re.escape(
+            "Unsupported: leqo.output annotations over QubitDeclaration q0"
+        ),
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
 

@@ -89,7 +89,8 @@ async def test_strategy_enrich_known_node() -> None:
 async def test_strategy_enrich_unknown_node() -> None:
     strategy = IntToAEnricherStrategy()
     with pytest.raises(
-        NodeUnsupportedException, match="^Node 'FloatLiteralNode' is not supported$"
+        NodeUnsupportedException,
+        match=r"^Node 'FloatLiteralNode' is not supported$",
     ):
         await strategy.enrich(
             FloatLiteralNode(id="nodeId", value=42.0), constraints=None

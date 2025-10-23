@@ -495,7 +495,10 @@ def test_raise_on_classical_to_qubit() -> None:
     ]
     with pytest.raises(
         MergeException,
-        match="^Unsupported: Try to connect qubit with classical\n\nIndex 0 from 1 tries to\nconnect to index 0 from 1$",
+        match=r"""^Unsupported: Try to connect qubit with classical
+
+Index 0 from 1 tries to
+connect to index 0 from 1$""",
     ):
         assert_connections(inputs, [], connections)
 
@@ -517,7 +520,10 @@ def test_raise_on_mismatched_classic_type() -> None:
     ]
     with pytest.raises(
         MergeException,
-        match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(size=32\\)\ninput c1_b0 has type BoolType\\(\\)$",
+        match=r"""^Unsupported: Mismatched types in IOConnection
+
+output _out has type IntType\(size=32\)
+input c1_b0 has type BoolType\(\)$""",
     ):
         assert_connections(inputs, [], connections)
 
@@ -539,7 +545,10 @@ def test_raise_on_mismatched_classic_size() -> None:
     ]
     with pytest.raises(
         MergeException,
-        match="^Unsupported: Mismatched types in IOConnection\n\noutput _out has type IntType\\(size=16\\)\ninput c1_i0 has type IntType\\(size=32\\)$",
+        match=r"""^Unsupported: Mismatched types in IOConnection
+
+output _out has type IntType\(size=16\)
+input c1_i0 has type IntType\(size=32\)$""",
     ):
         assert_connections(inputs, [], connections)
 
@@ -567,7 +576,10 @@ def test_raise_two_classical_outputs_into_one_input() -> None:
     ]
     with pytest.raises(
         MergeException,
-        match="^Unsupported: Multiple inputs into classical\n\nBoth _out0 and _out1\nare input to c2_i0 but only one is allowed.$",
+        match=r"""^Unsupported: Multiple inputs into classical
+
+Both _out0 and _out1
+are input to c2_i0 but only one is allowed.$""",
     ):
         assert_connections(inputs, [], connections)
 
@@ -588,7 +600,10 @@ def test_raise_on_missing_input_index() -> None:
     ]
     with pytest.raises(
         MergeException,
-        match="^Unsupported: Missing input index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.$",
+        match=r"""^Unsupported: Missing input index in connection
+
+Index 0 from 0 modeled,
+but no such annotation was found.$""",
     ):
         assert_connections(inputs, [], connections)
 
@@ -609,6 +624,9 @@ def test_raise_on_missing_output_index() -> None:
     ]
     with pytest.raises(
         MergeException,
-        match="^Unsupported: Missing output index in connection\n\nIndex 0 from 0 modeled,\nbut no such annotation was found.$",
+        match=r"""^Unsupported: Missing output index in connection
+
+Index 0 from 0 modeled,
+but no such annotation was found.$""",
     ):
         assert_connections(inputs, [], connections)
