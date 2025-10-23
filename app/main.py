@@ -7,11 +7,13 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from sqlalchemy import select
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
 from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse
 
 from app.config import Settings
@@ -459,3 +461,63 @@ async def post_debug_enrich(
         return await processor.enrich_all()
     except Exception as ex:
         return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
+@app.post("/models/")
+async def save_model(
+    request: Request,
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+):
+    """Speichere ein Low-Code Model."""
+    model_data = await request.json()
+    model_id = str(uuid4())
+
+      
+    from app.model.database_model import CompileRequestPayload 
+    async with AsyncSession(engine) as session:
+
+        payload = CompileRequestPayload(id=model_id, payload=json.dumps(model_data))
+        session.add(payload)
+        await session.commit()
+
+    return JSONResponse({"success": True, "model_id": model_id})
+
+
+@app.get("/models/")
+async def get_models(
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+):
+    """Liste aller Modelle, die gespeichert wurden"""
+    from app.model.database_model import CompileRequestPayload
+    from sqlalchemy import select
+
+    async with AsyncSession(engine) as session:
+        result = await session.execute(select(CompileRequestPayload))
+        models = result.scalars().all()
+
+        model_list = []
+        for model in models:
+            data = json.loads(model.payload)
+            model_list.append({
+                "model_id": str(model.id),
+                "name": data.get("name", "Unnamed"),
+                "date": data.get("timestamp", "Unknown")
+            })
+
+        return JSONResponse(model_list)
+
+
+
+@app.get("/models/{model_id}/")
+async def get_model(
+    model_id: UUID,
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+):
+    """Wähle ein Modell und lade es."""
+    from app.model.database_model import CompileRequestPayload
+
+    async with AsyncSession(engine) as session:
+        model = await session.get(CompileRequestPayload, model_id)
+
+        if model is None:
+            raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
+
+        return JSONResponse(json.loads(model.payload))

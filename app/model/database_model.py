@@ -96,3 +96,14 @@ class SingleEnrichResult(Base):
     enrich_result: Mapped["EnrichResult"] = relationship(
         "EnrichResult", back_populates="results"
     )
+class SavedModel(Base):
+      """hier sind gepeicherte low-code Modelle verstaut."""
+
+      __tablename__ = "saved_models"
+
+      id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+      name: Mapped[str] = mapped_column(String, nullable=False)
+      version: Mapped[str] = mapped_column(String, nullable=True)
+      created_at: Mapped[datetime] = mapped_column(nullable=False)
+      model_data: Mapped[str] = mapped_column(Text, nullable=False)  
+
