@@ -329,9 +329,7 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
             carry_in = carry_bits[index - 1] if index > 0 else None
             carry_out: Identifier | IndexedIdentifier
 
-            carry_out = (
-                carry_bits[index] if index < carry_count else result_bits[-1]
-            )
+            carry_out = carry_bits[index] if index < carry_count else result_bits[-1]
 
             if addend0_bit is not None and addend1_bit is not None:
                 gate_statements.append(

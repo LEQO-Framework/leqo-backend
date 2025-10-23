@@ -620,9 +620,7 @@ def test_raise_on_input_annotation_over_alias() -> None:
     """
     with pytest.raises(
         PreprocessingException,
-        match=re.escape(
-            "Unsupported: leqo.input annotations over AliasStatement tmp"
-        ),
+        match=re.escape("Unsupported: leqo.input annotations over AliasStatement tmp"),
     ):
         ParseAnnotationsVisitor(IOInfo(), QubitInfo()).visit(parse(code))
 

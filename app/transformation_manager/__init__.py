@@ -283,10 +283,7 @@ class MergingProcessor(CommonProcessor):
             for node_id, frontend_node in self.frontend_graph.node_data.items()
             if isinstance(
                 frontend_node,
-                IntLiteralNode
-                | FloatLiteralNode
-                | BitLiteralNode
-                | BoolLiteralNode,
+                IntLiteralNode | FloatLiteralNode | BitLiteralNode | BoolLiteralNode,
             )
         }
         used_ids: set[str] = set()
