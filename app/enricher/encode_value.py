@@ -207,18 +207,22 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             constraints.requested_inputs[0]
         )
 
+        requested_input = constraints.requested_inputs[0]
+        where_clauses: list[Any] = [
+            EncodeNodeTable.type == NodeType(node.type),
+            EncodeNodeTable.encoding == EncodingType(node.encoding),
+            EncodeNodeTable.bounds == node.bounds,
+            Input.index == 0,
+            Input.type == converted_input_type,
+        ]
+        if requested_input.size is not None:
+            where_clauses.append(Input.size >= requested_input.size)
+
         return cast(
             Select[tuple[BaseNode]],
             select(EncodeNodeTable)
             .join(Input, EncodeNodeTable.inputs)
-            .where(
-                EncodeNodeTable.type == NodeType(node.type),
-                EncodeNodeTable.encoding == EncodingType(node.encoding),
-                EncodeNodeTable.bounds == node.bounds,
-                Input.index == 0,
-                Input.type == converted_input_type,
-                Input.size >= constraints.requested_inputs[0].size,
-            ),
+            .where(*where_clauses),
         )
 
     def _generate_basis_enrichment(
