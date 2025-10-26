@@ -25,7 +25,6 @@ from app.enricher.exceptions import (
     DuplicateIndices,
     IndicesOutOfRange,
     InvalidSingleQubitIndex,
-    NoIndices,
 )
 from app.enricher.utils import implementation, leqo_input, leqo_output
 from app.model.CompileRequest import (
@@ -87,20 +86,18 @@ class MeasurementEnricherStrategy(EnricherStrategy):
                 ),
                 ImplementationMetaData(width=0, depth=1),
             )
-        # TODO Implement default logic for empty measurement indices
-        if len(node.indices) < 1:
-            raise NoIndices(node)
+        indices = node.indices if len(node.indices) > 0 else list(range(input_size))
 
-        out_of_range_indices = [i for i in node.indices if i < 0 or i >= input_size]
+        out_of_range_indices = [i for i in indices if i < 0 or i >= input_size]
         if any(out_of_range_indices):
             raise IndicesOutOfRange(node, out_of_range_indices, input_size)
 
-        duplicate_indices = list(duplicates(node.indices))
+        duplicate_indices = list(duplicates(indices))
         if len(duplicate_indices) != 0:
             raise DuplicateIndices(node, duplicate_indices)
 
-        indices: list[Expression] = [IntegerLiteral(x) for x in node.indices]
-        output_size = len(indices)
+        index_exprs: list[Expression] = [IntegerLiteral(x) for x in indices]
+        output_size = len(index_exprs)
 
         return EnrichmentResult(
             implementation(
@@ -111,7 +108,9 @@ class MeasurementEnricherStrategy(EnricherStrategy):
                         BitType(IntegerLiteral(output_size)),
                         Identifier("result"),
                         QuantumMeasurement(
-                            IndexedIdentifier(Identifier("q"), [DiscreteSet(indices)])
+                            IndexedIdentifier(
+                                Identifier("q"), [DiscreteSet(index_exprs)]
+                            )
                         ),
                     ),
                     leqo_output("out", 0, Identifier("result")),
