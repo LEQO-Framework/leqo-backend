@@ -5,7 +5,8 @@ Provides the core logic of the backend.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Annotated, Any, Literal
+from collections import defaultdict
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
@@ -434,14 +435,17 @@ class EnrichingProcessor(CommonProcessor):
         return [x async for x in self.enrich()]
 
 
+CLASSICAL_TYPES = {"int", "float", "angle", "boolean", "bit"}
+
+
 class WorkflowProcessor(CommonProcessor):
     """Process a request to a workflow representation."""
 
     @staticmethod
     def from_compile_request(
         request: CompileRequest,
-        enricher: Annotated[Enricher, Depends(get_enricher)],
-    ) -> WorkflowProcessor:
+        enricher: Annotated[Enricher, Depends(lambda: None)],  # Replace with your DI
+    ) -> "WorkflowProcessor":
         graph = FrontendGraph.create(request.nodes, request.edges)
         processor = WorkflowProcessor(enricher, graph, request.metadata)
         processor.target = request.compilation_target
@@ -449,15 +453,80 @@ class WorkflowProcessor(CommonProcessor):
         return processor
 
     async def process(self) -> list[ImplementationNode]:
-        """Create workflow steps by enriching all nodes."""
-
         enriching_processor = EnrichingProcessor(
             self.enricher,
             self.frontend_graph,
             self.optimize,
         )
         enriching_processor.target = "workflow"
-        return await enriching_processor.enrich_all()
+        result = await enriching_processor.enrich_all()
+
+        # Print all nodes and classify quantum vs classical
+        print("All nodes in the frontend graph:")
+        for node_id in self.frontend_graph.nodes:
+            node = self.frontend_graph.node_data[node_id]
+            node_type = getattr(node, "type", None)
+            node_category = "Classical" if node_type in CLASSICAL_TYPES else "Quantum"
+            print(
+                f"Node ID: {node.id}, Type: {node_type}, "
+                f"Category: {node_category}"
+            )
+
+        # Identify quantum groups
+        quantum_groups = await self.identify_quantum_groups()
+        print(f"\nFound {len(quantum_groups)} quantum groups:")
+        for group_id, nodes in quantum_groups.items():
+            print(f"{group_id}: {[node.id for node in nodes]}")
+
+        # Attach quantum group info to nodes
+        for group_id, nodes in quantum_groups.items():
+            for node in nodes:
+                if not hasattr(node, "metadata") or node.metadata is None:
+                    node.metadata = {}
+                node.metadata["quantum_group"] = group_id
+
+        return result
+
+    async def identify_quantum_groups(self) -> dict[str, list[ImplementationNode]]:
+        """
+        Returns a dictionary of quantum groups keyed by group ID.
+        """
+        # Collect quantum nodes
+        quantum_nodes = [
+            self.frontend_graph.node_data[node_id]
+            for node_id in self.frontend_graph.nodes
+            if getattr(self.frontend_graph.node_data[node_id], "type", None) not in CLASSICAL_TYPES
+        ]
+
+        print(f"Quantum nodes: {[node.id for node in quantum_nodes]}")
+
+        # Group by connected components using DFS
+        groups = defaultdict(list)
+        visited = set()
+
+        def dfs(node: ImplementationNode, group_id: str):
+            if node.id in visited:
+                return
+            visited.add(node.id)
+            groups[group_id].append(node)
+
+            # Traverse neighbors
+            for neighbor_id in self.frontend_graph.successors(node.id):
+                neighbor = self.frontend_graph.node_data[neighbor_id]
+                if getattr(neighbor, "type", None) not in CLASSICAL_TYPES:
+                    dfs(neighbor, group_id)
+            for neighbor_id in self.frontend_graph.predecessors(node.id):
+                neighbor = self.frontend_graph.node_data[neighbor_id]
+                if getattr(neighbor, "type", None) not in CLASSICAL_TYPES:
+                    dfs(neighbor, group_id)
+
+        group_counter = 0
+        for node in quantum_nodes:
+            if node.id not in visited:
+                dfs(node, f"quantum_group_{group_counter}")
+                group_counter += 1
+
+        return dict(groups)
 
 
 class EnrichmentInserter:
