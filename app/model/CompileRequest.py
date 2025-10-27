@@ -5,10 +5,11 @@ It provides classes to model metadata, node data, and the complete compile reque
 
 from __future__ import annotations
 
-from abc import ABC
-from typing import Annotated, Any, Literal
-
 import re
+from abc import ABC
+from collections.abc import Iterable
+from contextlib import suppress
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -145,10 +146,10 @@ class PrepareStateNode(BaseNode):
 
         size_field = normalized.get("size")
         if isinstance(size_field, str):
-            try:
-                normalized["size"] = int(size_field)
-            except ValueError:
-                pass
+            stripped = size_field.strip()
+            if stripped:
+                with suppress(ValueError):
+                    normalized["size"] = int(stripped)
 
         return normalized
 
@@ -202,50 +203,56 @@ class MeasurementNode(BaseNode):
             normalized["type"] = "measure"
 
         node_data = normalized.get("data")
-        if isinstance(node_data, dict) and "indices" not in normalized:
-            indices_value = node_data.get("indices")
-            if isinstance(indices_value, list):
-                normalized["indices"] = indices_value
-            elif isinstance(indices_value, str):
-                indices = []
-                for part in indices_value.split(","):
-                    part = part.strip()
-                    if not part:
-                        continue
-                    try:
-                        indices.append(int(part))
-                    except ValueError:
-                        pass
-                if indices:
-                    normalized["indices"] = indices
-            if not normalized.get("indices"):
-                inputs = node_data.get("inputs")
-                if isinstance(inputs, list) and inputs:
-                    logical_inputs = [
-                        entry
-                        for entry in inputs
-                        if not (isinstance(entry, dict) and "outputIdentifier" in entry)
-                    ]
-                    if logical_inputs:
-                        normalized["indices"] = list(range(len(logical_inputs)))
+        node_dict = node_data if isinstance(node_data, dict) else None
 
-        indices_field = normalized.get("indices")
-        if isinstance(indices_field, list):
-            converted: list[int] = []
-            for item in indices_field:
-                if isinstance(item, int):
-                    converted.append(item)
-                elif isinstance(item, str):
-                    item = item.strip()
-                    if not item:
-                        continue
-                    try:
-                        converted.append(int(item))
-                    except ValueError:
-                        continue
-            normalized["indices"] = converted
+        indices = cls._parse_indices(normalized.get("indices"))
+        if indices is None and node_dict is not None:
+            indices = cls._parse_indices(node_dict.get("indices"))
+            if indices is None:
+                indices = cls._infer_indices_from_inputs(node_dict.get("inputs"))
+
+        if indices is not None:
+            normalized["indices"] = indices
 
         return normalized
+
+    @staticmethod
+    def _coerce_indices(values: Iterable[Any]) -> list[int]:
+        coerced: list[int] = []
+        for raw in values:
+            if isinstance(raw, int):
+                coerced.append(raw)
+                continue
+            if isinstance(raw, str):
+                stripped = raw.strip()
+                if stripped:
+                    with suppress(ValueError):
+                        coerced.append(int(stripped))
+        return coerced
+
+    @classmethod
+    def _parse_indices(cls, value: Any) -> list[int] | None:
+        if isinstance(value, list):
+            parsed = cls._coerce_indices(value)
+            return parsed or None
+        if isinstance(value, str):
+            segments = [segment.strip() for segment in value.split(",")]
+            parsed = cls._coerce_indices(segments)
+            return parsed or None
+        if isinstance(value, int):
+            return [value]
+        return None
+
+    @staticmethod
+    def _infer_indices_from_inputs(value: Any) -> list[int] | None:
+        if not isinstance(value, list):
+            return None
+        logical_inputs = [
+            entry
+            for entry in value
+            if not (isinstance(entry, dict) and "outputIdentifier" in entry)
+        ]
+        return list(range(len(logical_inputs))) if logical_inputs else None
 
 
 BoundaryNode = (
@@ -522,10 +529,10 @@ class Edge(BaseModel):
 
         size_value = normalized.get("size")
         if isinstance(size_value, str):
-            try:
-                normalized["size"] = int(size_value)
-            except ValueError:
-                pass
+            stripped = size_value.strip()
+            if stripped:
+                with suppress(ValueError):
+                    normalized["size"] = int(stripped)
 
         return normalized
 
