@@ -6,9 +6,11 @@ It provides classes to model metadata, node data, and the complete compile reque
 from __future__ import annotations
 
 from abc import ABC
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+import re
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.openqasm3.stdgates import (
     OneQubitGate,
@@ -117,6 +119,39 @@ class PrepareStateNode(BaseNode):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_state(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+        if normalized.get("type") == "statePreparationNode":
+            normalized["type"] = "prepare"
+
+        node_data = normalized.get("data")
+        if isinstance(node_data, dict):
+            if "quantumState" not in normalized:
+                state_name = node_data.get("quantumStateName")
+                if state_name is not None:
+                    normalized["quantumState"] = str(state_name)
+            if "size" not in normalized:
+                size_value = node_data.get("size")
+                if size_value is not None:
+                    normalized["size"] = size_value
+
+        if "quantumState" in normalized and normalized["quantumState"] is not None:
+            normalized["quantumState"] = str(normalized["quantumState"]).lower()
+
+        size_field = normalized.get("size")
+        if isinstance(size_field, str):
+            try:
+                normalized["size"] = int(size_field)
+            except ValueError:
+                pass
+
+        return normalized
+
 
 class SplitterNode(BaseNode):
     """
@@ -155,6 +190,62 @@ class MeasurementNode(BaseNode):
     """List of qubit indices to measure."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_measurement(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+        if normalized.get("type") == "measurementNode":
+            normalized["type"] = "measure"
+
+        node_data = normalized.get("data")
+        if isinstance(node_data, dict) and "indices" not in normalized:
+            indices_value = node_data.get("indices")
+            if isinstance(indices_value, list):
+                normalized["indices"] = indices_value
+            elif isinstance(indices_value, str):
+                indices = []
+                for part in indices_value.split(","):
+                    part = part.strip()
+                    if not part:
+                        continue
+                    try:
+                        indices.append(int(part))
+                    except ValueError:
+                        pass
+                if indices:
+                    normalized["indices"] = indices
+            if not normalized.get("indices"):
+                inputs = node_data.get("inputs")
+                if isinstance(inputs, list) and inputs:
+                    logical_inputs = [
+                        entry
+                        for entry in inputs
+                        if not (isinstance(entry, dict) and "outputIdentifier" in entry)
+                    ]
+                    if logical_inputs:
+                        normalized["indices"] = list(range(len(logical_inputs)))
+
+        indices_field = normalized.get("indices")
+        if isinstance(indices_field, list):
+            converted: list[int] = []
+            for item in indices_field:
+                if isinstance(item, int):
+                    converted.append(item)
+                elif isinstance(item, str):
+                    item = item.strip()
+                    if not item:
+                        continue
+                    try:
+                        converted.append(int(item))
+                    except ValueError:
+                        continue
+            normalized["indices"] = converted
+
+        return normalized
 
 
 BoundaryNode = (
@@ -402,6 +493,42 @@ class Edge(BaseModel):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_edge(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+
+        def _convert_endpoint(field: str, handle_field: str) -> None:
+            value = normalized.get(field)
+            if isinstance(value, str):
+                node_id = value
+                index = 0
+                handle = normalized.get(handle_field)
+                if isinstance(handle, str):
+                    if handle.endswith(node_id):
+                        prefix = handle[: -len(node_id)]
+                    else:
+                        prefix = handle
+                    match = re.search(r"(\d+)(?!.*\d)", prefix)
+                    if match is not None:
+                        index = int(match.group(1))
+                normalized[field] = (node_id, index)
+
+        _convert_endpoint("source", "sourceHandle")
+        _convert_endpoint("target", "targetHandle")
+
+        size_value = normalized.get("size")
+        if isinstance(size_value, str):
+            try:
+                normalized["size"] = int(size_value)
+            except ValueError:
+                pass
+
+        return normalized
+
 
 class CompileRequest(BaseModel):
     """
@@ -421,6 +548,31 @@ class CompileRequest(BaseModel):
     """Directed edges defining input-output relationships between nodes."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_nodes(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+        nodes = normalized.get("nodes")
+        if isinstance(nodes, list):
+            converted_nodes: list[Any] = []
+            for node in nodes:
+                if isinstance(node, dict):
+                    converted = node.copy()
+                    node_type = converted.get("type")
+                    if node_type == "statePreparationNode":
+                        converted["type"] = "prepare"
+                    elif node_type == "measurementNode":
+                        converted["type"] = "measure"
+                    converted_nodes.append(converted)
+                else:
+                    converted_nodes.append(node)
+            normalized["nodes"] = converted_nodes
+
+        return normalized
 
 
 EnrichableNode = (
