@@ -190,7 +190,11 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                     ),
                 ]
             return [
-                self._generate_angle_enrichment(node, classical_input),
+                self._generate_angle_enrichment(
+                    node,
+                    classical_input,
+                    constraints.requested_input_values.get(0),
+                ),
             ]
 
         return await super()._enrich_impl(node, constraints)
@@ -266,12 +270,31 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         self,
         node: EncodeValueNode,
         classical_input: LeqoSupportedClassicalType,
+        input_value: Any | None,
     ) -> EnrichmentResult:
         size = self._determine_register_size(node, classical_input)
-        statements = self._build_angle_statements(classical_input, size)
+        rotation_map: dict[int, float] | None = None
+        if input_value is not None:
+            try:
+                rotation_map = self._constant_angle_rotations(
+                    classical_input, size, input_value
+                )
+            except RuntimeError:
+                rotation_map = None
+
+        statements = self._build_angle_statements(
+            classical_input,
+            size,
+            rotation_map,
+        )
+        depth = (
+            sum(1 for angle in rotation_map.values() if angle != 0)
+            if rotation_map is not None
+            else size
+        )
         return EnrichmentResult(
             implementation(node, statements),
-            ImplementationMetaData(width=size, depth=size),
+            ImplementationMetaData(width=size, depth=depth),
         )
 
     def _determine_register_size(
@@ -348,7 +371,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 if part.strip() != ""
             ]
             values = [int(part) for part in parts]
-        elif isinstance(raw_value, Iterable) and not isinstance(raw_value, (bytes, bytearray)):
+        elif isinstance(raw_value, Iterable) and not isinstance(
+            raw_value, (bytes, bytearray)
+        ):
             values = [int(value) for value in raw_value]
         elif raw_value is None:
             msg = "Unsupported classical input for basis encoding"
@@ -361,6 +386,27 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             raise RuntimeError(msg)
 
         return values
+
+    def _constant_angle_rotations(
+        self,
+        classical_input: LeqoSupportedClassicalType,
+        register_size: int,
+        raw_value: Any,
+    ) -> dict[int, float]:
+        if isinstance(classical_input, FloatType):
+            try:
+                angle = float(raw_value)
+            except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+                msg = "Unsupported classical input for angle encoding"
+                raise RuntimeError(msg) from exc
+            return {0: angle}
+
+        indices = self._constant_basis_indices(
+            classical_input,
+            register_size,
+            raw_value,
+        )
+        return dict.fromkeys(indices, pi)
 
     def _build_basis_statements(
         self,
@@ -420,48 +466,78 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         self,
         classical_input: LeqoSupportedClassicalType,
         register_size: int,
+        rotation_map: dict[int, float] | None,
     ) -> list[Statement]:
-        value_identifier = Identifier("value")
         qubit_identifier = Identifier("encoded")
 
-        classical_decl = ClassicalDeclaration(
-            classical_input.to_ast(), value_identifier, None
-        )
-        classical_decl.annotations = [Annotation("leqo.input", "0")]
+        statements: list[Statement] = [Include("stdgates.inc")]
+        if rotation_map is None:
+            value_identifier = Identifier("value")
+            classical_decl = ClassicalDeclaration(
+                classical_input.to_ast(), value_identifier, None
+            )
+            classical_decl.annotations = [Annotation("leqo.input", "0")]
+            statements.append(classical_decl)
+        else:
+            value_identifier = None
 
         qubit_decl = QubitDeclaration(qubit_identifier, IntegerLiteral(register_size))
-
-        statements: list[Statement] = [
-            Include("stdgates.inc"),
-            classical_decl,
-            qubit_decl,
-        ]
+        statements.append(qubit_decl)
 
         if isinstance(classical_input, FloatType):
-            rotation_gate = QuantumGate(
-                modifiers=[],
-                name=Identifier("ry"),
-                arguments=[value_identifier],
-                qubits=[qubit_identifier],
-                duration=None,
-            )
-            statements.append(rotation_gate)
+            if rotation_map is None:
+                assert value_identifier is not None
+                rotation_gate = QuantumGate(
+                    modifiers=[],
+                    name=Identifier("ry"),
+                    arguments=[value_identifier],
+                    qubits=[qubit_identifier],
+                    duration=None,
+                )
+                statements.append(rotation_gate)
+            else:
+                angle = rotation_map.get(0)
+                if angle is not None and angle != 0:
+                    rotation_gate = QuantumGate(
+                        modifiers=[],
+                        name=Identifier("ry"),
+                        arguments=[FloatLiteral(angle)],
+                        qubits=[qubit_identifier],
+                        duration=None,
+                    )
+                    statements.append(rotation_gate)
             statements.append(leqo_output("out", 0, qubit_identifier))
             return statements
 
-        for index in range(register_size):
-            condition = self._bit_condition_expression(
-                classical_input, value_identifier, index
-            )
-            target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
-            rotation_gate = QuantumGate(
-                modifiers=[],
-                name=Identifier("ry"),
-                arguments=[FloatLiteral(pi)],
-                qubits=[target],
-                duration=None,
-            )
-            statements.append(BranchingStatement(condition, [rotation_gate], []))
+        if rotation_map is None:
+            assert value_identifier is not None
+            for index in range(register_size):
+                condition = self._bit_condition_expression(
+                    classical_input, value_identifier, index
+                )
+                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
+                rotation_gate = QuantumGate(
+                    modifiers=[],
+                    name=Identifier("ry"),
+                    arguments=[FloatLiteral(pi)],
+                    qubits=[target],
+                    duration=None,
+                )
+                statements.append(BranchingStatement(condition, [rotation_gate], []))
+        else:
+            for index in sorted(rotation_map):
+                angle = rotation_map[index]
+                if angle == 0:
+                    continue
+                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
+                rotation_gate = QuantumGate(
+                    modifiers=[],
+                    name=Identifier("ry"),
+                    arguments=[FloatLiteral(angle)],
+                    qubits=[target],
+                    duration=None,
+                )
+                statements.append(rotation_gate)
 
         statements.append(leqo_output("out", 0, qubit_identifier))
         return statements

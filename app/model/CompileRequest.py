@@ -424,7 +424,11 @@ class ArrayLiteralNode(BaseNode):
 
 
 LiteralNode = (
-    BitLiteralNode | BoolLiteralNode | IntLiteralNode | FloatLiteralNode | ArrayLiteralNode
+    BitLiteralNode
+    | BoolLiteralNode
+    | IntLiteralNode
+    | FloatLiteralNode
+    | ArrayLiteralNode
 )
 # endregion
 
@@ -641,12 +645,18 @@ class CompileRequest(BaseModel):
                         data_field = converted.get("data")
                         if isinstance(data_field, dict):
                             data_type = data_field.get("dataType")
-                            if isinstance(data_type, str) and data_type.lower() == "array":
+                            if (
+                                isinstance(data_type, str)
+                                and data_type.lower() == "array"
+                            ):
                                 converted["type"] = "array"
                                 converted.setdefault("label", data_field.get("label"))
                                 if "values" not in converted and "value" in data_field:
                                     converted["values"] = data_field["value"]
-                                if "elementBitSize" not in converted and "bitSize" in data_field:
+                                if (
+                                    "elementBitSize" not in converted
+                                    and "bitSize" in data_field
+                                ):
                                     converted["elementBitSize"] = data_field["bitSize"]
                     converted_nodes.append(converted)
                 else:

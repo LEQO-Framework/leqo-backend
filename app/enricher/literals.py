@@ -58,12 +58,13 @@ class LiteralEnricherStrategy(EnricherStrategy):
 
         match node:
             case QubitNode():
+                size = node.size if node.size is not None else 1
                 return EnrichmentResult(
                     implementation(
                         node,
                         [
                             QubitDeclaration(
-                                Identifier("literal"), IntegerLiteral(node.size)
+                                Identifier("literal"), IntegerLiteral(size)
                             ),
                             leqo_output("out", 0, Identifier("literal")),
                         ],
@@ -135,7 +136,10 @@ class LiteralEnricherStrategy(EnricherStrategy):
                     ImplementationMetaData(width=0, depth=1),
                 )
             case ArrayLiteralNode():
-                element_type = IntType(IntegerLiteral(node.elementBitSize))
+                element_bit_size = (
+                    node.elementBitSize if node.elementBitSize is not None else 1
+                )
+                element_type = IntType(IntegerLiteral(element_bit_size))
                 array_type = ArrayType(
                     element_type,
                     [IntegerLiteral(len(node.values))],
