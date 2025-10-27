@@ -2,6 +2,7 @@ import pytest
 
 from app.enricher.literals import LiteralEnricherStrategy
 from app.model.CompileRequest import (
+    ArrayLiteralNode,
     BitLiteralNode,
     BoolLiteralNode,
     FloatLiteralNode,
@@ -227,6 +228,29 @@ async def test_bool_literal() -> None:
         """\
         OPENQASM 3.1;
         bool literal = true;
+        @leqo.output 0
+        let out = literal;
+        """,
+    )
+
+
+@pytest.mark.asyncio
+async def test_array_literal() -> None:
+    strategy = LiteralEnricherStrategy()
+    result = list(
+        await strategy.enrich(
+            ArrayLiteralNode(id="nodeId", values=[1, 2], elementBitSize=3),
+            constraints=None,
+        )
+    )
+
+    assert len(result) == 1
+    assert_enrichment(
+        result[0].enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        array[int[3], 2] literal = {1, 2};
         @leqo.output 0
         let out = literal;
         """,

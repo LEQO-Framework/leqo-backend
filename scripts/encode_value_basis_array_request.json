@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Encode Value (basis array) demo",
+    "description": "Drive the basis encoder with an array literal and read the encoded register.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    {
+      "id": "literal",
+      "type": "array",
+      "label": "Array input",
+      "values": [1, 6],
+      "elementBitSize": 3
+    },
+    {
+      "id": "encode",
+      "type": "encode",
+      "label": "Basis encoder",
+      "encoding": "basis",
+      "bounds": 1
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": [0, 1, 2, 3, 4, 5]
+    }
+  ],
+  "edges": [
+    { "source": ["literal", 0], "target": ["encode", 0] },
+    { "source": ["encode", 0], "target": ["measure", 0] }
+  ]
+}

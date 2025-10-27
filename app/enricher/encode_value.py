@@ -2,6 +2,7 @@
 Provides enricher strategy for enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
 """
 
+from collections.abc import Iterable
 from math import pi
 from typing import Any, cast, override
 
@@ -41,6 +42,7 @@ from app.enricher.utils import implementation, leqo_output
 from app.model.CompileRequest import EncodeValueNode
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import (
+    ArrayType,
     BitType,
     BoolType,
     FloatType,
@@ -79,8 +81,11 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 input_type = InputType.BoolType.value
             case QubitType():
                 input_type = InputType.QubitType.value
+            case ArrayType():
+                msg = "Unsupported input type: array"
+                raise RuntimeError(msg)
             case _:
-                raise RuntimeError(f"Unsupported input type: {input}")
+                raise RuntimeError(f"Unsupported input type: {node_type}")
 
         return input_type
 
@@ -133,7 +138,11 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             return None
         self._check_constraints(node, requested_inputs)
 
-        converted_input_type = self._convert_to_input_type(requested_inputs[0])
+        requested_input = requested_inputs[0]
+        if isinstance(requested_input, ArrayType):
+            return None
+
+        converted_input_type = self._convert_to_input_type(requested_input)
 
         new_node = EncodeNodeTable(
             type=NodeType(node.type),
@@ -146,7 +155,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         input_node = Input(
             index=0,
             type=converted_input_type,
-            size=requested_inputs[0].size,
+            size=requested_input.size,
         )
         new_node.inputs.append(input_node)
 
@@ -203,11 +212,12 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         self._check_constraints(node, constraints.requested_inputs)
 
-        converted_input_type = self._convert_to_input_type(
-            constraints.requested_inputs[0]
-        )
-
         requested_input = constraints.requested_inputs[0]
+        if isinstance(requested_input, ArrayType):
+            return None
+
+        converted_input_type = self._convert_to_input_type(requested_input)
+
         where_clauses: list[Any] = [
             EncodeNodeTable.type == NodeType(node.type),
             EncodeNodeTable.encoding == EncodingType(node.encoding),
@@ -278,9 +288,14 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 size = classical_input.size
             case FloatType():
                 size = 1
+            case ArrayType():
+                size = classical_input.size
             case _:
                 raise InputTypeMismatch(
-                    node, 0, actual=classical_input, expected="bit, int, bool or float"
+                    node,
+                    0,
+                    actual=classical_input,
+                    expected="bit, int, bool, float or array",
                 )
 
         if size <= 0:
@@ -297,6 +312,21 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if isinstance(classical_input, FloatType):
             raise RuntimeError("FloatType not supported for basis encoding")
 
+        if isinstance(classical_input, ArrayType):
+            values = self._coerce_array_constant_value(classical_input, raw_value)
+            element_size = classical_input.element_type.size
+            mask_limit = (1 << element_size) - 1
+            indices: list[int] = []
+            for element_index, element_value in enumerate(values):
+                mask = element_value & mask_limit
+                base_offset = element_index * element_size
+                indices.extend(
+                    base_offset + bit
+                    for bit in range(element_size)
+                    if (mask >> bit) & 1
+                )
+            return indices
+
         try:
             value = int(raw_value)
         except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
@@ -305,6 +335,32 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         mask = value & ((1 << register_size) - 1)
         return [index for index in range(register_size) if (mask >> index) & 1]
+
+    @staticmethod
+    def _coerce_array_constant_value(
+        array_type: ArrayType,
+        raw_value: Any,
+    ) -> list[int]:
+        if isinstance(raw_value, str):
+            parts = [
+                part.strip()
+                for part in raw_value.replace(";", ",").split(",")
+                if part.strip() != ""
+            ]
+            values = [int(part) for part in parts]
+        elif isinstance(raw_value, Iterable) and not isinstance(raw_value, (bytes, bytearray)):
+            values = [int(value) for value in raw_value]
+        elif raw_value is None:
+            msg = "Unsupported classical input for basis encoding"
+            raise RuntimeError(msg)
+        else:
+            values = [int(raw_value)]
+
+        if len(values) != array_type.length:
+            msg = "Unsupported classical input for basis encoding"
+            raise RuntimeError(msg)
+
+        return values
 
     def _build_basis_statements(
         self,
@@ -436,6 +492,30 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                     BinaryOperator[">>"],
                     value_identifier,
                     IntegerLiteral(index),
+                )
+                masked = BinaryExpression(
+                    BinaryOperator["&"],
+                    shifted,
+                    IntegerLiteral(1),
+                )
+                return BinaryExpression(
+                    BinaryOperator["=="],
+                    masked,
+                    IntegerLiteral(1),
+                )
+            case ArrayType() as array_type:
+                element_size = array_type.element_type.size
+                element_index = index // element_size
+                bit_index = index % element_size
+
+                element_expr = IndexExpression(
+                    collection=value_identifier,
+                    index=[IntegerLiteral(element_index)],
+                )
+                shifted = BinaryExpression(
+                    BinaryOperator[">>"],
+                    element_expr,
+                    IntegerLiteral(bit_index),
                 )
                 masked = BinaryExpression(
                     BinaryOperator["&"],

@@ -10,6 +10,8 @@ Provides enricher strategy for enriching literal nodes
 from typing import override
 
 from openqasm3.ast import (
+    ArrayLiteral,
+    ArrayType,
     BitType,
     BooleanLiteral,
     BoolType,
@@ -30,6 +32,7 @@ from app.enricher import (
 )
 from app.enricher.utils import implementation, leqo_output
 from app.model.CompileRequest import (
+    ArrayLiteralNode,
     BitLiteralNode,
     BoolLiteralNode,
     FloatLiteralNode,
@@ -125,6 +128,29 @@ class LiteralEnricherStrategy(EnricherStrategy):
                                 BoolType(),
                                 Identifier("literal"),
                                 BooleanLiteral(node.value),
+                            ),
+                            leqo_output("out", 0, Identifier("literal")),
+                        ],
+                    ),
+                    ImplementationMetaData(width=0, depth=1),
+                )
+            case ArrayLiteralNode():
+                element_type = IntType(IntegerLiteral(node.elementBitSize))
+                array_type = ArrayType(
+                    element_type,
+                    [IntegerLiteral(len(node.values))],
+                )
+                array_literal = ArrayLiteral(
+                    [IntegerLiteral(value) for value in node.values]
+                )
+                return EnrichmentResult(
+                    implementation(
+                        node,
+                        [
+                            ClassicalDeclaration(
+                                array_type,
+                                Identifier("literal"),
+                                array_literal,
                             ),
                             leqo_output("out", 0, Identifier("literal")),
                         ],

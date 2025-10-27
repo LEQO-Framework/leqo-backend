@@ -23,6 +23,16 @@ from app.openqasm3.stdgates import (
 )
 
 
+def _infer_int_bit_size(value: int) -> int:
+    """
+    Derive the minimal two's-complement bit width required to represent value.
+    """
+
+    if value >= 0:
+        return max(1, value.bit_length())
+    return max(1, (-value - 1).bit_length() + 1)
+
+
 class OptimizeSettings(ABC):
     """
     Abstract base class providing optimization settings.
@@ -362,7 +372,60 @@ class FloatLiteralNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
-LiteralNode = BitLiteralNode | BoolLiteralNode | IntLiteralNode | FloatLiteralNode
+class ArrayLiteralNode(BaseNode):
+    """
+    Node representing an array of integers.
+    """
+
+    type: Literal["array"] = "array"
+
+    values: list[int]
+    """Ordered list of integer values in the array."""
+
+    elementBitSize: int | None = Field(default=None, ge=1)
+    """Bit width of each element in the array (optional)."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_values(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+        raw_values = normalized.get("values", normalized.get("value"))
+        if isinstance(raw_values, str):
+            parts = [
+                part.strip()
+                for part in raw_values.replace(";", ",").split(",")
+                if part.strip() != ""
+            ]
+            normalized["values"] = [int(part) for part in parts]
+        elif isinstance(raw_values, Iterable):
+            normalized["values"] = [int(value) for value in raw_values]
+        elif raw_values is not None:
+            normalized["values"] = [int(raw_values)]
+        else:
+            normalized.setdefault("values", [])
+
+        return normalized
+
+    @model_validator(mode="after")
+    def _default_bit_size(self) -> ArrayLiteralNode:
+        if self.elementBitSize is None:
+            bit_size = (
+                max((_infer_int_bit_size(value) for value in self.values), default=1)
+                if self.values
+                else 1
+            )
+            self.elementBitSize = bit_size
+        return self
+
+
+LiteralNode = (
+    BitLiteralNode | BoolLiteralNode | IntLiteralNode | FloatLiteralNode | ArrayLiteralNode
+)
 # endregion
 
 
@@ -574,6 +637,17 @@ class CompileRequest(BaseModel):
                         converted["type"] = "prepare"
                     elif node_type == "measurementNode":
                         converted["type"] = "measure"
+                    elif node_type == "dataTypeNode":
+                        data_field = converted.get("data")
+                        if isinstance(data_field, dict):
+                            data_type = data_field.get("dataType")
+                            if isinstance(data_type, str) and data_type.lower() == "array":
+                                converted["type"] = "array"
+                                converted.setdefault("label", data_field.get("label"))
+                                if "values" not in converted and "value" in data_field:
+                                    converted["values"] = data_field["value"]
+                                if "elementBitSize" not in converted and "bitSize" in data_field:
+                                    converted["elementBitSize"] = data_field["bitSize"]
                     converted_nodes.append(converted)
                 else:
                     converted_nodes.append(node)

@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from app.config import Settings
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
+    ArrayLiteralNode,
     BitLiteralNode,
     BoolLiteralNode,
     CompileRequest,
@@ -167,17 +168,22 @@ class CommonProcessor:
         if output_index != 0:
             return None
 
+        literal_value: Any | None
         match node:
+            case ArrayLiteralNode(values=values):
+                literal_value = values
             case IntLiteralNode(value=value):
-                return value
+                literal_value = value
             case BitLiteralNode(value=value):
-                return int(value)
+                literal_value = int(value)
             case BoolLiteralNode(value=value):
-                return value
+                literal_value = value
             case FloatLiteralNode(value=value):
-                return value
+                literal_value = value
             case _:
-                return None
+                literal_value = None
+
+        return literal_value
 
 
 class MergingProcessor(CommonProcessor):
@@ -311,7 +317,11 @@ class MergingProcessor(CommonProcessor):
             for node_id, frontend_node in self.frontend_graph.node_data.items()
             if isinstance(
                 frontend_node,
-                IntLiteralNode | FloatLiteralNode | BitLiteralNode | BoolLiteralNode,
+                IntLiteralNode
+                | FloatLiteralNode
+                | BitLiteralNode
+                | BoolLiteralNode
+                | ArrayLiteralNode,
             )
         }
         used_ids: set[str] = set()
