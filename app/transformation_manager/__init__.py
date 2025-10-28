@@ -471,12 +471,16 @@ class WorkflowProcessor(CommonProcessor):
             node_category = "Classical" if node_type in CLASSICAL_TYPES else "Quantum"
             print(f"Node ID: {node.id}, Type: {node_type}, Category: {node_category}")
 
+        for node_id in self.frontend_graph.edges:
+            print("edges")
+            print(node_id)
+
         quantum_groups = await self.identify_quantum_groups()
         print(f"\nFound {len(quantum_groups)} quantum groups:")
         for group_id, nodes in quantum_groups.items():
             print(f"{group_id}: {[node.id for node in nodes]}")
 
-        # Attach metadata safely
+        # Attach metadata<s
         for group_id, nodes in quantum_groups.items():
             for node in nodes:
                 try:
@@ -491,9 +495,11 @@ class WorkflowProcessor(CommonProcessor):
 
         # === Build BPMN XML from enriched nodes and edges ===
         nodes_dict = self.frontend_graph.node_data
+        implementation_nodes = dict(self.frontend_graph.node_data)
         edges_list = list(self.frontend_graph.edges)
+        bpmn_xml = _implementation_nodes_to_bpmn_xml("workflow_process", implementation_nodes, edges_list)
 
-        bpmn_xml = _implementation_nodes_to_bpmn_xml("workflow_process", nodes_dict, edges_list)
+        #bpmn_xml = _implementation_nodes_to_bpmn_xml("workflow_process", nodes_dict)
 
         return bpmn_xml
 
@@ -604,10 +610,14 @@ ET.register_namespace("bpmndi", BPMNDI_NS)
 ET.register_namespace("dc", DC_NS)
 ET.register_namespace("di", DI_NS)
 ET.register_namespace("xsi", XSI_NS)
+def _implementation_nodes_to_bpmn_xml(process_id: str, steps: dict, edges: list[tuple[str, str]]) -> str:
+    """
+    Generate BPMN XML workflow diagram from implementation nodes and graph edges.
+    - Adds 'Task_' prefix to all node IDs for XML validity.
+    - Includes proper incoming/outgoing for tasks, start, and end events.
+    """
+    import xml.etree.ElementTree as ET
 
-
-def _implementation_nodes_to_bpmn_xml(process_id: str, steps: Iterable) -> str:
-    """Generate BPMN XML workflow diagram from implementation nodes."""
     def qn(ns, tag):
         return f"{{{ns}}}{tag}"
 
@@ -621,78 +631,129 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, steps: Iterable) -> str:
     )
 
     process = ET.SubElement(
-        defs, qn(BPMN2_NS, "process"),
+        defs,
+        qn(BPMN2_NS, "process"),
         {"id": f"Process_{process_id}", "isExecutable": "true"},
     )
 
-    startX, startY = 200, 200
-    stepWidth, stepHeight, gap = 120, 80, 120
+    # --- Identify start and end nodes ---
+    all_nodes = set(steps.keys())
+    src_nodes = {s for s, _ in edges}
+    tgt_nodes = {t for _, t in edges}
+    start_nodes = list(all_nodes - tgt_nodes)
+    end_nodes = list(all_nodes - src_nodes)
 
-    # Start Event
+    # --- Create start and end events ---
     start_id = "StartEvent_1"
     start_event = ET.SubElement(process, qn(BPMN2_NS, "startEvent"), {"id": start_id})
-    ET.SubElement(start_event, qn(BPMN2_NS, "outgoing")).text = "Flow_0"
+    end_id = "EndEvent_1"
+    end_event = ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": end_id})
 
-    flows_xml = []
-    if not steps:
-        flows_xml.append(("Flow_0", start_id, "EndEvent_1"))
-    else:
-        flows_xml.append(("Flow_0", start_id, "Activity_0"))
+    # --- Add service tasks ---
+    for node_id, node in steps.items():
+        task_id = f"Task_{node_id}"  # <-- Prefix for valid ID
+        attrs = {"id": task_id, "name": getattr(node, "type", "Task")}
+        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), attrs)
 
-    for i, node in enumerate(steps):
-        activity_id = f"Activity_{i}"
-        incoming = f"Flow_{i}"
-        outgoing = f"Flow_{i + 1}" if i < len(steps) - 1 else "Flow_end"
+    # --- Build all sequence flows ---
+    flow_index = 0
+    flows = []
 
-        service_task = ET.SubElement(
-            process, qn(BPMN2_NS, "serviceTask"),
-            {"id": activity_id, "name": getattr(node, "type", "Task")},
+    # start → first node(s)
+    for sn in start_nodes:
+        fid = f"Flow_{flow_index}"
+        flows.append((fid, start_id, f"Task_{sn}"))
+        flow_index += 1
+
+    # internal edges
+    for src, tgt in edges:
+        fid = f"Flow_{flow_index}"
+        flows.append((fid, f"Task_{src}", f"Task_{tgt}"))
+        flow_index += 1
+
+    # last node(s) → end
+    for en in end_nodes:
+        fid = f"Flow_{flow_index}"
+        flows.append((fid, f"Task_{en}", end_id))
+        flow_index += 1
+
+    # --- Build incoming/outgoing maps ---
+    incoming_map = {f"Task_{nid}": [] for nid in steps}
+    outgoing_map = {f"Task_{nid}": [] for nid in steps}
+    start_outgoing, end_incoming = [], []
+
+    for fid, src, tgt in flows:
+        if src in outgoing_map:
+            outgoing_map[src].append(fid)
+        elif src == start_id:
+            start_outgoing.append(fid)
+
+        if tgt in incoming_map:
+            incoming_map[tgt].append(fid)
+        elif tgt == end_id:
+            end_incoming.append(fid)
+
+    # --- Add incoming/outgoing to tasks ---
+    for node_el in process.findall(qn(BPMN2_NS, "serviceTask")):
+        nid = node_el.attrib["id"]
+        for inc in incoming_map.get(nid, []):
+            ET.SubElement(node_el, qn(BPMN2_NS, "incoming")).text = inc
+        for out in outgoing_map.get(nid, []):
+            ET.SubElement(node_el, qn(BPMN2_NS, "outgoing")).text = out
+
+    # --- Add to start and end events ---
+    for fid in start_outgoing:
+        ET.SubElement(start_event, qn(BPMN2_NS, "outgoing")).text = fid
+
+    for fid in end_incoming:
+        ET.SubElement(end_event, qn(BPMN2_NS, "incoming")).text = fid
+
+    # --- Add sequenceFlow elements ---
+    for fid, src, tgt in flows:
+        ET.SubElement(
+            process,
+            qn(BPMN2_NS, "sequenceFlow"),
+            {"id": fid, "sourceRef": src, "targetRef": tgt},
         )
-        ET.SubElement(service_task, qn(BPMN2_NS, "incoming")).text = incoming
-        ET.SubElement(service_task, qn(BPMN2_NS, "outgoing")).text = outgoing
 
-        if i < len(steps) - 1:
-            flows_xml.append((f"Flow_{i + 1}", activity_id, f"Activity_{i + 1}"))
-        else:
-            flows_xml.append(("Flow_end", activity_id, "EndEvent_1"))
-
-    end_event = ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": "EndEvent_1"})
-    ET.SubElement(end_event, qn(BPMN2_NS, "incoming")).text = "Flow_end" if steps else "Flow_0"
-
-    # Sequence Flows
-    for fid, src, tgt in flows_xml:
-        ET.SubElement(process, qn(BPMN2_NS, "sequenceFlow"),
-                      {"id": fid, "sourceRef": src, "targetRef": tgt})
-
-    # Diagram / layout
+    # --- Simple diagram layout ---
     diagram = ET.SubElement(defs, qn(BPMNDI_NS, "BPMNDiagram"), {"id": "BPMNDiagram_1"})
-    plane = ET.SubElement(diagram, qn(BPMNDI_NS, "BPMNPlane"),
-                          {"id": "BPMNPlane_1", "bpmnElement": f"Process_{process_id}"})
+    plane = ET.SubElement(
+        diagram, qn(BPMNDI_NS, "BPMNPlane"),
+        {"id": "BPMNPlane_1", "bpmnElement": f"Process_{process_id}"}
+    )
 
+    x, y = 200, 200
+    dx, dy = 220, 150
+
+    # Start event shape
     start_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
-                                {"id": "StartEvent_1_di", "bpmnElement": "StartEvent_1"})
+                                {"id": "StartEvent_1_di", "bpmnElement": start_id})
     ET.SubElement(start_shape, qn(DC_NS, "Bounds"),
-                  x=str(startX), y=str(startY + 22), width="36", height="36")
+                  x=str(x - 150), y=str(y + 40), width="36", height="36")
 
-    if not steps:
-        endX = startX + 200
-        end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
-                                  {"id": "EndEvent_1_di", "bpmnElement": "EndEvent_1"})
-        ET.SubElement(end_shape, qn(DC_NS, "Bounds"),
-                      x=str(endX), y=str(startY + 22), width="36", height="36")
-    else:
-        for i in range(len(steps)):
-            x = startX + 100 + i * (stepWidth + gap)
-            shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
-                                  {"id": f"Activity_{i}_di", "bpmnElement": f"Activity_{i}"})
-            ET.SubElement(shape, qn(DC_NS, "Bounds"),
-                          x=str(x), y=str(startY), width=str(stepWidth), height=str(stepHeight))
+    # Tasks
+    for i, nid in enumerate(all_nodes):
+        tid = f"Task_{nid}"
+        shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
+                              {"id": f"{tid}_di", "bpmnElement": tid})
+        ET.SubElement(shape, qn(DC_NS, "Bounds"),
+                      x=str(x + (i % 4) * dx),
+                      y=str(y + (i // 4) * dy),
+                      width="120", height="80")
 
-        endX = startX + 100 + len(steps) * (stepWidth + gap)
-        end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
-                                  {"id": "EndEvent_1_di", "bpmnElement": "EndEvent_1"})
-        ET.SubElement(end_shape, qn(DC_NS, "Bounds"),
-                      x=str(endX), y=str(startY + 22), width="36", height="36")
+    # End event shape
+    end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
+                              {"id": "EndEvent_1_di", "bpmnElement": end_id})
+    ET.SubElement(end_shape, qn(DC_NS, "Bounds"),
+                  x=str(x + 600), y=str(y + 40), width="36", height="36")
+
+    # Edges (visual connectors)
+    for fid, src, tgt in flows:
+        edge = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNEdge"),
+                             {"id": f"{fid}_di", "bpmnElement": fid})
+        ET.SubElement(edge, qn(DI_NS, "waypoint"), x="100", y="200")
+        ET.SubElement(edge, qn(DI_NS, "waypoint"), x="300", y="200")
 
     xml_bytes = ET.tostring(defs, encoding="utf-8", xml_declaration=True)
     return xml_bytes.decode("utf-8")
