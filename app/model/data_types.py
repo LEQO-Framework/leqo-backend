@@ -2,7 +2,7 @@
 OpenQasm data-types that are supported by the leqo-backend.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from openqasm3.ast import ArrayLiteral as AstArrayLiteral
 from openqasm3.ast import ArrayType as AstArrayType
@@ -24,6 +24,7 @@ class QubitType:
     """
 
     size: int | None
+    signed: bool = field(default=False, repr=False)
 
 
 @dataclass(frozen=True)

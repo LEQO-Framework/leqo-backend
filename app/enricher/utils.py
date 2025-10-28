@@ -36,19 +36,28 @@ def implementation(
     return ParsedImplementationNode(id=node.id, implementation=program)
 
 
-def leqo_input(name: str, index: int, size: int | None) -> QubitDeclaration:
+def leqo_input(
+    name: str,
+    index: int,
+    size: int | None,
+    *,
+    twos_complement: bool = False,
+) -> QubitDeclaration:
     """
     Creates a qubit input declaration.
 
     :param name: Identifier of the input declaration
     :param index: Index of the input
     :param size: Size of the input (in qubits)
+    :param twos_complement: Whether the input is interpreted as two's complement.
     """
 
     result = QubitDeclaration(
         Identifier(name), None if size is None else IntegerLiteral(size)
     )
     result.annotations = [Annotation("leqo.input", f"{index}")]
+    if twos_complement:
+        result.annotations.append(Annotation("leqo.twos_complement", "true"))
     return result
 
 

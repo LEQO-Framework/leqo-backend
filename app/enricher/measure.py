@@ -5,6 +5,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Measu
 from typing import override
 
 from openqasm3.ast import (
+    Annotation,
     BitType,
     ClassicalDeclaration,
     DiscreteSet,
@@ -66,23 +67,35 @@ class MeasurementEnricherStrategy(EnricherStrategy):
                 expected="qubit",
             )
 
-        input_size = constraints.requested_inputs[0].size
+        requested_type = constraints.requested_inputs[0]
+        input_size = requested_type.size
+        is_signed = getattr(requested_type, "signed", False)
         if input_size is None:
             if node.indices not in ([], [0]):
                 raise InvalidSingleQubitIndex(node)
+            statements = [
+                leqo_input("q", 0, input_size, twos_complement=is_signed),
+                ClassicalDeclaration(
+                    BitType(),
+                    Identifier("result"),
+                    QuantumMeasurement(Identifier("q")),
+                ),
+            ]
+            qubit_alias = leqo_output("qubit_out", 1, Identifier("q"))
+            if is_signed:
+                qubit_alias.annotations.append(
+                    Annotation("leqo.twos_complement", "true")
+                )
+            statements.extend(
+                [
+                    leqo_output("out", 0, Identifier("result")),
+                    qubit_alias,
+                ]
+            )
             return EnrichmentResult(
                 implementation(
                     node,
-                    [
-                        leqo_input("q", 0, input_size),
-                        ClassicalDeclaration(
-                            BitType(),
-                            Identifier("result"),
-                            QuantumMeasurement(Identifier("q")),
-                        ),
-                        leqo_output("out", 0, Identifier("result")),
-                        leqo_output("qubit_out", 1, Identifier("q")),
-                    ],
+                    statements,
                 ),
                 ImplementationMetaData(width=0, depth=1),
             )
@@ -99,11 +112,16 @@ class MeasurementEnricherStrategy(EnricherStrategy):
         index_exprs: list[Expression] = [IntegerLiteral(x) for x in indices]
         output_size = len(index_exprs)
 
+        qubit_decl = leqo_input("q", 0, input_size, twos_complement=is_signed)
+        qubit_alias = leqo_output("qubit_out", 1, Identifier("q"))
+        if is_signed:
+            qubit_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
+
         return EnrichmentResult(
             implementation(
                 node,
                 [
-                    leqo_input("q", 0, input_size),
+                    qubit_decl,
                     ClassicalDeclaration(
                         BitType(IntegerLiteral(output_size)),
                         Identifier("result"),
@@ -114,7 +132,7 @@ class MeasurementEnricherStrategy(EnricherStrategy):
                         ),
                     ),
                     leqo_output("out", 0, Identifier("result")),
-                    leqo_output("qubit_out", 1, Identifier("q")),
+                    qubit_alias,
                 ],
             ),
             ImplementationMetaData(width=0, depth=1),

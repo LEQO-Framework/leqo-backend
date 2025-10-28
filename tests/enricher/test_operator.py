@@ -1,6 +1,14 @@
 import pytest
 import pytest_asyncio
-from openqasm3.ast import AliasStatement, Identifier, Program
+from openqasm3.ast import (
+    AliasStatement,
+    Identifier,
+    IndexedIdentifier,
+    IntegerLiteral,
+    Program,
+    QuantumGate,
+    QubitDeclaration,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
@@ -144,9 +152,76 @@ async def test_enrich_plus_operator(engine: AsyncEngine) -> None:
     assert isinstance(program, Program)
     alias_statement = program.statements[-1]
     assert isinstance(alias_statement, AliasStatement)
+    assert all(
+        annotation.keyword != "leqo.twos_complement"
+        for annotation in alias_statement.annotations
+    )
     output_value = alias_statement.value
     assert isinstance(output_value, Identifier)
     assert output_value.name == "sum"
+
+
+@pytest.mark.asyncio
+async def test_enrich_plus_operator_with_signed_extension(
+    engine: AsyncEngine,
+) -> None:
+    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="+")
+    constraints = Constraints(
+        requested_inputs={
+            0: QubitType(size=2, signed=True),
+            1: QubitType(size=4, signed=True),
+        },
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    enrichment_results = await OperatorEnricherStrategy(engine).enrich(
+        node, constraints
+    )
+    enrichment_results = list(enrichment_results)
+
+    assert len(enrichment_results) == 1
+    enriched_node = enrichment_results[0].enriched_node
+    assert isinstance(enriched_node.implementation, Program)
+    program = enriched_node.implementation
+
+    sign_bit = IndexedIdentifier(Identifier("addend0"), [[IntegerLiteral(1)]])
+    extended_sum_bit = IndexedIdentifier(Identifier("sum"), [[IntegerLiteral(2)]])
+    gates = [
+        statement
+        for statement in program.statements
+        if isinstance(statement, QuantumGate) and statement.name.name == "cx"
+    ]
+
+    assert any(gate.qubits == [sign_bit, extended_sum_bit] for gate in gates), (
+        "Expected sign bit to drive extended sum bit for signed addition"
+    )
+
+    alias_statement = program.statements[-1]
+    assert isinstance(alias_statement, AliasStatement)
+    assert any(
+        annotation.keyword == "leqo.twos_complement"
+        for annotation in alias_statement.annotations
+    )
+
+    addend0_decl = next(
+        stmt
+        for stmt in program.statements
+        if isinstance(stmt, QubitDeclaration) and stmt.qubit.name == "addend0"
+    )
+    addend1_decl = next(
+        stmt
+        for stmt in program.statements
+        if isinstance(stmt, QubitDeclaration) and stmt.qubit.name == "addend1"
+    )
+    assert any(
+        annotation.keyword == "leqo.twos_complement"
+        for annotation in addend0_decl.annotations
+    )
+    assert any(
+        annotation.keyword == "leqo.twos_complement"
+        for annotation in addend1_decl.annotations
+    )
 
 
 @pytest.mark.asyncio

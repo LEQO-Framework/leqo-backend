@@ -287,6 +287,11 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
         )
 
         info = QubitIOInstance(name, qubit_ids)
+        if any(
+            annotation.keyword == "leqo.twos_complement"
+            for annotation in node.annotations
+        ):
+            info.signed = True
         self.__name_to_info[name] = info
         if input_id is not None:
             if input_id in self.__found_input_ids:
@@ -374,33 +379,57 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
             return self.generic_visit(node)
 
         output_id, reusable = self.get_alias_annotation_info(name, node.annotations)
-        if output_id is not None:
-            if output_id in self.__found_output_ids:
-                msg = f"Unsupported: duplicate output id: {output_id}"
-                raise PreprocessingException(msg)
-            self.__found_output_ids.add(output_id)
+        self._mark_alias_signed_if_needed(info, node.annotations)
 
         self.__name_to_info[name] = info
-        if output_id is not None:
-            if self.__in_uncompute:
-                msg = f"Unsupported: output declaration over {info.name} in uncompute block"
-                raise PreprocessingException(msg)
-            self.io.outputs[output_id] = info
-        elif reusable:
-            if isinstance(info, ClassicalIOInstance):
-                msg = f"Unsupported: reusable annotation over classical {info.name}"
-                raise PreprocessingException(msg)
-            if self.__in_uncompute:
-                if isinstance(info.ids, list):
-                    self.qubit.uncomputable_ids.extend(info.ids)
-                else:
-                    self.qubit.uncomputable_ids.append(info.ids)
-            elif isinstance(info.ids, list):
-                self.qubit.reusable_ids.extend(info.ids)
-            else:
-                self.qubit.reusable_ids.append(info.ids)
+        self._handle_alias_registration(info, output_id, reusable)
 
         return self.generic_visit(node)
+
+    def _mark_alias_signed_if_needed(
+        self, info: QubitIOInstance | ClassicalIOInstance, annotations: list[Annotation]
+    ) -> None:
+        if not isinstance(info, QubitIOInstance):
+            return
+        if any(annotation.keyword == "leqo.twos_complement" for annotation in annotations):
+            info.signed = True
+
+    def _handle_alias_registration(
+        self,
+        info: QubitIOInstance | ClassicalIOInstance,
+        output_id: int | None,
+        reusable: bool,
+    ) -> None:
+        if output_id is not None:
+            self._register_alias_output(info, output_id)
+            return
+        if reusable:
+            self._register_alias_reusable(info)
+
+    def _register_alias_output(
+        self, info: QubitIOInstance | ClassicalIOInstance, output_id: int
+    ) -> None:
+        if output_id in self.__found_output_ids:
+            msg = f"Unsupported: duplicate output id: {output_id}"
+            raise PreprocessingException(msg)
+        self.__found_output_ids.add(output_id)
+        if self.__in_uncompute:
+            msg = f"Unsupported: output declaration over {info.name} in uncompute block"
+            raise PreprocessingException(msg)
+        self.io.outputs[output_id] = info
+
+    def _register_alias_reusable(
+        self, info: QubitIOInstance | ClassicalIOInstance
+    ) -> None:
+        if isinstance(info, ClassicalIOInstance):
+            msg = f"Unsupported: reusable annotation over classical {info.name}"
+            raise PreprocessingException(msg)
+        if self.__in_uncompute:
+            ids = info.ids if isinstance(info.ids, list) else [info.ids]
+            self.qubit.uncomputable_ids.extend(ids)
+            return
+        ids = info.ids if isinstance(info.ids, list) else [info.ids]
+        self.qubit.reusable_ids.extend(ids)
 
     def visit_BranchingStatement(self, node: BranchingStatement) -> QASMNode:
         """
