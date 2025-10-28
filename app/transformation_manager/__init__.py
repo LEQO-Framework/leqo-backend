@@ -49,6 +49,8 @@ from app.transformation_manager.post import postprocess
 from app.transformation_manager.pre import preprocess
 from app.transformation_manager.pre.utils import PreprocessingException
 from app.utils import not_none
+import xml.etree.ElementTree as ET
+from typing import Iterable
 
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 
@@ -452,7 +454,8 @@ class WorkflowProcessor(CommonProcessor):
         processor.original_request = request
         return processor
 
-    async def process(self) -> list[ImplementationNode]:
+    async def process(self) -> str:
+        """Run enrichment, classify nodes, group quantum nodes, and return BPMN XML."""
         enriching_processor = EnrichingProcessor(
             self.enricher,
             self.frontend_graph,
@@ -461,31 +464,40 @@ class WorkflowProcessor(CommonProcessor):
         enriching_processor.target = "workflow"
         result = await enriching_processor.enrich_all()
 
-        # Print all nodes and classify quantum vs classical
         print("All nodes in the frontend graph:")
         for node_id in self.frontend_graph.nodes:
             node = self.frontend_graph.node_data[node_id]
             node_type = getattr(node, "type", None)
             node_category = "Classical" if node_type in CLASSICAL_TYPES else "Quantum"
-            print(
-                f"Node ID: {node.id}, Type: {node_type}, "
-                f"Category: {node_category}"
-            )
+            print(f"Node ID: {node.id}, Type: {node_type}, Category: {node_category}")
 
-        # Identify quantum groups
         quantum_groups = await self.identify_quantum_groups()
         print(f"\nFound {len(quantum_groups)} quantum groups:")
         for group_id, nodes in quantum_groups.items():
             print(f"{group_id}: {[node.id for node in nodes]}")
 
-        # Attach quantum group info to nodes
+        # Attach metadata safely
         for group_id, nodes in quantum_groups.items():
             for node in nodes:
-                if not hasattr(node, "metadata") or node.metadata is None:
-                    node.metadata = {}
-                node.metadata["quantum_group"] = group_id
+                try:
+                    if hasattr(node, "metadata"):
+                        if getattr(node, "metadata", None) is None:
+                            setattr(node, "metadata", {})
+                        node.metadata["quantum_group"] = group_id
+                    else:
+                        setattr(node, "_quantum_group", group_id)
+                except Exception as e:
+                    print(f"Warning: could not attach metadata to node {getattr(node, 'id', '?')}: {e}")
 
-        return result
+        # === Build BPMN XML from enriched nodes and edges ===
+        nodes_dict = self.frontend_graph.node_data
+        edges_list = list(self.frontend_graph.edges)
+
+        bpmn_xml = _implementation_nodes_to_bpmn_xml("workflow_process", nodes_dict, edges_list)
+
+        return bpmn_xml
+
+
 
     async def identify_quantum_groups(self) -> dict[str, list[ImplementationNode]]:
         """
@@ -578,3 +590,109 @@ class EnrichmentInserter:
                     session,
                 )
             await session.commit()
+
+
+# BPMN namespaces
+BPMN2_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
+BPMNDI_NS = "http://www.omg.org/spec/BPMN/20100524/DI"
+DC_NS = "http://www.omg.org/spec/DD/20100524/DC"
+DI_NS = "http://www.omg.org/spec/DD/20100524/DI"
+XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
+
+ET.register_namespace("bpmn2", BPMN2_NS)
+ET.register_namespace("bpmndi", BPMNDI_NS)
+ET.register_namespace("dc", DC_NS)
+ET.register_namespace("di", DI_NS)
+ET.register_namespace("xsi", XSI_NS)
+
+
+def _implementation_nodes_to_bpmn_xml(process_id: str, steps: Iterable) -> str:
+    """Generate BPMN XML workflow diagram from implementation nodes."""
+    def qn(ns, tag):
+        return f"{{{ns}}}{tag}"
+
+    defs = ET.Element(
+        qn(BPMN2_NS, "definitions"),
+        {
+            "id": "sample-diagram",
+            "targetNamespace": "http://bpmn.io/schema/bpmn",
+            qn(XSI_NS, "schemaLocation"): "http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd",
+        },
+    )
+
+    process = ET.SubElement(
+        defs, qn(BPMN2_NS, "process"),
+        {"id": f"Process_{process_id}", "isExecutable": "true"},
+    )
+
+    startX, startY = 200, 200
+    stepWidth, stepHeight, gap = 120, 80, 120
+
+    # Start Event
+    start_id = "StartEvent_1"
+    start_event = ET.SubElement(process, qn(BPMN2_NS, "startEvent"), {"id": start_id})
+    ET.SubElement(start_event, qn(BPMN2_NS, "outgoing")).text = "Flow_0"
+
+    flows_xml = []
+    if not steps:
+        flows_xml.append(("Flow_0", start_id, "EndEvent_1"))
+    else:
+        flows_xml.append(("Flow_0", start_id, "Activity_0"))
+
+    for i, node in enumerate(steps):
+        activity_id = f"Activity_{i}"
+        incoming = f"Flow_{i}"
+        outgoing = f"Flow_{i + 1}" if i < len(steps) - 1 else "Flow_end"
+
+        service_task = ET.SubElement(
+            process, qn(BPMN2_NS, "serviceTask"),
+            {"id": activity_id, "name": getattr(node, "type", "Task")},
+        )
+        ET.SubElement(service_task, qn(BPMN2_NS, "incoming")).text = incoming
+        ET.SubElement(service_task, qn(BPMN2_NS, "outgoing")).text = outgoing
+
+        if i < len(steps) - 1:
+            flows_xml.append((f"Flow_{i + 1}", activity_id, f"Activity_{i + 1}"))
+        else:
+            flows_xml.append(("Flow_end", activity_id, "EndEvent_1"))
+
+    end_event = ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": "EndEvent_1"})
+    ET.SubElement(end_event, qn(BPMN2_NS, "incoming")).text = "Flow_end" if steps else "Flow_0"
+
+    # Sequence Flows
+    for fid, src, tgt in flows_xml:
+        ET.SubElement(process, qn(BPMN2_NS, "sequenceFlow"),
+                      {"id": fid, "sourceRef": src, "targetRef": tgt})
+
+    # Diagram / layout
+    diagram = ET.SubElement(defs, qn(BPMNDI_NS, "BPMNDiagram"), {"id": "BPMNDiagram_1"})
+    plane = ET.SubElement(diagram, qn(BPMNDI_NS, "BPMNPlane"),
+                          {"id": "BPMNPlane_1", "bpmnElement": f"Process_{process_id}"})
+
+    start_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
+                                {"id": "StartEvent_1_di", "bpmnElement": "StartEvent_1"})
+    ET.SubElement(start_shape, qn(DC_NS, "Bounds"),
+                  x=str(startX), y=str(startY + 22), width="36", height="36")
+
+    if not steps:
+        endX = startX + 200
+        end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
+                                  {"id": "EndEvent_1_di", "bpmnElement": "EndEvent_1"})
+        ET.SubElement(end_shape, qn(DC_NS, "Bounds"),
+                      x=str(endX), y=str(startY + 22), width="36", height="36")
+    else:
+        for i in range(len(steps)):
+            x = startX + 100 + i * (stepWidth + gap)
+            shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
+                                  {"id": f"Activity_{i}_di", "bpmnElement": f"Activity_{i}"})
+            ET.SubElement(shape, qn(DC_NS, "Bounds"),
+                          x=str(x), y=str(startY), width=str(stepWidth), height=str(stepHeight))
+
+        endX = startX + 100 + len(steps) * (stepWidth + gap)
+        end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
+                                  {"id": "EndEvent_1_di", "bpmnElement": "EndEvent_1"})
+        ET.SubElement(end_shape, qn(DC_NS, "Bounds"),
+                      x=str(endX), y=str(startY + 22), width="36", height="36")
+
+    xml_bytes = ET.tostring(defs, encoding="utf-8", xml_declaration=True)
+    return xml_bytes.decode("utf-8")

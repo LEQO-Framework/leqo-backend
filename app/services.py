@@ -91,8 +91,6 @@ def get_db_engine() -> AsyncEngine:
 
 def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enricher:
     strategies = [
-        # Stub workflow strategy (placeholder for future logic)
-        WorkflowEnricherStrategy(),
         LiteralEnricherStrategy(),
         MeasurementEnricherStrategy(),
         SplitterEnricherStrategy(),
