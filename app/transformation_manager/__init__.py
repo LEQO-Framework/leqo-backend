@@ -618,12 +618,16 @@ BPMNDI_NS = "http://www.omg.org/spec/BPMN/20100524/DI"
 DC_NS = "http://www.omg.org/spec/DD/20100524/DC"
 DI_NS = "http://www.omg.org/spec/DD/20100524/DI"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
+CAMUNDA_NS="http://camunda.org/schema/1.0/bpmn" 
+OpenTOSCA_NS="https://github.com/UST-QuAntiL/OpenTOSCA"
 
 ET.register_namespace("bpmn2", BPMN2_NS)
 ET.register_namespace("bpmndi", BPMNDI_NS)
 ET.register_namespace("dc", DC_NS)
 ET.register_namespace("di", DI_NS)
 ET.register_namespace("xsi", XSI_NS)
+ET.register_namespace("opentosca", OpenTOSCA_NS)
+ET.register_namespace("camunda", CAMUNDA_NS)
 
 
 def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: Dict[str, any], edges: Iterable[Tuple[str, str]], quantum_groups: dict[str, list] | None = None) -> str:
