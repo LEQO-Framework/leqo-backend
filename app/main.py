@@ -346,15 +346,20 @@ async def process_compile_request(
     try:
         result: str | list[ImplementationNode]
         if target == "workflow":
+            qasm = await processor.process()
+            print("QASM")
+            print(qasm)
             workflow_processor = WorkflowProcessor(
                 processor.enricher,
                 processor.frontend_graph,
                 processor.optimize,
+                result=qasm
             )
             workflow_processor.target = target
             result = await workflow_processor.process()
         else:
             result = await processor.process()
+            print(result)
         await add_result_to_db(engine, uuid, result, target)
 
         status = SuccessStatus(
