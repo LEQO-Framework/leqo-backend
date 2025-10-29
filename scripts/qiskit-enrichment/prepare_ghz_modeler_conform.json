@@ -1,0 +1,134 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "My Model",
+    "description": "This is a model.",
+    "author": "",
+    "id": "flow-1761586579200",
+    "timestamp": "2025-10-27T17:36:19.200Z"
+  },
+  "nodes": [
+    {
+      "id": "20e8c543-6f91-4826-9c27-4d3921cad709",
+      "type": "measurementNode",
+      "position": {
+        "x": 900,
+        "y": 375
+      },
+      "data": {
+        "label": "Measurement",
+        "inputs": [
+          {
+            "id": "97c4adc6-d6c4-4398-9490-b41b4582d2fd",
+            "identifiers": [
+              "q146254"
+            ]
+          },
+          {
+            "id": "a25f4883-72d5-4c9b-854a-d54bf09b6f10",
+            "identifiers": [
+              "q560894"
+            ]
+          },
+          {
+            "id": "ecf27ab8-0d88-4d9c-b392-643c56458377",
+            "identifiers": [
+              "q290734"
+            ]
+          },
+          {
+            "id": "ee700cbe-fe5e-4319-b3ef-2cac6ad9d909",
+            "identifiers": [
+              "q951834"
+            ],
+            "outputIdentifier": ""
+          }
+        ],
+        "children": [],
+        "implementation": "",
+        "implementationType": "",
+        "uncomputeImplementationType": "",
+        "uncomputeImplementation": "",
+        "completionGuaranteed": true,
+        "compactOptions": [
+          true,
+          false
+        ],
+        "identifiers": [
+          "q632290"
+        ],
+        "indices": "",
+        "outputIdentifier": ""
+      },
+      "width": 320,
+      "height": 440,
+      "positionAbsolute": {
+        "x": 900,
+        "y": 375
+      },
+      "dragging": true
+    },
+    {
+      "id": "ee700cbe-fe5e-4319-b3ef-2cac6ad9d909",
+      "type": "statePreparationNode",
+      "position": {
+        "x": 345,
+        "y": 360
+      },
+      "data": {
+        "label": "Prepare State",
+        "inputs": [],
+        "children": [],
+        "implementation": "",
+        "implementationType": "",
+        "uncomputeImplementationType": "",
+        "uncomputeImplementation": "",
+        "completionGuaranteed": true,
+        "compactOptions": [
+          true,
+          false
+        ],
+        "identifiers": [
+          "q951834"
+        ],
+        "quantumStateName": "GHZ",
+        "size": 3,
+        "outputIdentifier": "",
+        "outputs": [
+          {
+            "identifier": "",
+            "size": "3"
+          }
+        ]
+      },
+      "width": 320,
+      "height": 373,
+      "positionAbsolute": {
+        "x": 345,
+        "y": 360
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "ee700cbe-fe5e-4319-b3ef-2cac6ad9d909",
+      "sourceHandle": "quantumHandlestatePreparationNodeOutput0ee700cbe-fe5e-4319-b3ef-2cac6ad9d909",
+      "target": "20e8c543-6f91-4826-9c27-4d3921cad709",
+      "targetHandle": "quantumHandleMeasurementInput020e8c543-6f91-4826-9c27-4d3921cad709",
+      "type": "quantumEdge",
+      "id": "8a6d919a-4f7a-4622-8143-4fd8bab07d22",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "width": 20,
+        "height": 20,
+        "color": "#93C5FD",
+        "hidden": false
+      }
+    }
+  ],
+  "viewport": {
+    "x": -97.94887554923707,
+    "y": 116.61493426255765,
+    "zoom": 0.5
+  }
+}

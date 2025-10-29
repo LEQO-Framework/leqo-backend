@@ -1,7 +1,7 @@
 import pytest
 
 from app.enricher import Constraints
-from app.enricher.exceptions import DuplicateIndices, IndicesOutOfRange, NoIndices
+from app.enricher.exceptions import DuplicateIndices, IndicesOutOfRange
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.model.CompileRequest import MeasurementNode
 from app.model.data_types import IntType, QubitType
@@ -165,15 +165,30 @@ async def test_qubit_type_input() -> None:
 
 
 @pytest.mark.asyncio
-async def test_at_least_one_index() -> None:
+async def test_measure_full_register_when_indices_missing() -> None:
     node = MeasurementNode(id="nodeId", indices=[])
     constraints = Constraints(
         requested_inputs={0: QubitType(3)}, optimizeWidth=False, optimizeDepth=False
     )
 
     strategy = MeasurementEnricherStrategy()
-    with pytest.raises(NoIndices, match=r"^No indices were specified$"):
-        await strategy.enrich(node, constraints)
+    result = list(await strategy.enrich(node, constraints))
+
+    assert len(result) == 1
+    assert_enrichment(
+        result[0].enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[3] q;
+        bit[3] result = measure q[{0, 1, 2}];
+        @leqo.output 0
+        let out = result;
+        @leqo.output 1
+        let qubit_out = q;
+        """,
+    )
 
 
 @pytest.mark.asyncio

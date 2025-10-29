@@ -10,6 +10,7 @@ from itertools import chain
 from openqasm3.ast import (
     AliasStatement,
     Annotation,
+    ArrayType,
     BitType,
     BooleanLiteral,
     BoolType,
@@ -30,6 +31,9 @@ from app.model.data_types import (
     DEFAULT_FLOAT_SIZE,
     DEFAULT_INT_SIZE,
     LeqoSupportedType,
+)
+from app.model.data_types import (
+    ArrayType as LeqoArrayType,
 )
 from app.model.data_types import (
     BitType as LeqoBitType,
@@ -329,6 +333,20 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 )
             case BoolType():
                 leqo_type = LeqoBoolType()
+            case ArrayType(base_type=IntType() as base_type, dimensions=dimensions):
+                if len(dimensions) != 1:
+                    msg = f"Unsupported: array declaration '{name}' with {len(dimensions)} dimensions"
+                    raise PreprocessingException(msg)
+
+                array_length = opt_call(expr_to_int, dimensions[0])
+                if array_length is None or array_length <= 0:
+                    msg = f"Unsupported: array declaration '{name}' missing constant positive length"
+                    raise PreprocessingException(msg)
+
+                element_size = not_none_or(
+                    opt_call(expr_to_int, base_type.size), DEFAULT_INT_SIZE
+                )
+                leqo_type = LeqoArrayType.with_size(element_size, array_length)
             case _:
                 return self.generic_visit(node)
 

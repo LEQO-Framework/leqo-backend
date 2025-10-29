@@ -10,6 +10,8 @@ Provides enricher strategy for enriching literal nodes
 from typing import override
 
 from openqasm3.ast import (
+    ArrayLiteral,
+    ArrayType,
     BitType,
     BooleanLiteral,
     BoolType,
@@ -30,6 +32,7 @@ from app.enricher import (
 )
 from app.enricher.utils import implementation, leqo_output
 from app.model.CompileRequest import (
+    ArrayLiteralNode,
     BitLiteralNode,
     BoolLiteralNode,
     FloatLiteralNode,
@@ -55,12 +58,13 @@ class LiteralEnricherStrategy(EnricherStrategy):
 
         match node:
             case QubitNode():
+                size = node.size if node.size is not None else 1
                 return EnrichmentResult(
                     implementation(
                         node,
                         [
                             QubitDeclaration(
-                                Identifier("literal"), IntegerLiteral(node.size)
+                                Identifier("literal"), IntegerLiteral(size)
                             ),
                             leqo_output("out", 0, Identifier("literal")),
                         ],
@@ -125,6 +129,32 @@ class LiteralEnricherStrategy(EnricherStrategy):
                                 BoolType(),
                                 Identifier("literal"),
                                 BooleanLiteral(node.value),
+                            ),
+                            leqo_output("out", 0, Identifier("literal")),
+                        ],
+                    ),
+                    ImplementationMetaData(width=0, depth=1),
+                )
+            case ArrayLiteralNode():
+                element_bit_size = (
+                    node.elementBitSize if node.elementBitSize is not None else 1
+                )
+                element_type = IntType(IntegerLiteral(element_bit_size))
+                array_type = ArrayType(
+                    element_type,
+                    [IntegerLiteral(len(node.values))],
+                )
+                array_literal = ArrayLiteral(
+                    [IntegerLiteral(value) for value in node.values]
+                )
+                return EnrichmentResult(
+                    implementation(
+                        node,
+                        [
+                            ClassicalDeclaration(
+                                array_type,
+                                Identifier("literal"),
+                                array_literal,
                             ),
                             leqo_output("out", 0, Identifier("literal")),
                         ],

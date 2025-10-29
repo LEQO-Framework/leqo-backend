@@ -4,6 +4,8 @@ OpenQasm data-types that are supported by the leqo-backend.
 
 from dataclasses import dataclass
 
+from openqasm3.ast import ArrayLiteral as AstArrayLiteral
+from openqasm3.ast import ArrayType as AstArrayType
 from openqasm3.ast import BitType as AstBitType
 from openqasm3.ast import BoolType as AstBoolType
 from openqasm3.ast import FloatType as AstFloatType
@@ -100,5 +102,32 @@ class FloatType(ClassicalType):
         return AstFloatType(IntegerLiteral(self.size))
 
 
-LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType
+@dataclass(frozen=True)
+class ArrayType(ClassicalType):
+    """
+    An array of homogeneous classical values.
+    """
+
+    element_type: IntType
+    length: int
+
+    @property
+    def size(self) -> int:
+        return self.element_type.size * self.length
+
+    def to_ast(self) -> AstArrayType:
+        return AstArrayType(
+            self.element_type.to_ast(),
+            [IntegerLiteral(self.length)],
+        )
+
+    def literal(self, values: list[int]) -> AstArrayLiteral:
+        return AstArrayLiteral([IntegerLiteral(value) for value in values])
+
+    @staticmethod
+    def with_size(size: int | None, length: int) -> "ArrayType":
+        return ArrayType(IntType.with_size(size), length)
+
+
+LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType | ArrayType
 LeqoSupportedType = QubitType | LeqoSupportedClassicalType

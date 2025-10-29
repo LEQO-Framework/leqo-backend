@@ -1,0 +1,5 @@
+# Core Qiskit SDK (includes qiskit-terra and circuit builders)
+qiskit>=2.0.0
+
+# Aer simulator backend, required for local circuit execution/verification
+qiskit-aer>=0.15.1
