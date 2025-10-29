@@ -10,15 +10,15 @@
       "id": "literal_neg",
       "type": "int",
       "label": "Negative augend",
-      "bitSize": 4,
-      "value": -6
+      "bitSize": 3,
+      "value": -3
     },
     {
       "id": "literal_pos",
       "type": "int",
       "label": "Positive addend",
-      "bitSize": 4,
-      "value": 5
+      "bitSize": 3,
+      "value": -1
     },
     {
       "id": "encode_neg",
@@ -44,7 +44,7 @@
       "id": "measure",
       "type": "measure",
       "label": "Result readout",
-      "indices": [0, 1, 2, 3, 4]
+      "indices": [0, 1, 2, 3]
     }
   ],
   "edges": [
