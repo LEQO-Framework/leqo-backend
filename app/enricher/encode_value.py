@@ -275,29 +275,33 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         classical_input: LeqoSupportedClassicalType,
         input_value: Any | None,
     ) -> EnrichmentResult:
-        size = self._determine_register_size(node, classical_input)
+        register_size = (
+            classical_input.length
+            if isinstance(classical_input, ArrayType)
+            else self._determine_register_size(node, classical_input)
+        )
         rotation_map: dict[int, float] | None = None
         if input_value is not None:
             try:
                 rotation_map = self._constant_angle_rotations(
-                    classical_input, size, input_value
+                    classical_input, register_size, input_value
                 )
             except RuntimeError:
                 rotation_map = None
 
         statements = self._build_angle_statements(
             classical_input,
-            size,
+            register_size,
             rotation_map,
         )
         depth = (
             sum(1 for angle in rotation_map.values() if angle != 0)
             if rotation_map is not None
-            else size
+            else register_size
         )
         return EnrichmentResult(
             implementation(node, statements),
-            ImplementationMetaData(width=size, depth=depth),
+            ImplementationMetaData(width=register_size, depth=depth),
         )
 
     def _determine_register_size(
@@ -425,7 +429,18 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
                 msg = "Unsupported classical input for angle encoding"
                 raise RuntimeError(msg) from exc
-            return {0: angle}
+            clamped = max(0.0, min(angle, 2 * pi))
+            return {0: clamped}
+
+        if isinstance(classical_input, ArrayType):
+            values = self._coerce_array_constant_value(classical_input, raw_value)
+            mask_limit = (1 << classical_input.element_type.size) - 1
+            if mask_limit <= 0:
+                return {index: 0.0 for index in range(classical_input.length)}
+            return {
+                index: float(value & mask_limit)
+                for index, value in enumerate(values)
+            }
 
         indices = self._constant_basis_indices(
             classical_input,
@@ -517,10 +532,15 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if isinstance(classical_input, FloatType):
             if rotation_map is None:
                 assert value_identifier is not None
+                rotation_argument = BinaryExpression(
+                    BinaryOperator["*"],
+                    FloatLiteral(2.0),
+                    value_identifier,
+                )
                 rotation_gate = QuantumGate(
                     modifiers=[],
                     name=Identifier("ry"),
-                    arguments=[value_identifier],
+                    arguments=[rotation_argument],
                     qubits=[qubit_identifier],
                     duration=None,
                 )
@@ -531,8 +551,54 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                     rotation_gate = QuantumGate(
                         modifiers=[],
                         name=Identifier("ry"),
-                        arguments=[FloatLiteral(angle)],
+                        arguments=[FloatLiteral(2 * angle)],
                         qubits=[qubit_identifier],
+                        duration=None,
+                    )
+                    statements.append(rotation_gate)
+            statements.append(leqo_output("out", 0, qubit_identifier))
+            return statements
+
+        if isinstance(classical_input, ArrayType):
+            if rotation_map is None:
+                assert value_identifier is not None
+                for index in range(register_size):
+                    value_expr = IndexExpression(
+                        collection=value_identifier,
+                        index=[IntegerLiteral(index)],
+                    )
+                    rotation_expr = BinaryExpression(
+                        BinaryOperator["*"],
+                        FloatLiteral(2.0),
+                        value_expr,
+                    )
+                    target = IndexedIdentifier(
+                        qubit_identifier, [[IntegerLiteral(index)]]
+                    )
+                    rotation_gate = QuantumGate(
+                        modifiers=[],
+                        name=Identifier("ry"),
+                        arguments=[rotation_expr],
+                        qubits=[target],
+                        duration=None,
+                    )
+                    statements.append(rotation_gate)
+            else:
+                for index in range(register_size):
+                    angle = rotation_map.get(index)
+                    if angle is None:
+                        continue
+                    rotation_value = 2 * angle
+                    if rotation_value == 0:
+                        continue
+                    target = IndexedIdentifier(
+                        qubit_identifier, [[IntegerLiteral(index)]]
+                    )
+                    rotation_gate = QuantumGate(
+                        modifiers=[],
+                        name=Identifier("ry"),
+                        arguments=[FloatLiteral(rotation_value)],
+                        qubits=[target],
                         duration=None,
                     )
                     statements.append(rotation_gate)
