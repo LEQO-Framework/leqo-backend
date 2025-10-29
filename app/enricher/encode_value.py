@@ -257,8 +257,11 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             except RuntimeError:
                 constant_indices = None
 
+        signed_output = self._basis_output_requires_signed_flag(
+            classical_input, input_value
+        )
         statements = self._build_basis_statements(
-            classical_input, size, constant_indices
+            classical_input, size, constant_indices, signed_output
         )
         depth = size if constant_indices is None else len(constant_indices)
         return EnrichmentResult(
@@ -359,6 +362,29 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         mask = value & ((1 << register_size) - 1)
         return [index for index in range(register_size) if (mask >> index) & 1]
 
+    def _basis_output_requires_signed_flag(
+        self,
+        classical_input: LeqoSupportedClassicalType,
+        raw_value: Any | None,
+    ) -> bool:
+        if raw_value is None:
+            return False
+
+        if isinstance(classical_input, IntType):
+            try:
+                return int(raw_value) < 0
+            except (TypeError, ValueError):
+                return False
+
+        if isinstance(classical_input, ArrayType):
+            try:
+                values = self._coerce_array_constant_value(classical_input, raw_value)
+            except RuntimeError:
+                return False
+            return any(value < 0 for value in values)
+
+        return False
+
     @staticmethod
     def _coerce_array_constant_value(
         array_type: ArrayType,
@@ -413,6 +439,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         classical_input: LeqoSupportedClassicalType,
         register_size: int,
         constant_indices: list[int] | None,
+        signed_output: bool,
     ) -> list[Statement]:
         qubit_identifier = Identifier("encoded")
 
@@ -459,7 +486,10 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 statements.append(gate)
 
         # Expose the encoded register as the sole output of the node.
-        statements.append(leqo_output("out", 0, qubit_identifier))
+        output_alias = leqo_output("out", 0, qubit_identifier)
+        if signed_output:
+            output_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
+        statements.append(output_alias)
         return statements
 
     def _build_angle_statements(

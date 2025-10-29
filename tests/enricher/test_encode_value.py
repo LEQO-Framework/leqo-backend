@@ -378,9 +378,43 @@ async def test_enrich_encode_value_node_not_in_db_with_literal_value(
     assert implementation_str.count("x encoded[2];") == 1
     assert "x encoded[1];" not in implementation_str
     assert "@leqo.output 0" in implementation_str
+    assert "@leqo.twos_complement true" not in implementation_str
     assert "let out = encoded;" in implementation_str
     assert result.meta_data.width == expected_width
     assert result.meta_data.depth == LITERAL_ENCODE_DEPTH
+
+
+@pytest.mark.asyncio
+async def test_enrich_basis_encode_negative_literal_sets_signed_output(
+    engine: AsyncEngine,
+) -> None:
+    expected_width = 4
+    node = FrontendEncodeValueNode(
+        id="1",
+        label=None,
+        type="encode",
+        encoding="basis",
+        bounds=1,
+    )
+    constraints = Constraints(
+        requested_inputs={0: IntType(size=expected_width)},
+        requested_input_values={0: -3},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    results = list(await EncodeValueEnricherStrategy(engine).enrich(node, constraints))
+    assert len(results) == 1
+
+    implementation = results[0].enriched_node.implementation
+    implementation_str = (
+        implementation
+        if isinstance(implementation, str)
+        else leqo_dumps(implementation)
+    )
+
+    assert "@leqo.output 0" in implementation_str
+    assert "@leqo.twos_complement true" in implementation_str
 
 
 @pytest.mark.asyncio

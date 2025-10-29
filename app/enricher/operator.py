@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import cast, override
 
 from openqasm3.ast import (
+    Annotation,
     Identifier,
     Include,
     IndexedIdentifier,
@@ -45,6 +46,7 @@ class _AdditionOperand:
     index: int
     declared_size: int | None
     effective_size: int
+    signed: bool
 
 
 class OperatorEnricherStrategy(DataBaseEnricherStrategy):
@@ -142,12 +144,14 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
             index=0,
             declared_size=lhs.size,
             effective_size=lhs.size or 1,
+            signed=lhs.signed,
         )
         addend1 = _AdditionOperand(
             name="addend1",
             index=1,
             declared_size=rhs.size,
             effective_size=rhs.size or 1,
+            signed=rhs.signed,
         )
 
         (
@@ -267,9 +271,11 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         addend0: _AdditionOperand,
         addend1: _AdditionOperand,
     ) -> tuple[list[Statement], int, int, int]:
-        max_bits = max(addend0.effective_size, addend1.effective_size)
-        result_size = max_bits + 1
-        carry_count = max(max_bits - 1, 0)
+        signed_addition = addend0.signed or addend1.signed
+        max_operand_bits = max(addend0.effective_size, addend1.effective_size)
+        iteration_bits = max_operand_bits + (1 if signed_addition else 0)
+        result_size = iteration_bits + (0 if signed_addition else 1)
+        carry_count = max(iteration_bits - 1, 0)
 
         statements: list[Statement] = [
             Include("stdgates.inc"),
@@ -277,11 +283,13 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                 addend0.name,
                 addend0.index,
                 addend0.declared_size,
+                twos_complement=addend0.signed,
             ),
             leqo_input(
                 addend1.name,
                 addend1.index,
                 addend1.declared_size,
+                twos_complement=addend1.signed,
             ),
         ]
 
@@ -322,28 +330,34 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         gate_statements: list[Statement] = []
         depth = 0
 
-        for index in range(max_bits):
-            addend0_bit = addend0_bits[index] if index < len(addend0_bits) else None
-            addend1_bit = addend1_bits[index] if index < len(addend1_bits) else None
+        for index in range(iteration_bits):
+            addend0_bit = self._select_operand_bit(addend0, addend0_bits, index)
+            addend1_bit = self._select_operand_bit(addend1, addend1_bits, index)
             result_bit = result_bits[index]
             carry_in = carry_bits[index - 1] if index > 0 else None
-            carry_out: Identifier | IndexedIdentifier
+            carry_out: Identifier | IndexedIdentifier | None
 
-            carry_out = carry_bits[index] if index < carry_count else result_bits[-1]
+            if index < carry_count:
+                carry_out = carry_bits[index]
+            elif signed_addition:
+                carry_out = None
+            else:
+                carry_out = result_bits[-1]
 
             if addend0_bit is not None and addend1_bit is not None:
-                gate_statements.append(
-                    self._ccx_gate(addend0_bit, addend1_bit, carry_out)
-                )
-                depth += 1
+                if carry_out is not None:
+                    gate_statements.append(
+                        self._ccx_gate(addend0_bit, addend1_bit, carry_out)
+                    )
+                    depth += 1
 
             if carry_in is not None:
-                if addend0_bit is not None:
+                if addend0_bit is not None and carry_out is not None:
                     gate_statements.append(
                         self._ccx_gate(carry_in, addend0_bit, carry_out)
                     )
                     depth += 1
-                if addend1_bit is not None:
+                if addend1_bit is not None and carry_out is not None:
                     gate_statements.append(
                         self._ccx_gate(carry_in, addend1_bit, carry_out)
                     )
@@ -360,9 +374,24 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                 depth += 1
 
         statements.extend(gate_statements)
-        statements.append(leqo_output("out", 0, Identifier("sum")))
+        output_alias = leqo_output("out", 0, Identifier("sum"))
+        if addend0.signed or addend1.signed:
+            output_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
+        statements.append(output_alias)
 
         return statements, result_size, carry_count, depth
+
+    def _select_operand_bit(
+        self,
+        operand: _AdditionOperand,
+        bits: list[Identifier | IndexedIdentifier],
+        index: int,
+    ) -> Identifier | IndexedIdentifier | None:
+        if index < len(bits):
+            return bits[index]
+        if operand.signed and bits:
+            return bits[-1]
+        return None
 
     def _build_qubit_references(
         self,
