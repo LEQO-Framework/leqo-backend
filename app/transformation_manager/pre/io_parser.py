@@ -391,7 +391,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
     ) -> None:
         if not isinstance(info, QubitIOInstance):
             return
-        if any(annotation.keyword == "leqo.twos_complement" for annotation in annotations):
+        if any(
+            annotation.keyword == "leqo.twos_complement" for annotation in annotations
+        ):
             info.signed = True
 
     def _handle_alias_registration(

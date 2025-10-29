@@ -586,8 +586,7 @@ async def test_enrich_angle_encode_value_array_literal(engine: AsyncEngine) -> N
         if (value & mask_limit) != 0
     ]
     rotation_args = [
-        arg.strip()
-        for arg in re.findall(r"ry\(([^)]+)\)", implementation_str)
+        arg.strip() for arg in re.findall(r"ry\(([^)]+)\)", implementation_str)
     ]
     assert len(rotation_args) == len(expected_rotations)
     for arg, expected in zip(rotation_args, expected_rotations, strict=True):
@@ -630,8 +629,7 @@ async def test_enrich_angle_encode_value_array_input(engine: AsyncEngine) -> Non
     assert f"qubit[{array_type.length}] encoded;" in implementation_str
     assert implementation_str.count("if") == 0
     rotation_args = [
-        arg.strip()
-        for arg in re.findall(r"ry\(([^)]+)\)", implementation_str)
+        arg.strip() for arg in re.findall(r"ry\(([^)]+)\)", implementation_str)
     ]
     expected_factor = 2.0
     assert len(rotation_args) == array_type.length

@@ -335,43 +335,22 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
             addend1_bit = self._select_operand_bit(addend1, addend1_bits, index)
             result_bit = result_bits[index]
             carry_in = carry_bits[index - 1] if index > 0 else None
-            carry_out: Identifier | IndexedIdentifier | None
+            carry_out = self._determine_carry_out(
+                signed_addition,
+                carry_bits,
+                result_bits,
+                index,
+            )
 
-            if index < carry_count:
-                carry_out = carry_bits[index]
-            elif signed_addition:
-                carry_out = None
-            else:
-                carry_out = result_bits[-1]
-
-            if addend0_bit is not None and addend1_bit is not None:
-                if carry_out is not None:
-                    gate_statements.append(
-                        self._ccx_gate(addend0_bit, addend1_bit, carry_out)
-                    )
-                    depth += 1
-
-            if carry_in is not None:
-                if addend0_bit is not None and carry_out is not None:
-                    gate_statements.append(
-                        self._ccx_gate(carry_in, addend0_bit, carry_out)
-                    )
-                    depth += 1
-                if addend1_bit is not None and carry_out is not None:
-                    gate_statements.append(
-                        self._ccx_gate(carry_in, addend1_bit, carry_out)
-                    )
-                    depth += 1
-
-            if addend0_bit is not None:
-                gate_statements.append(self._cx_gate(addend0_bit, result_bit))
-                depth += 1
-            if addend1_bit is not None:
-                gate_statements.append(self._cx_gate(addend1_bit, result_bit))
-                depth += 1
-            if carry_in is not None:
-                gate_statements.append(self._cx_gate(carry_in, result_bit))
-                depth += 1
+            round_statements, round_depth = self._build_addition_round(
+                addend0_bit=addend0_bit,
+                addend1_bit=addend1_bit,
+                result_bit=result_bit,
+                carry_in=carry_in,
+                carry_out=carry_out,
+            )
+            gate_statements.extend(round_statements)
+            depth += round_depth
 
         statements.extend(gate_statements)
         output_alias = leqo_output("out", 0, Identifier("sum"))
@@ -380,6 +359,59 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         statements.append(output_alias)
 
         return statements, result_size, carry_count, depth
+
+    def _determine_carry_out(
+        self,
+        signed_addition: bool,
+        carry_bits: list[Identifier | IndexedIdentifier],
+        result_bits: list[Identifier | IndexedIdentifier],
+        index: int,
+    ) -> Identifier | IndexedIdentifier | None:
+        if index < len(carry_bits):
+            return carry_bits[index]
+        if signed_addition:
+            return None
+        return result_bits[-1]
+
+    def _build_addition_round(
+        self,
+        *,
+        addend0_bit: Identifier | IndexedIdentifier | None,
+        addend1_bit: Identifier | IndexedIdentifier | None,
+        result_bit: Identifier | IndexedIdentifier,
+        carry_in: Identifier | IndexedIdentifier | None,
+        carry_out: Identifier | IndexedIdentifier | None,
+    ) -> tuple[list[Statement], int]:
+        statements: list[Statement] = []
+        depth = 0
+
+        if (
+            carry_out is not None
+            and addend0_bit is not None
+            and addend1_bit is not None
+        ):
+            statements.append(self._ccx_gate(addend0_bit, addend1_bit, carry_out))
+            depth += 1
+
+        if carry_in is not None and carry_out is not None:
+            if addend0_bit is not None:
+                statements.append(self._ccx_gate(carry_in, addend0_bit, carry_out))
+                depth += 1
+            if addend1_bit is not None:
+                statements.append(self._ccx_gate(carry_in, addend1_bit, carry_out))
+                depth += 1
+
+        if addend0_bit is not None:
+            statements.append(self._cx_gate(addend0_bit, result_bit))
+            depth += 1
+        if addend1_bit is not None:
+            statements.append(self._cx_gate(addend1_bit, result_bit))
+            depth += 1
+        if carry_in is not None:
+            statements.append(self._cx_gate(carry_in, result_bit))
+            depth += 1
+
+        return statements, depth
 
     def _select_operand_bit(
         self,

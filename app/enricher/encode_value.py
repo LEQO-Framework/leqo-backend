@@ -3,6 +3,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Encod
 """
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from math import pi
 from typing import Any, cast, override
 
@@ -56,6 +57,15 @@ from app.model.exceptions import (
     InputSizeMismatch,
     InputTypeMismatch,
 )
+
+
+@dataclass
+class _AngleEmissionContext:
+    statements: list[Statement]
+    qubit_identifier: Identifier
+    register_size: int
+    rotation_map: dict[int, float] | None
+    value_identifier: Identifier | None
 
 
 class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
@@ -436,10 +446,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             values = self._coerce_array_constant_value(classical_input, raw_value)
             mask_limit = (1 << classical_input.element_type.size) - 1
             if mask_limit <= 0:
-                return {index: 0.0 for index in range(classical_input.length)}
+                return dict.fromkeys(range(classical_input.length), 0.0)
             return {
-                index: float(value & mask_limit)
-                for index, value in enumerate(values)
+                index: float(value & mask_limit) for index, value in enumerate(values)
             }
 
         indices = self._constant_basis_indices(
@@ -516,6 +525,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         qubit_identifier = Identifier("encoded")
 
         statements: list[Statement] = [Include("stdgates.inc")]
+        value_identifier: Identifier | None = None
         if rotation_map is None:
             value_identifier = Identifier("value")
             classical_decl = ClassicalDeclaration(
@@ -523,89 +533,142 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             )
             classical_decl.annotations = [Annotation("leqo.input", "0")]
             statements.append(classical_decl)
-        else:
-            value_identifier = None
 
-        qubit_decl = QubitDeclaration(qubit_identifier, IntegerLiteral(register_size))
-        statements.append(qubit_decl)
+        statements.append(
+            QubitDeclaration(qubit_identifier, IntegerLiteral(register_size))
+        )
 
+        context = _AngleEmissionContext(
+            statements=statements,
+            qubit_identifier=qubit_identifier,
+            register_size=register_size,
+            rotation_map=rotation_map,
+            value_identifier=value_identifier,
+        )
+        self._emit_angle_statements(classical_input, context)
+
+        statements.append(leqo_output("out", 0, qubit_identifier))
+        return statements
+
+    def _emit_angle_statements(
+        self, classical_input: LeqoSupportedClassicalType, context: _AngleEmissionContext
+    ) -> None:
         if isinstance(classical_input, FloatType):
-            if rotation_map is None:
-                assert value_identifier is not None
-                rotation_argument = BinaryExpression(
-                    BinaryOperator["*"],
-                    FloatLiteral(2.0),
-                    value_identifier,
-                )
-                rotation_gate = QuantumGate(
+            self._emit_float_angle_statements(context)
+            return
+
+        if isinstance(classical_input, ArrayType):
+            self._emit_array_angle_statements(context)
+            return
+
+        self._emit_generic_angle_statements(
+            classical_input,
+            context,
+        )
+
+    def _emit_float_angle_statements(
+        self, context: _AngleEmissionContext
+    ) -> None:
+        rotation_map = context.rotation_map
+        statements = context.statements
+        qubit_identifier = context.qubit_identifier
+
+        if rotation_map is None:
+            value_identifier = context.value_identifier
+            assert value_identifier is not None
+            rotation_argument = BinaryExpression(
+                BinaryOperator["*"],
+                FloatLiteral(2.0),
+                value_identifier,
+            )
+            statements.append(
+                QuantumGate(
                     modifiers=[],
                     name=Identifier("ry"),
                     arguments=[rotation_argument],
                     qubits=[qubit_identifier],
                     duration=None,
                 )
-                statements.append(rotation_gate)
-            else:
-                angle = rotation_map.get(0)
-                if angle is not None and angle != 0:
-                    rotation_gate = QuantumGate(
-                        modifiers=[],
-                        name=Identifier("ry"),
-                        arguments=[FloatLiteral(2 * angle)],
-                        qubits=[qubit_identifier],
-                        duration=None,
-                    )
-                    statements.append(rotation_gate)
-            statements.append(leqo_output("out", 0, qubit_identifier))
-            return statements
+            )
+            return
 
-        if isinstance(classical_input, ArrayType):
-            if rotation_map is None:
-                assert value_identifier is not None
-                for index in range(register_size):
-                    value_expr = IndexExpression(
-                        collection=value_identifier,
-                        index=[IntegerLiteral(index)],
-                    )
-                    rotation_expr = BinaryExpression(
-                        BinaryOperator["*"],
-                        FloatLiteral(2.0),
-                        value_expr,
-                    )
-                    target = IndexedIdentifier(
-                        qubit_identifier, [[IntegerLiteral(index)]]
-                    )
-                    rotation_gate = QuantumGate(
+        angle = rotation_map.get(0)
+        if angle is None or angle == 0:
+            return
+        statements.append(
+            QuantumGate(
+                modifiers=[],
+                name=Identifier("ry"),
+                arguments=[FloatLiteral(2 * angle)],
+                qubits=[qubit_identifier],
+                duration=None,
+            )
+        )
+
+    def _emit_array_angle_statements(
+        self, context: _AngleEmissionContext
+    ) -> None:
+        statements = context.statements
+        rotation_map = context.rotation_map
+        qubit_identifier = context.qubit_identifier
+        register_size = context.register_size
+
+        if rotation_map is None:
+            value_identifier = context.value_identifier
+            assert value_identifier is not None
+            multiplier = FloatLiteral(2.0)
+            for index in range(register_size):
+                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
+                value_expr = IndexExpression(
+                    collection=value_identifier,
+                    index=[IntegerLiteral(index)],
+                )
+                rotation_expr = BinaryExpression(
+                    BinaryOperator["*"],
+                    multiplier,
+                    value_expr,
+                )
+                statements.append(
+                    QuantumGate(
                         modifiers=[],
                         name=Identifier("ry"),
                         arguments=[rotation_expr],
                         qubits=[target],
                         duration=None,
                     )
-                    statements.append(rotation_gate)
-            else:
-                for index in range(register_size):
-                    angle = rotation_map.get(index)
-                    if angle is None:
-                        continue
-                    rotation_value = 2 * angle
-                    if rotation_value == 0:
-                        continue
-                    target = IndexedIdentifier(
-                        qubit_identifier, [[IntegerLiteral(index)]]
-                    )
-                    rotation_gate = QuantumGate(
-                        modifiers=[],
-                        name=Identifier("ry"),
-                        arguments=[FloatLiteral(rotation_value)],
-                        qubits=[target],
-                        duration=None,
-                    )
-                    statements.append(rotation_gate)
-            statements.append(leqo_output("out", 0, qubit_identifier))
-            return statements
+                )
+            return
+
+        for index in range(register_size):
+            angle = rotation_map.get(index)
+            if angle is None:
+                continue
+            rotation_value = 2 * angle
+            if rotation_value == 0:
+                continue
+            target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
+            statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("ry"),
+                    arguments=[FloatLiteral(rotation_value)],
+                    qubits=[target],
+                    duration=None,
+                )
+            )
+
+    def _emit_generic_angle_statements(
+        self,
+        classical_input: LeqoSupportedClassicalType,
+        context: _AngleEmissionContext,
+    ) -> None:
+        statements = context.statements
+        qubit_identifier = context.qubit_identifier
+        register_size = context.register_size
+        rotation_map = context.rotation_map
 
         if rotation_map is None:
+            value_identifier = context.value_identifier
             assert value_identifier is not None
             for index in range(register_size):
                 condition = self._bit_condition_expression(
@@ -620,23 +683,22 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                     duration=None,
                 )
                 statements.append(BranchingStatement(condition, [rotation_gate], []))
-        else:
-            for index in sorted(rotation_map):
-                angle = rotation_map[index]
-                if angle == 0:
-                    continue
-                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
-                rotation_gate = QuantumGate(
+            return
+
+        for index in sorted(rotation_map):
+            angle = rotation_map[index]
+            if angle == 0:
+                continue
+            target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
+            statements.append(
+                QuantumGate(
                     modifiers=[],
                     name=Identifier("ry"),
                     arguments=[FloatLiteral(angle)],
                     qubits=[target],
                     duration=None,
                 )
-                statements.append(rotation_gate)
-
-        statements.append(leqo_output("out", 0, qubit_identifier))
-        return statements
+            )
 
     def _bit_condition_expression(
         self,
