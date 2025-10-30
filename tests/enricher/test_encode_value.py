@@ -1,3 +1,5 @@
+import re
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import delete, select
@@ -378,9 +380,43 @@ async def test_enrich_encode_value_node_not_in_db_with_literal_value(
     assert implementation_str.count("x encoded[2];") == 1
     assert "x encoded[1];" not in implementation_str
     assert "@leqo.output 0" in implementation_str
+    assert "@leqo.twos_complement true" not in implementation_str
     assert "let out = encoded;" in implementation_str
     assert result.meta_data.width == expected_width
     assert result.meta_data.depth == LITERAL_ENCODE_DEPTH
+
+
+@pytest.mark.asyncio
+async def test_enrich_basis_encode_negative_literal_sets_signed_output(
+    engine: AsyncEngine,
+) -> None:
+    expected_width = 4
+    node = FrontendEncodeValueNode(
+        id="1",
+        label=None,
+        type="encode",
+        encoding="basis",
+        bounds=1,
+    )
+    constraints = Constraints(
+        requested_inputs={0: IntType(size=expected_width)},
+        requested_input_values={0: -3},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    results = list(await EncodeValueEnricherStrategy(engine).enrich(node, constraints))
+    assert len(results) == 1
+
+    implementation = results[0].enriched_node.implementation
+    implementation_str = (
+        implementation
+        if isinstance(implementation, str)
+        else leqo_dumps(implementation)
+    )
+
+    assert "@leqo.output 0" in implementation_str
+    assert "@leqo.twos_complement true" in implementation_str
 
 
 @pytest.mark.asyncio
@@ -542,15 +578,22 @@ async def test_enrich_angle_encode_value_array_literal(engine: AsyncEngine) -> N
     assert "@leqo.input 0" not in implementation_str
     assert "array[int[3], 2] value;" not in implementation_str
     assert "if" not in implementation_str
-    assert f"qubit[{array_type.size}] encoded;" in implementation_str
-    expected_depth = sum(
-        (value & ((1 << array_type.element_type.size) - 1)).bit_count()
+    assert f"qubit[{array_type.length}] encoded;" in implementation_str
+    mask_limit = (1 << array_type.element_type.size) - 1
+    expected_rotations = [
+        2 * float(value & mask_limit)
         for value in array_values
-    )
-    assert implementation_str.count("ry(3.141592653589793)") == expected_depth
+        if (value & mask_limit) != 0
+    ]
+    rotation_args = [
+        arg.strip() for arg in re.findall(r"ry\(([^)]+)\)", implementation_str)
+    ]
+    assert len(rotation_args) == len(expected_rotations)
+    for arg, expected in zip(rotation_args, expected_rotations, strict=True):
+        assert float(arg) == pytest.approx(expected)
     assert "@leqo.output 0" in implementation_str
-    assert result.meta_data.width == array_type.size
-    assert result.meta_data.depth == expected_depth
+    assert result.meta_data.width == array_type.length
+    assert result.meta_data.depth == len(expected_rotations)
 
 
 @pytest.mark.asyncio
@@ -583,9 +626,18 @@ async def test_enrich_angle_encode_value_array_input(engine: AsyncEngine) -> Non
 
     assert "@leqo.input 0" in implementation_str
     assert "array[int[3], 2] value;" in implementation_str
-    assert f"qubit[{array_type.size}] encoded;" in implementation_str
-    assert implementation_str.count("if") == array_type.size
-    assert implementation_str.count("ry(3.141592653589793)") == array_type.size
+    assert f"qubit[{array_type.length}] encoded;" in implementation_str
+    assert implementation_str.count("if") == 0
+    rotation_args = [
+        arg.strip() for arg in re.findall(r"ry\(([^)]+)\)", implementation_str)
+    ]
+    expected_factor = 2.0
+    assert len(rotation_args) == array_type.length
+    for index, arg in enumerate(rotation_args):
+        compact = arg.replace(" ", "").strip("()")
+        factor_str, remainder = compact.split("*", 1)
+        assert float(factor_str) == pytest.approx(expected_factor)
+        assert remainder == f"value[{index}]"
     assert "@leqo.output 0" in implementation_str
-    assert result.meta_data.width == array_type.size
-    assert result.meta_data.depth == array_type.size
+    assert result.meta_data.width == array_type.length
+    assert result.meta_data.depth == array_type.length

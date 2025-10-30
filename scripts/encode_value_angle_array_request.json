@@ -10,7 +10,7 @@
       "id": "literal",
       "type": "array",
       "label": "Array input",
-      "values": [1, 6],
+      "values": [1,1,1,3],
       "elementBitSize": 3
     },
     {
@@ -24,7 +24,7 @@
       "id": "measure",
       "type": "measure",
       "label": "Readout",
-      "indices": [0, 1, 2, 3, 4, 5]
+      "indices": [0,1,2,3]
     }
   ],
   "edges": [

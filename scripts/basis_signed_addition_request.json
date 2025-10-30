@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Signed Basis Addition demo",
+    "description": "Encode a negative and a positive integer in the computational basis, add them, and measure the signed sum.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    {
+      "id": "literal_neg",
+      "type": "int",
+      "label": "Negative augend",
+      "bitSize": 3,
+      "value": -3
+    },
+    {
+      "id": "literal_pos",
+      "type": "int",
+      "label": "Positive addend",
+      "bitSize": 3,
+      "value": -1
+    },
+    {
+      "id": "encode_neg",
+      "type": "encode",
+      "label": "Encode negative augend",
+      "encoding": "basis",
+      "bounds": 1
+    },
+    {
+      "id": "encode_pos",
+      "type": "encode",
+      "label": "Encode positive addend",
+      "encoding": "basis",
+      "bounds": 1
+    },
+    {
+      "id": "adder",
+      "type": "operator",
+      "label": "Signed binary addition",
+      "operator": "+"
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Result readout",
+      "indices": [0, 1, 2, 3]
+    }
+  ],
+  "edges": [
+    { "source": ["literal_neg", 0], "target": ["encode_neg", 0] },
+    { "source": ["literal_pos", 0], "target": ["encode_pos", 0] },
+    { "source": ["encode_neg", 0], "target": ["adder", 0] },
+    { "source": ["encode_pos", 0], "target": ["adder", 1] },
+    { "source": ["adder", 0], "target": ["measure", 0] }
+  ]
+}

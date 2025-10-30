@@ -41,6 +41,7 @@ Example payloads:
 - `encode_value_basis_request_measure_indices.json` - measures only a subset of the encoded basis register.
 - `encode_value_bool_request.json` - runs the basis encoder with a boolean literal to toggle a single qubit.
 - `basis_addition_request.json` - encodes two integers in the basis, sums them via an `operator` node, and measures the summed register.
+- `basis_signed_addition_request.json` - encodes a negative and positive integer, exercises the signed-aware addition, and measures the two's-complement sum.
 - `encode_value_angle_request.json` - uses the angle encoder with a floating-point literal and measures the encoded qubit.
 - `encode_value_angle_array_request.json` - processes an array literal (with integers) with the angle encoder.
 - `enrich_operator_plus_request.json` - targets a `+` operator where the lhs register is wider to showcase the flexible fallback.

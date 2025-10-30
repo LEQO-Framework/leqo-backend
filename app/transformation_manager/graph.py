@@ -178,10 +178,14 @@ class QubitIOInstance:
 
     name: str
     ids: QubitID | QubitIDs
+    signed: bool = False
 
     @property
     def type(self) -> LeqoQubitType:
-        return LeqoQubitType(len(self.ids) if isinstance(self.ids, list) else None)
+        return LeqoQubitType(
+            len(self.ids) if isinstance(self.ids, list) else None,
+            signed=self.signed,
+        )
 
 
 @dataclass()
