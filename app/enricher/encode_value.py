@@ -551,7 +551,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         return statements
 
     def _emit_angle_statements(
-        self, classical_input: LeqoSupportedClassicalType, context: _AngleEmissionContext
+        self,
+        classical_input: LeqoSupportedClassicalType,
+        context: _AngleEmissionContext,
     ) -> None:
         if isinstance(classical_input, FloatType):
             self._emit_float_angle_statements(context)
@@ -566,9 +568,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             context,
         )
 
-    def _emit_float_angle_statements(
-        self, context: _AngleEmissionContext
-    ) -> None:
+    def _emit_float_angle_statements(self, context: _AngleEmissionContext) -> None:
         rotation_map = context.rotation_map
         statements = context.statements
         qubit_identifier = context.qubit_identifier
@@ -605,9 +605,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             )
         )
 
-    def _emit_array_angle_statements(
-        self, context: _AngleEmissionContext
-    ) -> None:
+    def _emit_array_angle_statements(self, context: _AngleEmissionContext) -> None:
         statements = context.statements
         rotation_map = context.rotation_map
         qubit_identifier = context.qubit_identifier
