@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "GHZ State Demo",
+    "description": "Prepare a three-qubit GHZ state and measure all qubits.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    {
+      "id": "prepare",
+      "type": "prepare",
+      "label": "GHZ state",
+      "quantumState": "ghz",
+      "size": 3
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": [0, 1, 2]
+    }
+  ],
+  "edges": [
+    { "source": ["prepare", 0], "target": ["measure", 0] }
+  ]
+}

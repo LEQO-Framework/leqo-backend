@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Encode Value (basis, negative) demo",
+    "description": "Send a negative integer into the basis encoder and observe the two's-complement bit pattern.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    {
+      "id": "literal",
+      "type": "int",
+      "label": "Negative input",
+      "bitSize": 4,
+      "value": -3
+    },
+    {
+      "id": "encode",
+      "type": "encode",
+      "label": "Basis encoder (negative)",
+      "encoding": "basis",
+      "bounds": 1
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": [0, 1, 2, 3]
+    }
+  ],
+  "edges": [
+    { "source": ["literal", 0], "target": ["encode", 0] },
+    { "source": ["encode", 0], "target": ["measure", 0] }
+  ]
+}

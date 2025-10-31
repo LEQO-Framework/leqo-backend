@@ -1,0 +1,73 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Basis Encode (list) demo",
+    "description": "Encode a list of integers in the computational basis, merge the registers, and measure the combined output.",
+    "author": "CLI Tester"
+  },
+  "nodes": [
+    {
+      "id": "literal_0",
+      "type": "int",
+      "label": "Value 0",
+      "bitSize": 4,
+      "value": 3
+    },
+    {
+      "id": "literal_1",
+      "type": "int",
+      "label": "Value 1",
+      "bitSize": 4,
+      "value": 5
+    },
+    {
+      "id": "literal_2",
+      "type": "int",
+      "label": "Value 2",
+      "bitSize": 4,
+      "value": 9
+    },
+    {
+      "id": "encode_0",
+      "type": "encode",
+      "label": "Encode Value 0",
+      "encoding": "basis",
+      "bounds": 1
+    },
+    {
+      "id": "encode_1",
+      "type": "encode",
+      "label": "Encode Value 1",
+      "encoding": "basis",
+      "bounds": 1
+    },
+    {
+      "id": "encode_2",
+      "type": "encode",
+      "label": "Encode Value 2",
+      "encoding": "basis",
+      "bounds": 1
+    },
+    {
+      "id": "merger",
+      "type": "merger",
+      "label": "Concatenate registers",
+      "numberInputs": 3
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    }
+  ],
+  "edges": [
+    { "source": ["literal_0", 0], "target": ["encode_0", 0] },
+    { "source": ["literal_1", 0], "target": ["encode_1", 0] },
+    { "source": ["literal_2", 0], "target": ["encode_2", 0] },
+    { "source": ["encode_0", 0], "target": ["merger", 0] },
+    { "source": ["encode_1", 0], "target": ["merger", 1] },
+    { "source": ["encode_2", 0], "target": ["merger", 2] },
+    { "source": ["merger", 0], "target": ["measure", 0] }
+  ]
+}

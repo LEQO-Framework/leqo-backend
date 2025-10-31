@@ -5,7 +5,6 @@ Provides the core logic of the backend.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from collections import defaultdict
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import Depends
@@ -15,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from app.config import Settings
 from app.enricher import Constraints, Enricher, ParsedImplementationNode
 from app.model.CompileRequest import (
+    ArrayLiteralNode,
     BitLiteralNode,
     BoolLiteralNode,
     CompileRequest,
@@ -30,11 +30,12 @@ from app.model.CompileRequest import (
     SingleInsert,
 )
 from app.model.CompileRequest import Node as FrontendNode
-from app.model.data_types import LeqoSupportedType
+from app.model.data_types import IntType, LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
 from app.services import get_db_engine, get_enricher, get_settings
 from app.transformation_manager.frontend_graph import FrontendGraph
 from app.transformation_manager.graph import (
+    ClassicalIOInstance,
     IOConnection,
     ProcessedProgramNode,
     ProgramGraph,
@@ -101,6 +102,7 @@ class CommonProcessor:
         """
         Get inputs of current node from previous processed nodes.
         """
+        target_frontend_node = self.frontend_graph.node_data[target_node]
         requested_inputs: dict[int, LeqoSupportedType] = {}
         requested_values: dict[int, Any] = {}
         for source_node in self.frontend_graph.predecessors(target_node):
@@ -125,10 +127,27 @@ class CommonProcessor:
                     )
 
                 input_index = edge.target[1]
-                requested_inputs[input_index] = output.type
                 constant_value = self._extract_literal_value(
                     source_frontend_node, output_index
                 )
+
+                requested_type = output.type
+                if (
+                    isinstance(target_frontend_node, EncodeValueNode)
+                    and target_frontend_node.encoding == "basis"
+                    and isinstance(output, ClassicalIOInstance)
+                    and isinstance(output.type, IntType)
+                    and isinstance(source_frontend_node, IntLiteralNode)
+                    and "bitSize" not in source_frontend_node.model_fields_set
+                    and isinstance(constant_value, int)
+                ):
+                    inferred_size = self._infer_literal_bitsize(constant_value)
+                    current_int_type = cast(IntType, requested_type)
+                    if inferred_size < current_int_type.size:
+                        requested_type = IntType.with_size(inferred_size)
+
+                requested_inputs[input_index] = requested_type
+
                 if constant_value is not None:
                     requested_values[input_index] = constant_value
 
@@ -140,6 +159,15 @@ class CommonProcessor:
         return requested_inputs, requested_values
 
     @staticmethod
+    def _infer_literal_bitsize(value: int) -> int:
+        """
+        Derive the minimal two's-complement bit width required to represent value.
+        """
+        if value >= 0:
+            return max(1, value.bit_length())
+        return max(1, (-value - 1).bit_length() + 1)
+
+    @staticmethod
     def _extract_literal_value(
         node: FrontendNode | ParsedImplementationNode, output_index: int
     ) -> Any | None:
@@ -149,17 +177,22 @@ class CommonProcessor:
         if output_index != 0:
             return None
 
+        literal_value: Any | None
         match node:
+            case ArrayLiteralNode(values=values):
+                literal_value = values
             case IntLiteralNode(value=value):
-                return value
+                literal_value = value
             case BitLiteralNode(value=value):
-                return int(value)
+                literal_value = int(value)
             case BoolLiteralNode(value=value):
-                return value
+                literal_value = value
             case FloatLiteralNode(value=value):
-                return value
+                literal_value = value
             case _:
-                return None
+                literal_value = None
+
+        return literal_value
 
 
 class MergingProcessor(CommonProcessor):
@@ -293,7 +326,11 @@ class MergingProcessor(CommonProcessor):
             for node_id, frontend_node in self.frontend_graph.node_data.items()
             if isinstance(
                 frontend_node,
-                IntLiteralNode | FloatLiteralNode | BitLiteralNode | BoolLiteralNode,
+                IntLiteralNode
+                | FloatLiteralNode
+                | BitLiteralNode
+                | BoolLiteralNode
+                | ArrayLiteralNode,
             )
         }
         used_ids: set[str] = set()

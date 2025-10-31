@@ -153,8 +153,11 @@ def test_raise_on_invalid_qubit_cast() -> None:
     id = uuid4()
     with pytest.raises(
         PreprocessingException,
-        match=re.escape(
-            f"Try to make QubitIOInstance(name='leqo_{id.hex}_q', ids=[0, 1, 2, 3, 4]) bigger, only smaller is possible.",
+        match=(
+            re.escape(
+                f"Try to make QubitIOInstance(name='leqo_{id.hex}_q', ids=[0, 1, 2, 3, 4]"
+            )
+            + r"(, signed=(True|False))?\) bigger, only smaller is possible\."
         ),
     ):
         size_cast(preprocess(ProgramNode("", id=id), before), {0: 10000})

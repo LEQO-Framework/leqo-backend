@@ -5,10 +5,13 @@ It provides classes to model metadata, node data, and the complete compile reque
 
 from __future__ import annotations
 
+import re
 from abc import ABC
-from typing import Annotated, Literal
+from collections.abc import Iterable
+from contextlib import suppress
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.openqasm3.stdgates import (
     OneQubitGate,
@@ -18,6 +21,16 @@ from app.openqasm3.stdgates import (
     TwoQubitGateWithAngle,
     TwoQubitGateWithParam,
 )
+
+
+def _infer_int_bit_size(value: int) -> int:
+    """
+    Derive the minimal two's-complement bit width required to represent value.
+    """
+
+    if value >= 0:
+        return max(1, value.bit_length())
+    return max(1, (-value - 1).bit_length() + 1)
 
 
 class OptimizeSettings(ABC):
@@ -117,6 +130,39 @@ class PrepareStateNode(BaseNode):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_state(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+        if normalized.get("type") == "statePreparationNode":
+            normalized["type"] = "prepare"
+
+        node_data = normalized.get("data")
+        if isinstance(node_data, dict):
+            if "quantumState" not in normalized:
+                state_name = node_data.get("quantumStateName")
+                if state_name is not None:
+                    normalized["quantumState"] = str(state_name)
+            if "size" not in normalized:
+                size_value = node_data.get("size")
+                if size_value is not None:
+                    normalized["size"] = size_value
+
+        if "quantumState" in normalized and normalized["quantumState"] is not None:
+            normalized["quantumState"] = str(normalized["quantumState"]).lower()
+
+        size_field = normalized.get("size")
+        if isinstance(size_field, str):
+            stripped = size_field.strip()
+            if stripped:
+                with suppress(ValueError):
+                    normalized["size"] = int(stripped)
+
+        return normalized
+
 
 class SplitterNode(BaseNode):
     """
@@ -155,6 +201,68 @@ class MeasurementNode(BaseNode):
     """List of qubit indices to measure."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_measurement(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+        if normalized.get("type") == "measurementNode":
+            normalized["type"] = "measure"
+
+        node_data = normalized.get("data")
+        node_dict = node_data if isinstance(node_data, dict) else None
+
+        indices = cls._parse_indices(normalized.get("indices"))
+        if indices is None and node_dict is not None:
+            indices = cls._parse_indices(node_dict.get("indices"))
+            if indices is None:
+                indices = cls._infer_indices_from_inputs(node_dict.get("inputs"))
+
+        if indices is not None:
+            normalized["indices"] = indices
+
+        return normalized
+
+    @staticmethod
+    def _coerce_indices(values: Iterable[Any]) -> list[int]:
+        coerced: list[int] = []
+        for raw in values:
+            if isinstance(raw, int):
+                coerced.append(raw)
+                continue
+            if isinstance(raw, str):
+                stripped = raw.strip()
+                if stripped:
+                    with suppress(ValueError):
+                        coerced.append(int(stripped))
+        return coerced
+
+    @classmethod
+    def _parse_indices(cls, value: Any) -> list[int] | None:
+        if isinstance(value, list):
+            parsed = cls._coerce_indices(value)
+            return parsed or None
+        if isinstance(value, str):
+            segments = [segment.strip() for segment in value.split(",")]
+            parsed = cls._coerce_indices(segments)
+            return parsed or None
+        if isinstance(value, int):
+            return [value]
+        return None
+
+    @staticmethod
+    def _infer_indices_from_inputs(value: Any) -> list[int] | None:
+        if not isinstance(value, list):
+            return None
+        logical_inputs = [
+            entry
+            for entry in value
+            if not (isinstance(entry, dict) and "outputIdentifier" in entry)
+        ]
+        return list(range(len(logical_inputs))) if logical_inputs else None
 
 
 BoundaryNode = (
@@ -264,7 +372,64 @@ class FloatLiteralNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
-LiteralNode = BitLiteralNode | BoolLiteralNode | IntLiteralNode | FloatLiteralNode
+class ArrayLiteralNode(BaseNode):
+    """
+    Node representing an array of integers.
+    """
+
+    type: Literal["array"] = "array"
+
+    values: list[int]
+    """Ordered list of integer values in the array."""
+
+    elementBitSize: int | None = Field(default=None, ge=1)
+    """Bit width of each element in the array (optional)."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_values(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+        raw_values = normalized.get("values", normalized.get("value"))
+        if isinstance(raw_values, str):
+            parts = [
+                part.strip()
+                for part in raw_values.replace(";", ",").split(",")
+                if part.strip() != ""
+            ]
+            normalized["values"] = [int(part) for part in parts]
+        elif isinstance(raw_values, Iterable):
+            normalized["values"] = [int(value) for value in raw_values]
+        elif raw_values is not None:
+            normalized["values"] = [int(raw_values)]
+        else:
+            normalized.setdefault("values", [])
+
+        return normalized
+
+    @model_validator(mode="after")
+    def _default_bit_size(self) -> ArrayLiteralNode:
+        if self.elementBitSize is None:
+            bit_size = (
+                max((_infer_int_bit_size(value) for value in self.values), default=1)
+                if self.values
+                else 1
+            )
+            self.elementBitSize = bit_size
+        return self
+
+
+LiteralNode = (
+    BitLiteralNode
+    | BoolLiteralNode
+    | IntLiteralNode
+    | FloatLiteralNode
+    | ArrayLiteralNode
+)
 # endregion
 
 
@@ -402,6 +567,42 @@ class Edge(BaseModel):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_edge(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+
+        def _convert_endpoint(field: str, handle_field: str) -> None:
+            value = normalized.get(field)
+            if isinstance(value, str):
+                node_id = value
+                index = 0
+                handle = normalized.get(handle_field)
+                if isinstance(handle, str):
+                    if handle.endswith(node_id):
+                        prefix = handle[: -len(node_id)]
+                    else:
+                        prefix = handle
+                    match = re.search(r"(\d+)(?!.*\d)", prefix)
+                    if match is not None:
+                        index = int(match.group(1))
+                normalized[field] = (node_id, index)
+
+        _convert_endpoint("source", "sourceHandle")
+        _convert_endpoint("target", "targetHandle")
+
+        size_value = normalized.get("size")
+        if isinstance(size_value, str):
+            stripped = size_value.strip()
+            if stripped:
+                with suppress(ValueError):
+                    normalized["size"] = int(stripped)
+
+        return normalized
+
 
 class CompileRequest(BaseModel):
     """
@@ -421,6 +622,48 @@ class CompileRequest(BaseModel):
     """Directed edges defining input-output relationships between nodes."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_nodes(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+        nodes = normalized.get("nodes")
+        if isinstance(nodes, list):
+            converted_nodes: list[Any] = []
+            for node in nodes:
+                if isinstance(node, dict):
+                    converted = node.copy()
+                    node_type = converted.get("type")
+                    if node_type == "statePreparationNode":
+                        converted["type"] = "prepare"
+                    elif node_type == "measurementNode":
+                        converted["type"] = "measure"
+                    elif node_type == "dataTypeNode":
+                        data_field = converted.get("data")
+                        if isinstance(data_field, dict):
+                            data_type = data_field.get("dataType")
+                            if (
+                                isinstance(data_type, str)
+                                and data_type.lower() == "array"
+                            ):
+                                converted["type"] = "array"
+                                converted.setdefault("label", data_field.get("label"))
+                                if "values" not in converted and "value" in data_field:
+                                    converted["values"] = data_field["value"]
+                                if (
+                                    "elementBitSize" not in converted
+                                    and "bitSize" in data_field
+                                ):
+                                    converted["elementBitSize"] = data_field["bitSize"]
+                    converted_nodes.append(converted)
+                else:
+                    converted_nodes.append(node)
+            normalized["nodes"] = converted_nodes
+
+        return normalized
 
 
 EnrichableNode = (
