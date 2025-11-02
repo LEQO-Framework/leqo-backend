@@ -68,6 +68,23 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        name="0005_create_qrms_and_service_deployment_models",
+        statements=(
+            """
+            CREATE TABLE IF NOT EXISTS "qrms" (
+                "id" UUID PRIMARY KEY,
+                "payload" TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS "service_deployment_models" (
+                "id" UUID PRIMARY KEY,
+                "payload" TEXT NOT NULL
+            )
+            """,
+        ),
+    ),
 )
 
 

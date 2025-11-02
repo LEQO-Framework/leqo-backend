@@ -64,6 +64,28 @@ class CompileRequestPayload(Base):
     payload: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class QuantumResourceModel(Base):
+    """
+    Store Quantum Resource Model representations for a request.
+    """
+
+    __tablename__ = "qrms"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class ServiceDeploymentModel(Base):
+    """
+    Store Service Deployment Model representations for a request.
+    """
+
+    __tablename__ = "service_deployment_models"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+
+
 class EnrichResult(Base):
     """
     Store the result of an enrich request.
