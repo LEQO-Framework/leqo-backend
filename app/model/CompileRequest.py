@@ -621,6 +621,12 @@ class CompileRequest(BaseModel):
     edges: list[Edge]
     """Directed edges defining input-output relationships between nodes."""
 
+    qrms: Any | None = None
+    """Optional Quantum Resource Models payload supplied by the client."""
+
+    serviceDeploymentModels: Any | None = None
+    """Optional Service Deployment Models payload supplied by the client."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
     @model_validator(mode="before")

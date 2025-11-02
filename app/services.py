@@ -136,3 +136,23 @@ def get_request_url(
     """
 
     return f"{settings.api_base_url}request/{uuid}"
+
+
+def get_qrms_url(
+    uuid: UUID, settings: Annotated[Settings, Depends(get_settings)]
+) -> str:
+    """
+    Return the full URL for the Quantum Resource Models of a request.
+    """
+
+    return f"{settings.api_base_url}qrms/{uuid}"
+
+
+def get_service_deployment_models_url(
+    uuid: UUID, settings: Annotated[Settings, Depends(get_settings)]
+) -> str:
+    """
+    Return the full URL for the Service Deployment Models of a request.
+    """
+
+    return f"{settings.api_base_url}service-deployment-models/{uuid}"

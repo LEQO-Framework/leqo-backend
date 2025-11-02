@@ -29,8 +29,10 @@ from app.model.StatusResponse import (
 )
 from app.services import (
     get_db_engine,
+    get_qrms_url,
     get_request_url,
     get_result_url,
+    get_service_deployment_models_url,
     get_settings,
     leqo_lifespan,
 )
@@ -44,10 +46,14 @@ from app.utils import (
     add_result_to_db,
     add_status_response_to_db,
     get_compile_request_payload,
+    get_qrms,
+    get_service_deployment_models,
     get_results_from_db,
     get_results_overview_from_db,
     get_status_response_from_db,
     store_compile_request_payload,
+    store_qrms,
+    store_service_deployment_models,
     update_status_response_in_db,
 )
 
@@ -244,11 +250,15 @@ async def _resolve_result_response(
 
     request_link = get_request_url(uuid, settings)
     result_link = get_result_url(uuid, settings)
+    qrms_link = get_qrms_url(uuid, settings)
+    service_models_link = get_service_deployment_models_url(uuid, settings)
     headers = {
         "Link": ", ".join(
             (
                 f'<{request_link}>; rel="request"',
                 f'<{result_link}>; rel="result"',
+                f'<{qrms_link}>; rel="qrms"',
+                f'<{service_models_link}>; rel="service-deployment-models"',
             )
         )
     }
@@ -287,6 +297,10 @@ async def get_result(
                     "links": {
                         "result": get_result_url(item_uuid, settings),
                         "request": get_request_url(item_uuid, settings),
+                        "qrms": get_qrms_url(item_uuid, settings),
+                        "serviceDeploymentModels": get_service_deployment_models_url(
+                            item_uuid, settings
+                        ),
                     },
                 }
             )
@@ -325,6 +339,41 @@ async def get_request_payload(
     return JSONResponse(status_code=200, content=json.loads(payload))
 
 
+@app.get("/qrms/{uuid}", response_model=None)
+async def get_qrms_payload(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> JSONResponse:
+    """
+    Fetch the Quantum Resource Models associated with a UUID.
+    """
+
+    payload = await get_qrms(engine, uuid)
+    if payload is None:
+        raise HTTPException(
+            status_code=404, detail=f"No QRMs with uuid '{uuid}' found."
+        )
+
+    return JSONResponse(status_code=200, content=payload)
+
+
+@app.get("/service-deployment-models/{uuid}", response_model=None)
+async def get_service_deployment_models_payload(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> JSONResponse:
+    """
+    Fetch the Service Deployment Models associated with a UUID.
+    """
+
+    payload = await get_service_deployment_models(engine, uuid)
+    if payload is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No service deployment models with uuid '{uuid}' found.",
+        )
+
+    return JSONResponse(status_code=200, content=payload)
+
+
 async def process_compile_request(
     uuid: UUID,
     createdAt: datetime,
@@ -345,6 +394,8 @@ async def process_compile_request(
     status: SuccessStatus | FailedStatus
     try:
         result: str | list[ImplementationNode]
+        qrms_payload: object | None = None
+        service_models_payload: object | None = None
         if target == "workflow":
             qasm = await processor.process()
             print("QASM")
@@ -357,10 +408,22 @@ async def process_compile_request(
             )
             workflow_processor.target = target
             result = await workflow_processor.process()
+            qrms_payload = getattr(workflow_processor, "qrms", None)
+            service_models_payload = getattr(
+                workflow_processor, "service_deployment_models", None
+            )
         else:
             result = await processor.process()
             print(result)
+            qrms_payload = getattr(processor, "qrms", None)
+            service_models_payload = getattr(
+                processor, "service_deployment_models", None
+            )
         await add_result_to_db(engine, uuid, result, target)
+        await store_qrms(engine, uuid, qrms_payload)
+        await store_service_deployment_models(
+            engine, uuid, service_models_payload
+        )
 
         status = SuccessStatus(
             uuid=uuid,
@@ -401,6 +464,10 @@ async def process_enrich_request(
     try:
         result = await processor.enrich_all()
         await add_result_to_db(engine, uuid, result, target)
+        await store_qrms(engine, uuid, getattr(processor, "qrms", None))
+        await store_service_deployment_models(
+            engine, uuid, getattr(processor, "service_deployment_models", None)
+        )
 
         status = SuccessStatus(
             uuid=uuid,
@@ -454,6 +521,108 @@ async def post_debug_compile(
             return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
         return await processor.process()
+    except Exception as ex:
+        return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
+
+
+@app.post(
+    "/debug/workflow",
+    response_model=None,
+    responses={
+        400: {"model": LeqoProblemDetails},
+        500: {"model": LeqoProblemDetails},
+    },
+)
+async def post_debug_workflow(
+    processor: Annotated[
+        MergingProcessor, Depends(MergingProcessor.from_compile_request)
+    ],
+    settings: Annotated[Settings, Depends(get_settings)],
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+) -> JSONResponse:
+    """
+    Process a compile request directly into a workflow representation,
+    optionally including QRMs and service deployment models supplied by the client.
+
+    This endpoint should only be used for debugging purposes.
+    """
+
+    try:
+        processor.target = "workflow"
+        workflow_processor = WorkflowProcessor(
+            processor.enricher,
+            processor.frontend_graph,
+            processor.optimize,
+        )
+        workflow_processor.target = "workflow"
+        workflow_processor.qrms = getattr(processor, "qrms", None)
+        workflow_processor.service_deployment_models = getattr(
+            processor, "service_deployment_models", None
+        )
+        result = await workflow_processor.process()
+        request_uuid = uuid4()
+
+        created_status = CreatedStatus.init_status(request_uuid)
+        metadata = getattr(processor.original_request, "metadata", None)
+        name = getattr(metadata, "name", None) if metadata is not None else None
+        description = (
+            getattr(metadata, "description", None) if metadata is not None else None
+        )
+        original_request = getattr(processor, "original_request", None)
+
+        await add_status_response_to_db(
+            engine,
+            created_status,
+            "workflow",
+            name=name,
+            description=description,
+        )
+
+        if original_request is not None:
+            await store_compile_request_payload(
+                engine, request_uuid, original_request.model_dump_json()
+            )
+
+        await add_result_to_db(engine, request_uuid, result, "workflow")
+        await store_qrms(engine, request_uuid, workflow_processor.qrms)
+        await store_service_deployment_models(
+            engine, request_uuid, workflow_processor.service_deployment_models
+        )
+
+        success_status = SuccessStatus(
+            uuid=request_uuid,
+            createdAt=created_status.createdAt,
+            completedAt=datetime.now(UTC),
+            progress=Progress(percentage=100, currentStep="done"),
+            result=get_result_url(request_uuid, settings),
+        )
+
+        await update_status_response_in_db(
+            engine,
+            success_status,
+            "workflow",
+            name=name,
+            description=description,
+        )
+
+        response_payload = {
+            "uuid": request_uuid,
+            "workflow": result,
+            "qrms": workflow_processor.qrms,
+            "serviceDeploymentModels": workflow_processor.service_deployment_models,
+            "links": {
+                "status": f"{settings.api_base_url}status/{request_uuid}",
+                "result": get_result_url(request_uuid, settings),
+                "request": get_request_url(request_uuid, settings),
+                "qrms": get_qrms_url(request_uuid, settings),
+                "serviceDeploymentModels": get_service_deployment_models_url(
+                    request_uuid, settings
+                ),
+            },
+        }
+        return JSONResponse(
+            status_code=200, content=jsonable_encoder(response_payload)
+        )
     except Exception as ex:
         return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
 

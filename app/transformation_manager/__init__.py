@@ -77,7 +77,9 @@ class CommonProcessor:
     frontend_to_processed: dict[str, ProcessedProgramNode]
     target: Literal["qasm", "workflow"] = "qasm"
     original_request: CompileRequest | None = None
-    result: str |None = None
+    result: str | None = None
+    qrms: Any | None = None
+    service_deployment_models: Any | None = None
 
     def __init__(
         self,
@@ -94,6 +96,8 @@ class CommonProcessor:
         self.frontend_to_processed = {}
         self.qiskit_compat = qiskit_compat
         self.result = result
+        self.qrms = None
+        self.service_deployment_models = None
 
     def _resolve_inputs(
         self,
@@ -216,6 +220,8 @@ class MergingProcessor(CommonProcessor):
         )
         processor.target = request.compilation_target
         processor.original_request = request
+        processor.qrms = request.qrms
+        processor.service_deployment_models = request.serviceDeploymentModels
         return processor
 
     async def process_nodes(self) -> None:
@@ -387,6 +393,8 @@ class EnrichingProcessor(CommonProcessor):
         processor = EnrichingProcessor(enricher, graph, request.metadata)
         processor.target = request.compilation_target
         processor.original_request = request
+        processor.qrms = request.qrms
+        processor.service_deployment_models = request.serviceDeploymentModels
         return processor
 
     def _get_dummy_enrichment(
@@ -489,14 +497,14 @@ class WorkflowProcessor(CommonProcessor):
     @staticmethod
     def from_compile_request(
         request: CompileRequest,
-        enricher: Annotated[Enricher, Depends(lambda: None)],
-        qasm: str  # Replace with your DI
+        enricher: Annotated[Enricher, Depends(get_enricher)],
     ) -> "WorkflowProcessor":
         graph = FrontendGraph.create(request.nodes, request.edges)
         processor = WorkflowProcessor(enricher, graph, request.metadata)
         processor.target = request.compilation_target
         processor.original_request = request
-        processor.result = qasm
+        processor.qrms = request.qrms
+        processor.service_deployment_models = request.serviceDeploymentModels
         return processor
 
     async def process(self) -> str:
