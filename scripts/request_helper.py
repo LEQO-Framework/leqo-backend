@@ -14,7 +14,7 @@ from urllib import error, request
 
 POLL_INTERVAL = 0.1
 MAX_ATTEMPTS = 5
-SIMPLE_ENDPOINTS = ("/insert", "/debug/compile", "/debug/enrich")
+SIMPLE_ENDPOINTS = ("/insert", "/debug/compile", "/debug/enrich", "/debug/workflow")
 POLLING_ENDPOINTS = ("/compile", "/enrich")
 
 
