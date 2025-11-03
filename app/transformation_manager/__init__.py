@@ -553,15 +553,19 @@ class WorkflowProcessor(CommonProcessor):
         collapsed_edges = list(collapsed_edges)
 
         # Generate BPMN XML
-        bpmn_xml = _implementation_nodes_to_bpmn_xml(
+        bpmn_xml, all_activities = _implementation_nodes_to_bpmn_xml(
             "workflow_process",
             composite_nodes,
             collapsed_edges,
             metadata=node_metadata,
             start_event_classical_nodes=[node for node in nodes_dict.values() if getattr(node, "type", None) in CLASSICAL_TYPES]
         )
+        print("Service Task Generation")
         # Generate ZIP-of-ZIPs for Python files
-        service_zip_bytes = await self.generate_service_zip(composite_nodes, node_metadata)
+        service_zip_bytes = await self.generate_service_zips(all_activities, node_metadata)
+        
+        # Generate QRMs
+        # qrms = await self.generate_qrms(quantum_groups)
         #return service_zip_bytes
         return bpmn_xml
 
@@ -607,159 +611,151 @@ class WorkflowProcessor(CommonProcessor):
                 group_counter += 1
 
         return dict(groups)
-    
 
-    
-
-    async def generate_service_zip(self, composite_nodes: dict, node_metadata: dict) -> bytes:
+    async def generate_service_zips(self, composite_nodes: list[str], node_metadata: dict) -> list[bytes]:
         """
-        Generate a ZIP with Dockerfile and nested service.zip (model.py, polling_agent.py, requirements.txt),
-        then save it inside the container filesystem.
+        Generate one ZIP per activity.
+        Each ZIP contains app.py (with _model, _send_compile, _poll_result, _set_vars logic),
+        polling_agent.py, requirements.txt, and Dockerfile.
         """
-
-        # Determine activity name
-        activity_name = None
-        print(activity_name)
-        print(composite_nodes)
-        for node in composite_nodes.values():
-            print(node)
-            if getattr(node, "id", None):
-                activity_name = "Activity_"+node.id.replace(" ", "_")
-                break
-        if not activity_name:
-            activity_name = "activity"
-
         output_dir = "/tmp/generated_services"
         os.makedirs(output_dir, exist_ok=True)
+        
+        zip_buffers = []
 
-        # Outer ZIP (service-level)
-        main_zip_path = os.path.join(output_dir, f"{activity_name}.zip")
-        main_zip_buffer = io.BytesIO()
+        # Collect all _model tasks
+        #model_tasks = [node for node in composite_nodes if node.endswith("_model")]
 
-        with zipfile.ZipFile(main_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as outer_zip:
-            # Inner service.zip
-            service_zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(service_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as service_zip:
+        for model_task in composite_nodes:
+            activity_name = "Activity_" + model_task.replace(" ", "_")
+            main_zip_path = os.path.join(output_dir, f"{activity_name}.zip")
+            main_zip_buffer = io.BytesIO()
 
-                # includes the full request JSON
-                full_request_json = self.original_request.json()
-                print(full_request_json)
-                try:
-                    full_request_json = self.original_request.json()
-                except Exception:
-                    # Fallback if it's not a pure JSON Pydantic object
-                    full_request_json = json.loads(self.original_request.json(exclude_none=True, exclude_unset=True))
+            # Collect related tasks for this model
+            related_tasks = [model_task]
+            base_name = model_task.replace("_model", "")
+            #for suffix in ["_send_compile", "_poll_result", "_set_vars"]:
+             #   candidate = f"Task_{base_name}{suffix}"
+              #  if candidate in composite_nodes:
+               #     related_tasks.append(candidate)
 
-                # Ensure no encoding issues — replace invalid characters
-                full_request_str = json.dumps(full_request_json, indent=4, ensure_ascii=False)
-                print("FULL request")
-                print(full_request_str)
+            # Create ZIP
+            with zipfile.ZipFile(main_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as outer_zip:
+                service_zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(service_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as service_zip:
 
-                # Escape any binary or invalid UTF-8 characters
-                safe_full_request = full_request_str.encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
-                print(safe_full_request)
+                    # Serialize original request
+                    try:
+                        full_request_json = self.original_request.json()
+                    except Exception:
+                        full_request_json = json.loads(
+                            self.original_request.json(exclude_none=True, exclude_unset=True)
+                        )
+                    safe_request_str = json.dumps(full_request_json, indent=4, ensure_ascii=False)
 
-                model_code = (
-    "import json\n"
-    "import numpy as np\n\n"
-    "def main():\n"
-    "\tmodel = " + safe_full_request + "\n"
-    "\treturn model\n"
-)
-                service_zip.writestr("app.py", model_code)
+                    # Build app.py for all related tasks
+                    model_lines = [
+                        "import requests",
+                        "import time",
+                        "import json",
+                        "import os",
+                        "",
+                        "BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')",
+                        "",
+                    ]
 
-                # polling agent
-                polling_agent_code = (
-    "# ******************************************************************************\n"
-    "#  Copyright (c) 2025 University of Stuttgart\n"
-    "#\n"
-    "#  Licensed under the Apache License, Version 2.0\n"
-    "# ******************************************************************************\n\n"
-    "import threading\n"
-    "import base64\n"
-    "import os\n"
-    "import pickle\n"
-    "import codecs\n"
-    "import requests\n"
-    "from urllib.request import urlopen\n"
-    "import app\n\n\n"
-    "def poll():\n"
-    "\tbody = {\n"
-    "\t\t\"workerId\": \"WP67GZ6N9ZX5\",\n"
-    "\t\t\"maxTasks\": 1,\n"
-    "\t\t\"topics\": [{\"topicName\": topic, \"lockDuration\": 100000000}]\n"
-    "\t}\n\n"
-    "\ttry:\n"
-    "\t\tresponse = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n\n"
-    "\t\tif response.status_code == 200:\n"
-    "\t\t\tfor externalTask in response.json():\n"
-    "\t\t\t\tprint('External task with ID for topic ' + str(externalTask.get('topicName')) + ': ' + str(externalTask.get('id')))\n"
-    "\t\t\t\tvariables = externalTask.get('variables')\n"
-    "\t\t\t\tprint('Loaded variables: %s' % variables)\n"
-    "\t\t\t\tif externalTask.get('topicName') == topic:\n"
-    "\t\t\t\t\tprint('variables after input load: %s' % variables)\n\n"
-    "\t\t\t\t\tmodel = app.main()\n\n"
-    "\t\t\t\t\tprint('variables after call script: %s' % variables)\n\n"
-    "\t\t\t\t\tbody = {\"workerId\": \"WP67GZ6N9ZX5\"}\n"
-    "\t\t\t\t\tbody[\"variables\"] = {}\n\n"
-    "\t\t\t\t\tprint(\"Encode OutputParameter %s\" % model)\n"
-    "\t\t\t\t\tmodel_encoded = base64.b64encode(str.encode(str(model))).decode(\"utf-8\")\n"
-    "\t\t\t\t\tbody[\"variables\"][\"model\"] = {\n"
-    "\t\t\t\t\t\t\"value\": model_encoded,\n"
-    "\t\t\t\t\t\t\"type\": \"File\",\n"
-    "\t\t\t\t\t\t\"valueInfo\": {\"filename\": \"model.txt\", \"encoding\": \"\"}\n"
-    "\t\t\t\t\t}\n\n"
-    "\t\t\t\t\tprint('variables after store output: %s' % variables)\n"
-    "\t\t\t\t\tresponse = requests.post(pollingEndpoint + '/' + externalTask.get('id') + '/complete', json=body)\n"
-    "\t\t\t\t\tprint('Status code of response message: ' + str(response.status_code))\n\n"
-    "\texcept Exception as err:\n"
-    "\t\tprint('Exception during polling: ', err)\n\n"
-    "\tthreading.Timer(8, poll).start()\n\n\n"
-    "def download_data(url):\n"
-    "\tresponse = urlopen(url)\n"
-    "\tdata = response.read().decode('utf-8')\n"
-    "\treturn str(data)\n\n\n"
-    "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n"
-    "pollingEndpoint = camundaEndpoint + '/external-task'\n"
-    "topic = os.environ['CAMUNDA_TOPIC']\n"
-    "poll()\n"
-)
+                    for node_id in related_tasks:
+                        if node_id.endswith("_model"):
+                            model_lines += [
+                                f"# Logic for {node_id}",
+                                f"{node_id}_data = {safe_request_str}",
+                                "",
+                            ]
+                        elif node_id.endswith("_send_compile"):
+                            model_node = node_id.replace("_send_compile", "_model")
+                            model_lines += [
+                                f"# Logic for {node_id}",
+                                f"def {node_id}_func():",
+                                f"    url = f\"{{BACKEND_URL}}/compile\"",
+                                f"    response = requests.post(url, json={model_node}_data)",
+                                f"    response.raise_for_status()",
+                                f"    data = response.json()",
+                                f"    uuid = data['uuid']",
+                                f"    location = data['result']",
+                                f"    print('Sent compile for {model_node}, uuid:', uuid)",
+                                f"    return uuid, location",
+                                "",
+                            ]
+                        elif node_id.endswith("_poll_result"):
+                            send_node = node_id.replace("_poll_result", "_send_compile")
+                            model_lines += [
+                                f"# Logic for {node_id}",
+                                f"def {node_id}_func(uuid):",
+                                f"    status_url = f\"{{BACKEND_URL}}/status/{{uuid}}\"",
+                                f"    for attempt in range(20):",
+                                f"        resp = requests.get(status_url)",
+                                f"        if not resp.ok:",
+                                f"            print('Status check failed', resp.status_code)",
+                                f"            time.sleep(10)",
+                                f"            continue",
+                                f"        data = resp.json()",
+                                f"        status = data.get('status')",
+                                f"        location = data.get('result')",
+                                f"        print(f'Attempt {{attempt+1}}: status={{status}}, location={{location}}')",
+                                f"        if status in ('completed','failed'):",
+                                f"            return status, location",
+                                f"        time.sleep(10)",
+                                f"    return 'timeout', None",
+                                "",
+                            ]
+                        elif node_id.endswith("_set_vars"):
+                            poll_node = node_id.replace("_set_vars", "_poll_result")
+                            model_lines += [
+                                f"# Logic for {node_id}",
+                                f"def {node_id}_func(status, location):",
+                                f"    result = {{'status': status, 'location': location}}",
+                                f"    with open('final_result_{node_id}.json', 'w') as f:",
+                                f"        json.dump(result, f)",
+                                f"    print('Variables set:', result)",
+                                "",
+                            ]
 
+                    service_zip.writestr("app.py", "\n".join(model_lines))
+                    polling_agent_code = ( "# ******************************************************************************\n" "# Copyright (c) 2025 University of Stuttgart\n" "#\n" "# Licensed under the Apache License, Version 2.0\n" "# ******************************************************************************\n\n" "import threading\n" "import base64\n" "import os\n" "import pickle\n" "import codecs\n" "import requests\n" "from urllib.request import urlopen\n" "import app\n\n\n" "def poll():\n" "\tbody = {\n" "\t\t\"workerId\": \"WP67GZ6N9ZX5\",\n" "\t\t\"maxTasks\": 1,\n" "\t\t\"topics\": [{\"topicName\": topic, \"lockDuration\": 100000000}]\n" "\t}\n\n" "\ttry:\n" "\t\tresponse = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n\n" "\t\tif response.status_code == 200:\n" "\t\t\tfor externalTask in response.json():\n" "\t\t\t\tprint('External task with ID for topic ' + str(externalTask.get('topicName')) + ': ' + str(externalTask.get('id')))\n" "\t\t\t\tvariables = externalTask.get('variables')\n" "\t\t\t\tprint('Loaded variables: %s' % variables)\n" "\t\t\t\tif externalTask.get('topicName') == topic:\n" "\t\t\t\t\tprint('variables after input load: %s' % variables)\n\n" "\t\t\t\t\tmodel = app.main()\n\n" "\t\t\t\t\tprint('variables after call script: %s' % variables)\n\n" "\t\t\t\t\tbody = {\"workerId\": \"WP67GZ6N9ZX5\"}\n" "\t\t\t\t\tbody[\"variables\"] = {}\n\n" "\t\t\t\t\tprint(\"Encode OutputParameter %s\" % model)\n" "\t\t\t\t\tmodel_encoded = base64.b64encode(str.encode(str(model))).decode(\"utf-8\")\n" "\t\t\t\t\tbody[\"variables\"][\"model\"] = {\n" "\t\t\t\t\t\t\"value\": model_encoded,\n" "\t\t\t\t\t\t\"type\": \"File\",\n" "\t\t\t\t\t\t\"valueInfo\": {\"filename\": \"model.txt\", \"encoding\": \"\"}\n" "\t\t\t\t\t}\n\n" "\t\t\t\t\tprint('variables after store output: %s' % variables)\n" "\t\t\t\t\tresponse = requests.post(pollingEndpoint + '/' + externalTask.get('id') + '/complete', json=body)\n" "\t\t\t\t\tprint('Status code of response message: ' + str(response.status_code))\n\n" "\texcept Exception as err:\n" "\t\tprint('Exception during polling: ', err)\n\n" "\tthreading.Timer(8, poll).start()\n\n\n" "def download_data(url):\n" "\tresponse = urlopen(url)\n" "\tdata = response.read().decode('utf-8')\n" "\treturn str(data)\n\n\n" "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n" "pollingEndpoint = camundaEndpoint + '/external-task'\n" "topic = os.environ['CAMUNDA_TOPIC']\n" "poll()\n" )
 
-    
-                service_zip.writestr("polling_agent.py", polling_agent_code)
+                    # Add polling_agent.py
+                    service_zip.writestr("polling_agent.py", polling_agent_code)
 
-                # requirements.txt
-                requirements = """numpy
-    requests
-    """
-                service_zip.writestr("requirements.txt", requirements)
+                    # Add requirements.txt
+                    service_zip.writestr("requirements.txt", "requests\n")
 
-            # Add nested service.zip
-            outer_zip.writestr("service.zip", service_zip_buffer.getvalue())
+                outer_zip.writestr("service.zip", service_zip_buffer.getvalue())
 
-            # Dockerfile (1 level above service.zip)
-            dockerfile_code = f"""FROM python:3.8-slim
-    LABEL maintainer="Lavinia Stiliadou <lavinia.stiliadou@iaas.uni-stuttgart.de>"
+                # Dockerfile
+                dockerfile_code = f"""FROM python:3.8-slim
+    LABEL maintainer="Generated Service"
 
     COPY service.zip /tmp/service.zip
 
-    RUN apt-get update && apt-get install -y gcc python3-dev unzip
-
+    RUN apt-get update && apt-get install -y unzip
     RUN unzip /tmp/service.zip -d /service
-
     RUN pip install -r /service/requirements.txt
 
     CMD python /service/polling_agent.py
     """
-            outer_zip.writestr("Dockerfile", dockerfile_code)
+                outer_zip.writestr("Dockerfile", dockerfile_code)
 
-        # Save to disk in container
-        with open(main_zip_path, "wb") as f:
-            f.write(main_zip_buffer.getvalue())
+            # Save final ZIP to buffer list
+            with open(main_zip_path, "wb") as f:
+                f.write(main_zip_buffer.getvalue())
+            zip_buffers.append(main_zip_buffer.getvalue())
 
-        print(f"[INFO] Service package created at: {main_zip_path}")
-        return main_zip_buffer.getvalue()
+            print(f"[INFO] Service package created at: {main_zip_path}")
+
+        return zip_buffers
+
+
+
 
 
 class EnrichmentInserter:
@@ -833,9 +829,19 @@ ET.register_namespace("xsi", XSI_NS)
 ET.register_namespace("opentosca", OpenTOSCA_NS)
 ET.register_namespace("camunda", CAMUNDA_NS)
 
-def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list, metadata: dict = None, start_event_classical_nodes: list = None) -> str:
-    """Generate BPMN XML workflow diagram with correct left-to-right layout."""
+def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list, metadata: dict = None, start_event_classical_nodes: list = None) -> tuple[str, list[dict]]:
+    """Generate BPMN XML workflow diagram with correct left-to-right layout.
 
+    This version inserts, immediately after the StartEvent, a chain of four
+    service tasks:
+        Model -> Send Compile Request -> Poll Result -> Set Variables
+
+    For composite nodes which are quantum groups (ids starting with 'quantum_group_')
+    the same chain is created per group and connected to the group's node.
+    For each original start-node in the graph (no incoming edges) the last
+    chain task (Set Variables) is linked into that node so the chain appears
+    before the node in the diagram.
+    """
     import xml.etree.ElementTree as ET
     import uuid
     from collections import defaultdict, deque
@@ -886,7 +892,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
     task_w, task_h = 120, 80
     gap_x, gap_y = 220, 150
 
-    # Graph maps
+    # Build incoming/outgoing maps from collapsed edges
     incoming, outgoing = defaultdict(list), defaultdict(list)
     for src, tgt in edges:
         outgoing[src].append(tgt)
@@ -911,63 +917,147 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
         if nid not in topo_order:
             topo_order.append(nid)
 
-    # Assign positions
+    inserted_chains = {}  # start_node -> (model_id, send_id, poll_id, setvars_id)
+
+    # For each start_node create a dedicated chain (if it's a quantum_group, chain is per-group)
+    for start_node in start_nodes:
+        # chain element ids (unique)
+        model_id = f"Task_{start_node}_model"
+        send_id = f"Task_{start_node}_send_compile"
+        poll_id = f"Task_{start_node}_poll_result"
+        setvars_id = f"Task_{start_node}_set_vars"
+        inserted_chains[start_node] = (model_id, send_id, poll_id, setvars_id)
+
+    # Determine node levels first (base)
     task_positions = {}
     level_positions = defaultdict(list)
-    node_level = {nid: 0 for nid in start_nodes}
+    node_level = {}
+
+    # start chains will be at level 0, original nodes pushed to level+1
+    for nid in node_ids:
+        if nid in start_nodes:
+            node_level[nid] = 1  # will be after inserted chain
+        # other nodes left to compute
+
+    # compute levels by topo_order, using incoming preds' levels
     for nid in topo_order:
         if nid not in node_level:
             preds = incoming[nid]
-            node_level[nid] = max((node_level[p] for p in preds), default=-1) + 1
+            if preds:
+                node_level[nid] = max(node_level.get(p, 0) for p in preds) + 1
+            else:
+                node_level[nid] = 1  # if isolated, place after chain level
         level_positions[node_level[nid]].append(nid)
 
+    # place chain tasks at level 0; if multiple start nodes, they'll be stacked vertically
+    chain_level = 0
+    for i, start_node in enumerate(start_nodes):
+        # one row per start_node chain, stacked by i
+        x = start_x + 170 + chain_level * (task_w + gap_x)
+        y = 200 + i * (task_h + gap_y)
+        model_id, send_id, poll_id, setvars_id = inserted_chains[start_node]
+        task_positions[model_id] = (x, y)
+        task_positions[send_id] = (x + (task_w + 100), y)
+        task_positions[poll_id] = (x + 2 * (task_w + 100), y)
+        task_positions[setvars_id] = (x + 3 * (task_w + 100), y)
+        
+    # assign positions for original nodes from level_positions
     for level, nids in level_positions.items():
         for i, nid in enumerate(nids):
+            # shift x by +1 level because chain occupies level 0
             x = start_x + 170 + level * (task_w + gap_x)
             y = 200 + i * (task_h + gap_y)
             task_positions[nid] = (x, y)
 
+    # compute end_x as before
     end_x = start_x + 170 + (max(node_level.values(), default=0) + 1) * (task_w + gap_x)
 
-    # Create service tasks
+    # Create service tasks for all original composite nodes
     for nid, node in nodes.items():
+        # if we already created chain tasks for this nid (they're not in `nodes`), skip
+        # nodes are only composite nodes, chain tasks are additional synthetic tasks
         task_id = f"Task_{nid}"
         node_type = getattr(node, "type", "Task")
         task_el = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": task_id, "name": node_type})
-        # Add metadata
+        # Add metadata as extensionElements/properties
         for key, val in metadata.get(nid, {}).items():
             ext = ET.SubElement(task_el, qn(BPMN2_NS, "extensionElements"))
             ET.SubElement(ext, qn(BPMN2_NS, "property"), {"name": key, "value": str(val)})
 
-    # Sequence flows
+    # Create synthetic service tasks for chains (Model, Send Compile, Poll Result, Set Variables)
+    # One chain per start_node
+    for start_node, (model_id, send_id, poll_id, setvars_id) in inserted_chains.items():
+        # model
+        node_type = "Model"
+        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": model_id, "name": node_type})
+        # send compile request
+        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": send_id, "name": "Send Compile Request"})
+        # poll result
+        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": poll_id, "name": "Poll Result"})
+        # set variables
+        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": setvars_id, "name": "Set Variables"})
+
+    # Sequence flows (we will build flow_map with tuples (flow_id, src, tgt))
     flow_map = []
 
+    # Start -> each model task (one per start_node)
     for start_node in start_nodes:
-        flow_id = f"Flow_{uuid.uuid4().hex[:7]}"
-        flow_map.append((flow_id, start_id, start_node))
-        ET.SubElement(start_event, qn(BPMN2_NS, "outgoing")).text = flow_id
+        model_id, send_id, poll_id, setvars_id = inserted_chains[start_node]
+        # Flow Start -> Model
+        f1 = f"Flow_{uuid.uuid4().hex[:7]}"
+        flow_map.append((f1, start_id, model_id))
+        ET.SubElement(start_event, qn(BPMN2_NS, "outgoing")).text = f1
+        # Model -> Send
+        f2 = f"Flow_{uuid.uuid4().hex[:7]}"
+        flow_map.append((f2, model_id, send_id))
+        # Send -> Poll
+        f3 = f"Flow_{uuid.uuid4().hex[:7]}"
+        flow_map.append((f3, send_id, poll_id))
+        # Poll -> SetVars
+        f4 = f"Flow_{uuid.uuid4().hex[:7]}"
+        flow_map.append((f4, poll_id, setvars_id))
+        # SetVars -> original start node
+        flow_map.append((f"{uuid.uuid4().hex[:7]}", setvars_id, start_node))
 
+    # Add original collapsed edges (connect tasks/nodes as before)
     for src, tgt in edges:
-        flow_id = f"Flow_{uuid.uuid4().hex[:7]}"
-        flow_map.append((flow_id, src, tgt))
+        # If src or tgt are chains (shouldn't be), they are left as-is. Otherwise these map to Task_{id}
+        f = f"Flow_{uuid.uuid4().hex[:7]}"
+        flow_map.append((f, src, tgt))
 
+    # Last: nodes with no outgoing go to EndEvent_1
+    # Note: ensure we attach flows from actual last tasks (those Task_{nid}) to end
     for end_node in end_nodes:
-        flow_id = f"Flow_{uuid.uuid4().hex[:7]}"
-        flow_map.append((flow_id, end_node, end_id))
-        ET.SubElement(end_event, qn(BPMN2_NS, "incoming")).text = flow_id
+        f = f"Flow_{uuid.uuid4().hex[:7]}"
+        flow_map.append((f, end_node, end_id))
+        ET.SubElement(end_event, qn(BPMN2_NS, "incoming")).text = f
 
-    # Add incoming/outgoing and sequenceFlow elements
+    # Add incoming/outgoing and sequenceFlow elements for all flows in flow_map
     for fid, src, tgt in flow_map:
-        src_el = process.find(f".//*[@id='Task_{src}']")
-        tgt_el = process.find(f".//*[@id='Task_{tgt}']")
+        # src/ tgt can be StartEvent_1, EndEvent_1, synthetic Task_{...} or real Task_{nid}
+        # Ensure we add outgoing to the source element if present
+        # The process.find search needs the exact id used in element creation above
+        # Special-case start_id and end_id
+        # If src is one of our synthetic chain task ids, it's present as id directly
+        # If src is a composite node id, the element id is Task_{src}
+        src_search_id = src if src in (start_id, end_id) or src.startswith("Task_") else f"Task_{src}"
+        tgt_search_id = tgt if tgt in (start_id, end_id) or tgt.startswith("Task_") else f"Task_{tgt}"
+
+        src_el = process.find(f".//*[@id='{src_search_id}']")
+        tgt_el = process.find(f".//*[@id='{tgt_search_id}']")
+
         if src_el is not None:
             ET.SubElement(src_el, qn(BPMN2_NS, "outgoing")).text = fid
         if tgt_el is not None:
             ET.SubElement(tgt_el, qn(BPMN2_NS, "incoming")).text = fid
+
+        # create the sequenceFlow element
+        source_ref = src if src in (start_id, end_id) or src.startswith("Task_") else f"Task_{src}"
+        target_ref = tgt if tgt in (start_id, end_id) or tgt.startswith("Task_") else f"Task_{tgt}"
         ET.SubElement(process, qn(BPMN2_NS, "sequenceFlow"), {
             "id": fid,
-            "sourceRef": src if src in (start_id, end_id) else f"Task_{src}",
-            "targetRef": tgt if tgt in (start_id, end_id) else f"Task_{tgt}"
+            "sourceRef": source_ref,
+            "targetRef": target_ref
         })
 
     # Diagram shapes and edges
@@ -978,23 +1068,53 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
     start_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{start_id}_di", "bpmnElement": start_id})
     ET.SubElement(start_shape, qn(DC_NS, "Bounds"), x=str(start_x), y=str(start_y), width="36", height="36")
 
-    # Task shapes
+    # Task shapes - include synthetic chain tasks and real tasks
     for nid, (x, y) in task_positions.items():
-        shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"Task_{nid}_di", "bpmnElement": f"Task_{nid}"})
+        # if nid is synthetic chain id (they contain underscores and 'model' etc) they are already keys
+        shape_id = nid if nid.startswith("Task_") else f"Task_{nid}"
+        # ensure bpmnElement matches the actual element id used earlier
+        bpmn_elem = shape_id
+        shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{shape_id}_di", "bpmnElement": bpmn_elem})
         ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(task_w), height=str(task_h))
 
     # End shape
     end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{end_id}_di", "bpmnElement": end_id})
     ET.SubElement(end_shape, qn(DC_NS, "Bounds"), x=str(end_x), y=str(start_y), width="36", height="36")
 
-    # Edge shapes
+    # Edge shapes: create waypoints for every flow in flow_map
     for fid, src, tgt in flow_map:
         edge = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNEdge"), {"id": f"{fid}_di", "bpmnElement": fid})
-        sx, sy = (start_x + 36, start_y + 18) if src == start_id else (task_positions[src][0] + task_w, task_positions[src][1] + 40)
-        tx, ty = (end_x, start_y + 18) if tgt == end_id else (task_positions[tgt][0], task_positions[tgt][1] + 40)
-        ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(sx), y=str(sy))
-        ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(tx), y=str(ty))
 
-    return ET.tostring(defs, encoding="utf-8", xml_declaration=True).decode("utf-8")
+        # Source waypoint
+        if src == start_id:
+            sx, sy = start_x + 36, start_y + 18
+        else:
+            # source may be a synthetic id like Task_{start}_model or a real node id
+            src_key = src if src.startswith("Task_") else f"Task_{src}"
+            sx = task_positions.get(src_key, task_positions.get(src, (start_x, start_y)))[0] + task_w
+            sy = task_positions.get(src_key, task_positions.get(src, (start_x, start_y)))[1] + 40
+
+        # Target waypoint
+        if tgt == end_id:
+            tx, ty = end_x, start_y + 18
+        else:
+            tgt_key = tgt if tgt.startswith("Task_") else f"Task_{tgt}"
+            tx = task_positions.get(tgt_key, task_positions.get(tgt, (end_x, start_y)))[0]
+            ty = task_positions.get(tgt_key, task_positions.get(tgt, (end_x, start_y)))[1] + 40
+
+        ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy)))
+        ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty)))
+    
+    all_activities = list(nodes.keys())
+    for start_node, chain in inserted_chains.items():
+        all_activities.extend(chain)
+
+    # Optional: store them in metadata for later reference
+    metadata["all_activities"] = all_activities
+
+    print("All activities in process:", all_activities)
+
+    return ET.tostring(defs, encoding="utf-8", xml_declaration=True).decode("utf-8"), all_activities
+
 
 
