@@ -483,11 +483,14 @@ async def process_compile_request(
             qasm = await processor.process()
             print("QASM")
             print(qasm)
+            print("Requets")
+            print(processor.original_request)
             workflow_processor = WorkflowProcessor(
                 processor.enricher,
                 processor.frontend_graph,
                 processor.optimize,
-                result=qasm
+                result=qasm,
+                original_request=processor.original_request
             )
             workflow_processor.target = target
             result = await workflow_processor.process()
@@ -578,10 +581,13 @@ async def post_debug_compile(
     try:
         target = _get_processor_target(processor)
         if target == "workflow":
+            qasm = await processor.process()
             workflow_processor = WorkflowProcessor(
                 processor.enricher,
                 processor.frontend_graph,
                 processor.optimize,
+                result=qasm,
+                original_request=processor.original_request
             )
             workflow_processor.target = target
             result = await workflow_processor.process()
