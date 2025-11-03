@@ -57,6 +57,12 @@ from typing import Iterable, Dict, Tuple
 import uuid
 import random
 import string
+import io
+import zipfile
+from pathlib import Path
+import os
+import io
+import json
 
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 
@@ -88,6 +94,7 @@ class CommonProcessor:
         optimize_settings: OptimizeSettings,
         qiskit_compat: bool = False,
         result: str | None = None,
+        original_request: str |None = None,
     ) -> None:
         self.enricher = enricher
         self.frontend_graph = frontend_graph
@@ -98,6 +105,7 @@ class CommonProcessor:
         self.result = result
         self.qrms = None
         self.service_deployment_models = None
+        self.original_request = original_request
 
     def _resolve_inputs(
         self,
@@ -500,13 +508,13 @@ class WorkflowProcessor(CommonProcessor):
         enricher: Annotated[Enricher, Depends(get_enricher)],
     ) -> "WorkflowProcessor":
         graph = FrontendGraph.create(request.nodes, request.edges)
-        processor = WorkflowProcessor(enricher, graph, request.metadata)
+        processor = WorkflowProcessor(enricher, graph, request.metadata, original_request=request)
         processor.target = request.compilation_target
         processor.original_request = request
         processor.qrms = request.qrms
         processor.service_deployment_models = request.serviceDeploymentModels
         return processor
-
+        
     async def process(self) -> str:
         """Run enrichment, classify nodes, group quantum nodes, and return BPMN XML."""
 
@@ -558,6 +566,9 @@ class WorkflowProcessor(CommonProcessor):
             metadata=node_metadata,
             start_event_classical_nodes=[node for node in nodes_dict.values() if getattr(node, "type", None) in CLASSICAL_TYPES]
         )
+        # Generate ZIP-of-ZIPs for Python files
+        service_zip_bytes = await self.generate_service_zip(composite_nodes, node_metadata)
+        #return service_zip_bytes
         return bpmn_xml
 
 
@@ -602,6 +613,159 @@ class WorkflowProcessor(CommonProcessor):
                 group_counter += 1
 
         return dict(groups)
+    
+
+    
+
+    async def generate_service_zip(self, composite_nodes: dict, node_metadata: dict) -> bytes:
+        """
+        Generate a ZIP with Dockerfile and nested service.zip (model.py, polling_agent.py, requirements.txt),
+        then save it inside the container filesystem.
+        """
+
+        # Determine activity name
+        activity_name = None
+        print(activity_name)
+        print(composite_nodes)
+        for node in composite_nodes.values():
+            print(node)
+            if getattr(node, "id", None):
+                activity_name = "Activity_"+node.id.replace(" ", "_")
+                break
+        if not activity_name:
+            activity_name = "activity"
+
+        output_dir = "/tmp/generated_services"
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Outer ZIP (service-level)
+        main_zip_path = os.path.join(output_dir, f"{activity_name}.zip")
+        main_zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(main_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as outer_zip:
+            # Inner service.zip
+            service_zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(service_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as service_zip:
+
+                # includes the full request JSON
+                full_request_json = self.original_request.json()
+                print(full_request_json)
+                try:
+                    full_request_json = self.original_request.json()
+                except Exception:
+                    # Fallback if it's not a pure JSON Pydantic object
+                    full_request_json = json.loads(self.original_request.json(exclude_none=True, exclude_unset=True))
+
+                # Ensure no encoding issues — replace invalid characters
+                full_request_str = json.dumps(full_request_json, indent=4, ensure_ascii=False)
+                print("FULL request")
+                print(full_request_str)
+
+                # Escape any binary or invalid UTF-8 characters
+                safe_full_request = full_request_str.encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
+                print(safe_full_request)
+
+                model_code = (
+    "import json\n"
+    "import numpy as np\n\n"
+    "def main():\n"
+    "\tmodel = " + safe_full_request + "\n"
+    "\treturn model\n"
+)
+                service_zip.writestr("app.py", model_code)
+
+                # polling agent
+                polling_agent_code = (
+    "# ******************************************************************************\n"
+    "#  Copyright (c) 2025 University of Stuttgart\n"
+    "#\n"
+    "#  Licensed under the Apache License, Version 2.0\n"
+    "# ******************************************************************************\n\n"
+    "import threading\n"
+    "import base64\n"
+    "import os\n"
+    "import pickle\n"
+    "import codecs\n"
+    "import requests\n"
+    "from urllib.request import urlopen\n"
+    "import app\n\n\n"
+    "def poll():\n"
+    "\tbody = {\n"
+    "\t\t\"workerId\": \"WP67GZ6N9ZX5\",\n"
+    "\t\t\"maxTasks\": 1,\n"
+    "\t\t\"topics\": [{\"topicName\": topic, \"lockDuration\": 100000000}]\n"
+    "\t}\n\n"
+    "\ttry:\n"
+    "\t\tresponse = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n\n"
+    "\t\tif response.status_code == 200:\n"
+    "\t\t\tfor externalTask in response.json():\n"
+    "\t\t\t\tprint('External task with ID for topic ' + str(externalTask.get('topicName')) + ': ' + str(externalTask.get('id')))\n"
+    "\t\t\t\tvariables = externalTask.get('variables')\n"
+    "\t\t\t\tprint('Loaded variables: %s' % variables)\n"
+    "\t\t\t\tif externalTask.get('topicName') == topic:\n"
+    "\t\t\t\t\tprint('variables after input load: %s' % variables)\n\n"
+    "\t\t\t\t\tmodel = app.main()\n\n"
+    "\t\t\t\t\tprint('variables after call script: %s' % variables)\n\n"
+    "\t\t\t\t\tbody = {\"workerId\": \"WP67GZ6N9ZX5\"}\n"
+    "\t\t\t\t\tbody[\"variables\"] = {}\n\n"
+    "\t\t\t\t\tprint(\"Encode OutputParameter %s\" % model)\n"
+    "\t\t\t\t\tmodel_encoded = base64.b64encode(str.encode(str(model))).decode(\"utf-8\")\n"
+    "\t\t\t\t\tbody[\"variables\"][\"model\"] = {\n"
+    "\t\t\t\t\t\t\"value\": model_encoded,\n"
+    "\t\t\t\t\t\t\"type\": \"File\",\n"
+    "\t\t\t\t\t\t\"valueInfo\": {\"filename\": \"model.txt\", \"encoding\": \"\"}\n"
+    "\t\t\t\t\t}\n\n"
+    "\t\t\t\t\tprint('variables after store output: %s' % variables)\n"
+    "\t\t\t\t\tresponse = requests.post(pollingEndpoint + '/' + externalTask.get('id') + '/complete', json=body)\n"
+    "\t\t\t\t\tprint('Status code of response message: ' + str(response.status_code))\n\n"
+    "\texcept Exception as err:\n"
+    "\t\tprint('Exception during polling: ', err)\n\n"
+    "\tthreading.Timer(8, poll).start()\n\n\n"
+    "def download_data(url):\n"
+    "\tresponse = urlopen(url)\n"
+    "\tdata = response.read().decode('utf-8')\n"
+    "\treturn str(data)\n\n\n"
+    "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n"
+    "pollingEndpoint = camundaEndpoint + '/external-task'\n"
+    "topic = os.environ['CAMUNDA_TOPIC']\n"
+    "poll()\n"
+)
+
+
+    
+                service_zip.writestr("polling_agent.py", polling_agent_code)
+
+                # requirements.txt
+                requirements = """numpy
+    requests
+    """
+                service_zip.writestr("requirements.txt", requirements)
+
+            # Add nested service.zip
+            outer_zip.writestr("service.zip", service_zip_buffer.getvalue())
+
+            # Dockerfile (1 level above service.zip)
+            dockerfile_code = f"""FROM python:3.8-slim
+    LABEL maintainer="Lavinia Stiliadou <lavinia.stiliadou@iaas.uni-stuttgart.de>"
+
+    COPY service.zip /tmp/service.zip
+
+    RUN apt-get update && apt-get install -y gcc python3-dev unzip
+
+    RUN unzip /tmp/service.zip -d /service
+
+    RUN pip install -r /service/requirements.txt
+
+    CMD python /service/polling_agent.py
+    """
+            outer_zip.writestr("Dockerfile", dockerfile_code)
+
+        # Save to disk in container
+        with open(main_zip_path, "wb") as f:
+            f.write(main_zip_buffer.getvalue())
+
+        print(f"[INFO] Service package created at: {main_zip_path}")
+        return main_zip_buffer.getvalue()
 
 
 class EnrichmentInserter:
@@ -838,3 +1002,5 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
         ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(tx), y=str(ty))
 
     return ET.tostring(defs, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+
