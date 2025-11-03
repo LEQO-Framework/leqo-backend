@@ -978,7 +978,8 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
         # nodes are only composite nodes, chain tasks are additional synthetic tasks
         task_id = f"Task_{nid}"
         node_type = getattr(node, "type", "Task")
-        task_el = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": task_id, "name": node_type})
+        task_el = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": task_id, "name": node_type, "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{nid}/?csar"})
+
         # Add metadata as extensionElements/properties
         for key, val in metadata.get(nid, {}).items():
             ext = ET.SubElement(task_el, qn(BPMN2_NS, "extensionElements"))
@@ -989,13 +990,13 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
     for start_node, (model_id, send_id, poll_id, setvars_id) in inserted_chains.items():
         # model
         node_type = "Model"
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": model_id, "name": node_type})
+        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": model_id, "name": node_type, "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{model_id}/?csar"})
         # send compile request
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": send_id, "name": "Send Compile Request"})
+        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": send_id, "name": "Send Compile Request", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{send_id}/?csar"})
         # poll result
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": poll_id, "name": "Poll Result"})
+        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": poll_id, "name": "Poll Result", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{poll_id}/?csar"})
         # set variables
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": setvars_id, "name": "Set Variables"})
+        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": setvars_id, "name": "Set Variables", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{setvars_id}/?csar"})
 
     # Sequence flows (we will build flow_map with tuples (flow_id, src, tgt))
     flow_map = []
