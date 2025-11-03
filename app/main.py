@@ -9,12 +9,12 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal, cast
 from uuid import UUID, uuid4
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
 from sqlalchemy.ext.asyncio import AsyncEngine
-from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse
+from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
@@ -47,10 +47,13 @@ from app.utils import (
     add_status_response_to_db,
     get_compile_request_payload,
     get_qrms,
+    list_qrm_ids,
     get_service_deployment_models,
+    list_service_deployment_ids,
     get_results_from_db,
     get_results_overview_from_db,
     get_status_response_from_db,
+    StoredFilePayload,
     store_compile_request_payload,
     store_qrms,
     store_service_deployment_models,
@@ -339,39 +342,121 @@ async def get_request_payload(
     return JSONResponse(status_code=200, content=json.loads(payload))
 
 
+@app.get("/qrms", response_model=list[UUID])
+async def list_qrms(
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> list[UUID]:
+    """
+    Return all UUIDs that currently have stored Quantum Resource Models.
+    """
+
+    return await list_qrm_ids(engine)
+
+
 @app.get("/qrms/{uuid}", response_model=None)
 async def get_qrms_payload(
     uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
-) -> JSONResponse:
+) -> Response:
     """
-    Fetch the Quantum Resource Models associated with a UUID.
+    Fetch the Quantum Resource Models file associated with a UUID.
     """
 
-    payload = await get_qrms(engine, uuid)
-    if payload is None:
+    stored_file = await get_qrms(engine, uuid)
+    if stored_file is None:
         raise HTTPException(
             status_code=404, detail=f"No QRMs with uuid '{uuid}' found."
         )
 
-    return JSONResponse(status_code=200, content=payload)
+    headers = {}
+    if stored_file.filename:
+        safe_filename = stored_file.filename.replace('"', "")
+        headers["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
+
+    media_type = stored_file.content_type or "application/octet-stream"
+    return Response(content=stored_file.content, media_type=media_type, headers=headers)
+
+
+@app.get("/service-deployment-models", response_model=list[UUID])
+async def list_service_deployment_models(
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> list[UUID]:
+    """
+    Return all UUIDs that currently have stored service deployment models.
+    """
+
+    return await list_service_deployment_ids(engine)
 
 
 @app.get("/service-deployment-models/{uuid}", response_model=None)
 async def get_service_deployment_models_payload(
     uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
-) -> JSONResponse:
+) -> Response:
     """
-    Fetch the Service Deployment Models associated with a UUID.
+    Fetch the Service Deployment Models file associated with a UUID.
     """
 
-    payload = await get_service_deployment_models(engine, uuid)
-    if payload is None:
+    stored_file = await get_service_deployment_models(engine, uuid)
+    if stored_file is None:
         raise HTTPException(
             status_code=404,
             detail=f"No service deployment models with uuid '{uuid}' found.",
         )
 
-    return JSONResponse(status_code=200, content=payload)
+    headers = {}
+    if stored_file.filename:
+        safe_filename = stored_file.filename.replace('"', "")
+        headers["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
+
+    media_type = stored_file.content_type or "application/octet-stream"
+    return Response(content=stored_file.content, media_type=media_type, headers=headers)
+
+
+@app.post("/qrms/{uuid}", response_model=None, status_code=204)
+async def put_qrms_payload(
+    uuid: UUID,
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+    file: UploadFile = File(...),
+) -> Response:
+    """
+    Store or update the Quantum Resource Models file for the given UUID.
+    """
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Uploaded QRMs file is empty.")
+
+    stored_file = StoredFilePayload(
+        content=data,
+        filename=file.filename,
+        content_type=file.content_type,
+    )
+    await store_qrms(engine, uuid, stored_file)
+    return Response(status_code=204)
+
+
+@app.post("/service-deployment-models/{uuid}", response_model=None, status_code=204)
+async def put_service_deployment_models_payload(
+    uuid: UUID,
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+    file: UploadFile = File(...),
+) -> Response:
+    """
+    Store or update the Service Deployment Models file for the given UUID.
+    """
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(
+            status_code=400, detail="Uploaded service deployment models file is empty."
+        )
+
+    stored_file = StoredFilePayload(
+        content=data,
+        filename=file.filename,
+        content_type=file.content_type,
+    )
+    await store_service_deployment_models(engine, uuid, stored_file)
+    return Response(status_code=204)
 
 
 async def process_compile_request(
@@ -394,8 +479,6 @@ async def process_compile_request(
     status: SuccessStatus | FailedStatus
     try:
         result: str | list[ImplementationNode]
-        qrms_payload: object | None = None
-        service_models_payload: object | None = None
         if target == "workflow":
             qasm = await processor.process()
             print("QASM")
@@ -408,22 +491,10 @@ async def process_compile_request(
             )
             workflow_processor.target = target
             result = await workflow_processor.process()
-            qrms_payload = getattr(workflow_processor, "qrms", None)
-            service_models_payload = getattr(
-                workflow_processor, "service_deployment_models", None
-            )
         else:
             result = await processor.process()
             print(result)
-            qrms_payload = getattr(processor, "qrms", None)
-            service_models_payload = getattr(
-                processor, "service_deployment_models", None
-            )
         await add_result_to_db(engine, uuid, result, target)
-        await store_qrms(engine, uuid, qrms_payload)
-        await store_service_deployment_models(
-            engine, uuid, service_models_payload
-        )
 
         status = SuccessStatus(
             uuid=uuid,
@@ -464,10 +535,6 @@ async def process_enrich_request(
     try:
         result = await processor.enrich_all()
         await add_result_to_db(engine, uuid, result, target)
-        await store_qrms(engine, uuid, getattr(processor, "qrms", None))
-        await store_service_deployment_models(
-            engine, uuid, getattr(processor, "service_deployment_models", None)
-        )
 
         status = SuccessStatus(
             uuid=uuid,
@@ -555,10 +622,6 @@ async def post_debug_workflow(
             processor.optimize,
         )
         workflow_processor.target = "workflow"
-        workflow_processor.qrms = getattr(processor, "qrms", None)
-        workflow_processor.service_deployment_models = getattr(
-            processor, "service_deployment_models", None
-        )
         result = await workflow_processor.process()
         request_uuid = uuid4()
 
@@ -584,10 +647,6 @@ async def post_debug_workflow(
             )
 
         await add_result_to_db(engine, request_uuid, result, "workflow")
-        await store_qrms(engine, request_uuid, workflow_processor.qrms)
-        await store_service_deployment_models(
-            engine, request_uuid, workflow_processor.service_deployment_models
-        )
 
         success_status = SuccessStatus(
             uuid=request_uuid,
@@ -608,8 +667,6 @@ async def post_debug_workflow(
         response_payload = {
             "uuid": request_uuid,
             "workflow": result,
-            "qrms": workflow_processor.qrms,
-            "serviceDeploymentModels": workflow_processor.service_deployment_models,
             "links": {
                 "status": f"{settings.api_base_url}status/{request_uuid}",
                 "result": get_result_url(request_uuid, settings),

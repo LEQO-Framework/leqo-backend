@@ -85,6 +85,19 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        name="0006_convert_qrms_and_service_models_to_binary",
+        statements=(
+            'ALTER TABLE "qrms" ADD COLUMN IF NOT EXISTS "filename" VARCHAR',
+            'ALTER TABLE "qrms" ADD COLUMN IF NOT EXISTS "content_type" VARCHAR',
+            'ALTER TABLE "qrms" ALTER COLUMN "payload" TYPE BYTEA USING convert_to("payload"::text, \'UTF8\')',
+            'UPDATE "qrms" SET "content_type" = COALESCE("content_type", \'application/json\')',
+            'ALTER TABLE "service_deployment_models" ADD COLUMN IF NOT EXISTS "filename" VARCHAR',
+            'ALTER TABLE "service_deployment_models" ADD COLUMN IF NOT EXISTS "content_type" VARCHAR',
+            'ALTER TABLE "service_deployment_models" ALTER COLUMN "payload" TYPE BYTEA USING convert_to("payload"::text, \'UTF8\')',
+            'UPDATE "service_deployment_models" SET "content_type" = COALESCE("content_type", \'application/json\')',
+        ),
+    ),
 )
 
 

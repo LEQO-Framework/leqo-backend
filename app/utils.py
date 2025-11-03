@@ -2,8 +2,8 @@
 Utils used throughout the whole application.
 """
 
-import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TypeVar
 from uuid import UUID
 
@@ -97,27 +97,15 @@ def duplicates[T](list: list[T]) -> set[T]:
     return result
 
 
-def _serialize_payload(payload: object) -> str:
+@dataclass(frozen=True)
+class StoredFilePayload:
     """
-    Serialize payloads before persisting them.
-    """
-
-    if isinstance(payload, bytes):
-        return payload.decode("utf-8")
-    if isinstance(payload, str):
-        return payload
-    return json.dumps(payload)
-
-
-def _deserialize_payload(payload: str) -> object:
-    """
-    Safely deserialize stored payloads back into python types.
+    Represents a binary payload stored in the database.
     """
 
-    try:
-        return json.loads(payload)
-    except (json.JSONDecodeError, TypeError):
-        return payload
+    content: bytes
+    filename: str | None = None
+    content_type: str | None = None
 
 
 def safe_generate_implementation_node(
@@ -391,7 +379,9 @@ async def get_compile_request_payload(engine: AsyncEngine, uuid: UUID) -> str | 
         return entity.payload if entity is not None else None
 
 
-async def store_qrms(engine: AsyncEngine, uuid: UUID, qrms: object | None) -> None:
+async def store_qrms(
+    engine: AsyncEngine, uuid: UUID, qrms: StoredFilePayload | None
+) -> None:
     """
     Persist the Quantum Resource Models for the given request UUID.
     """
@@ -399,24 +389,36 @@ async def store_qrms(engine: AsyncEngine, uuid: UUID, qrms: object | None) -> No
     if qrms is None:
         return
 
-    payload = _serialize_payload(qrms)
     async with AsyncSession(engine) as session:
-        await session.merge(QuantumResourceModel(id=uuid, payload=payload))
+        await session.merge(
+            QuantumResourceModel(
+                id=uuid,
+                payload=qrms.content,
+                filename=qrms.filename,
+                content_type=qrms.content_type,
+            )
+        )
         await session.commit()
 
 
-async def get_qrms(engine: AsyncEngine, uuid: UUID) -> object | None:
+async def get_qrms(engine: AsyncEngine, uuid: UUID) -> StoredFilePayload | None:
     """
     Retrieve stored Quantum Resource Models for the given request UUID.
     """
 
     async with AsyncSession(engine) as session:
         entity = await session.get(QuantumResourceModel, uuid)
-        return _deserialize_payload(entity.payload) if entity is not None else None
+        if entity is None:
+            return None
+        return StoredFilePayload(
+            content=entity.payload,
+            filename=entity.filename,
+            content_type=entity.content_type,
+        )
 
 
 async def store_service_deployment_models(
-    engine: AsyncEngine, uuid: UUID, service_models: object | None
+    engine: AsyncEngine, uuid: UUID, service_models: StoredFilePayload | None
 ) -> None:
     """
     Persist the Service Deployment Models for the given request UUID.
@@ -425,19 +427,51 @@ async def store_service_deployment_models(
     if service_models is None:
         return
 
-    payload = _serialize_payload(service_models)
     async with AsyncSession(engine) as session:
-        await session.merge(ServiceDeploymentModel(id=uuid, payload=payload))
+        await session.merge(
+            ServiceDeploymentModel(
+                id=uuid,
+                payload=service_models.content,
+                filename=service_models.filename,
+                content_type=service_models.content_type,
+            )
+        )
         await session.commit()
 
 
 async def get_service_deployment_models(
     engine: AsyncEngine, uuid: UUID
-) -> object | None:
+) -> StoredFilePayload | None:
     """
     Retrieve stored Service Deployment Models for the given request UUID.
     """
 
     async with AsyncSession(engine) as session:
         entity = await session.get(ServiceDeploymentModel, uuid)
-        return _deserialize_payload(entity.payload) if entity is not None else None
+        if entity is None:
+            return None
+        return StoredFilePayload(
+            content=entity.payload,
+            filename=entity.filename,
+            content_type=entity.content_type,
+        )
+
+
+async def list_service_deployment_ids(engine: AsyncEngine) -> list[UUID]:
+    """
+    Return all UUIDs that have an associated service deployment payload.
+    """
+
+    async with AsyncSession(engine) as session:
+        rows = await session.execute(select(ServiceDeploymentModel.id))
+        return [row[0] for row in rows]
+
+
+async def list_qrm_ids(engine: AsyncEngine) -> list[UUID]:
+    """
+    Return all UUIDs that have an associated QRM payload.
+    """
+
+    async with AsyncSession(engine) as session:
+        rows = await session.execute(select(QuantumResourceModel.id))
+        return [row[0] for row in rows]

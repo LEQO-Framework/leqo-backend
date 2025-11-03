@@ -220,8 +220,6 @@ class MergingProcessor(CommonProcessor):
         )
         processor.target = request.compilation_target
         processor.original_request = request
-        processor.qrms = request.qrms
-        processor.service_deployment_models = request.serviceDeploymentModels
         return processor
 
     async def process_nodes(self) -> None:
@@ -393,8 +391,6 @@ class EnrichingProcessor(CommonProcessor):
         processor = EnrichingProcessor(enricher, graph, request.metadata)
         processor.target = request.compilation_target
         processor.original_request = request
-        processor.qrms = request.qrms
-        processor.service_deployment_models = request.serviceDeploymentModels
         return processor
 
     def _get_dummy_enrichment(
@@ -503,8 +499,6 @@ class WorkflowProcessor(CommonProcessor):
         processor = WorkflowProcessor(enricher, graph, request.metadata)
         processor.target = request.compilation_target
         processor.original_request = request
-        processor.qrms = request.qrms
-        processor.service_deployment_models = request.serviceDeploymentModels
         return processor
 
     async def process(self) -> str:
