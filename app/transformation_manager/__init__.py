@@ -565,7 +565,7 @@ class WorkflowProcessor(CommonProcessor):
         service_zip_bytes = await self.generate_service_zips(all_activities, node_metadata)
         
         # Generate QRMs
-        # qrms = await generate_qrms(quantum_groups)
+        qrms = await generate_qrms(quantum_groups)
         #return service_zip_bytes
         return bpmn_xml
 
@@ -722,7 +722,7 @@ class WorkflowProcessor(CommonProcessor):
 
                     service_zip.writestr("app.py", "\n".join(model_lines))
                     pollingAgentName = ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
-                    polling_agent_code = ( "# ******************************************************************************\n" "# Copyright (c) 2025 University of Stuttgart\n" "#\n" "# Licensed under the Apache License, Version 2.0\n" "# ******************************************************************************\n\n" "import threading\n" "import base64\n" "import os\n" "import pickle\n" "import codecs\n" "import requests\n" "from urllib.request import urlopen\n" "import app\n\n\n" "def poll():\n" "\tbody = {\n" "\t\t\""+ pollingAgentName+"\": \"WP67GZ6N9ZX5\",\n" "\t\t\"maxTasks\": 1,\n" "\t\t\"topics\": [{\"topicName\": topic, \"lockDuration\": 100000000}]\n" "\t}\n\n" "\ttry:\n" "\t\tresponse = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n\n" "\t\tif response.status_code == 200:\n" "\t\t\tfor externalTask in response.json():\n" "\t\t\t\tprint('External task with ID for topic ' + str(externalTask.get('topicName')) + ': ' + str(externalTask.get('id')))\n" "\t\t\t\tvariables = externalTask.get('variables')\n" "\t\t\t\tprint('Loaded variables: %s' % variables)\n" "\t\t\t\tif externalTask.get('topicName') == topic:\n" "\t\t\t\t\tprint('variables after input load: %s' % variables)\n\n" "\t\t\t\t\tmodel = app.main()\n\n" "\t\t\t\t\tprint('variables after call script: %s' % variables)\n\n" "\t\t\t\t\tbody = {\""+pollingAgentName+"\": \"WP67GZ6N9ZX5\"}\n" "\t\t\t\t\tbody[\"variables\"] = {}\n\n" "\t\t\t\t\tprint(\"Encode OutputParameter %s\" % model)\n" "\t\t\t\t\tmodel_encoded = base64.b64encode(str.encode(str(model))).decode(\"utf-8\")\n" "\t\t\t\t\tbody[\"variables\"][\"model\"] = {\n" "\t\t\t\t\t\t\"value\": model_encoded,\n" "\t\t\t\t\t\t\"type\": \"File\",\n" "\t\t\t\t\t\t\"valueInfo\": {\"filename\": \"model.txt\", \"encoding\": \"\"}\n" "\t\t\t\t\t}\n\n" "\t\t\t\t\tprint('variables after store output: %s' % variables)\n" "\t\t\t\t\tresponse = requests.post(pollingEndpoint + '/' + externalTask.get('id') + '/complete', json=body)\n" "\t\t\t\t\tprint('Status code of response message: ' + str(response.status_code))\n\n" "\texcept Exception as err:\n" "\t\tprint('Exception during polling: ', err)\n\n" "\tthreading.Timer(8, poll).start()\n\n\n" "def download_data(url):\n" "\tresponse = urlopen(url)\n" "\tdata = response.read().decode('utf-8')\n" "\treturn str(data)\n\n\n" "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n" "pollingEndpoint = camundaEndpoint + '/external-task'\n" "topic = os.environ['CAMUNDA_TOPIC']\n" "poll()\n" )
+                    polling_agent_code = ( "# ******************************************************************************\n" "# Copyright (c) 2025 University of Stuttgart\n" "#\n" "# Licensed under the Apache License, Version 2.0\n" "# ******************************************************************************\n\n" "import threading\n" "import base64\n" "import os\n" "import pickle\n" "import codecs\n" "import requests\n" "from urllib.request import urlopen\n" "import app\n\n\n" "def poll():\n" "\tbody = {\n" "\t\t\"workerId\": \"WP67GZ6N9ZX5\",\n" "\t\t\"maxTasks\": 1,\n" "\t\t\"topics\": [{\"topicName\": topic, \"lockDuration\": 100000000}]\n" "\t}\n\n" "\ttry:\n" "\t\tresponse = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n\n" "\t\tif response.status_code == 200:\n" "\t\t\tfor externalTask in response.json():\n" "\t\t\t\tprint('External task with ID for topic ' + str(externalTask.get('topicName')) + ': ' + str(externalTask.get('id')))\n" "\t\t\t\tvariables = externalTask.get('variables')\n" "\t\t\t\tprint('Loaded variables: %s' % variables)\n" "\t\t\t\tif externalTask.get('topicName') == topic:\n" "\t\t\t\t\tprint('variables after input load: %s' % variables)\n\n" "\t\t\t\t\tmodel = app.main()\n\n" "\t\t\t\t\tprint('variables after call script: %s' % variables)\n\n" "\t\t\t\t\tbody = {\"workerId\": \"WP67GZ6N9ZX5\"}\n" "\t\t\t\t\tbody[\"variables\"] = {}\n\n" "\t\t\t\t\tprint(\"Encode OutputParameter %s\" % model)\n" "\t\t\t\t\tmodel_encoded = base64.b64encode(str.encode(str(model))).decode(\"utf-8\")\n" "\t\t\t\t\tbody[\"variables\"][\"model\"] = {\n" "\t\t\t\t\t\t\"value\": model_encoded,\n" "\t\t\t\t\t\t\"type\": \"File\",\n" "\t\t\t\t\t\t\"valueInfo\": {\"filename\": \"model.txt\", \"encoding\": \"\"}\n" "\t\t\t\t\t}\n\n" "\t\t\t\t\tprint('variables after store output: %s' % variables)\n" "\t\t\t\t\tresponse = requests.post(pollingEndpoint + '/' + externalTask.get('id') + '/complete', json=body)\n" "\t\t\t\t\tprint('Status code of response message: ' + str(response.status_code))\n\n" "\texcept Exception as err:\n" "\t\tprint('Exception during polling: ', err)\n\n" "\tthreading.Timer(8, poll).start()\n\n\n" "def download_data(url):\n" "\tresponse = urlopen(url)\n" "\tdata = response.read().decode('utf-8')\n" "\treturn str(data)\n\n\n" "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n" "pollingEndpoint = camundaEndpoint + '/external-task'\n" "topic = os.environ['CAMUNDA_TOPIC']\n" "poll()\n" )
 
                     # Add polling_agent.py
                     service_zip.writestr("polling_agent.py", polling_agent_code)
@@ -1128,3 +1128,125 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
     print("All activities in process:", all_activities)
 
     return ET.tostring(defs, encoding="utf-8", xml_declaration=True).decode("utf-8"), all_activities
+
+
+
+async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> dict[str, bytes]:
+    """
+    Generate QRM BPMN files for each quantum node in the provided groups.
+
+    For each quantum node:
+    - Create a detector BPMN (quantumCircuitLoadingTask)
+    - Create a replacement BPMN (serviceTask with deploymentModelUrl)
+    - Package both into a ZIP file named after the node (e.g. node_id.zip)
+
+    Returns:
+        dict[str, bytes]: mapping of node_id -> zip file content (bytes)
+    """
+    
+
+    output_dir = "/tmp/generated_qrms"
+    os.makedirs(output_dir, exist_ok=True)
+
+    qrms_output = {}
+
+    for group_id, nodes in quantum_groups.items():
+        for node in nodes:
+            node_id = getattr(node, "id", "unknown_node")
+            node_label = getattr(node, "label", node_id)
+
+            # create detector
+            detector_defs = ET.Element(
+                "bpmn:definitions",
+                {
+                    "xmlns:bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
+                    "xmlns:bpmndi": "http://www.omg.org/spec/BPMN/20100524/DI",
+                    "xmlns:dc": "http://www.omg.org/spec/DD/20100524/DC",
+                    "xmlns:quantme": "https://github.com/UST-QuAntiL/QuantME-Quantum4BPMN",
+                    "id": f"Definitions_{uuid.uuid4().hex[:7]}",
+                    "targetNamespace": "http://bpmn.io/schema/bpmn",
+                    "exporter": "QuantME Modeler",
+                    "exporterVersion": "4.4.0",
+                },
+            )
+
+            process_id = f"Process_{uuid.uuid4().hex[:7]}"
+            process_el = ET.SubElement(detector_defs, "bpmn:process", {"id": process_id, "isExecutable": "true"})
+
+            detector_task_id = f"Task_{uuid.uuid4().hex[:7]}"
+            ET.SubElement(
+                process_el,
+                "quantme:quantumCircuitLoadingTask",
+                {
+                    "id": detector_task_id,
+                    "url": f"{node_label}/maxcut"
+                },
+                )
+
+            diagram = ET.SubElement(detector_defs, "bpmndi:BPMNDiagram", {"id": "BPMNDiagram_1"})
+            plane = ET.SubElement(diagram, "bpmndi:BPMNPlane", {"id": "BPMNPlane_1", "bpmnElement": process_id})
+            shape = ET.SubElement(plane, "bpmndi:BPMNShape", {
+                "id": f"CircuitLoadingTask_{uuid.uuid4().hex[:7]}_di",
+                "bpmnElement": detector_task_id
+            })
+            ET.SubElement(shape, "dc:Bounds", {"x": "160", "y": "80", "width": "100", "height": "80"})
+
+            detector_xml = ET.tostring(detector_defs, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+            # Create replacement
+            executor_defs = ET.Element(
+                    "bpmn:definitions",
+                    {
+                        "xmlns:bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
+                        "xmlns:bpmndi": "http://www.omg.org/spec/BPMN/20100524/DI",
+                        "xmlns:dc": "http://www.omg.org/spec/DD/20100524/DC",
+                        "xmlns:quantme": "https://github.com/UST-QuAntiL/QuantME-Quantum4BPMN",
+                        "id": f"Definitions_{uuid.uuid4().hex[:7]}",
+                        "targetNamespace": "http://bpmn.io/schema/bpmn",
+                        "exporter": "QuantME Modeler",
+                        "exporterVersion": "4.5.0-nightly.20211118",
+                    },
+                )
+
+            executor_process_id = f"Process_{uuid.uuid4().hex[:7]}"
+            executor_process = ET.SubElement(
+                    executor_defs,
+                    "bpmn:process",
+                    {"id": executor_process_id, "isExecutable": "true"},
+                )
+
+            executor_task_id = f"Task_{uuid.uuid4().hex[:7]}"
+            ET.SubElement(
+                executor_process,
+                    "bpmn:serviceTask",
+                    {
+                        "id": executor_task_id,
+                        "name": "Execute OpenQASM",
+                        "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{node_id}/?csar",
+                    },
+                )
+
+            diagram = ET.SubElement(executor_defs, "bpmndi:BPMNDiagram", {"id": "BPMNDiagram_1"})
+            plane = ET.SubElement(diagram, "bpmndi:BPMNPlane", {"id": "BPMNPlane_1", "bpmnElement": executor_process_id})
+            shape = ET.SubElement(plane, "bpmndi:BPMNShape", {
+                    "id": f"ServiceTask_{uuid.uuid4().hex[:7]}_di",
+                    "bpmnElement": executor_task_id
+            })
+            ET.SubElement(shape, "dc:Bounds", {"x": "160", "y": "120", "width": "100", "height": "80"})
+
+            executor_xml = ET.tostring(executor_defs, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+            # 3. Package both BPMN files into a ZIP
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr(f"detector.bpmn", detector_xml)
+                zf.writestr(f"replacement.bpmn", executor_xml)
+
+            zip_path = os.path.join(output_dir, f"Activity_{node_id}.zip")
+            with open(zip_path, "wb") as f:
+                f.write(zip_buffer.getvalue())
+
+            qrms_output[node_id] = zip_buffer.getvalue()
+            print(f"[INFO] QRM ZIP generated for node {node_id}: {zip_path}")
+
+        return qrms_output
