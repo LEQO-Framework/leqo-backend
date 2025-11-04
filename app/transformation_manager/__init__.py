@@ -565,7 +565,7 @@ class WorkflowProcessor(CommonProcessor):
         service_zip_bytes = await self.generate_service_zips(all_activities, node_metadata)
         
         # Generate QRMs
-        # qrms = await self.generate_qrms(quantum_groups)
+        # qrms = await generate_qrms(quantum_groups)
         #return service_zip_bytes
         return bpmn_xml
 
@@ -721,7 +721,8 @@ class WorkflowProcessor(CommonProcessor):
                             ]
 
                     service_zip.writestr("app.py", "\n".join(model_lines))
-                    polling_agent_code = ( "# ******************************************************************************\n" "# Copyright (c) 2025 University of Stuttgart\n" "#\n" "# Licensed under the Apache License, Version 2.0\n" "# ******************************************************************************\n\n" "import threading\n" "import base64\n" "import os\n" "import pickle\n" "import codecs\n" "import requests\n" "from urllib.request import urlopen\n" "import app\n\n\n" "def poll():\n" "\tbody = {\n" "\t\t\"workerId\": \"WP67GZ6N9ZX5\",\n" "\t\t\"maxTasks\": 1,\n" "\t\t\"topics\": [{\"topicName\": topic, \"lockDuration\": 100000000}]\n" "\t}\n\n" "\ttry:\n" "\t\tresponse = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n\n" "\t\tif response.status_code == 200:\n" "\t\t\tfor externalTask in response.json():\n" "\t\t\t\tprint('External task with ID for topic ' + str(externalTask.get('topicName')) + ': ' + str(externalTask.get('id')))\n" "\t\t\t\tvariables = externalTask.get('variables')\n" "\t\t\t\tprint('Loaded variables: %s' % variables)\n" "\t\t\t\tif externalTask.get('topicName') == topic:\n" "\t\t\t\t\tprint('variables after input load: %s' % variables)\n\n" "\t\t\t\t\tmodel = app.main()\n\n" "\t\t\t\t\tprint('variables after call script: %s' % variables)\n\n" "\t\t\t\t\tbody = {\"workerId\": \"WP67GZ6N9ZX5\"}\n" "\t\t\t\t\tbody[\"variables\"] = {}\n\n" "\t\t\t\t\tprint(\"Encode OutputParameter %s\" % model)\n" "\t\t\t\t\tmodel_encoded = base64.b64encode(str.encode(str(model))).decode(\"utf-8\")\n" "\t\t\t\t\tbody[\"variables\"][\"model\"] = {\n" "\t\t\t\t\t\t\"value\": model_encoded,\n" "\t\t\t\t\t\t\"type\": \"File\",\n" "\t\t\t\t\t\t\"valueInfo\": {\"filename\": \"model.txt\", \"encoding\": \"\"}\n" "\t\t\t\t\t}\n\n" "\t\t\t\t\tprint('variables after store output: %s' % variables)\n" "\t\t\t\t\tresponse = requests.post(pollingEndpoint + '/' + externalTask.get('id') + '/complete', json=body)\n" "\t\t\t\t\tprint('Status code of response message: ' + str(response.status_code))\n\n" "\texcept Exception as err:\n" "\t\tprint('Exception during polling: ', err)\n\n" "\tthreading.Timer(8, poll).start()\n\n\n" "def download_data(url):\n" "\tresponse = urlopen(url)\n" "\tdata = response.read().decode('utf-8')\n" "\treturn str(data)\n\n\n" "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n" "pollingEndpoint = camundaEndpoint + '/external-task'\n" "topic = os.environ['CAMUNDA_TOPIC']\n" "poll()\n" )
+                    pollingAgentName = ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
+                    polling_agent_code = ( "# ******************************************************************************\n" "# Copyright (c) 2025 University of Stuttgart\n" "#\n" "# Licensed under the Apache License, Version 2.0\n" "# ******************************************************************************\n\n" "import threading\n" "import base64\n" "import os\n" "import pickle\n" "import codecs\n" "import requests\n" "from urllib.request import urlopen\n" "import app\n\n\n" "def poll():\n" "\tbody = {\n" "\t\t\""+ pollingAgentName+"\": \"WP67GZ6N9ZX5\",\n" "\t\t\"maxTasks\": 1,\n" "\t\t\"topics\": [{\"topicName\": topic, \"lockDuration\": 100000000}]\n" "\t}\n\n" "\ttry:\n" "\t\tresponse = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n\n" "\t\tif response.status_code == 200:\n" "\t\t\tfor externalTask in response.json():\n" "\t\t\t\tprint('External task with ID for topic ' + str(externalTask.get('topicName')) + ': ' + str(externalTask.get('id')))\n" "\t\t\t\tvariables = externalTask.get('variables')\n" "\t\t\t\tprint('Loaded variables: %s' % variables)\n" "\t\t\t\tif externalTask.get('topicName') == topic:\n" "\t\t\t\t\tprint('variables after input load: %s' % variables)\n\n" "\t\t\t\t\tmodel = app.main()\n\n" "\t\t\t\t\tprint('variables after call script: %s' % variables)\n\n" "\t\t\t\t\tbody = {\""+pollingAgentName+"\": \"WP67GZ6N9ZX5\"}\n" "\t\t\t\t\tbody[\"variables\"] = {}\n\n" "\t\t\t\t\tprint(\"Encode OutputParameter %s\" % model)\n" "\t\t\t\t\tmodel_encoded = base64.b64encode(str.encode(str(model))).decode(\"utf-8\")\n" "\t\t\t\t\tbody[\"variables\"][\"model\"] = {\n" "\t\t\t\t\t\t\"value\": model_encoded,\n" "\t\t\t\t\t\t\"type\": \"File\",\n" "\t\t\t\t\t\t\"valueInfo\": {\"filename\": \"model.txt\", \"encoding\": \"\"}\n" "\t\t\t\t\t}\n\n" "\t\t\t\t\tprint('variables after store output: %s' % variables)\n" "\t\t\t\t\tresponse = requests.post(pollingEndpoint + '/' + externalTask.get('id') + '/complete', json=body)\n" "\t\t\t\t\tprint('Status code of response message: ' + str(response.status_code))\n\n" "\texcept Exception as err:\n" "\t\tprint('Exception during polling: ', err)\n\n" "\tthreading.Timer(8, poll).start()\n\n\n" "def download_data(url):\n" "\tresponse = urlopen(url)\n" "\tdata = response.read().decode('utf-8')\n" "\treturn str(data)\n\n\n" "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n" "pollingEndpoint = camundaEndpoint + '/external-task'\n" "topic = os.environ['CAMUNDA_TOPIC']\n" "poll()\n" )
 
                     # Add polling_agent.py
                     service_zip.writestr("polling_agent.py", polling_agent_code)
@@ -733,7 +734,7 @@ class WorkflowProcessor(CommonProcessor):
 
                 # Dockerfile
                 dockerfile_code = f"""FROM python:3.8-slim
-    LABEL maintainer="Generated Service"
+    LABEL maintainer="Lavinia Stiliadou <lavinia.stiliadou@iaas.uni-stuttgart.de>"
 
     COPY service.zip /tmp/service.zip
 
@@ -1116,6 +1117,3 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
     print("All activities in process:", all_activities)
 
     return ET.tostring(defs, encoding="utf-8", xml_declaration=True).decode("utf-8"), all_activities
-
-
-
