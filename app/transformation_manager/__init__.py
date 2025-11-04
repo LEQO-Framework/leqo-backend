@@ -821,6 +821,7 @@ DI_NS = "http://www.omg.org/spec/DD/20100524/DI"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 CAMUNDA_NS="http://camunda.org/schema/1.0/bpmn" 
 OpenTOSCA_NS="https://github.com/UST-QuAntiL/OpenTOSCA"
+QUANTME_NS="https://github.com/UST-QuAntiL/QuantME-Quantum4BPMN"
 
 ET.register_namespace("bpmn2", BPMN2_NS)
 ET.register_namespace("bpmndi", BPMNDI_NS)
@@ -829,6 +830,7 @@ ET.register_namespace("di", DI_NS)
 ET.register_namespace("xsi", XSI_NS)
 ET.register_namespace("opentosca", OpenTOSCA_NS)
 ET.register_namespace("camunda", CAMUNDA_NS)
+ET.register_namespace("quantme", QUANTME_NS)
 
 def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list, metadata: dict = None, start_event_classical_nodes: list = None) -> tuple[str, list[dict]]:
     """Generate BPMN XML workflow diagram with correct left-to-right layout.
@@ -979,7 +981,16 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
         # nodes are only composite nodes, chain tasks are additional synthetic tasks
         task_id = f"Task_{nid}"
         node_type = getattr(node, "type", "Task")
-        task_el = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": task_id, "name": node_type, "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{nid}/?csar"})
+        if node_type == "encode":
+            task_el = ET.SubElement(process, qn(QUANTME_NS, "dataPreparationTask"), {"id": task_id, "name": node_type})
+        elif node_type == "measurement":
+            task_el = ET.SubElement(process, qn(QUANTME_NS, "quantumCircuitExecutionTask"), {"id": task_id, "name": node_type})
+        elif node_type == "prepare":
+            task_el = ET.SubElement(process, qn(QUANTME_NS, "quantumCircuitLoadingTask"), {"id": task_id, "name": node_type})
+        elif node_type == "group":
+            task_el = ET.SubElement(process, qn(QUANTME_NS, "quantumComputationTask"), {"id": task_id, "name": node_type})
+        else:
+            task_el = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": task_id, "name": node_type, "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{nid}/?csar"})
 
         # Add metadata as extensionElements/properties
         for key, val in metadata.get(nid, {}).items():
