@@ -34,7 +34,7 @@ from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import IntType, LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
 from app.services import get_db_engine, get_enricher, get_settings
-from app.transformation_manager.frontend_graph import FrontendGraph
+from app.transformation_manager.frontend_graph import FrontendGraph, TBaseNode
 from app.transformation_manager.graph import (
     ClassicalIOInstance,
     IOConnection,
@@ -94,7 +94,7 @@ class CommonProcessor:
         optimize_settings: OptimizeSettings,
         qiskit_compat: bool = False,
         result: str | None = None,
-        original_request: str |None = None,
+        original_request: CompileRequest |None = None,
     ) -> None:
         self.enricher = enricher
         self.frontend_graph = frontend_graph
@@ -516,7 +516,7 @@ class WorkflowProcessor(CommonProcessor):
         quantum_groups = await self.identify_quantum_groups()
 
         # Prepare node metadata
-        node_metadata = {node_id: {} for node_id in self.frontend_graph.nodes}
+        node_metadata: dict[str, dict[str, Any]] = {node_id: {} for node_id in self.frontend_graph.nodes}
 
         # Attach quantum group info
         for group_id, nodes in quantum_groups.items():
@@ -526,37 +526,37 @@ class WorkflowProcessor(CommonProcessor):
                     node_metadata[node_id]["quantum_group"] = group_id
 
         # Collapse quantum groups into composite nodes
-        nodes_dict = dict(self.frontend_graph.node_data)
+        nodes_dict: dict[str, Any] = dict(self.frontend_graph.node_data)
         edges = list(self.frontend_graph.edges)
 
-        node_to_group = {}
+        node_to_group: dict[str, str] = {}
         for gid, group_nodes in quantum_groups.items():
             for n in group_nodes:
                 node_to_group[n.id] = gid
 
-        composite_nodes = {}
+        composite_nodes: dict[str, Any] = {}
         for nid, node in nodes_dict.items():
-            gid = node_to_group.get(nid)
-            if gid:
+            ngid = node_to_group.get(nid)
+            if ngid:
                 if gid not in composite_nodes:
-                    composite_nodes[gid] = node  # pick representative
+                    composite_nodes[ngid] = node  # pick representative
             elif getattr(node, "type", None) not in CLASSICAL_TYPES:
                 composite_nodes[nid] = node
 
         # Remap edges to composite nodes
-        collapsed_edges = set()
+        collapsed_edges: set[tuple[str, str]] = set()
         for src, tgt in edges:
             src_gid = node_to_group.get(src, src)
             tgt_gid = node_to_group.get(tgt, tgt)
             if src_gid != tgt_gid and src_gid in composite_nodes and tgt_gid in composite_nodes:
                 collapsed_edges.add((src_gid, tgt_gid))
-        collapsed_edges = list(collapsed_edges)
+        collapsed_edges_list: list[tuple[str,str]] = list(collapsed_edges)
 
         # Generate BPMN XML
         bpmn_xml, all_activities = _implementation_nodes_to_bpmn_xml(
             "workflow_process",
             composite_nodes,
-            collapsed_edges,
+            collapsed_edges_list,
             metadata=node_metadata,
             start_event_classical_nodes=[node for node in nodes_dict.values() if getattr(node, "type", None) in CLASSICAL_TYPES]
         )
@@ -585,10 +585,10 @@ class WorkflowProcessor(CommonProcessor):
         print(f"Quantum nodes: {[node.id for node in quantum_nodes]}")
 
         # Group by connected components using DFS
-        groups = defaultdict(list)
+        groups: dict[str, list[Any]] = defaultdict(list)
         visited = set()
 
-        def dfs(node: ImplementationNode, group_id: str):
+        def dfs(node: TBaseNode, group_id: str) -> None:
             if node.id in visited:
                 return
             visited.add(node.id)
@@ -603,7 +603,6 @@ class WorkflowProcessor(CommonProcessor):
                 neighbor = self.frontend_graph.node_data[neighbor_id]
                 if getattr(neighbor, "type", None) not in CLASSICAL_TYPES:
                     dfs(neighbor, group_id)
-
         group_counter = 0
         for node in quantum_nodes:
             if node.id not in visited:
@@ -612,7 +611,7 @@ class WorkflowProcessor(CommonProcessor):
 
         return dict(groups)
 
-    async def generate_service_zips(self, composite_nodes: list[str], node_metadata: dict) -> list[bytes]:
+    async def generate_service_zips(self, composite_nodes: list[str], node_metadata: dict[str, dict[str, Any]]) -> list[bytes]:
         """
         Generate one ZIP per activity.
         Each ZIP contains app.py (with _model, _send_compile, _poll_result, _set_vars logic),
@@ -645,6 +644,7 @@ class WorkflowProcessor(CommonProcessor):
                 with zipfile.ZipFile(service_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as service_zip:
 
                     # Serialize original request
+                    assert self.original_request is not None
                     try:
                         full_request_json = self.original_request.json()
                     except Exception:
@@ -810,7 +810,7 @@ class EnrichmentInserter:
             await session.commit()
 
 
-def random_id(prefix="Flow"):
+def random_id(prefix: str ="Flow") -> str:
     return f"{prefix}_{''.join(random.choices(string.ascii_lowercase + string.digits, k=7))}"
 
 # BPMN namespaces
@@ -832,7 +832,7 @@ ET.register_namespace("opentosca", OpenTOSCA_NS)
 ET.register_namespace("camunda", CAMUNDA_NS)
 ET.register_namespace("quantme", QUANTME_NS)
 
-def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list, metadata: dict = None, start_event_classical_nodes: list = None) -> tuple[str, list[dict]]:
+def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], edges: list[tuple[str,str]], metadata: dict[str, dict[str, Any]] | None = None, start_event_classical_nodes: list[Any] | None = None) -> tuple[str, list[str]]:
     """Generate BPMN XML workflow diagram with correct left-to-right layout.
 
     This version inserts, immediately after the StartEvent, a chain of four
@@ -852,7 +852,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
     metadata = metadata or {}
     start_event_classical_nodes = start_event_classical_nodes or []
 
-    def qn(ns, tag):
+    def qn(ns: str, tag: str) -> str:
         return f"{{{ns}}}{tag}"
 
     # Root definitions
@@ -1123,7 +1123,8 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict, edges: list,
         all_activities.extend(chain)
 
     # Optional: store them in metadata for later reference
-    metadata["all_activities"] = all_activities
+    # Had to comment it due to the fact it's not used and the types are not fitting
+    # metadata["all_activities"] = all_activities
 
     print("All activities in process:", all_activities)
 
@@ -1249,4 +1250,4 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
             qrms_output[node_id] = zip_buffer.getvalue()
             print(f"[INFO] QRM ZIP generated for node {node_id}: {zip_path}")
 
-        return qrms_output
+    return qrms_output
