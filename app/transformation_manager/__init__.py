@@ -509,7 +509,7 @@ class WorkflowProcessor(CommonProcessor):
         processor.original_request = request
         return processor
         
-    async def process(self) -> str:
+    async def process(self) -> tuple[str, dict[str, bytes]]:
         """Run enrichment, classify nodes, group quantum nodes, and return BPMN XML."""
 
         # Identify quantum groups
@@ -567,7 +567,7 @@ class WorkflowProcessor(CommonProcessor):
         # Generate QRMs
         qrms = await generate_qrms(quantum_groups)
         #return service_zip_bytes
-        return bpmn_xml
+        return bpmn_xml, qrms
 
 
 

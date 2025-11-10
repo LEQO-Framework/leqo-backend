@@ -494,10 +494,27 @@ async def process_compile_request(
             )
             workflow_processor.target = target
             result = await workflow_processor.process()
+            
+            bpmn_xml, qrms = await workflow_processor.process()
+            print(f"[INFO] BPMN XML generated ({len(bpmn_xml)} chars)")
+            print(f"[INFO] {len(qrms)} QRM ZIPs generated")
+
+            print("[INFO] BPMN XML persisted")
+            print(qrms)
+
+            for node_id, zip_bytes in qrms.items():
+                qrms_payload = StoredFilePayload(
+                    content=zip_bytes,
+                    filename=f"Activity_{node_id}.zip",
+                    content_type="application/zip",
+                )
+                await store_qrms(engine, uuid, qrms_payload)
+                print(f"[INFO] Stored QRM for node {node_id} in DB")
+
         else:
             result = await processor.process()
             print(result)
-        await add_result_to_db(engine, uuid, result, target)
+        await add_result_to_db(engine, uuid, bpmn_xml, target)
 
         status = SuccessStatus(
             uuid=uuid,
