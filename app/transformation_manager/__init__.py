@@ -509,7 +509,7 @@ class WorkflowProcessor(CommonProcessor):
         processor.original_request = request
         return processor
         
-    async def process(self) -> tuple[str, dict[str, bytes]]:
+    async def process(self) -> tuple[str, bytes, dict[str, bytes]]:
         """Run enrichment, classify nodes, group quantum nodes, and return BPMN XML."""
 
         # Identify quantum groups
@@ -567,7 +567,7 @@ class WorkflowProcessor(CommonProcessor):
         # Generate QRMs
         qrms = await generate_qrms(quantum_groups)
         #return service_zip_bytes
-        return bpmn_xml, qrms
+        return bpmn_xml, qrms, service_zip_bytes
 
 
 
@@ -611,7 +611,7 @@ class WorkflowProcessor(CommonProcessor):
 
         return dict(groups)
 
-    async def generate_service_zips(self, composite_nodes: list[str], node_metadata: dict[str, dict[str, Any]]) -> list[bytes]:
+    async def generate_service_zips(self, composite_nodes: list[str], node_metadata: dict[str, dict[str, Any]]) -> bytes:
         """
         Generate one ZIP per activity.
         Each ZIP contains app.py (with _model, _send_compile, _poll_result, _set_vars logic),
@@ -619,141 +619,183 @@ class WorkflowProcessor(CommonProcessor):
         """
         output_dir = "/tmp/generated_services"
         os.makedirs(output_dir, exist_ok=True)
-        
-        zip_buffers = []
+        master_zip_buffer = io.BytesIO()
 
         # Collect all _model tasks
         #model_tasks = [node for node in composite_nodes if node.endswith("_model")]
+        with zipfile.ZipFile(master_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as master_zip:
+            for model_task in composite_nodes:
+                activity_name = "Activity_" + model_task.replace(" ", "_")
+                activity_zip_buffer = io.BytesIO()
 
-        for model_task in composite_nodes:
-            activity_name = "Activity_" + model_task.replace(" ", "_")
-            main_zip_path = os.path.join(output_dir, f"{activity_name}.zip")
-            main_zip_buffer = io.BytesIO()
+                # Outer Activity ZIP
+                with zipfile.ZipFile(activity_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as activity_zip:
 
-            # Collect related tasks for this model
-            related_tasks = [model_task]
-            base_name = model_task.replace("_model", "")
-            #for suffix in ["_send_compile", "_poll_result", "_set_vars"]:
-             #   candidate = f"Task_{base_name}{suffix}"
-              #  if candidate in composite_nodes:
-               #     related_tasks.append(candidate)
+                    # Middle service.zip (contains Dockerfile + inner service.zip)
+                    middle_service_buffer = io.BytesIO()
+                    with zipfile.ZipFile(middle_service_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as middle_service_zip:
 
-            # Create ZIP
-            with zipfile.ZipFile(main_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as outer_zip:
-                service_zip_buffer = io.BytesIO()
-                with zipfile.ZipFile(service_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as service_zip:
+                        # Inner service.zip (contains app.py, polling_agent.py, requirements.txt)
+                        inner_service_buffer = io.BytesIO()
+                        with zipfile.ZipFile(inner_service_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as inner_service_zip:
 
-                    # Serialize original request
-                    assert self.original_request is not None
-                    try:
-                        full_request_json = self.original_request.json()
-                    except Exception:
-                        full_request_json = json.loads(
-                            self.original_request.json(exclude_none=True, exclude_unset=True)
-                        )
-                    safe_request_str = json.dumps(full_request_json, indent=4, ensure_ascii=False)
+                            # Serialize original request
+                            assert self.original_request is not None
+                            try:
+                                full_request_json = self.original_request.json()
+                            except Exception:
+                                full_request_json = json.loads(
+                                    self.original_request.json(exclude_none=True, exclude_unset=True)
+                                )
+                            safe_request_str = json.dumps(full_request_json, indent=4, ensure_ascii=False)
 
-                    # Build app.py for all related tasks
-                    model_lines = [
-                        "import requests",
-                        "import time",
-                        "import json",
-                        "import os",
-                        "",
-                        "BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')",
-                        "",
-                    ]
-
-                    for node_id in related_tasks:
-                        if node_id.endswith("_model"):
-                            model_lines += [
-                                f"# Logic for {node_id}",
-                                f"{node_id}_data = {safe_request_str}",
+                            # Build app.py
+                            model_lines = [
+                                "import requests",
+                                "import time",
+                                "import json",
+                                "import os",
                                 "",
-                            ]
-                        elif node_id.endswith("_send_compile"):
-                            model_node = node_id.replace("_send_compile", "_model")
-                            model_lines += [
-                                f"# Logic for {node_id}",
-                                f"def {node_id}_func():",
-                                f"    url = f\"{{BACKEND_URL}}/compile\"",
-                                f"    response = requests.post(url, json={model_node}_data)",
-                                f"    response.raise_for_status()",
-                                f"    data = response.json()",
-                                f"    uuid = data['uuid']",
-                                f"    location = data['result']",
-                                f"    print('Sent compile for {model_node}, uuid:', uuid)",
-                                f"    return uuid, location",
-                                "",
-                            ]
-                        elif node_id.endswith("_poll_result"):
-                            send_node = node_id.replace("_poll_result", "_send_compile")
-                            model_lines += [
-                                f"# Logic for {node_id}",
-                                f"def {node_id}_func(uuid):",
-                                f"    status_url = f\"{{BACKEND_URL}}/status/{{uuid}}\"",
-                                f"    for attempt in range(20):",
-                                f"        resp = requests.get(status_url)",
-                                f"        if not resp.ok:",
-                                f"            print('Status check failed', resp.status_code)",
-                                f"            time.sleep(10)",
-                                f"            continue",
-                                f"        data = resp.json()",
-                                f"        status = data.get('status')",
-                                f"        location = data.get('result')",
-                                f"        print(f'Attempt {{attempt+1}}: status={{status}}, location={{location}}')",
-                                f"        if status in ('completed','failed'):",
-                                f"            return status, location",
-                                f"        time.sleep(10)",
-                                f"    return 'timeout', None",
-                                "",
-                            ]
-                        elif node_id.endswith("_set_vars"):
-                            poll_node = node_id.replace("_set_vars", "_poll_result")
-                            model_lines += [
-                                f"# Logic for {node_id}",
-                                f"def {node_id}_func(status, location):",
-                                f"    result = {{'status': status, 'location': location}}",
-                                f"    with open('final_result_{node_id}.json', 'w') as f:",
-                                f"        json.dump(result, f)",
-                                f"    print('Variables set:', result)",
+                                "BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')",
                                 "",
                             ]
 
-                    service_zip.writestr("app.py", "\n".join(model_lines))
-                    pollingAgentName = ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
-                    polling_agent_code = ( "# ******************************************************************************\n" "# Copyright (c) 2025 University of Stuttgart\n" "#\n" "# Licensed under the Apache License, Version 2.0\n" "# ******************************************************************************\n\n" "import threading\n" "import base64\n" "import os\n" "import pickle\n" "import codecs\n" "import requests\n" "from urllib.request import urlopen\n" "import app\n\n\n" "def poll():\n" "\tbody = {\n" "\t\t\"workerId\": \"WP67GZ6N9ZX5\",\n" "\t\t\"maxTasks\": 1,\n" "\t\t\"topics\": [{\"topicName\": topic, \"lockDuration\": 100000000}]\n" "\t}\n\n" "\ttry:\n" "\t\tresponse = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n\n" "\t\tif response.status_code == 200:\n" "\t\t\tfor externalTask in response.json():\n" "\t\t\t\tprint('External task with ID for topic ' + str(externalTask.get('topicName')) + ': ' + str(externalTask.get('id')))\n" "\t\t\t\tvariables = externalTask.get('variables')\n" "\t\t\t\tprint('Loaded variables: %s' % variables)\n" "\t\t\t\tif externalTask.get('topicName') == topic:\n" "\t\t\t\t\tprint('variables after input load: %s' % variables)\n\n" "\t\t\t\t\tmodel = app.main()\n\n" "\t\t\t\t\tprint('variables after call script: %s' % variables)\n\n" "\t\t\t\t\tbody = {\"workerId\": \"WP67GZ6N9ZX5\"}\n" "\t\t\t\t\tbody[\"variables\"] = {}\n\n" "\t\t\t\t\tprint(\"Encode OutputParameter %s\" % model)\n" "\t\t\t\t\tmodel_encoded = base64.b64encode(str.encode(str(model))).decode(\"utf-8\")\n" "\t\t\t\t\tbody[\"variables\"][\"model\"] = {\n" "\t\t\t\t\t\t\"value\": model_encoded,\n" "\t\t\t\t\t\t\"type\": \"File\",\n" "\t\t\t\t\t\t\"valueInfo\": {\"filename\": \"model.txt\", \"encoding\": \"\"}\n" "\t\t\t\t\t}\n\n" "\t\t\t\t\tprint('variables after store output: %s' % variables)\n" "\t\t\t\t\tresponse = requests.post(pollingEndpoint + '/' + externalTask.get('id') + '/complete', json=body)\n" "\t\t\t\t\tprint('Status code of response message: ' + str(response.status_code))\n\n" "\texcept Exception as err:\n" "\t\tprint('Exception during polling: ', err)\n\n" "\tthreading.Timer(8, poll).start()\n\n\n" "def download_data(url):\n" "\tresponse = urlopen(url)\n" "\tdata = response.read().decode('utf-8')\n" "\treturn str(data)\n\n\n" "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n" "pollingEndpoint = camundaEndpoint + '/external-task'\n" "topic = os.environ['CAMUNDA_TOPIC']\n" "poll()\n" )
+                            # Determine related tasks
+                            related_tasks = [model_task]
+                            base_name = model_task.replace("_model", "")
+                            for suffix in ["_send_compile", "_poll_result", "_set_vars"]:
+                                candidate = f"{base_name}{suffix}"
+                                if candidate in composite_nodes:
+                                    related_tasks.append(candidate)
 
-                    # Add polling_agent.py
-                    service_zip.writestr("polling_agent.py", polling_agent_code)
+                            for node_id in related_tasks:
+                                if node_id.endswith("_model"):
+                                    model_lines += [
+                                        f"# Logic for {node_id}",
+                                        f"{node_id}_data = {safe_request_str}",
+                                        "",
+                                    ]
+                                elif node_id.endswith("_send_compile"):
+                                    model_node = node_id.replace("_send_compile", "_model")
+                                    model_lines += [
+                                        f"# Logic for {node_id}",
+                                        f"def {node_id}_func():",
+                                        f"    url = f\"{{BACKEND_URL}}/compile\"",
+                                        f"    response = requests.post(url, json={model_node}_data)",
+                                        f"    response.raise_for_status()",
+                                        f"    data = response.json()",
+                                        f"    uuid = data['uuid']",
+                                        f"    location = data['result']",
+                                        f"    print('Sent compile for {model_node}, uuid:', uuid)",
+                                        f"    return uuid, location",
+                                        "",
+                                    ]
+                                elif node_id.endswith("_poll_result"):
+                                    send_node = node_id.replace("_poll_result", "_send_compile")
+                                    model_lines += [
+                                        f"# Logic for {node_id}",
+                                        f"def {node_id}_func(uuid):",
+                                        f"    status_url = f\"{{BACKEND_URL}}/status/{{uuid}}\"",
+                                        f"    for attempt in range(20):",
+                                        f"        resp = requests.get(status_url)",
+                                        f"        if not resp.ok:",
+                                        f"            print('Status check failed', resp.status_code)",
+                                        f"            time.sleep(10)",
+                                        f"            continue",
+                                        f"        data = resp.json()",
+                                        f"        status = data.get('status')",
+                                        f"        location = data.get('result')",
+                                        f"        print(f'Attempt {{attempt+1}}: status={{status}}, location={{location}}')",
+                                        f"        if status in ('completed','failed'):",
+                                        f"            return status, location",
+                                        f"        time.sleep(10)",
+                                        f"    return 'timeout', None",
+                                        "",
+                                    ]
+                                elif node_id.endswith("_set_vars"):
+                                    poll_node = node_id.replace("_set_vars", "_poll_result")
+                                    model_lines += [
+                                        f"# Logic for {node_id}",
+                                        f"def {node_id}_func(status, location):",
+                                        f"    result = {{'status': status, 'location': location}}",
+                                        f"    with open('final_result_{node_id}.json', 'w') as f:",
+                                        f"        json.dump(result, f)",
+                                        f"    print('Variables set:', result)",
+                                        "",
+                                    ]
 
-                    # Add requirements.txt
-                    service_zip.writestr("requirements.txt", "requests\n")
+                            inner_service_zip.writestr("app.py", "\n".join(model_lines))
 
-                outer_zip.writestr("service.zip", service_zip_buffer.getvalue())
+                            # polling_agent.py
+                            polling_agent_code = (
+                                "# ******************************************************************************\n"
+                                "# Copyright (c) 2025 University of Stuttgart\n"
+                                "# Licensed under the Apache License, Version 2.0\n"
+                                "# ******************************************************************************\n\n"
+                                "import threading\n"
+                                "import base64\n"
+                                "import os\n"
+                                "import requests\n"
+                                "import app\n\n"
+                                "def poll():\n"
+                                "    body = {\n"
+                                "        'workerId': 'WP67GZ6N9ZX5',\n"
+                                "        'maxTasks': 1,\n"
+                                "        'topics': [{'topicName': topic, 'lockDuration': 100000000}]\n"
+                                "    }\n"
+                                "    try:\n"
+                                "        response = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n"
+                                "        if response.status_code == 200:\n"
+                                "            for externalTask in response.json():\n"
+                                "                print('External task with ID for topic ' + str(externalTask.get('topicName')) + ': ' + str(externalTask.get('id')))\n"
+                                "                variables = externalTask.get('variables')\n"
+                                "                print('Loaded variables: %s' % variables)\n"
+                                "                if externalTask.get('topicName') == topic:\n"
+                                "                    print('variables after input load: %s' % variables)\n"
+                                "                    model = app.main()\n"
+                                "                    print('variables after call script: %s' % variables)\n"
+                                "                    body = {'workerId': 'WP67GZ6N9ZX5', 'variables': {}}\n"
+                                "                    model_encoded = base64.b64encode(str.encode(str(model))).decode('utf-8')\n"
+                                "                    body['variables']['model'] = {'value': model_encoded, 'type': 'File', 'valueInfo': {'filename': 'model.txt','encoding':''}}\n"
+                                "                    response = requests.post(pollingEndpoint + '/' + externalTask.get('id') + '/complete', json=body)\n"
+                                "                    print('Status code of response message: ' + str(response.status_code))\n"
+                                "    except Exception as err:\n"
+                                "        print('Exception during polling: ', err)\n"
+                                "    threading.Timer(8, poll).start()\n\n"
+                                "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n"
+                                "pollingEndpoint = camundaEndpoint + '/external-task'\n"
+                                "topic = os.environ['CAMUNDA_TOPIC']\n"
+                                "poll()\n"
+                            )
+                            inner_service_zip.writestr("polling_agent.py", polling_agent_code)
 
-                # Dockerfile
-                dockerfile_code = f"""FROM python:3.8-slim
-    LABEL maintainer="Lavinia Stiliadou <lavinia.stiliadou@iaas.uni-stuttgart.de>"
+                            # requirements.txt
+                            inner_service_zip.writestr("requirements.txt", "requests\n")
 
-    COPY service.zip /tmp/service.zip
+                        # Add inner service.zip to middle service.zip
+                        middle_service_zip.writestr("service.zip", inner_service_buffer.getvalue())
 
-    RUN apt-get update && apt-get install -y unzip
-    RUN unzip /tmp/service.zip -d /service
-    RUN pip install -r /service/requirements.txt
+                        # Dockerfile in middle service.zip
+                        dockerfile_code = f"""FROM python:3.8-slim
+LABEL maintainer="Lavinia Stiliadou <lavinia.stiliadou@iaas.uni-stuttgart.de>"
 
-    CMD python /service/polling_agent.py
-    """
-                outer_zip.writestr("Dockerfile", dockerfile_code)
+COPY service.zip /tmp/service.zip
 
-            # Save final ZIP to buffer list
-            with open(main_zip_path, "wb") as f:
-                f.write(main_zip_buffer.getvalue())
-            zip_buffers.append(main_zip_buffer.getvalue())
+RUN apt-get update && apt-get install -y unzip \\
+    && unzip /tmp/service.zip -d /service \\
+    && pip install -r /service/requirements.txt
 
-            print(f"[INFO] Service package created at: {main_zip_path}")
+CMD ["python", "/service/polling_agent.py"]
+"""
+                        middle_service_zip.writestr("Dockerfile", dockerfile_code)
 
-        return zip_buffers
+                    # Add middle service.zip to activity ZIP
+                    activity_zip.writestr("service.zip", middle_service_buffer.getvalue())
+
+                # Add per-activity ZIP to master ZIP
+                master_zip.writestr(f"{activity_name}.zip", activity_zip_buffer.getvalue())
+
+        return master_zip_buffer.getvalue()
 
 
 
@@ -1132,7 +1174,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
 
 
 
-async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> dict[str, bytes]:
+async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> bytes:
     """
     Generate QRM BPMN files for each quantum node in the provided groups.
 
@@ -1149,53 +1191,42 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
     output_dir = "/tmp/generated_qrms"
     os.makedirs(output_dir, exist_ok=True)
 
-    qrms_output = {}
+    combined_zip_buffer = io.BytesIO()
 
-    for group_id, nodes in quantum_groups.items():
-        for node in nodes:
-            node_id = getattr(node, "id", "unknown_node")
-            node_label = getattr(node, "label", node_id)
+    with zipfile.ZipFile(combined_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as combined_zip:
+        for group_id, nodes in quantum_groups.items():
+            for node in nodes:
+                node_id = getattr(node, "id", "unknown_node")
+                node_label = getattr(node, "label", node_id)
 
-            # create detector
-            detector_defs = ET.Element(
-                "bpmn:definitions",
-                {
-                    "xmlns:bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
-                    "xmlns:bpmndi": "http://www.omg.org/spec/BPMN/20100524/DI",
-                    "xmlns:dc": "http://www.omg.org/spec/DD/20100524/DC",
-                    "xmlns:quantme": "https://github.com/UST-QuAntiL/QuantME-Quantum4BPMN",
-                    "id": f"Definitions_{uuid.uuid4().hex[:7]}",
-                    "targetNamespace": "http://bpmn.io/schema/bpmn",
-                    "exporter": "QuantME Modeler",
-                    "exporterVersion": "4.4.0",
-                },
-            )
-
-            process_id = f"Process_{uuid.uuid4().hex[:7]}"
-            process_el = ET.SubElement(detector_defs, "bpmn:process", {"id": process_id, "isExecutable": "true"})
-
-            detector_task_id = f"Task_{uuid.uuid4().hex[:7]}"
-            ET.SubElement(
-                process_el,
-                "quantme:quantumCircuitLoadingTask",
-                {
-                    "id": detector_task_id,
-                    "url": f"{node_label}/maxcut"
-                },
+                # Detector BPMN
+                detector_defs = ET.Element(
+                    "bpmn:definitions",
+                    {
+                        "xmlns:bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
+                        "xmlns:bpmndi": "http://www.omg.org/spec/BPMN/20100524/DI",
+                        "xmlns:dc": "http://www.omg.org/spec/DD/20100524/DC",
+                        "xmlns:quantme": "https://github.com/UST-QuAntiL/QuantME-Quantum4BPMN",
+                        "id": f"Definitions_{uuid.uuid4().hex[:7]}",
+                        "targetNamespace": "http://bpmn.io/schema/bpmn",
+                        "exporter": "QuantME Modeler",
+                        "exporterVersion": "4.4.0",
+                    },
                 )
 
-            diagram = ET.SubElement(detector_defs, "bpmndi:BPMNDiagram", {"id": "BPMNDiagram_1"})
-            plane = ET.SubElement(diagram, "bpmndi:BPMNPlane", {"id": "BPMNPlane_1", "bpmnElement": process_id})
-            shape = ET.SubElement(plane, "bpmndi:BPMNShape", {
-                "id": f"CircuitLoadingTask_{uuid.uuid4().hex[:7]}_di",
-                "bpmnElement": detector_task_id
-            })
-            ET.SubElement(shape, "dc:Bounds", {"x": "160", "y": "80", "width": "100", "height": "80"})
+                process_id = f"Process_{uuid.uuid4().hex[:7]}"
+                process_el = ET.SubElement(detector_defs, "bpmn:process", {"id": process_id, "isExecutable": "true"})
+                detector_task_id = f"Task_{uuid.uuid4().hex[:7]}"
+                ET.SubElement(
+                    process_el,
+                    "quantme:quantumCircuitLoadingTask",
+                    {"id": detector_task_id, "url": f"{node_label}/maxcut"},
+                )
 
-            detector_xml = ET.tostring(detector_defs, encoding="utf-8", xml_declaration=True).decode("utf-8")
+                detector_xml = ET.tostring(detector_defs, encoding="utf-8", xml_declaration=True).decode("utf-8")
 
-            # Create replacement
-            executor_defs = ET.Element(
+                # Replacement BPMN
+                executor_defs = ET.Element(
                     "bpmn:definitions",
                     {
                         "xmlns:bpmn": "http://www.omg.org/spec/BPMN/20100524/MODEL",
@@ -1209,16 +1240,14 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
                     },
                 )
 
-            executor_process_id = f"Process_{uuid.uuid4().hex[:7]}"
-            executor_process = ET.SubElement(
-                    executor_defs,
-                    "bpmn:process",
-                    {"id": executor_process_id, "isExecutable": "true"},
+                executor_process_id = f"Process_{uuid.uuid4().hex[:7]}"
+                executor_process = ET.SubElement(
+                    executor_defs, "bpmn:process", {"id": executor_process_id, "isExecutable": "true"}
                 )
 
-            executor_task_id = f"Task_{uuid.uuid4().hex[:7]}"
-            ET.SubElement(
-                executor_process,
+                executor_task_id = f"Task_{uuid.uuid4().hex[:7]}"
+                ET.SubElement(
+                    executor_process,
                     "bpmn:serviceTask",
                     {
                         "id": executor_task_id,
@@ -1227,27 +1256,13 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
                     },
                 )
 
-            diagram = ET.SubElement(executor_defs, "bpmndi:BPMNDiagram", {"id": "BPMNDiagram_1"})
-            plane = ET.SubElement(diagram, "bpmndi:BPMNPlane", {"id": "BPMNPlane_1", "bpmnElement": executor_process_id})
-            shape = ET.SubElement(plane, "bpmndi:BPMNShape", {
-                    "id": f"ServiceTask_{uuid.uuid4().hex[:7]}_di",
-                    "bpmnElement": executor_task_id
-            })
-            ET.SubElement(shape, "dc:Bounds", {"x": "160", "y": "120", "width": "100", "height": "80"})
+                executor_xml = ET.tostring(executor_defs, encoding="utf-8", xml_declaration=True).decode("utf-8")
 
-            executor_xml = ET.tostring(executor_defs, encoding="utf-8", xml_declaration=True).decode("utf-8")
+                # Add both BPMN files to the combined ZIP
+                combined_zip.writestr(f"Activity_{node_id}/detector.bpmn", detector_xml)
+                combined_zip.writestr(f"Activity_{node_id}/replacement.bpmn", executor_xml)
 
-            # 3. Package both BPMN files into a ZIP
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-                zf.writestr(f"detector.bpmn", detector_xml)
-                zf.writestr(f"replacement.bpmn", executor_xml)
+                print(f"[INFO] Added QRM BPMNs for node {node_id} to master ZIP")
 
-            zip_path = os.path.join(output_dir, f"Activity_{node_id}.zip")
-            with open(zip_path, "wb") as f:
-                f.write(zip_buffer.getvalue())
-
-            qrms_output[node_id] = zip_buffer.getvalue()
-            print(f"[INFO] QRM ZIP generated for node {node_id}: {zip_path}")
-
-    return qrms_output
+    print("[INFO] Combined QRM ZIP generated successfully")
+    return combined_zip_buffer.getvalue()

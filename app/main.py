@@ -57,7 +57,7 @@ from app.utils import (
     store_compile_request_payload,
     store_qrms,
     store_service_deployment_models,
-    update_status_response_in_db,
+    update_status_response_in_db
 )
 
 """
@@ -495,21 +495,28 @@ async def process_compile_request(
             workflow_processor.target = target
             result = await workflow_processor.process()
             
-            bpmn_xml, qrms = await workflow_processor.process()
+            bpmn_xml, qrms, service_deployment_models = await workflow_processor.process()
             print(f"[INFO] BPMN XML generated ({len(bpmn_xml)} chars)")
-            print(f"[INFO] {len(qrms)} QRM ZIPs generated")
 
             print("[INFO] BPMN XML persisted")
             print(qrms)
 
-            for node_id, zip_bytes in qrms.items():
-                qrms_payload = StoredFilePayload(
-                    content=zip_bytes,
-                    filename=f"Activity_{node_id}.zip",
-                    content_type="application/zip",
-                )
-                await store_qrms(engine, uuid, qrms_payload)
-                print(f"[INFO] Stored QRM for node {node_id} in DB")
+            qrms_payload = StoredFilePayload(
+                content=qrms,
+                filename=f"qrms.zip",
+                content_type="application/zip",
+            )
+            await store_qrms(engine, uuid, qrms_payload)
+                            
+            print("[INFO] Service Deployment Models")
+            print(service_deployment_models)
+            
+            service_payload = StoredFilePayload(
+                content=service_deployment_models,
+                filename=f"service_deployment_models.zip",
+                content_type="application/zip",
+            )
+            await store_service_deployment_models(engine, uuid, service_payload)
 
         else:
             result = await processor.process()
