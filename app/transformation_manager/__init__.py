@@ -649,7 +649,19 @@ class WorkflowProcessor(CommonProcessor):
                                 )
                             safe_request_str = json.dumps(full_request_json, indent=4, ensure_ascii=False)
 
-                            # Build app.py with everything inside main()
+                            # Determine if this model requires arguments (e.g. uuid or location)
+                            requires_uuid = any(node.endswith("_poll_result") for node in composite_nodes)
+                            requires_location = any(node.endswith("_set_vars") for node in composite_nodes)
+
+                            # Build app.py dynamically with correct main() signature
+                            main_args = []
+                            if requires_uuid:
+                                main_args.append("uuid")
+                            elif requires_location:
+                                main_args.append("location")
+
+                            arg_str = ", ".join(main_args)
+
                             model_lines = [
                                 "import requests",
                                 "import time",
@@ -658,9 +670,10 @@ class WorkflowProcessor(CommonProcessor):
                                 "",
                                 "BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')",
                                 "",
-                                "def main():",
+                                f"def main({arg_str}):" if arg_str else "def main():",
                                 "    results = {}",
                             ]
+
 
                             # Include related tasks sequentially inside main()
                             related_tasks = [model_task]
@@ -690,14 +703,13 @@ class WorkflowProcessor(CommonProcessor):
                                         f"    uuid = data['uuid']",
                                         f"    location = data['result']",
                                         f"    print('Sent compile for {model_node}, uuid:', uuid)",
-                                        f"    results['{node_id}'] = (uuid, location)",
+                                        f"    return uuid",
                                         "",
                                     ]
                                 elif node_id.endswith("_poll_result"):
                                     send_node = node_id.replace("_poll_result", "_send_compile")
                                     model_lines += [
                                         f"    # Logic for {node_id}",
-                                        f"    uuid, _ = results['{send_node}']",
                                         f"    status_url = f\"{{BACKEND_URL}}/status/{{uuid}}\"",
                                         f"    for attempt in range(20):",
                                         f"        resp = requests.get(status_url)",
