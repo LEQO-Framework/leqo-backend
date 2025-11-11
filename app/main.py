@@ -535,7 +535,9 @@ async def process_compile_request(
             uuid=uuid,
             createdAt=createdAt,
             progress=Progress(percentage=100, currentStep="done"),
-            result=LeqoProblemDetails.from_exception(ex),
+            result=LeqoProblemDetails.from_exception(
+                ex, is_debug=True, include_traceback=True
+            ),
         )
 
     await update_status_response_in_db(engine, status, target)
