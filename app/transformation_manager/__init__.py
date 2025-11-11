@@ -649,7 +649,7 @@ class WorkflowProcessor(CommonProcessor):
                                 )
                             safe_request_str = json.dumps(full_request_json, indent=4, ensure_ascii=False)
 
-                            # Build app.py
+                            # Build app.py with everything inside main()
                             model_lines = [
                                 "import requests",
                                 "import time",
@@ -658,9 +658,11 @@ class WorkflowProcessor(CommonProcessor):
                                 "",
                                 "BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')",
                                 "",
+                                "def main():",
+                                "    results = {}",
                             ]
 
-                            # Determine related tasks
+                            # Include related tasks sequentially inside main()
                             related_tasks = [model_task]
                             base_name = model_task.replace("_model", "")
                             for suffix in ["_send_compile", "_poll_result", "_set_vars"]:
@@ -671,30 +673,31 @@ class WorkflowProcessor(CommonProcessor):
                             for node_id in related_tasks:
                                 if node_id.endswith("_model"):
                                     model_lines += [
-                                        f"# Logic for {node_id}",
-                                        f"{node_id}_data = {safe_request_str}",
+                                        f"    # Logic for {node_id}",
+                                        f"    {node_id}_data = {safe_request_str}",
+                                        f"    results['{node_id}'] = {node_id}_data",
                                         "",
                                     ]
                                 elif node_id.endswith("_send_compile"):
                                     model_node = node_id.replace("_send_compile", "_model")
                                     model_lines += [
-                                        f"# Logic for {node_id}",
-                                        f"def {node_id}_func():",
+                                        f"    # Logic for {node_id}",
                                         f"    url = f\"{{BACKEND_URL}}/compile\"",
-                                        f"    response = requests.post(url, json={model_node}_data)",
+                                        f"    model = {safe_request_str}",
+                                        f"    response = requests.post(url, json=model)",
                                         f"    response.raise_for_status()",
                                         f"    data = response.json()",
                                         f"    uuid = data['uuid']",
                                         f"    location = data['result']",
                                         f"    print('Sent compile for {model_node}, uuid:', uuid)",
-                                        f"    return uuid, location",
+                                        f"    results['{node_id}'] = (uuid, location)",
                                         "",
                                     ]
                                 elif node_id.endswith("_poll_result"):
                                     send_node = node_id.replace("_poll_result", "_send_compile")
                                     model_lines += [
-                                        f"# Logic for {node_id}",
-                                        f"def {node_id}_func(uuid):",
+                                        f"    # Logic for {node_id}",
+                                        f"    uuid, _ = results['{send_node}']",
                                         f"    status_url = f\"{{BACKEND_URL}}/status/{{uuid}}\"",
                                         f"    for attempt in range(20):",
                                         f"        resp = requests.get(status_url)",
@@ -707,24 +710,36 @@ class WorkflowProcessor(CommonProcessor):
                                         f"        location = data.get('result')",
                                         f"        print(f'Attempt {{attempt+1}}: status={{status}}, location={{location}}')",
                                         f"        if status in ('completed','failed'):",
-                                        f"            return status, location",
+                                        f"            break",
                                         f"        time.sleep(10)",
-                                        f"    return 'timeout', None",
+                                        f"    else:",
+                                        f"        status, location = 'timeout', None",
+                                        f"    results['{node_id}'] = (status, location)",
                                         "",
                                     ]
                                 elif node_id.endswith("_set_vars"):
                                     poll_node = node_id.replace("_set_vars", "_poll_result")
                                     model_lines += [
-                                        f"# Logic for {node_id}",
-                                        f"def {node_id}_func(status, location):",
-                                        f"    result = {{'status': status, 'location': location}}",
+                                        f"    # Logic for {node_id}",
+                                        f"    status, location = results['{poll_node}']",
+                                        f"    final_result = {{'status': status, 'location': location}}",
                                         f"    with open('final_result_{node_id}.json', 'w') as f:",
-                                        f"        json.dump(result, f)",
-                                        f"    print('Variables set:', result)",
+                                        f"        json.dump(final_result, f)",
+                                        f"    print('Variables set:', final_result)",
+                                        f"    results['{node_id}'] = final_result",
                                         "",
                                     ]
 
+                            # Add standard main execution
+                            model_lines += [
+                                "",
+                                "    return results",
+                                ""
+                            ]
+
+                            # Write to inner service ZIP
                             inner_service_zip.writestr("app.py", "\n".join(model_lines))
+
 
                             # polling_agent.py
                             polling_agent_code = (
