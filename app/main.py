@@ -517,11 +517,12 @@ async def process_compile_request(
                 content_type="application/zip",
             )
             await store_service_deployment_models(engine, uuid, service_payload)
+            await add_result_to_db(engine, uuid, bpmn_xml, target)
 
         else:
             result = await processor.process()
             print(result)
-        await add_result_to_db(engine, uuid, bpmn_xml, target)
+            await add_result_to_db(engine, uuid, result, target)
 
         status = SuccessStatus(
             uuid=uuid,
