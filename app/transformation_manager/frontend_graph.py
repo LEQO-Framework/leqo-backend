@@ -66,6 +66,26 @@ class FrontendGraph(FrontendGraphBase):
                     self.edge_data.pop(id_tuple)
                     self.edge_data[(id_tuple[0], new)] = data
 
+    def create_subgraph(
+        self,
+        nodes: Iterable[TBaseNode],
+    ) -> FrontendGraph:
+        """
+        Build a subgraph from a subset of nodes.
+        """
+        subgraph = FrontendGraph()
+        for node in nodes:
+            subgraph.append_node(node)
+        for (source, target) in self.edge_data.keys():
+            #if(source in subgraph.node_data.keys() and target in subgraph.node_data.keys()): 
+            if(target in subgraph.node_data.keys()): # to include (non-quantum) input nodes of subgraph, otherwise enrichment fails
+                edge: Edge = self.edge_data[(source, target)][0]
+                subgraph.append_edge(edge)
+                if (source not in subgraph.node_data.keys()):
+                    source_node = self.node_data[source]
+                    subgraph.append_node(source_node)
+        return subgraph
+
     @staticmethod
     def create(
         nodes: Iterable[TBaseNode],
@@ -80,3 +100,4 @@ class FrontendGraph(FrontendGraphBase):
         for edge in edges:
             graph.append_edge(edge)
         return graph
+

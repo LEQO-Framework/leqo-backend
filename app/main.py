@@ -741,3 +741,37 @@ async def post_debug_enrich(
         return await processor.enrich_all()
     except Exception as ex:
         return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
+
+@app.post("/compileGroup", response_model=None)
+async def post_compileGroup(
+    processor: Annotated[
+        MergingProcessor, Depends(MergingProcessor.from_compile_request)
+    ],
+    groupID: int = 0 #default groupID is 0 #Annotated?
+) -> str | JSONResponse:
+    """
+    Compiles the request to an openqasm3 program for the specified quantum group (groupID) in one request.
+    No redirects and no polling of different endpoints needed.
+
+    """
+
+    try:
+        target = _get_processor_target(processor)
+        #if target == "qasm": # needed?
+            #qasm = await processor.process()
+        workflow_processor = WorkflowProcessor(
+                processor.enricher,
+                processor.frontend_graph,
+                processor.optimize,
+                original_request=processor.original_request
+            )
+        workflow_processor.target = target
+        quantum_groups = await workflow_processor.identify_quantum_groups()
+        # create subgraph of frontend graph for quantum group with groupID
+        group_nodes = quantum_groups[f"quantum_group_{groupID}"]
+        subgraph = processor.frontend_graph.create_subgraph(group_nodes)
+        processor.frontend_graph = subgraph
+        return await processor.process()
+    #TODO: IndexError abfangen & an Frontend zurück geben (groupID out of bounds)
+    except Exception as ex:
+        return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()

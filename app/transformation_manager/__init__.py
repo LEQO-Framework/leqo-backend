@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import AsyncIterator
+import re
 from typing import Annotated, Any, Literal, cast
 
 from fastapi import Depends
@@ -625,6 +626,7 @@ class WorkflowProcessor(CommonProcessor):
         #model_tasks = [node for node in composite_nodes if node.endswith("_model")]
         with zipfile.ZipFile(master_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as master_zip:
             for model_task in composite_nodes:
+                print(model_task)
                 activity_name = "Activity_" + model_task.replace(" ", "_")
                 activity_zip_buffer = io.BytesIO()
 
@@ -692,10 +694,11 @@ class WorkflowProcessor(CommonProcessor):
                                         "",
                                     ]
                                 elif node_id.endswith("_send_compile"):
+                                    #groupID = re.search(r"(\d+)$", node_id).group()
                                     model_node = node_id.replace("_send_compile", "_model")
                                     model_lines += [
                                         f"    # Logic for {node_id}",
-                                        f"    url = f\"{{BACKEND_URL}}/compile\"",
+                                        f"    url = f\"{{BACKEND_URL}}/compile\"", # hier: f\"{{BACKEND_URL}}/compileGroup?groupID={groupID}\""?
                                         f"    model = {safe_request_str}",
                                         f"    response = requests.post(url, json=model)",
                                         f"    response.raise_for_status()",
@@ -740,6 +743,13 @@ class WorkflowProcessor(CommonProcessor):
                                         f"    print('Variables set:', final_result)",
                                         f"    results['{node_id}'] = final_result",
                                         "",
+                                    ]
+                                elif re.search(r'_quantum_group_\d+$', node_id) is not None: 
+                                    groupID = re.search(r"(\d+)$", node_id).group()
+                                    model_lines += [
+                                        f"    # Logic for {node_id}",
+                                        f"    groupID = {groupID}", 
+                                        f"    return groupID",
                                     ]
 
                             # Add standard main execution
