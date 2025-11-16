@@ -1,5 +1,5 @@
 """
-Provides the core logic of the backend.
+Provides the ore logic of the backend.
 """
 
 from __future__ import annotations
@@ -1039,20 +1039,20 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         y = 200 + i * (task_h + gap_y)
         model_id, send_id, poll_id, setvars_id = inserted_chains[start_node]
         task_positions[model_id] = (x, y)
-        task_positions[send_id] = (x + (task_w + 100), y)
-        task_positions[poll_id] = (x + 2 * (task_w + 100), y)
-        task_positions[setvars_id] = (x + 3 * (task_w + 100), y)
+        task_positions[send_id] = (x + (task_w + gap_x), y)
+        task_positions[poll_id] = (x + 2 * (task_w + gap_x), y)
+        task_positions[setvars_id] = (x + 3 * (task_w + gap_x), y)
         
     # assign positions for original nodes from level_positions
     for level, nids in level_positions.items():
         for i, nid in enumerate(nids):
             # shift x by +1 level because chain occupies level 0
-            x = start_x + 170 + level * (task_w + gap_x)
+            x = start_x + 170 + (level + 3) * (task_w + gap_x)
             y = 200 + i * (task_h + gap_y)
             task_positions[nid] = (x, y)
 
     # compute end_x as before
-    end_x = start_x + 170 + (max(node_level.values(), default=0) + 1) * (task_w + gap_x)
+    end_x = start_x + 170 + (max(node_level.values(), default=0) + 4) * (task_w + gap_x)
 
     # Create service tasks for all original composite nodes
     for nid, node in nodes.items():
@@ -1109,7 +1109,8 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         f4 = f"Flow_{uuid.uuid4().hex[:7]}"
         flow_map.append((f4, poll_id, setvars_id))
         # SetVars -> original start node
-        flow_map.append((f"{uuid.uuid4().hex[:7]}", setvars_id, start_node))
+        f5 = f"Flow_{uuid.uuid4().hex[:7]}"
+        flow_map.append((f5, setvars_id, start_node))
 
     # Add original collapsed edges (connect tasks/nodes as before)
     for src, tgt in edges:
