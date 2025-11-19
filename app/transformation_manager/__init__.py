@@ -951,6 +951,9 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     start_event = ET.SubElement(process, qn(BPMN2_NS, "startEvent"), {"id": start_id})
     end_event = ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": end_id})
 
+    human_id = "Task_human"
+    ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": human_id, "name": "Analyze Results"})
+
     # Add classical nodes as start-event form fields
     if start_event_classical_nodes:
         ext = ET.SubElement(start_event, qn(BPMN2_NS, "extensionElements"))
@@ -1051,8 +1054,25 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
             y = 200 + i * (task_h + gap_y)
             task_positions[nid] = (x, y)
 
-    # compute end_x as before
-    end_x = start_x + 170 + (max(node_level.values(), default=0) + 4) * (task_w + gap_x)
+    # Human task position: left from end_id
+    if task_positions:
+        max_x = max(x for x, _ in task_positions.values())
+    else:
+        # if there are no tasks
+        max_x = start_x + 170
+
+    human_y = 200
+    for end_node in end_nodes:
+        end_key = f"Task_{end_node}" if f"Task_{end_node}" in task_positions else end_node
+        if end_key in task_positions:
+            _, human_y = task_positions[end_key]
+            break
+
+    human_x = max_x + task_w + gap_x
+    task_positions[human_id] = (human_x, human_y)
+
+    # end_id right from human task
+    end_x = human_x + task_w + gap_x
 
     # Create service tasks for all original composite nodes
     for nid, node in nodes.items():
@@ -1118,12 +1138,16 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         f = f"Flow_{uuid.uuid4().hex[:7]}"
         flow_map.append((f, src, tgt))
 
-    # Last: nodes with no outgoing go to EndEvent_1
+    # Last: nodes with no outgoing go to human task node
     # Note: ensure we attach flows from actual last tasks (those Task_{nid}) to end
     for end_node in end_nodes:
         f = f"Flow_{uuid.uuid4().hex[:7]}"
-        flow_map.append((f, end_node, end_id))
-        ET.SubElement(end_event, qn(BPMN2_NS, "incoming")).text = f
+        flow_map.append((f, end_node, human_id))
+
+    # human_task_id -> end_id
+    f = f"Flow_{uuid.uuid4().hex[:7]}"
+    flow_map.append((f, human_id, end_id))
+    ET.SubElement(end_event, qn(BPMN2_NS, "incoming")).text = f
 
     # Add incoming/outgoing and sequenceFlow elements for all flows in flow_map
     for fid, src, tgt in flow_map:
