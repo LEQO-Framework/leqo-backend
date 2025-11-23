@@ -79,6 +79,8 @@ BPMN_HUMAN_Y_BASE = 200         # Base Y position for human task
 BPMN_END_EVENT_WIDTH = 36       # Width of start/end events
 BPMN_END_EVENT_HEIGHT = 36      # Height of start/end events
 BPMN_FLOW_ID_LENGTH = 7         # Length of generated flow IDs
+BPMN_GW_WIDTH = 50              # Width of gateway
+BPMN_GW_HEIGHT = 50             # Height of gateway
 
 
 
@@ -968,6 +970,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     start_event = ET.SubElement(process, qn(BPMN2_NS, "startEvent"), {"id": start_id})
     end_event = ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": end_id})
 
+    # human task
     human_id = "Task_human"
     ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": human_id, "name": "Analyze Results"})
 
@@ -998,6 +1001,15 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     node_ids = list(nodes.keys())
     start_nodes = [nid for nid in node_ids if not incoming[nid]]
     end_nodes = [nid for nid in node_ids if not outgoing[nid]]
+
+    # check if parallel gateways are needed
+    use_parallel = len(start_nodes) > 1
+    # parallel gateways
+    fork_id = "Gateway_parallel_fork"
+    join_id = "Gateway_parallel_join"
+    if use_parallel:
+        ET.SubElement(process, qn(BPMN2_NS, "parallelGateway"), {"id": fork_id})
+        ET.SubElement(process, qn(BPMN2_NS, "parallelGateway"), {"id": join_id})
 
     # Topological sort
     indegree = {nid: len(incoming[nid]) for nid in node_ids}
@@ -1030,6 +1042,12 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     level_positions = defaultdict(list)
     node_level = {}
 
+    # fork-gateway right from start_id
+    if use_parallel:
+        fork_x = BPMN_START_X + 80
+        fork_y = BPMN_START_Y - (BPMN_GW_HEIGHT - BPMN_END_EVENT_HEIGHT) // 2
+        task_positions[fork_id] = (fork_x, fork_y)
+
     # start chains will be at level 0, original nodes pushed to level+1
     for nid in node_ids:
         if nid in start_nodes:
@@ -1051,7 +1069,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     for i, start_node in enumerate(start_nodes):
         # one row per start_node chain, stacked by i
         x = BPMN_START_X + BPMN_CHAIN_X_OFFSET + chain_level * (BPMN_TASK_WIDTH + BPMN_GAP_X)
-        y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_WIDTH + BPMN_GAP_Y)
+        y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
         model_id, send_id, poll_id, setvars_id = inserted_chains[start_node]
         task_positions[model_id] = (x, y)
         task_positions[send_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
@@ -1063,7 +1081,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         for i, nid in enumerate(nids):
             # shift x by +1 level because chain occupies level 0
             x = BPMN_START_X + BPMN_CHAIN_X_OFFSET + (level + 3) * (BPMN_TASK_WIDTH + BPMN_GAP_X)
-            y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_WIDTH + BPMN_GAP_Y)
+            y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
             task_positions[nid] = (x, y)
 
     # Human task position: left from end_id
@@ -1073,7 +1091,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         # if there are no tasks
         max_x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
 
-    human_y = BPMN_HUMAN_Y_BASE
+    human_y = BPMN_CHAIN_Y_BASE
     for end_node in end_nodes:
         end_key = f"Task_{end_node}" if f"Task_{end_node}" in task_positions else end_node
         if end_key in task_positions:
@@ -1082,6 +1100,12 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
 
     human_x = max_x + BPMN_TASK_WIDTH + BPMN_GAP_X
     task_positions[human_id] = (human_x, human_y)
+
+    # join-gateway left from human task
+    if use_parallel:
+        join_x = human_x - (BPMN_GW_WIDTH + BPMN_GAP_X // 2)
+        join_y = human_y + (BPMN_TASK_HEIGHT - BPMN_GW_HEIGHT) // 2
+        task_positions[join_id] = (join_x, join_y)
 
     # end_id right from human task
     end_x = human_x + BPMN_TASK_WIDTH + BPMN_GAP_X
@@ -1124,9 +1148,34 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     # Sequence flows (we will build flow_map with tuples (flow_id, src, tgt))
     flow_map = []
 
-    # Start -> each model task (one per start_node)
-    for start_node in start_nodes:
-        model_id, send_id, poll_id, setvars_id = inserted_chains[start_node]
+    if use_parallel:
+        # Start -> fork
+        f_start_fork = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+        flow_map.append((f_start_fork, start_id, fork_id))
+        ET.SubElement(start_event, qn(BPMN2_NS, "outgoing")).text = f_start_fork
+
+        # fork -> each model task (one per start_node)
+        for start_node in start_nodes:
+            model_id, send_id, poll_id, setvars_id = inserted_chains[start_node]
+            # Fork -> Model
+            f1 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+            flow_map.append((f1, fork_id, model_id))
+            # Model -> Send
+            f2 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+            flow_map.append((f2, model_id, send_id))
+            # Send -> Poll
+            f3 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+            flow_map.append((f3, send_id, poll_id))
+            # Poll -> SetVars
+            f4 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+            flow_map.append((f4, poll_id, setvars_id))
+            # SetVars -> original start node
+            f5 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+            flow_map.append((f5, setvars_id, start_node))
+    else:
+        # Start -> each model task (one per start_node)
+        only_start = start_nodes[0]
+        model_id, send_id, poll_id, setvars_id = inserted_chains[only_start]
         # Flow Start -> Model
         f1 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
         flow_map.append((f1, start_id, model_id))
@@ -1150,13 +1199,25 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         f = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
         flow_map.append((f, src, tgt))
 
-    # Last: nodes with no outgoing go to human task node
+    # Last: nodes with no outgoing go to a the parallel gateway or human task
     # Note: ensure we attach flows from actual last tasks (those Task_{nid}) to end
-    for end_node in end_nodes:
-        f = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
-        flow_map.append((f, end_node, human_id))
+    if use_parallel:
+        # end_node -> join
+        for end_node in end_nodes:
+            f = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+            flow_map.append((f, end_node, join_id))
 
-    # human_task_id -> end_id
+        # join -> human_id
+        f_join_human = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+        flow_map.append((f_join_human, join_id, human_id))
+
+    else:
+        # end_node -> human_id
+        for end_node in end_nodes:
+            f = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+            flow_map.append((f, end_node, human_id))
+
+    # human_id -> end_id
     f = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
     flow_map.append((f, human_id, end_id))
     ET.SubElement(end_event, qn(BPMN2_NS, "incoming")).text = f
@@ -1169,8 +1230,15 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         # Special-case start_id and end_id
         # If src is one of our synthetic chain task ids, it's present as id directly
         # If src is a composite node id, the element id is Task_{src}
-        src_search_id = src if src in (start_id, end_id) or src.startswith("Task_") else f"Task_{src}"
-        tgt_search_id = tgt if tgt in (start_id, end_id) or tgt.startswith("Task_") else f"Task_{tgt}"
+        def is_direct_id(x: str) -> bool:
+            direct = (start_id, end_id, human_id)
+            if use_parallel:
+                direct = direct + (fork_id, join_id)
+            return x in direct or x.startswith(("Task_", "Gateway_"))
+
+
+        src_search_id = src if is_direct_id(src) else f"Task_{src}"
+        tgt_search_id = tgt if is_direct_id(tgt) else f"Task_{tgt}"
 
         src_el = process.find(f".//*[@id='{src_search_id}']")
         tgt_el = process.find(f".//*[@id='{tgt_search_id}']")
@@ -1180,13 +1248,10 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         if tgt_el is not None:
             ET.SubElement(tgt_el, qn(BPMN2_NS, "incoming")).text = fid
 
-        # create the sequenceFlow element
-        source_ref = src if src in (start_id, end_id) or src.startswith("Task_") else f"Task_{src}"
-        target_ref = tgt if tgt in (start_id, end_id) or tgt.startswith("Task_") else f"Task_{tgt}"
         ET.SubElement(process, qn(BPMN2_NS, "sequenceFlow"), {
             "id": fid,
-            "sourceRef": source_ref,
-            "targetRef": target_ref
+            "sourceRef": src_search_id,
+            "targetRef": tgt_search_id
         })
 
     # Diagram shapes and edges
@@ -1199,44 +1264,68 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
 
     # Task shapes - include synthetic chain tasks and real tasks
     for nid, (x, y) in task_positions.items():
-        # if nid is synthetic chain id (they contain underscores and 'model' etc) they are already keys
-        shape_id = nid if nid.startswith("Task_") else f"Task_{nid}"
-        # ensure bpmnElement matches the actual element id used earlier
-        bpmn_elem = shape_id
-        shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{shape_id}_di", "bpmnElement": bpmn_elem})
-        ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(BPMN_TASK_WIDTH), height=str(BPMN_TASK_HEIGHT))
+        if nid.startswith(("Task_", "Gateway_")):
+            shape_id = nid
+        else:
+            shape_id = f"Task_{nid}"
+
+        shape = ET.SubElement(
+            plane, qn(BPMNDI_NS, "BPMNShape"),
+            {"id": f"{shape_id}_di", "bpmnElement": shape_id}
+        )
+
+        if shape_id.startswith("Gateway_"):
+            w, h = BPMN_GW_WIDTH, BPMN_GW_HEIGHT
+        else:
+            w, h = BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT
+
+        ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(w), height=str(h))
+
 
     # End shape
     end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{end_id}_di", "bpmnElement": end_id})
     ET.SubElement(end_shape, qn(DC_NS, "Bounds"), x=str(end_x), y=str(BPMN_START_Y), width=str(BPMN_END_EVENT_WIDTH), height=str(BPMN_END_EVENT_HEIGHT))
 
     # Edge shapes: create waypoints for every flow in flow_map
+    def get_pos_and_size(node_id: str):
+        key = node_id if node_id.startswith(("Task_", "Gateway_")) else f"Task_{node_id}"
+        x, y = task_positions.get(key, task_positions.get(node_id, (BPMN_START_X, BPMN_START_Y)))
+        if key.startswith("Gateway_"):
+            return x, y, BPMN_GW_WIDTH, BPMN_GW_HEIGHT
+        return x, y, BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT
+
     for fid, src, tgt in flow_map:
-        edge = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNEdge"), {"id": f"{fid}_di", "bpmnElement": fid})
+        edge = ET.SubElement(
+            plane, qn(BPMNDI_NS, "BPMNEdge"),
+            {"id": f"{fid}_di", "bpmnElement": fid}
+        )
 
         # Source waypoint
         if src == start_id:
-            sx, sy = BPMN_START_X + BPMN_END_EVENT_WIDTH, BPMN_START_Y + 18
+            sx, sy = BPMN_START_X + BPMN_END_EVENT_WIDTH, BPMN_START_Y + BPMN_END_EVENT_HEIGHT // 2
         else:
-            # source may be a synthetic id like Task_{start}_model or a real node id
-            src_key = src if src.startswith("Task_") else f"Task_{src}"
-            sx = task_positions.get(src_key, task_positions.get(src, (BPMN_START_X, BPMN_START_Y)))[0] + BPMN_TASK_WIDTH
-            sy = task_positions.get(src_key, task_positions.get(src, (BPMN_START_X, BPMN_START_Y)))[1] + BPMN_WAYPOINT_Y_OFFSET
+            x, y, w, h = get_pos_and_size(src)
+            sx, sy = x + w, y + h // 2
 
         # Target waypoint
         if tgt == end_id:
-            tx, ty = end_x, BPMN_START_Y + 18
+            tx, ty = end_x, BPMN_START_Y + BPMN_END_EVENT_HEIGHT // 2
         else:
-            tgt_key = tgt if tgt.startswith("Task_") else f"Task_{tgt}"
-            tx = task_positions.get(tgt_key, task_positions.get(tgt, (end_x, BPMN_START_Y)))[0]
-            ty = task_positions.get(tgt_key, task_positions.get(tgt, (end_x, BPMN_START_Y)))[1] + BPMN_WAYPOINT_Y_OFFSET
+            x, y, w, h = get_pos_and_size(tgt)
+            tx, ty = x, y + h // 2
 
         ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy)))
         ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty)))
     
     all_activities = list(nodes.keys())
-    for start_node, chain in inserted_chains.items():
+    for _, chain in inserted_chains.items():
         all_activities.extend(chain)
+
+    if use_parallel:
+        all_activities.append(fork_id)
+        all_activities.append(join_id)
+
+    all_activities.append(human_id)
 
     # Optional: store them in metadata for later reference
     # Had to comment it due to the fact it's not used and the types are not fitting
