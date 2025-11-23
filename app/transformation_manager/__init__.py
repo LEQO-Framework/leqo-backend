@@ -1073,7 +1073,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         # if there are no tasks
         max_x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
 
-    human_y = BPMN_FLOW_ID_LENGTH
+    human_y = BPMN_HUMAN_Y_BASE
     for end_node in end_nodes:
         end_key = f"Task_{end_node}" if f"Task_{end_node}" in task_positions else end_node
         if end_key in task_positions:
@@ -1204,7 +1204,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         # ensure bpmnElement matches the actual element id used earlier
         bpmn_elem = shape_id
         shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{shape_id}_di", "bpmnElement": bpmn_elem})
-        ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(BPMN_TASK_WIDTH), height=str(BPMN_TASK_WIDTH))
+        ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(BPMN_TASK_WIDTH), height=str(BPMN_TASK_HEIGHT))
 
     # End shape
     end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{end_id}_di", "bpmnElement": end_id})
