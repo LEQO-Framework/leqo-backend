@@ -65,6 +65,23 @@ import os
 import io
 import json
 
+# BPMN Layout Configuration
+BPMN_START_X = 252              # X position of start event
+BPMN_START_Y = 222              # Y position of start event
+BPMN_TASK_WIDTH = 120           # Width of each task box
+BPMN_TASK_HEIGHT = 80           # Height of each task box
+BPMN_GAP_X = 220                # Horizontal spacing between tasks
+BPMN_GAP_Y = 150                # Vertical spacing between rows
+BPMN_CHAIN_X_OFFSET = 170       # Offset from start to first chain task
+BPMN_CHAIN_Y_BASE = 200         # Base Y position for chain tasks
+BPMN_WAYPOINT_Y_OFFSET = 40     # Y offset to task center for waypoints
+BPMN_HUMAN_Y_BASE = 200         # Base Y position for human task
+BPMN_END_EVENT_WIDTH = 36       # Width of start/end events
+BPMN_END_EVENT_HEIGHT = 36      # Height of start/end events
+BPMN_FLOW_ID_LENGTH = 7         # Length of generated flow IDs
+
+
+
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 
 
@@ -972,11 +989,6 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
                 }
             )
 
-    # Layout and positions
-    start_x, start_y = 252, 222
-    task_w, task_h = 120, 80
-    gap_x, gap_y = 220, 150
-
     # Build incoming/outgoing maps from collapsed edges
     incoming, outgoing = defaultdict(list), defaultdict(list)
     for src, tgt in edges:
@@ -1038,20 +1050,20 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     chain_level = 0
     for i, start_node in enumerate(start_nodes):
         # one row per start_node chain, stacked by i
-        x = start_x + 170 + chain_level * (task_w + gap_x)
-        y = 200 + i * (task_h + gap_y)
+        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET + chain_level * (BPMN_TASK_WIDTH + BPMN_GAP_X)
+        y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_WIDTH + BPMN_GAP_Y)
         model_id, send_id, poll_id, setvars_id = inserted_chains[start_node]
         task_positions[model_id] = (x, y)
-        task_positions[send_id] = (x + (task_w + gap_x), y)
-        task_positions[poll_id] = (x + 2 * (task_w + gap_x), y)
-        task_positions[setvars_id] = (x + 3 * (task_w + gap_x), y)
+        task_positions[send_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        task_positions[poll_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        task_positions[setvars_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
         
     # assign positions for original nodes from level_positions
     for level, nids in level_positions.items():
         for i, nid in enumerate(nids):
             # shift x by +1 level because chain occupies level 0
-            x = start_x + 170 + (level + 3) * (task_w + gap_x)
-            y = 200 + i * (task_h + gap_y)
+            x = BPMN_START_X + BPMN_CHAIN_X_OFFSET + (level + 3) * (BPMN_TASK_WIDTH + BPMN_GAP_X)
+            y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_WIDTH + BPMN_GAP_Y)
             task_positions[nid] = (x, y)
 
     # Human task position: left from end_id
@@ -1059,20 +1071,20 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         max_x = max(x for x, _ in task_positions.values())
     else:
         # if there are no tasks
-        max_x = start_x + 170
+        max_x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
 
-    human_y = 200
+    human_y = BPMN_FLOW_ID_LENGTH
     for end_node in end_nodes:
         end_key = f"Task_{end_node}" if f"Task_{end_node}" in task_positions else end_node
         if end_key in task_positions:
             _, human_y = task_positions[end_key]
             break
 
-    human_x = max_x + task_w + gap_x
+    human_x = max_x + BPMN_TASK_WIDTH + BPMN_GAP_X
     task_positions[human_id] = (human_x, human_y)
 
     # end_id right from human task
-    end_x = human_x + task_w + gap_x
+    end_x = human_x + BPMN_TASK_WIDTH + BPMN_GAP_X
 
     # Create service tasks for all original composite nodes
     for nid, node in nodes.items():
@@ -1116,36 +1128,36 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     for start_node in start_nodes:
         model_id, send_id, poll_id, setvars_id = inserted_chains[start_node]
         # Flow Start -> Model
-        f1 = f"Flow_{uuid.uuid4().hex[:7]}"
+        f1 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
         flow_map.append((f1, start_id, model_id))
         ET.SubElement(start_event, qn(BPMN2_NS, "outgoing")).text = f1
         # Model -> Send
-        f2 = f"Flow_{uuid.uuid4().hex[:7]}"
+        f2 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
         flow_map.append((f2, model_id, send_id))
         # Send -> Poll
-        f3 = f"Flow_{uuid.uuid4().hex[:7]}"
+        f3 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
         flow_map.append((f3, send_id, poll_id))
         # Poll -> SetVars
-        f4 = f"Flow_{uuid.uuid4().hex[:7]}"
+        f4 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
         flow_map.append((f4, poll_id, setvars_id))
         # SetVars -> original start node
-        f5 = f"Flow_{uuid.uuid4().hex[:7]}"
+        f5 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
         flow_map.append((f5, setvars_id, start_node))
 
     # Add original collapsed edges (connect tasks/nodes as before)
     for src, tgt in edges:
         # If src or tgt are chains (shouldn't be), they are left as-is. Otherwise these map to Task_{id}
-        f = f"Flow_{uuid.uuid4().hex[:7]}"
+        f = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
         flow_map.append((f, src, tgt))
 
     # Last: nodes with no outgoing go to human task node
     # Note: ensure we attach flows from actual last tasks (those Task_{nid}) to end
     for end_node in end_nodes:
-        f = f"Flow_{uuid.uuid4().hex[:7]}"
+        f = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
         flow_map.append((f, end_node, human_id))
 
     # human_task_id -> end_id
-    f = f"Flow_{uuid.uuid4().hex[:7]}"
+    f = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
     flow_map.append((f, human_id, end_id))
     ET.SubElement(end_event, qn(BPMN2_NS, "incoming")).text = f
 
@@ -1183,7 +1195,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
 
     # Start shape
     start_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{start_id}_di", "bpmnElement": start_id})
-    ET.SubElement(start_shape, qn(DC_NS, "Bounds"), x=str(start_x), y=str(start_y), width="36", height="36")
+    ET.SubElement(start_shape, qn(DC_NS, "Bounds"), x=str(BPMN_START_X), y=str(BPMN_START_Y), width=str(BPMN_END_EVENT_WIDTH), height=str(BPMN_END_EVENT_HEIGHT))
 
     # Task shapes - include synthetic chain tasks and real tasks
     for nid, (x, y) in task_positions.items():
@@ -1192,11 +1204,11 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         # ensure bpmnElement matches the actual element id used earlier
         bpmn_elem = shape_id
         shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{shape_id}_di", "bpmnElement": bpmn_elem})
-        ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(task_w), height=str(task_h))
+        ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(BPMN_TASK_WIDTH), height=str(BPMN_TASK_WIDTH))
 
     # End shape
     end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{end_id}_di", "bpmnElement": end_id})
-    ET.SubElement(end_shape, qn(DC_NS, "Bounds"), x=str(end_x), y=str(start_y), width="36", height="36")
+    ET.SubElement(end_shape, qn(DC_NS, "Bounds"), x=str(end_x), y=str(BPMN_START_Y), width=str(BPMN_END_EVENT_WIDTH), height=str(BPMN_END_EVENT_HEIGHT))
 
     # Edge shapes: create waypoints for every flow in flow_map
     for fid, src, tgt in flow_map:
@@ -1204,20 +1216,20 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
 
         # Source waypoint
         if src == start_id:
-            sx, sy = start_x + 36, start_y + 18
+            sx, sy = BPMN_START_X + BPMN_END_EVENT_WIDTH, BPMN_START_Y + 18
         else:
             # source may be a synthetic id like Task_{start}_model or a real node id
             src_key = src if src.startswith("Task_") else f"Task_{src}"
-            sx = task_positions.get(src_key, task_positions.get(src, (start_x, start_y)))[0] + task_w
-            sy = task_positions.get(src_key, task_positions.get(src, (start_x, start_y)))[1] + 40
+            sx = task_positions.get(src_key, task_positions.get(src, (BPMN_START_X, BPMN_START_Y)))[0] + BPMN_TASK_WIDTH
+            sy = task_positions.get(src_key, task_positions.get(src, (BPMN_START_X, BPMN_START_Y)))[1] + BPMN_WAYPOINT_Y_OFFSET
 
         # Target waypoint
         if tgt == end_id:
-            tx, ty = end_x, start_y + 18
+            tx, ty = end_x, BPMN_START_Y + 18
         else:
             tgt_key = tgt if tgt.startswith("Task_") else f"Task_{tgt}"
-            tx = task_positions.get(tgt_key, task_positions.get(tgt, (end_x, start_y)))[0]
-            ty = task_positions.get(tgt_key, task_positions.get(tgt, (end_x, start_y)))[1] + 40
+            tx = task_positions.get(tgt_key, task_positions.get(tgt, (end_x, BPMN_START_Y)))[0]
+            ty = task_positions.get(tgt_key, task_positions.get(tgt, (end_x, BPMN_START_Y)))[1] + BPMN_WAYPOINT_Y_OFFSET
 
         ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy)))
         ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty)))
@@ -1269,16 +1281,16 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
                         "xmlns:bpmndi": "http://www.omg.org/spec/BPMN/20100524/DI",
                         "xmlns:dc": "http://www.omg.org/spec/DD/20100524/DC",
                         "xmlns:quantme": "https://github.com/UST-QuAntiL/QuantME-Quantum4BPMN",
-                        "id": f"Definitions_{uuid.uuid4().hex[:7]}",
+                        "id": f"Definitions_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}",
                         "targetNamespace": "http://bpmn.io/schema/bpmn",
                         "exporter": "QuantME Modeler",
                         "exporterVersion": "4.4.0",
                     },
                 )
 
-                process_id = f"Process_{uuid.uuid4().hex[:7]}"
+                process_id = f"Process_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
                 process_el = ET.SubElement(detector_defs, "bpmn:process", {"id": process_id, "isExecutable": "true"})
-                detector_task_id = f"Task_{uuid.uuid4().hex[:7]}"
+                detector_task_id = f"Task_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
                 ET.SubElement(
                     process_el,
                     "quantme:quantumCircuitLoadingTask",
@@ -1295,19 +1307,19 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
                         "xmlns:bpmndi": "http://www.omg.org/spec/BPMN/20100524/DI",
                         "xmlns:dc": "http://www.omg.org/spec/DD/20100524/DC",
                         "xmlns:quantme": "https://github.com/UST-QuAntiL/QuantME-Quantum4BPMN",
-                        "id": f"Definitions_{uuid.uuid4().hex[:7]}",
+                        "id": f"Definitions_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}",
                         "targetNamespace": "http://bpmn.io/schema/bpmn",
                         "exporter": "QuantME Modeler",
                         "exporterVersion": "4.5.0-nightly.20211118",
                     },
                 )
 
-                executor_process_id = f"Process_{uuid.uuid4().hex[:7]}"
+                executor_process_id = f"Process_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
                 executor_process = ET.SubElement(
                     executor_defs, "bpmn:process", {"id": executor_process_id, "isExecutable": "true"}
                 )
 
-                executor_task_id = f"Task_{uuid.uuid4().hex[:7]}"
+                executor_task_id = f"Task_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
                 ET.SubElement(
                     executor_process,
                     "bpmn:serviceTask",
