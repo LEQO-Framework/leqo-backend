@@ -480,7 +480,15 @@ async def process_compile_request(
     try:
         result: str | list[ImplementationNode]
         if target == "workflow":
-            qasm = await processor.process()
+            original_request = getattr(processor, "original_request", None)
+            if original_request is not None:
+                contains_placeholder = getattr(
+                    getattr(original_request, "metadata", None),
+                    "containsPlaceholder",
+                    False
+                )
+                print("Contains placeholder:", contains_placeholder)
+            qasm = "" if contains_placeholder else await processor.process()
             print("QASM")
             print(qasm)
             print("Requets")
@@ -608,6 +616,10 @@ async def post_debug_compile(
     try:
         target = _get_processor_target(processor)
         if target == "workflow":
+            original_request = getattr(processor, "original_request", None)
+            print(original_request)
+            metadata = getattr(processor, "containsPlaceholder", None)
+            print(metadata)
             qasm = await processor.process()
             workflow_processor = WorkflowProcessor(
                 processor.enricher,
