@@ -602,7 +602,7 @@ class WorkflowProcessor(CommonProcessor):
             if getattr(self.frontend_graph.node_data[node_id], "type", None) not in CLASSICAL_TYPES
         ]
 
-        print(f"Quantum nodes: {[node.id for node in quantum_nodes]}")
+        # print(f"Quantum nodes: {[node.id for node in quantum_nodes]}")
 
         # Group by connected components using DFS
         groups: dict[str, list[Any]] = defaultdict(list)
@@ -645,8 +645,10 @@ class WorkflowProcessor(CommonProcessor):
         #model_tasks = [node for node in composite_nodes if node.endswith("_model")]
         with zipfile.ZipFile(master_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as master_zip:
             for model_task in composite_nodes:
-                print(model_task)
+                # print(model_task)
                 activity_name = "Activity_" + model_task.replace(" ", "_")
+                if "_human" in activity_name:
+                    continue
                 activity_zip_buffer = io.BytesIO()
 
                 # Outer Activity ZIP
@@ -1136,8 +1138,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     # One chain per start_node
     for start_node, (model_id, send_id, poll_id, setvars_id) in inserted_chains.items():
         # model
-        node_type = "Model"
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": model_id, "name": node_type, "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{model_id}/?csar"})
+        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": model_id, "name": "Set Model", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{model_id}/?csar"})
         # send compile request
         ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": send_id, "name": "Send Compile Request", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/{send_id}/?csar"})
         # poll result
@@ -1331,7 +1332,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     # Had to comment it due to the fact it's not used and the types are not fitting
     # metadata["all_activities"] = all_activities
 
-    print("All activities in process:", all_activities)
+    # print("All activities in process:", all_activities)
 
     return ET.tostring(defs, encoding="utf-8", xml_declaration=True).decode("utf-8"), all_activities
 
