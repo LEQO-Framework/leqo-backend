@@ -987,7 +987,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
                 form_data,
                 qn(CAMUNDA_NS, "formField"),
                 {
-                    "id": f"{node_id}_value",
+                    "id": f"Input_{node_id.replace("-","_")}_value",
                     "label": node_label,
                     "type": "string",
                     "defaultValue": "0"
