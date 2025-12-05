@@ -578,7 +578,8 @@ class WorkflowProcessor(CommonProcessor):
             composite_nodes,
             collapsed_edges_list,
             metadata=node_metadata,
-            start_event_classical_nodes=[node for node in nodes_dict.values() if getattr(node, "type", None) in CLASSICAL_TYPES]
+            start_event_classical_nodes=[node for node in nodes_dict.values() if getattr(node, "type", None) in CLASSICAL_TYPES],
+            containsPlaceholder=self.original_request.metadata.containsPlaceholder        
         )
         print("Service Task Generation")
         # Generate ZIP-of-ZIPs for Python files
@@ -932,7 +933,7 @@ ET.register_namespace("opentosca", OpenTOSCA_NS)
 ET.register_namespace("camunda", CAMUNDA_NS)
 ET.register_namespace("quantme", QUANTME_NS)
 
-def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], edges: list[tuple[str,str]], metadata: dict[str, dict[str, Any]] | None = None, start_event_classical_nodes: list[Any] | None = None) -> tuple[str, list[str]]:
+def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], edges: list[tuple[str,str]], metadata: dict[str, dict[str, Any]] | None = None, start_event_classical_nodes: list[Any] | None = None, containsPlaceholder: bool = False) -> tuple[str, list[str]]:
     """Generate BPMN XML workflow diagram with correct left-to-right layout.
 
     This version inserts, immediately after the StartEvent, a chain of four
@@ -948,7 +949,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     import xml.etree.ElementTree as ET
     import uuid
     from collections import defaultdict, deque
-
+    
     metadata = metadata or {}
     start_event_classical_nodes = start_event_classical_nodes or []
 
@@ -1073,11 +1074,12 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         x = BPMN_START_X + BPMN_CHAIN_X_OFFSET + chain_level * (BPMN_TASK_WIDTH + BPMN_GAP_X)
         y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
         model_id, send_id, poll_id, setvars_id = inserted_chains[start_node]
-        task_positions[model_id] = (x, y)
-        task_positions[send_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        task_positions[poll_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        task_positions[setvars_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        
+        if containsPlaceholder:
+            task_positions[model_id] = (x, y)
+            task_positions[send_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+            task_positions[poll_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+            task_positions[setvars_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+   
     # assign positions for original nodes from level_positions
     for level, nids in level_positions.items():
         for i, nid in enumerate(nids):
@@ -1085,7 +1087,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
             x = BPMN_START_X + BPMN_CHAIN_X_OFFSET + (level + 3) * (BPMN_TASK_WIDTH + BPMN_GAP_X)
             y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
             task_positions[nid] = (x, y)
-
+            
     # Human task position: left from end_id
     if task_positions:
         max_x = max(x for x, _ in task_positions.values())
@@ -1134,17 +1136,18 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
             ext = ET.SubElement(task_el, qn(BPMN2_NS, "extensionElements"))
             ET.SubElement(ext, qn(BPMN2_NS, "property"), {"name": key, "value": str(val)})
 
-    # Create synthetic service tasks for chains (Model, Send Compile, Poll Result, Set Variables)
-    # One chain per start_node
-    for start_node, (model_id, send_id, poll_id, setvars_id) in inserted_chains.items():
-        # model
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": model_id, "name": "Set Model", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/Activity_{model_id}/?csar"})
-        # send compile request
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": send_id, "name": "Send Compile Request", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/Activity_{send_id}/?csar"})
-        # poll result
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": poll_id, "name": "Poll Result", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/Activity_{poll_id}/?csar"})
-        # set variables
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": setvars_id, "name": "Set Variables", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/Activity_{setvars_id}/?csar"})
+    if containsPlaceholder:
+        # Create synthetic service tasks for chains (Model, Send Compile, Poll Result, Set Variables)
+        # One chain per start_node
+        for start_node, (model_id, send_id, poll_id, setvars_id) in inserted_chains.items():
+            # model
+            ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": model_id, "name": "Set Model", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/Activity_{model_id}/?csar"})
+            # send compile request
+            ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": send_id, "name": "Send Compile Request", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/Activity_{send_id}/?csar"})
+            # poll result
+            ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": poll_id, "name": "Poll Result", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/Activity_{poll_id}/?csar"})
+            # set variables
+            ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": setvars_id, "name": "Set Variables", "opentosca:deploymentModelUrl": f"{{{{ wineryEndpoint }}}}/servicetemplates/http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/Activity_{setvars_id}/?csar"})
 
     # Sequence flows (we will build flow_map with tuples (flow_id, src, tgt))
     flow_map = []
@@ -1153,14 +1156,38 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
         # Start -> fork
         f_start_fork = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
         flow_map.append((f_start_fork, start_id, fork_id))
-        ET.SubElement(start_event, qn(BPMN2_NS, "outgoing")).text = f_start_fork
 
         # fork -> each model task (one per start_node)
         for start_node in start_nodes:
             model_id, send_id, poll_id, setvars_id = inserted_chains[start_node]
-            # Fork -> Model
+            if containsPlaceholder:
+                # Fork -> Model
+                f1 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+                flow_map.append((f1, fork_id, model_id))
+                # Model -> Send
+                f2 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+                flow_map.append((f2, model_id, send_id))
+                # Send -> Poll
+                f3 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+                flow_map.append((f3, send_id, poll_id))
+                # Poll -> SetVars
+                f4 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+                flow_map.append((f4, poll_id, setvars_id))
+                # SetVars -> original start node
+                f5 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+                flow_map.append((f5, setvars_id, start_node))
+            else: 
+                f6 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+                flow_map.append((f6, fork_id, start_node))
+   
+    else:
+        # Start -> each model task (one per start_node)
+        only_start = start_nodes[0]
+        model_id, send_id, poll_id, setvars_id = inserted_chains[only_start]
+        if containsPlaceholder:
+            # Flow Start -> Model
             f1 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
-            flow_map.append((f1, fork_id, model_id))
+            flow_map.append((f1, start_id, model_id))
             # Model -> Send
             f2 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
             flow_map.append((f2, model_id, send_id))
@@ -1173,26 +1200,9 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
             # SetVars -> original start node
             f5 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
             flow_map.append((f5, setvars_id, start_node))
-    else:
-        # Start -> each model task (one per start_node)
-        only_start = start_nodes[0]
-        model_id, send_id, poll_id, setvars_id = inserted_chains[only_start]
-        # Flow Start -> Model
-        f1 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
-        flow_map.append((f1, start_id, model_id))
-        ET.SubElement(start_event, qn(BPMN2_NS, "outgoing")).text = f1
-        # Model -> Send
-        f2 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
-        flow_map.append((f2, model_id, send_id))
-        # Send -> Poll
-        f3 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
-        flow_map.append((f3, send_id, poll_id))
-        # Poll -> SetVars
-        f4 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
-        flow_map.append((f4, poll_id, setvars_id))
-        # SetVars -> original start node
-        f5 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
-        flow_map.append((f5, setvars_id, start_node))
+        else: 
+            f6 = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+            flow_map.append((f6, start_id, start_node))
 
     # Add original collapsed edges (connect tasks/nodes as before)
     for src, tgt in edges:
@@ -1221,7 +1231,6 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     # human_id -> end_id
     f = f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
     flow_map.append((f, human_id, end_id))
-    ET.SubElement(end_event, qn(BPMN2_NS, "incoming")).text = f
 
     # Add incoming/outgoing and sequenceFlow elements for all flows in flow_map
     for fid, src, tgt in flow_map:
