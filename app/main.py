@@ -531,8 +531,6 @@ async def process_compile_request(
         else:
             result = await processor.process()
             print(result)
-            await add_result_to_db(engine, uuid, result, target)
-
             status = SuccessStatus(
                 uuid=uuid,
                 createdAt=createdAt,
@@ -540,6 +538,10 @@ async def process_compile_request(
                 progress=Progress(percentage=100, currentStep="done"),
                 result=get_result_url(uuid, settings),
             )
+            await add_result_to_db(engine, uuid, result, target)
+            await update_status_response_in_db(engine, status, target)
+
+           
     except Exception as ex:
         status = FailedStatus(
             uuid=uuid,
