@@ -529,7 +529,7 @@ class WorkflowProcessor(CommonProcessor):
         processor.original_request = request
         return processor
         
-    async def process(self) -> tuple[str, bytes, dict[str, bytes]]:
+    async def process(self) -> tuple[str, bytes]:
         """Run enrichment, classify nodes, group quantum nodes, and return BPMN XML."""
 
         # Identify quantum groups
@@ -583,12 +583,12 @@ class WorkflowProcessor(CommonProcessor):
         )
         print("Service Task Generation")
         # Generate ZIP-of-ZIPs for Python files
-        service_zip_bytes = await self.generate_service_zips(all_activities, node_metadata)
+        #service_zip_bytes = await self.generate_service_zips(all_activities, node_metadata)
         
         # Generate QRMs
         qrms = await generate_qrms(quantum_groups)
         #return service_zip_bytes
-        return bpmn_xml, qrms, service_zip_bytes
+        return bpmn_xml
 
 
 
@@ -713,8 +713,9 @@ class WorkflowProcessor(CommonProcessor):
                             app_lines += [
                                 f"    # Logic for {node_id}",
                                 f"    model_data = {safe_request_str}",
+                                f"    model = json.loads(model_data)",
                                 f"    url = f\"{{BACKEND_URL}}/compile\"",
-                                f"    response = requests.post(url, json=model_data)",
+                                f"    response = requests.post(url, json=model)",
                                 f"    response.raise_for_status()",
                                 f"    data = response.json()",
                                 f"    uuid = data.get('uuid')",

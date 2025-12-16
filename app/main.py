@@ -132,10 +132,21 @@ async def post_compile(
         engine,
     )
 
-    return RedirectResponse(
-        url=f"{settings.api_base_url}status/{uuid}",
-        status_code=303,
-    )
+
+    return JSONResponse(
+    status_code=200,
+    content={
+        "uuid": str(uuid),
+        "links": {
+            "status": f"{settings.api_base_url}status/{uuid}",
+            "result": get_result_url(uuid, settings),
+            "request": get_request_url(uuid, settings),
+            "qrms": get_qrms_url(uuid, settings),
+            "serviceDeploymentModels": get_service_deployment_models_url(uuid, settings),
+        }
+    }
+)
+
 
 
 @app.post("/enrich")
@@ -501,44 +512,34 @@ async def process_compile_request(
                 original_request=processor.original_request
             )
             workflow_processor.target = target
-            result = await workflow_processor.process()
+            #result = await workflow_processor.process()
             
-            bpmn_xml, qrms, service_deployment_models = await workflow_processor.process()
+            bpmn_xml = await workflow_processor.process()
             print(f"[INFO] BPMN XML generated ({len(bpmn_xml)} chars)")
-
-            print("[INFO] BPMN XML persisted")
-            print(qrms)
-
-            qrms_payload = StoredFilePayload(
-                content=qrms,
-                filename=f"qrms.zip",
-                content_type="application/zip",
+            status = SuccessStatus(
+            uuid=uuid,
+            createdAt=createdAt,
+            completedAt=datetime.now(UTC),
+            progress=Progress(percentage=100, currentStep="done"),
+            result=get_result_url(uuid, settings),
             )
-            await store_qrms(engine, uuid, qrms_payload)
-                            
-            print("[INFO] Service Deployment Models")
-            print(service_deployment_models)
-            
-            service_payload = StoredFilePayload(
-                content=service_deployment_models,
-                filename=f"service_deployment_models.zip",
-                content_type="application/zip",
-            )
-            await store_service_deployment_models(engine, uuid, service_payload)
+
+        
             await add_result_to_db(engine, uuid, bpmn_xml, target)
+            await update_status_response_in_db(engine, status, target)
 
         else:
             result = await processor.process()
             print(result)
             await add_result_to_db(engine, uuid, result, target)
 
-        status = SuccessStatus(
-            uuid=uuid,
-            createdAt=createdAt,
-            completedAt=datetime.now(UTC),
-            progress=Progress(percentage=100, currentStep="done"),
-            result=get_result_url(uuid, settings),
-        )
+            status = SuccessStatus(
+                uuid=uuid,
+                createdAt=createdAt,
+                completedAt=datetime.now(UTC),
+                progress=Progress(percentage=100, currentStep="done"),
+                result=get_result_url(uuid, settings),
+            )
     except Exception as ex:
         status = FailedStatus(
             uuid=uuid,
@@ -549,7 +550,7 @@ async def process_compile_request(
             ),
         )
 
-    await update_status_response_in_db(engine, status, target)
+    #await update_status_response_in_db(engine, status, target)
 
 
 async def process_enrich_request(
