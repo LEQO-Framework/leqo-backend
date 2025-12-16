@@ -632,227 +632,214 @@ class WorkflowProcessor(CommonProcessor):
 
         return dict(groups)
 
-    async def generate_service_zips(self, composite_nodes: list[str], node_metadata: dict[str, dict[str, Any]]) -> bytes:
+    async def generate_service_zips(self,composite_nodes: list[str],node_metadata: dict[str, dict[str, Any]]) -> bytes:
         """
-        Generate one ZIP per activity.
-        Each ZIP contains app.py (with _model, _send_compile, _poll_result, _set_vars logic),
-        polling_agent.py, requirements.txt, and Dockerfile.
+        Generate one ZIP per node.
+        Each ZIP contains a single service with logic ONLY for that node.
         """
         output_dir = "/tmp/generated_services"
         os.makedirs(output_dir, exist_ok=True)
+
         master_zip_buffer = io.BytesIO()
 
-        # Collect all _model tasks
-        #model_tasks = [node for node in composite_nodes if node.endswith("_model")]
-        with zipfile.ZipFile(master_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as master_zip:
-            for model_task in composite_nodes:
-                # print(model_task)
-                activity_name = "Activity_" + model_task.replace(" ", "_")
+        with zipfile.ZipFile(
+            master_zip_buffer,
+            mode="w",
+            compression=zipfile.ZIP_DEFLATED
+        ) as master_zip:
+
+            for node_id in composite_nodes:
+                activity_name = "Activity_" + node_id.replace(" ", "_")
+
                 if "_human" in activity_name:
                     continue
+
                 activity_zip_buffer = io.BytesIO()
 
-                # Outer Activity ZIP
-                with zipfile.ZipFile(activity_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as activity_zip:
+                with zipfile.ZipFile(
+                    activity_zip_buffer,
+                    mode="w",
+                    compression=zipfile.ZIP_DEFLATED
+                ) as activity_zip:
 
-                    # Middle service.zip (contains Dockerfile + inner service.zip)
-                    middle_service_buffer = io.BytesIO()
-                    with zipfile.ZipFile(middle_service_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as middle_service_zip:
+                    # ---------- inner service.zip ----------
+                    inner_service_buffer = io.BytesIO()
+                    with zipfile.ZipFile(
+                        inner_service_buffer,
+                        mode="w",
+                        compression=zipfile.ZIP_DEFLATED
+                    ) as inner_service_zip:
 
-                        # Inner service.zip (contains app.py, polling_agent.py, requirements.txt)
-                        inner_service_buffer = io.BytesIO()
-                        with zipfile.ZipFile(inner_service_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as inner_service_zip:
-
-                            # Serialize original request
-                            assert self.original_request is not None
-                            try:
-                                full_request_json = self.original_request.json()
-                            except Exception:
-                                full_request_json = json.loads(
-                                    self.original_request.json(exclude_none=True, exclude_unset=True)
+                        # ---------- serialize request ----------
+                        assert self.original_request is not None
+                        try:
+                            full_request_json = self.original_request.json()
+                        except Exception:
+                            full_request_json = json.loads(
+                                self.original_request.json(
+                                    exclude_none=True,
+                                    exclude_unset=True
                                 )
-                            safe_request_str = json.dumps(full_request_json, indent=4, ensure_ascii=False)
-
-                            # Determine if this model requires arguments (e.g. uuid or location)
-                            requires_uuid = any(node.endswith("_poll_result") for node in composite_nodes)
-                            requires_location = any(node.endswith("_set_vars") for node in composite_nodes)
-
-                            # Build app.py dynamically with correct main() signature
-                            main_args = []
-                            if requires_uuid:
-                                main_args.append("uuid")
-                            elif requires_location:
-                                main_args.append("location")
-
-                            arg_str = ", ".join(main_args)
-
-                            model_lines = [
-                                "import requests",
-                                "import time",
-                                "import json",
-                                "import os",
-                                "",
-                                "BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')",
-                                "",
-                                f"def main({arg_str}):" if arg_str else "def main():",
-                                "    results = {}",
-                            ]
-
-
-                            # Include related tasks sequentially inside main()
-                            related_tasks = [model_task]
-                            base_name = model_task.replace("_model", "")
-                            for suffix in ["_send_compile", "_poll_result", "_set_vars"]:
-                                candidate = f"{base_name}{suffix}"
-                                if candidate in composite_nodes:
-                                    related_tasks.append(candidate)
-
-                            for node_id in related_tasks:
-                                if node_id.endswith("_model"):
-                                    model_lines += [
-                                        f"    # Logic for {node_id}",
-                                        f"    {node_id}_data = {safe_request_str}",
-                                        f"    results['{node_id}'] = {node_id}_data",
-                                        "",
-                                    ]
-                                elif node_id.endswith("_send_compile"):
-                                    #groupID = re.search(r"(\d+)$", node_id).group()
-                                    model_node = node_id.replace("_send_compile", "_model")
-                                    model_lines += [
-                                        f"    # Logic for {node_id}",
-                                        f"    url = f\"{{BACKEND_URL}}/compile\"", # hier: f\"{{BACKEND_URL}}/compileGroup?groupID={groupID}\""?
-                                        f"    model = {safe_request_str}",
-                                        f"    response = requests.post(url, json=model)",
-                                        f"    response.raise_for_status()",
-                                        f"    data = response.json()",
-                                        f"    uuid = data['uuid']",
-                                        f"    location = data['result']",
-                                        f"    print('Sent compile for {model_node}, uuid:', uuid)",
-                                        f"    return uuid",
-                                        "",
-                                    ]
-                                elif node_id.endswith("_poll_result"):
-                                    send_node = node_id.replace("_poll_result", "_send_compile")
-                                    model_lines += [
-                                        f"    # Logic for {node_id}",
-                                        f"    status_url = f\"{{BACKEND_URL}}/status/{{uuid}}\"",
-                                        f"    for attempt in range(20):",
-                                        f"        resp = requests.get(status_url)",
-                                        f"        if not resp.ok:",
-                                        f"            print('Status check failed', resp.status_code)",
-                                        f"            time.sleep(10)",
-                                        f"            continue",
-                                        f"        data = resp.json()",
-                                        f"        status = data.get('status')",
-                                        f"        location = data.get('result')",
-                                        f"        print(f'Attempt {{attempt+1}}: status={{status}}, location={{location}}')",
-                                        f"        if status in ('completed','failed'):",
-                                        f"            break",
-                                        f"        time.sleep(10)",
-                                        f"    else:",
-                                        f"        status, location = 'timeout', None",
-                                        f"    results['{node_id}'] = (status, location)",
-                                        "",
-                                    ]
-                                elif node_id.endswith("_set_vars"):
-                                    poll_node = node_id.replace("_set_vars", "_poll_result")
-                                    model_lines += [
-                                        f"    # Logic for {node_id}",
-                                        f"    status, location = results['{poll_node}']",
-                                        f"    final_result = {{'status': status, 'location': location}}",
-                                        f"    with open('final_result_{node_id}.json', 'w') as f:",
-                                        f"        json.dump(final_result, f)",
-                                        f"    print('Variables set:', final_result)",
-                                        f"    results['{node_id}'] = final_result",
-                                        "",
-                                    ]
-                                elif re.search(r'_quantum_group_\d+$', node_id) is not None: 
-                                    groupID = re.search(r"(\d+)$", node_id).group()
-                                    model_lines += [
-                                        f"    # Logic for {node_id}",
-                                        f"    groupID = {groupID}", 
-                                        f"    return groupID",
-                                    ]
-
-                            # Add standard main execution
-                            model_lines += [
-                                "",
-                                "    return results",
-                                ""
-                            ]
-
-                            # Write to inner service ZIP
-                            inner_service_zip.writestr("app.py", "\n".join(model_lines))
-
-
-                            # polling_agent.py
-                            polling_agent_code = (
-                                "# ******************************************************************************\n"
-                                "# Copyright (c) 2025 University of Stuttgart\n"
-                                "# Licensed under the Apache License, Version 2.0\n"
-                                "# ******************************************************************************\n\n"
-                                "import threading\n"
-                                "import base64\n"
-                                "import os\n"
-                                "import requests\n"
-                                "import app\n\n"
-                                "def poll():\n"
-                                "    body = {\n"
-                                "        'workerId': 'WP67GZ6N9ZX5',\n"
-                                "        'maxTasks': 1,\n"
-                                "        'topics': [{'topicName': topic, 'lockDuration': 100000000}]\n"
-                                "    }\n"
-                                "    try:\n"
-                                "        response = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n"
-                                "        if response.status_code == 200:\n"
-                                "            for externalTask in response.json():\n"
-                                "                print('External task with ID for topic ' + str(externalTask.get('topicName')) + ': ' + str(externalTask.get('id')))\n"
-                                "                variables = externalTask.get('variables')\n"
-                                "                print('Loaded variables: %s' % variables)\n"
-                                "                if externalTask.get('topicName') == topic:\n"
-                                "                    print('variables after input load: %s' % variables)\n"
-                                "                    model = app.main()\n"
-                                "                    print('variables after call script: %s' % variables)\n"
-                                "                    body = {'workerId': 'WP67GZ6N9ZX5', 'variables': {}}\n"
-                                "                    model_encoded = base64.b64encode(str.encode(str(model))).decode('utf-8')\n"
-                                "                    body['variables']['model'] = {'value': model_encoded, 'type': 'File', 'valueInfo': {'filename': 'model.txt','encoding':''}}\n"
-                                "                    response = requests.post(pollingEndpoint + '/' + externalTask.get('id') + '/complete', json=body)\n"
-                                "                    print('Status code of response message: ' + str(response.status_code))\n"
-                                "    except Exception as err:\n"
-                                "        print('Exception during polling: ', err)\n"
-                                "    threading.Timer(8, poll).start()\n\n"
-                                "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n"
-                                "pollingEndpoint = camundaEndpoint + '/external-task'\n"
-                                "topic = os.environ['CAMUNDA_TOPIC']\n"
-                                "poll()\n"
                             )
-                            inner_service_zip.writestr("polling_agent.py", polling_agent_code)
 
-                            # requirements.txt
-                            inner_service_zip.writestr("requirements.txt", "requests\n")
+                        safe_request_str = json.dumps(
+                            full_request_json,
+                            indent=4,
+                            ensure_ascii=False
+                        )
 
-                        # Add inner service.zip to middle service.zip
-                        middle_service_zip.writestr("service.zip", inner_service_buffer.getvalue())
+                        # ---------- app.py ----------
+                        app_lines = [
+                            "import requests",
+                            "import time",
+                            "import json",
+                            "import os",
+                            "",
+                            "BACKEND_URL = os.environ.get('BACKEND_URL', 'http://localhost:8000')",
+                            "",
+                            "def main(**kwargs):",
+                        ]
 
-                        # Dockerfile in middle service.zip
-                        dockerfile_code = f"""FROM python:3.8-slim
-LABEL maintainer="Lavinia Stiliadou <lavinia.stiliadou@iaas.uni-stuttgart.de>"
+                        # ===== NODE-SPECIFIC LOGIC =====
 
-COPY service.zip /tmp/service.zip
+                        if node_id.endswith("_model"):
+                            app_lines += [
+                                f"    # Logic for {node_id}",
+                                f"    model_data = {safe_request_str}",
+                                f"    return model_data",
+                            ]
 
-RUN apt-get update && apt-get install -y unzip \\
-    && unzip /tmp/service.zip -d /service \\
-    && pip install -r /service/requirements.txt
+                        elif node_id.endswith("_send_compile"):
+                            app_lines += [
+                                f"    # Logic for {node_id}",
+                                f"    model = kwargs.get('model')",
+                                f"    if model is None:",
+                                f"        raise ValueError('Missing model input')",
+                                f"    url = f\"{{BACKEND_URL}}/compile\"",
+                                f"    response = requests.post(url, json=model)",
+                                f"    response.raise_for_status()",
+                                f"    return response.json()",
+                            ]
 
-CMD ["python", "/service/polling_agent.py"]
-"""
-                        middle_service_zip.writestr("Dockerfile", dockerfile_code)
+                        elif node_id.endswith("_poll_result"):
+                            app_lines += [
+                                f"    # Logic for {node_id}",
+                                f"    uuid = kwargs.get('uuid')",
+                                f"    if not uuid:",
+                                f"        raise ValueError('Missing uuid')",
+                                f"    status_url = f\"{{BACKEND_URL}}/status/{{uuid}}\"",
+                                f"    for attempt in range(20):",
+                                f"        resp = requests.get(status_url)",
+                                f"        if resp.ok:",
+                                f"            data = resp.json()",
+                                f"            if data.get('status') in ('completed','failed'):",
+                                f"                return data",
+                                f"        time.sleep(10)",
+                                f"    return {{'status': 'timeout'}}",
+                            ]
 
-                    # Add middle service.zip to activity ZIP
-                    activity_zip.writestr("service.zip", middle_service_buffer.getvalue())
+                        elif node_id.endswith("_set_vars"):
+                            app_lines += [
+                                f"    # Logic for {node_id}",
+                                f"    status = kwargs.get('status')",
+                                f"    location = kwargs.get('location')",
+                                f"    result = {{'status': status, 'location': location}}",
+                                f"    with open('final_result.json', 'w') as f:",
+                                f"        json.dump(result, f)",
+                                f"    return result",
+                            ]
 
-                # Add per-activity ZIP to master ZIP
-                master_zip.writestr(f"{activity_name}.zip", activity_zip_buffer.getvalue())
+                        else:
+                            app_lines += [
+                                f"    raise NotImplementedError('Unknown node type: {node_id}')"
+                            ]
+
+                        inner_service_zip.writestr(
+                            "app.py",
+                            "\n".join(app_lines)
+                        )
+
+                        # ---------- polling_agent.py ----------
+                        polling_agent_code = (
+                            "import threading\n"
+                            "import base64\n"
+                            "import os\n"
+                            "import requests\n"
+                            "import app\n\n"
+                            "def poll():\n"
+                            "    body = {\n"
+                            "        'workerId': 'WP67GZ6N9ZX5',\n"
+                            "        'maxTasks': 1,\n"
+                            "        'topics': [{'topicName': topic, 'lockDuration': 60000}]\n"
+                            "    }\n"
+                            "    try:\n"
+                            "        response = requests.post(pollingEndpoint + '/fetchAndLock', json=body)\n"
+                            "        if response.status_code == 200:\n"
+                            "            for task in response.json():\n"
+                            "                variables = task.get('variables', {})\n"
+                            "                result = app.main()\n"
+                            "                body = {'workerId': 'WP67GZ6N9ZX5', 'variables': {}}\n"
+                            "                body['variables']['result'] = {\n"
+                            "                    'value': base64.b64encode(str(result).encode()).decode(),\n"
+                            "                    'type': 'File',\n"
+                            "                    'valueInfo': {'filename': 'result.txt'}\n"
+                            "                }\n"
+                            "                requests.post(\n"
+                            "                    pollingEndpoint + '/' + task.get('id') + '/complete',\n"
+                            "                    json=body\n"
+                            "                )\n"
+                            "    except Exception as e:\n"
+                            "        print('Polling error:', e)\n"
+                            "    threading.Timer(8, poll).start()\n\n"
+                            "camundaEndpoint = os.environ['CAMUNDA_ENDPOINT']\n"
+                            "pollingEndpoint = camundaEndpoint + '/external-task'\n"
+                            "topic = os.environ['CAMUNDA_TOPIC']\n"
+                            "poll()\n"
+                        )
+
+                        inner_service_zip.writestr(
+                            "polling_agent.py",
+                            polling_agent_code
+                        )
+
+                        inner_service_zip.writestr(
+                            "requirements.txt",
+                            "requests\n"
+                        )
+
+                    # ---------- Docker layer ----------
+                    middle_service_buffer = io.BytesIO()
+                    with zipfile.ZipFile(
+                        middle_service_buffer,
+                        mode="w",
+                        compression=zipfile.ZIP_DEFLATED
+                    ) as middle_zip:
+
+                        middle_zip.writestr(
+                            "service.zip",
+                            inner_service_buffer.getvalue()
+                        )
+
+                        middle_zip.writestr(
+                            "Dockerfile",
+                            """FROM python:3.8-slim
+    COPY service.zip /tmp/service.zip
+    RUN apt-get update && apt-get install -y unzip \
+        && unzip /tmp/service.zip -d /service \
+        && pip install -r /service/requirements.txt
+    CMD ["python", "/service/polling_agent.py"]
+    """
+                        )
+
+                    activity_zip.writestr(
+                        "service.zip",
+                        middle_service_buffer.getvalue()
+                    )
+
+                master_zip.writestr(
+                    f"{activity_name}.zip",
+                    activity_zip_buffer.getvalue()
+                )
 
         return master_zip_buffer.getvalue()
 
