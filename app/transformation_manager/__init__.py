@@ -712,13 +712,15 @@ class WorkflowProcessor(CommonProcessor):
                         elif node_id.endswith("_send_compile"):
                             app_lines += [
                                 f"    # Logic for {node_id}",
-                                f"    model = kwargs.get('model')",
-                                f"    if model is None:",
-                                f"        raise ValueError('Missing model input')",
+                                f"    model_data = {safe_request_str}",
                                 f"    url = f\"{{BACKEND_URL}}/compile\"",
-                                f"    response = requests.post(url, json=model)",
+                                f"    response = requests.post(url, json=model_data)",
                                 f"    response.raise_for_status()",
-                                f"    return response.json()",
+                                f"    data = response.json()",
+                                f"    uuid = data.get('uuid')",
+                                f"    if not uuid:",
+                                f"        raise ValueError('Backend response does not contain uuid')",
+                                f"    return uuid"
                             ]
 
                         elif node_id.endswith("_poll_result"):
