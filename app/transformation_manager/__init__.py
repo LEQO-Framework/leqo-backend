@@ -933,22 +933,37 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     """
 
     # TODO:
-    # - design fixes for the edges
-    # - condition implementations for exclusive gateways
-    # - if more than one quantum group: bigger gaps between the chains
+    # - finish containsPlaceholder = False part
 
     import xml.etree.ElementTree as ET
+    ET.register_namespace("bpmn", BPMN2_NS)
+    ET.register_namespace("bpmndi", BPMNDI_NS)
+    ET.register_namespace("dc", DC_NS)
+    ET.register_namespace("di", DI_NS)
+    ET.register_namespace("camunda", CAMUNDA_NS)
+    ET.register_namespace("xsi", XSI_NS)
     import uuid
     from collections import defaultdict, deque
 
     metadata = metadata or {}
     start_event_classical_nodes = start_event_classical_nodes or []
 
+    def create_exclusive_gateway(gateway_id):
+        attrs = {"id": gateway_id}
+
+        if gateway_id in gateway_default_targets:
+            attrs["default"] = gateway_default_targets[gateway_id]
+
+        ET.SubElement(process, qn(BPMN2_NS, "exclusiveGateway"), attrs)
+
     def new_flow():
         return f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
 
     def qn(ns: str, tag: str) -> str:
         return f"{{{ns}}}{tag}"
+    
+    # default flows for exclusive gateways (Camunda requirement)
+    gateway_default_targets = {}
 
     # Root definitions
     defs = ET.Element(
@@ -964,7 +979,12 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
 
     start_id = "StartEvent_1"
     end_id = "EndEvent_1"
+
     start_event = ET.SubElement(process, qn(BPMN2_NS, "startEvent"), {"id": start_id})
+    ext = ET.SubElement(start_event, qn(BPMN2_NS, "extensionElements"))
+    form = ET.SubElement(ext, qn(CAMUNDA_NS, "formData"))
+    ET.SubElement(form,qn(CAMUNDA_NS, "formField"), {"id": "ipAdress","label": "IP Adresse", "type": "string", "defaultValue": "192.168.178.65"})
+
     end_event = ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": end_id})
 
     # Add classical nodes as start-event form fields
@@ -1216,7 +1236,8 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
             # shift x by +1 level because chain occupies level 0
             x = start_x + 170 + (level + 3) * (task_w + gap_x)
             y = 200 + i * (task_h + gap_y)
-            task_positions[f"Task_{nid}"] = (x, y)
+            if not nid.startswith("quantum_group_"):
+                task_positions[f"Task_{nid}"] = (x, y)
 
     if containsPlaceholder:
         ordered_starts = start_nodes
@@ -1284,51 +1305,382 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
                 setvars2_id
             ) = chain
 
-        # ----- always present -----
-        # create deployment
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": createdeploym_id, "name": "Create Deployment"})
-        # execute job
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": exejob_id, "name": "Execute Job"})
-        # get job results
-        ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": getjobres_id, "name": "Get Job Results"})
-        # set variables
-        ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setvars2_id, "name": "Set Variables"})
-        # analyze results
+        # ---------- always present ----------
+        # ----- create deployment -----
+        task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": createdeploym_id, "name": "Create Deployment", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
+        # extensionElements
+        ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+        connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+        # connectorId
+        ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+        # output/input
+        io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+        # input: headers
+        headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+        header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+        # input: method
+        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "POST"
+        # input: payload
+        payload_param = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
+        payload_script = ET.SubElement(payload_param, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+        payload_script.text = """
+import groovy.json.JsonBuilder
+
+def circuit = execution.getVariable("circuit")
+
+def program = [
+    programs: [
+        [
+            quantumCircuit: circuit,
+assemblerLanguage: "QASM3",
+            pythonFilePath: "",
+            pythonFileMetadata: ""
+        ]
+    ],
+    name: "DeploymentName"
+]
+
+return new JsonBuilder(program).toPrettyString()
+        """
+        # input: url
+        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8080/deployments/"
+        # output: deploymentId
+        out_deploymentId = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "deploymentId"})
+        out_script = ET.SubElement(out_deploymentId, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+        out_script.text = """
+import groovy.json.JsonSlurper
+
+def resp = new JsonSlurper()
+    .parseText(connector.getVariable("response"))
+
+return resp.id
+        """
+
+        # ----- execute job -----
+        task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": exejob_id, "name": "Execute Job", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
+        # extensionElements
+        ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+        connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+        # connectorId
+        ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+        # output/input
+        io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+        # input: headers
+        headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+        header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+        # input: method
+        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "POST"
+        # input: payload
+        payload_param = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
+        payload_script = ET.SubElement(payload_param, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+        payload_script.text = """
+import groovy.json.JsonBuilder
+
+def deploymentId = execution.getVariable("deploymentId")
+
+def program = [
+    name           : "JobName",
+    providerName   : "IBM",
+    deviceName     : "aer_simulator",
+    shots          : 1024,
+    errorMitigation: "none",
+    cutToWidth     : null,
+    token          : "",
+    type           : "RUNNER",
+    deploymentId   : deploymentId
+]
+
+def requestString = new JsonBuilder(program).toPrettyString()
+
+return requestString
+        """
+        # input: url
+        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8080/jobs/"
+        # output: jobId
+        out_jobId = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "jobId"})
+        out_script = ET.SubElement(out_jobId, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+        out_script.text = """
+import groovy.json.JsonSlurper
+
+def resp = new JsonSlurper()
+    .parseText(connector.getVariable("response"))
+
+return resp.self
+        """
+
+        # ----- get job results -----
+        task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": getjobres_id, "name": "Get Job Results"})
+        # extensionElements
+        ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+        connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+        # connectorId
+        ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+        # output/input
+        io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+        # input: headers
+        headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+        header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+        # input: method
+        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "GET"
+        # input: url
+        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8080${jobId}"
+        # output: resultExecution
+        out_resultExecution = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "resultExecution"})
+        out_script = ET.SubElement(out_resultExecution, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+        out_script.text = """
+import groovy.json.JsonSlurper
+import groovy.json.JsonBuilder
+
+def resp = new JsonSlurper()
+    .parseText(connector.getVariable("response"))
+
+return new JsonBuilder(resp.results).toString()
+        """
+        # output: statusJob
+        out_statusJob = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "statusJob"})
+        out_script = ET.SubElement(out_statusJob, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+        out_script.text = """
+import groovy.json.JsonSlurper
+
+def resp = new JsonSlurper()
+    .parseText(connector.getVariable("response"))
+
+return resp.state
+        """
+
+        # ----- set variables -----
+        task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setvars2_id, "name": "Set Variables", "scriptFormat": "groovy"})
+        script = ET.SubElement(task, qn(BPMN2_NS, "script"))
+        script.text = """
+// Input
+def status = execution.getVariable("statusJob")
+def iterations = execution.getVariable("iterations") ?: 0
+
+// Konfiguration
+def MAX_RETRIES = 10
+
+// Initialisierung
+def isCompleted = false
+def shouldRetry = false
+def jobFailed  = false
+
+// Entscheidungslogik
+if (status == "COMPLETED") {
+    isCompleted = true
+    shouldRetry = false
+    jobFailed  = false
+}
+else if (status == "FAILED") {
+    isCompleted = false
+    shouldRetry = false
+    jobFailed  = true
+}
+else {
+    // RUNNING, QUEUED, etc.
+    if (iterations < MAX_RETRIES) {
+        isCompleted = false
+        shouldRetry = true
+        jobFailed  = false
+    } else {
+        isCompleted = false
+        shouldRetry = false
+        jobFailed  = true
+    }
+}
+
+// Variablen setzen
+execution.setVariable("isCompleted", isCompleted)
+execution.setVariable("shouldRetry", shouldRetry)
+execution.setVariable("jobFailed", jobFailed)
+
+// Iterationen hochzählen
+execution.setVariable("iterations", iterations + 1)
+        """
+
+        # ----- analyze results -----
         ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": human_id, "name": "Analyze Results"})
+
         # 3rd exlusive gateway
-        ET.SubElement(process, qn(BPMN2_NS, "exclusiveGateway"), {"id": gateway3_id, "name": ""})
+        create_exclusive_gateway(gateway3_id)
+
         # 4th exlusive gateway
-        ET.SubElement(process, qn(BPMN2_NS, "exclusiveGateway"), {"id": gateway4_id, "name": ""})
-        # analyze failed job
+        create_exclusive_gateway(gateway4_id)
+
+        # ----- analyze failed job -----
         ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": analyzefailedjob_id, "name": "Analyze Failed Job"})
+
         # 2nd alternative ending
         ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": altend2_id, "name": ""})
 
         if containsPlaceholder:
             updatevars_id = update_tasks[start_node]
             analyzefailedtransf_id = fail_transf_tasks[start_node]
-            # ----- contains placeholder tasks -----
-            # set variables
-            ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setvars1_id, "name": "Set Variables"})
-            # send backend request
-            ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": backendreq_id, "name": "Send Backend Request"})
-            # poll status
-            ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": pollstat_id, "name": "Poll Status"})
-            # retrieve circuit
-            ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": retrievecirc_id, "name": "Retrieve Circuit"})
+
+            # ---------- contains placeholder tasks ----------
+            # ----- set variables -----
+            task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setvars1_id, "name": "Set Variables", "scriptFormat": "groovy"})
+            script = ET.SubElement(task, qn(BPMN2_NS, "script"))
+            script.text = """
+            def model = '''
+            {
+            "metadata": {
+                "version": "1.0.0",
+                "name": "Auto Model",
+                "description": "Generated by Camunda",
+                "author": "Camunda",
+                "containsPlaceholder": true
+            },
+            "nodes": [],
+            "edges": []
+            }
+            '''
+
+            // defensive initialization
+            execution.setVariable("jobFailed", false)
+            execution.setVariable("shouldRetry", false)
+            execution.setVariable("isCompleted", false)
+
+            execution.setVariable("model", model)
+
+            def groupId = execution.getVariable("groupId")
+            execution.setVariable("groupId", groupId == null ? 0 : groupId + 1)
+
+            def iterations = execution.getVariable("iterations")
+            execution.setVariable("iterations", execution.getVariable("iterations") ?: 0)
+            """
+
+            # ----- send backend request -----
+            task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": backendreq_id, "name": "Send Backend Request", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
+            ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+            connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+            ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+            io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+            # input: method
+            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "POST"
+            # input: url
+            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8000/compile"
+            # input: headers
+            headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+            header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+            # input: payload
+            payload_param = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
+            payload_script = ET.SubElement(payload_param, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+            payload_script.text = """
+import groovy.json.JsonSlurper
+import groovy.json.JsonBuilder
+
+def modelStr = execution.getVariable("model")
+def modelObj = new JsonSlurper().parseText(modelStr)
+return new JsonBuilder(modelObj).toPrettyString()
+            """
+            # output: uuid
+            out_uuid = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "uuid"})
+            out_script = ET.SubElement(out_uuid, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+            out_script.text = """
+import groovy.json.JsonSlurper
+
+def resp = new JsonSlurper()
+    .parseText(connector.getVariable("response"))
+
+return resp.uuid
+            """
+
+            # ----- poll status -----
+            task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": pollstat_id, "name": "Poll Status", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
+            # extensionElements
+            ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+            connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+            # connectorId
+            ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+            # output/input
+            io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+            # input: headers
+            headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+            header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+            # input: method
+            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "GET"
+            # input: url
+            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8000/status/${uuid}"
+            # output: status
+            out_status = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "status"})
+            out_script = ET.SubElement(out_status, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+            out_script.text = """
+import groovy.json.JsonSlurper
+
+def resp = new JsonSlurper()
+    .parseText(connector.getVariable("response"))
+
+return resp.status
+            """
+
+            # ----- retrieve circuit -----
+            task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": retrievecirc_id, "name": "Retrieve Circuit"})
+            # extensionElements
+            ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+            connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+            # connectorId
+            ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+            # output/input
+            io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+            # input: headers
+            headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+            header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+            # input: method
+            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "GET"
+            # input: url
+            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8000/results/${uuid}"
+            # output: circuit
+            out_circuit = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "circuit"})
+            out_script = ET.SubElement(out_circuit, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+            out_script.text = """
+return connector.getVariable("response")
+            """
+
             # 1st exlusive gateway
-            ET.SubElement(process, qn(BPMN2_NS, "exclusiveGateway"), {"id": gateway1_id, "name": ""})
+            create_exclusive_gateway(gateway1_id)
+
             # 2nd exlusive gateway
-            ET.SubElement(process, qn(BPMN2_NS, "exclusiveGateway"), {"id": gateway2_id, "name": ""})
-            # update variables
-            ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": updatevars_id, "name": "Update Variables"})
+            create_exclusive_gateway(gateway2_id)
+
+            # ----- update variables -----
+            task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": updatevars_id, "name": "Update Variables"})
+            script = ET.SubElement(task, qn(BPMN2_NS, "script"))
+            script.text = """
+def status = execution.getVariable("status")
+
+def isCompleted = (status?.toLowerCase() == "completed")
+execution.setVariable("isCompleted", isCompleted)
+
+def iterations = execution.getVariable("iterations") ?: 0
+def shouldRetry = (!isCompleted && iterations < 10)
+execution.setVariable("shouldRetry", shouldRetry)
+
+execution.setVariable("jobFailed", !isCompleted && !shouldRetry)
+            """
+
             # analyze failed transformation
             ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": analyzefailedtransf_id, "name": "Analyze Failed Transformation"})
+
             # 1st alternative ending
             ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": altend1_id, "name": ""})
 
         else:
-            ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": setcirc_id, "name": "Set Circuit"})
+            # ----- set circuit -----
+            task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setcirc_id, "name": "Set Circuit", "scriptFormat": "groovy"})
+            script = ET.SubElement(task, qn(BPMN2_NS, "script"))
+            script.text = "return true"
 
     ordered_starts = start_nodes
     # Sequence flows (we will build flow_map with tuples (flow_id, src, tgt))
@@ -1368,22 +1720,31 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
 
             # linear part before gateway2: set variables -> send backend request -> gateway1 -> poll status
             flow_map.append((new_flow(), setvars1_id, backendreq_id))
+            fid = new_flow()
+            flow_map.append((fid, gateway1_id, pollstat_id))
+            gateway_default_targets[gateway1_id] = fid
             flow_map.append((new_flow(), backendreq_id, gateway1_id))
-            flow_map.append((new_flow(), gateway1_id, pollstat_id))
             flow_map.append((new_flow(), pollstat_id, gateway2_id))
 
             # gateway2 branches
-            flow_map.append((new_flow(), gateway2_id, retrievecirc_id))
-            flow_map.append((new_flow(), gateway2_id, analyzefailedtransf_id))
+            fid_retrieve = new_flow()
+            flow_map.append((fid_retrieve, gateway2_id, retrievecirc_id))
+            fid_default = new_flow()
+            flow_map.append((fid_default, gateway2_id, analyzefailedtransf_id))
+            gateway_default_targets[gateway2_id] = fid_default
             flow_map.append((new_flow(), gateway2_id, updatevars_id))
 
             # success path: retrieve circuit -> create deployment -> execute job -> gateway3 -> get job result -> gateway4 -> set variables -> human task
             flow_map.append((new_flow(), retrievecirc_id, createdeploym_id))
             flow_map.append((new_flow(), createdeploym_id, exejob_id))
             flow_map.append((new_flow(), exejob_id, gateway3_id))
-            flow_map.append((new_flow(), gateway3_id, getjobres_id))
+            fid = new_flow()
+            flow_map.append((fid, gateway3_id, getjobres_id))
+            gateway_default_targets[gateway3_id] = fid
             flow_map.append((new_flow(), getjobres_id, gateway4_id))
-            flow_map.append((new_flow(), gateway4_id, setvars2_id))
+            fid = new_flow()
+            flow_map.append((fid, gateway4_id, setvars2_id))
+            gateway_default_targets[gateway4_id] = fid
             flow_map.append((new_flow(), setvars2_id, human_id))
 
             # gateway4 branches
@@ -1431,11 +1792,15 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
             flow_map.append((new_flow(), setcirc_id, createdeploym_id))
             flow_map.append((new_flow(), createdeploym_id, exejob_id))
             flow_map.append((new_flow(), exejob_id, gateway3_id))
-            flow_map.append((new_flow(), gateway3_id, getjobres_id))
+            fid = new_flow()
+            flow_map.append((fid, gateway3_id, getjobres_id))
+            gateway_default_targets[gateway3_id] = fid
             flow_map.append((new_flow(), getjobres_id, gateway4_id))
 
             # gateway4 branches
-            flow_map.append((new_flow(), gateway4_id, setvars2_id))
+            fid = new_flow()
+            flow_map.append((fid, gateway4_id, setvars2_id))
+            gateway_default_targets[gateway4_id] = fid
             flow_map.append((new_flow(), gateway4_id, analyzefailedjob_id))
             flow_map.append((new_flow(), gateway4_id, gateway3_id))
 
@@ -1451,6 +1816,11 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
                 flow_map.append((new_flow(), human_id, next_chain[0]))
             else:
                 flow_map.append((new_flow(), human_id, end_id))
+    
+    for gateway_id, default_fid in gateway_default_targets.items():
+        gw = process.find(f".//*[@id='{gateway_id}']")
+        if gw is not None:
+            gw.set("default", default_fid)
 
     # Add incoming/outgoing and sequenceFlow elements for all flows in flow_map
     for fid, src, tgt in flow_map:
@@ -1480,14 +1850,32 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
             "targetRef": target_ref
         })
 
-        # TODO: adding conditions for every outgoing flow of an exclusive gateway
-        if src.startswith("Task_") and "_gateway_" in src:
-            cond = ET.SubElement(
-                sf,
-                qn(BPMN2_NS, "conditionExpression"),
-                {qn(XSI_NS, "type"): "bpmn:tFormalExpression"}
-            )
-            cond.text = "${true}"
+        # gateway conditions
+        if src in gateway_default_targets:
+            default_fid = gateway_default_targets[src]
+
+            if fid != default_fid and (src.endswith("_gateway_2") or src.endswith("_gateway_4")):
+
+                # ----- Gateway 2 -----
+                if src.endswith("_gateway_2"):
+
+                    if tgt == retrievecirc_id:
+                        cond = ET.SubElement(sf, qn(BPMN2_NS, "conditionExpression"), {qn(XSI_NS, "type"): "bpmn:tFormalExpression"})
+                        cond.text = '${status == "completed"}'
+
+                    elif tgt == updatevars_id:
+                        cond = ET.SubElement(sf, qn(BPMN2_NS, "conditionExpression"), {qn(XSI_NS, "type"): "bpmn:tFormalExpression"})
+                        cond.text = '${status != "completed"}'
+
+                # ----- Gateway 4 -----
+                elif src.endswith("_gateway_4"):
+                    cond = ET.SubElement(sf, qn(BPMN2_NS, "conditionExpression"), {qn(XSI_NS, "type"): "bpmn:tFormalExpression"})
+
+                    if tgt == analyzefailedjob_id:
+                        cond.text = '${jobFailed}'
+
+                    elif tgt == gateway3_id:
+                        cond.text = '${!jobFailed && shouldRetry}'
 
     # Diagram shapes and edges
     diagram = ET.SubElement(defs, qn(BPMNDI_NS, "BPMNDiagram"), {"id": "BPMNDiagram_1"})
@@ -1497,17 +1885,23 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     start_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{start_id}_di", "bpmnElement": start_id})
     ET.SubElement(start_shape, qn(DC_NS, "Bounds"), x=str(start_x), y=str(start_y), width=str(BPMN_EVENT_WIDTH), height=str(BPMN_EVENT_HEIGHT))
 
+    # collect all real BPMN element ids (Tasks, Gateways, Events)
+    valid_bpmn_ids = {
+        el.attrib["id"]
+        for el in process.findall(".//*[@id]")
+    }
+
     # Task shapes - include synthetic chain tasks and real tasks
     for elem_id, (x, y) in task_positions.items():
+        if elem_id not in valid_bpmn_ids:
+            continue
         if "_gateway_" in elem_id:
             continue
         if elem_id in alt_end_event_ids:
             continue
 
-        shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"),
-                            {"id": f"{elem_id}_di", "bpmnElement": elem_id})
-        ET.SubElement(shape, qn(DC_NS, "Bounds"),
-                    x=str(x), y=str(y), width=str(task_w), height=str(task_h))
+        shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{elem_id}_di", "bpmnElement": elem_id})
+        ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(task_w), height=str(task_h))
 
     # End shape
     end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{end_id}_di", "bpmnElement": end_id})
