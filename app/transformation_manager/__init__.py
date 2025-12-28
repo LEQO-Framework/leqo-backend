@@ -940,7 +940,7 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     ET.register_namespace("bpmndi", BPMNDI_NS)
     ET.register_namespace("dc", DC_NS)
     ET.register_namespace("di", DI_NS)
-    ET.register_namespace("camunda", CAMUNDA_NS)
+    ET.register_namespace("camunda", CAMUNDA_NS) 
     ET.register_namespace("xsi", XSI_NS)
     import uuid
     from collections import defaultdict, deque
@@ -1462,7 +1462,7 @@ return resp.state
 def status = execution.getVariable("statusJob")
 def iterations = execution.getVariable("iterations") ?: 0
 
-// Konfiguration
+// Configuration
 def MAX_RETRIES = 10
 
 // Initialisierung
@@ -1470,7 +1470,7 @@ def isCompleted = false
 def shouldRetry = false
 def jobFailed  = false
 
-// Entscheidungslogik
+// Evaluation logic
 if (status == "COMPLETED") {
     isCompleted = true
     shouldRetry = false
@@ -1680,7 +1680,18 @@ execution.setVariable("jobFailed", !isCompleted && !shouldRetry)
             # ----- set circuit -----
             task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setcirc_id, "name": "Set Circuit", "scriptFormat": "groovy"})
             script = ET.SubElement(task, qn(BPMN2_NS, "script"))
-            script.text = "return true"
+            script.text = """
+// defensive initialization for the condition variables
+execution.setVariable("jobFailed", false)
+execution.setVariable("shouldRetry", false)
+execution.setVariable("isCompleted", false)
+
+// iterations
+execution.setVariable("iterations", execution.getVariable("iterations") ?: 0)
+
+// circuit logic for later
+return true
+"""
 
     ordered_starts = start_nodes
     # Sequence flows (we will build flow_map with tuples (flow_id, src, tgt))
