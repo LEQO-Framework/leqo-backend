@@ -1458,49 +1458,53 @@ return resp.state
         task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setvars2_id, "name": "Set Variables", "scriptFormat": "groovy"})
         script = ET.SubElement(task, qn(BPMN2_NS, "script"))
         script.text = """
-// Input
 def status = execution.getVariable("statusJob")
-def iterations = execution.getVariable("iterations") ?: 0
+def containsPlaceholder = execution.getVariable("containsPlaceholder") == true
 
-// Configuration
-def MAX_RETRIES = 10
-
-// Initialisierung
-def isCompleted = false
+// defensive defaults
+def jobFailed   = false
 def shouldRetry = false
-def jobFailed  = false
+def isCompleted = false
 
-// Evaluation logic
-if (status == "COMPLETED") {
-    isCompleted = true
-    shouldRetry = false
-    jobFailed  = false
-}
-else if (status == "FAILED") {
-    isCompleted = false
-    shouldRetry = false
-    jobFailed  = true
-}
-else {
-    // RUNNING, QUEUED, etc.
-    if (iterations < MAX_RETRIES) {
-        isCompleted = false
+if (containsPlaceholder) {
+
+    // complex logic
+    def iterations = execution.getVariable("iterations") ?: 0
+    def MAX_RETRIES = 10
+
+    if (status == "COMPLETED") {
+        isCompleted = true
+    }
+    else if (status == "FAILED") {
+        jobFailed = true
+    }
+    else {
+        if (iterations < MAX_RETRIES) {
+            shouldRetry = true
+        } else {
+            jobFailed = true
+        }
+    }
+
+    execution.setVariable("iterations", iterations + 1)
+
+} else {
+
+    if (status == "FINISHED") {
+        isCompleted = true
+    }
+    else if (status == "ERROR") {
+        jobFailed = true
+    }
+    else {
         shouldRetry = true
-        jobFailed  = false
-    } else {
-        isCompleted = false
-        shouldRetry = false
-        jobFailed  = true
     }
 }
 
-// Variablen setzen
+// evaluation variables
 execution.setVariable("isCompleted", isCompleted)
 execution.setVariable("shouldRetry", shouldRetry)
 execution.setVariable("jobFailed", jobFailed)
-
-// Iterationen hochzählen
-execution.setVariable("iterations", iterations + 1)
         """
 
         # ----- analyze results -----
@@ -1678,18 +1682,26 @@ execution.setVariable("jobFailed", !isCompleted && !shouldRetry)
 
         else:
             # ----- set circuit -----
-            task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setcirc_id, "name": "Set Circuit", "scriptFormat": "groovy"})
+            task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setcirc_id, "name": "Set Circuit", "scriptFormat": "groovy", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "true"})
             script = ET.SubElement(task, qn(BPMN2_NS, "script"))
             script.text = """
-// defensive initialization for the condition variables
+// defensive initialization
 execution.setVariable("jobFailed", false)
 execution.setVariable("shouldRetry", false)
 execution.setVariable("isCompleted", false)
-
-// iterations
 execution.setVariable("iterations", execution.getVariable("iterations") ?: 0)
 
-// circuit logic for later
+// --- QASM placeholder ---
+// TODO: replace with real QASM string from modeler/backend
+def qasmPlaceholder = '''
+OPENQASM 3.1;
+include "stdgates.inc";
+qubit[1] q;
+h q[0];
+'''
+
+execution.setVariable("circuit", qasmPlaceholder)
+
 return true
 """
 
