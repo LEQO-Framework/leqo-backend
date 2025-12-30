@@ -35,6 +35,7 @@ from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import IntType, LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
 from app.services import get_db_engine, get_enricher, get_settings
+from app.transformation_manager.bpmn_builder import BpmnBuilder
 from app.transformation_manager.frontend_graph import FrontendGraph, TBaseNode
 from app.transformation_manager.graph import (
     ClassicalIOInstance,
@@ -931,1179 +932,1191 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     chain task (Set Variables) is linked into that node so the chain appears
     before the node in the diagram.
     """
-
-    # TODO:
-    # - finish containsPlaceholder = False part
-
-    import xml.etree.ElementTree as ET
-    ET.register_namespace("bpmn", BPMN2_NS)
-    ET.register_namespace("bpmndi", BPMNDI_NS)
-    ET.register_namespace("dc", DC_NS)
-    ET.register_namespace("di", DI_NS)
-    ET.register_namespace("camunda", CAMUNDA_NS) 
-    ET.register_namespace("xsi", XSI_NS)
-    import uuid
-    from collections import defaultdict, deque
-
-    metadata = metadata or {}
-    start_event_classical_nodes = start_event_classical_nodes or []
-
-    def create_exclusive_gateway(gateway_id):
-        attrs = {"id": gateway_id}
-
-        if gateway_id in gateway_default_targets:
-            attrs["default"] = gateway_default_targets[gateway_id]
-
-        ET.SubElement(process, qn(BPMN2_NS, "exclusiveGateway"), attrs)
-
-    def new_flow():
-        return f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
-
-    def qn(ns: str, tag: str) -> str:
-        return f"{{{ns}}}{tag}"
+    containsPlaceholder=True
     
-    # default flows for exclusive gateways (Camunda requirement)
-    gateway_default_targets = {}
-
-    # Root definitions
-    defs = ET.Element(
-        qn(BPMN2_NS, "definitions"),
-        {
-            "id": "sample-diagram",
-            "targetNamespace": "http://bpmn.io/schema/bpmn",
-            qn(XSI_NS, "schemaLocation"): "http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd",
-        },
+    builder = BpmnBuilder(
+        process_id=process_id,
+        nodes=nodes,
+        edges=edges,
+        metadata=metadata,
+        start_event_classical_nodes=start_event_classical_nodes,
+        containsPlaceholder=containsPlaceholder
     )
 
-    process = ET.SubElement(defs, qn(BPMN2_NS, "process"), {"id": f"Process_{process_id}", "isExecutable": "true"})
+    return builder.build()
 
-    start_id = "StartEvent_1"
-    end_id = "EndEvent_1"
+#     # TODO:
+#     # - finish containsPlaceholder = False part
 
-    start_event = ET.SubElement(process, qn(BPMN2_NS, "startEvent"), {"id": start_id})
-    ext = ET.SubElement(start_event, qn(BPMN2_NS, "extensionElements"))
-    form = ET.SubElement(ext, qn(CAMUNDA_NS, "formData"))
-    ET.SubElement(form,qn(CAMUNDA_NS, "formField"), {"id": "ipAdress","label": "IP Adresse", "type": "string", "defaultValue": "192.168.178.65"})
+#     import xml.etree.ElementTree as ET
+#     ET.register_namespace("bpmn", BPMN2_NS)
+#     ET.register_namespace("bpmndi", BPMNDI_NS)
+#     ET.register_namespace("dc", DC_NS)
+#     ET.register_namespace("di", DI_NS)
+#     ET.register_namespace("camunda", CAMUNDA_NS) 
+#     ET.register_namespace("xsi", XSI_NS)
+#     import uuid
+#     from collections import defaultdict, deque
 
-    end_event = ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": end_id})
+#     metadata = metadata or {}
+#     start_event_classical_nodes = start_event_classical_nodes or []
 
-    # Add classical nodes as start-event form fields
-    if start_event_classical_nodes:
-        ext = ET.SubElement(start_event, qn(BPMN2_NS, "extensionElements"))
-        form_data = ET.SubElement(ext, qn(CAMUNDA_NS, "formData"))
-        for node in start_event_classical_nodes:
-            node_id = getattr(node, "id", None) or "unknown"
-            node_label = getattr(node, "label", None) or node_id
-            ET.SubElement(
-                form_data,
-                qn(CAMUNDA_NS, "formField"),
-                {
-                    "id": f"Input_{node_id.replace('-','_')}_value",
-                    "label": node_label,
-                    "type": "string",
-                    "defaultValue": "0"
-                }
-            )
+#     def create_exclusive_gateway(gateway_id):
+#         attrs = {"id": gateway_id}
 
-    # Layout and positions
-    start_x, start_y = 252, 222
-    task_w, task_h = 120, 80
-    gap_x, gap_y = 220, 150
+#         if gateway_id in gateway_default_targets:
+#             attrs["default"] = gateway_default_targets[gateway_id]
 
-    # Build incoming/outgoing maps from collapsed edges
-    incoming, outgoing = defaultdict(list), defaultdict(list)
-    for src, tgt in edges:
-        outgoing[src].append(tgt)
-        incoming[tgt].append(src)
+#         ET.SubElement(process, qn(BPMN2_NS, "exclusiveGateway"), attrs)
 
-    node_ids = list(nodes.keys())
-    start_nodes = [nid for nid in node_ids if not incoming[nid]]
-    end_nodes = [nid for nid in node_ids if not outgoing[nid]]
+#     def new_flow():
+#         return f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
 
-    # Topological sort
-    indegree = {nid: len(incoming[nid]) for nid in node_ids}
-    queue = deque(start_nodes)
-    topo_order = []
-    while queue:
-        nid = queue.popleft()
-        topo_order.append(nid)
-        for tgt in outgoing[nid]:
-            indegree[tgt] -= 1
-            if indegree[tgt] == 0:
-                queue.append(tgt)
-    for nid in node_ids:
-        if nid not in topo_order:
-            topo_order.append(nid)
+#     def qn(ns: str, tag: str) -> str:
+#         return f"{{{ns}}}{tag}"
+    
+#     # default flows for exclusive gateways (Camunda requirement)
+#     gateway_default_targets = {}
 
-    inserted_chains = {}  # start_node -> (setvars1_id, backendreq_id, pollstat_id, retrievecirc_id, createdeploym_id, exejob_id, getjobres_id, setvars2_id)
-    human_tasks = {}
+#     # Root definitions
+#     defs = ET.Element(
+#         qn(BPMN2_NS, "definitions"),
+#         {
+#             "id": "sample-diagram",
+#             "targetNamespace": "http://bpmn.io/schema/bpmn",
+#             qn(XSI_NS, "schemaLocation"): "http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd",
+#         },
+#     )
 
-    update_tasks = {}
-    fail_transf_tasks = {}
-    fail_job_tasks = {}
+#     process = ET.SubElement(defs, qn(BPMN2_NS, "process"), {"id": f"Process_{process_id}", "isExecutable": "true"})
 
-    alt_ends: dict[str, list[str]] = {}
-    alt_end_event_ids = set()
+#     start_id = "StartEvent_1"
+#     end_id = "EndEvent_1"
 
-    # For each start_node create a dedicated chain (if it's a quantum_group, chain is per-group)
-    for start_node in start_nodes:
-        # ----- chain element ids (unique) that ALWAYS exist -----
-        if not containsPlaceholder:
-            setcirc_id = f"Task_{start_node}_set_circuit"
-        createdeploym_id = f"Task_{start_node}_create_deployment"
-        exejob_id = f"Task_{start_node}_exe_job"
-        getjobres_id = f"Task_{start_node}_get_job_res"
-        setvars2_id = f"Task_{start_node}_set_vars_2"
+#     start_event = ET.SubElement(process, qn(BPMN2_NS, "startEvent"), {"id": start_id})
+#     ext = ET.SubElement(start_event, qn(BPMN2_NS, "extensionElements"))
+#     form = ET.SubElement(ext, qn(CAMUNDA_NS, "formData"))
+#     ET.SubElement(form,qn(CAMUNDA_NS, "formField"), {"id": "ipAdress","label": "IP Adresse", "type": "string", "defaultValue": "192.168.178.65"})
 
-        analyzefailedjob_id = f"Task_{start_node}_analyze_failed_job"
+#     end_event = ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": end_id})
 
-        gateway3_id = f"Task_{start_node}_gateway_3"
-        gateway4_id = f"Task_{start_node}_gateway_4"
+#     # Add classical nodes as start-event form fields
+#     if start_event_classical_nodes:
+#         ext = ET.SubElement(start_event, qn(BPMN2_NS, "extensionElements"))
+#         form_data = ET.SubElement(ext, qn(CAMUNDA_NS, "formData"))
+#         for node in start_event_classical_nodes:
+#             node_id = getattr(node, "id", None) or "unknown"
+#             node_label = getattr(node, "label", None) or node_id
+#             ET.SubElement(
+#                 form_data,
+#                 qn(CAMUNDA_NS, "formField"),
+#                 {
+#                     "id": f"Input_{node_id.replace('-','_')}_value",
+#                     "label": node_label,
+#                     "type": "string",
+#                     "defaultValue": "0"
+#                 }
+#             )
 
-        alt_ends[start_node] = []
-        altend2_id = f"Task_{start_node}_alt_end_2"
-        alt_ends[start_node].append(altend2_id)
+#     # Layout and positions
+#     start_x, start_y = 252, 222
+#     task_w, task_h = 120, 80
+#     gap_x, gap_y = 220, 150
 
-        human_tasks[start_node] = f"Task_{start_node}_human"
+#     # Build incoming/outgoing maps from collapsed edges
+#     incoming, outgoing = defaultdict(list), defaultdict(list)
+#     for src, tgt in edges:
+#         outgoing[src].append(tgt)
+#         incoming[tgt].append(src)
+
+#     node_ids = list(nodes.keys())
+#     start_nodes = [nid for nid in node_ids if not incoming[nid]]
+#     end_nodes = [nid for nid in node_ids if not outgoing[nid]]
+
+#     # Topological sort
+#     indegree = {nid: len(incoming[nid]) for nid in node_ids}
+#     queue = deque(start_nodes)
+#     topo_order = []
+#     while queue:
+#         nid = queue.popleft()
+#         topo_order.append(nid)
+#         for tgt in outgoing[nid]:
+#             indegree[tgt] -= 1
+#             if indegree[tgt] == 0:
+#                 queue.append(tgt)
+#     for nid in node_ids:
+#         if nid not in topo_order:
+#             topo_order.append(nid)
+
+#     inserted_chains = {}  # start_node -> (setvars1_id, backendreq_id, pollstat_id, retrievecirc_id, createdeploym_id, exejob_id, getjobres_id, setvars2_id)
+#     human_tasks = {}
+
+#     update_tasks = {}
+#     fail_transf_tasks = {}
+#     fail_job_tasks = {}
+
+#     alt_ends: dict[str, list[str]] = {}
+#     alt_end_event_ids = set()
+
+#     # For each start_node create a dedicated chain (if it's a quantum_group, chain is per-group)
+#     for start_node in start_nodes:
+#         # ----- chain element ids (unique) that ALWAYS exist -----
+#         if not containsPlaceholder:
+#             setcirc_id = f"Task_{start_node}_set_circuit"
+#         createdeploym_id = f"Task_{start_node}_create_deployment"
+#         exejob_id = f"Task_{start_node}_exe_job"
+#         getjobres_id = f"Task_{start_node}_get_job_res"
+#         setvars2_id = f"Task_{start_node}_set_vars_2"
+
+#         analyzefailedjob_id = f"Task_{start_node}_analyze_failed_job"
+
+#         gateway3_id = f"Task_{start_node}_gateway_3"
+#         gateway4_id = f"Task_{start_node}_gateway_4"
+
+#         alt_ends[start_node] = []
+#         altend2_id = f"Task_{start_node}_alt_end_2"
+#         alt_ends[start_node].append(altend2_id)
+
+#         human_tasks[start_node] = f"Task_{start_node}_human"
         
-        fail_job_tasks[start_node] = analyzefailedjob_id
+#         fail_job_tasks[start_node] = analyzefailedjob_id
 
-        if containsPlaceholder:
-            setvars1_id = f"Task_{start_node}_set_vars_1"
-            backendreq_id = f"Task_{start_node}_backend_req"
-            pollstat_id = f"Task_{start_node}_poll_status"
-            retrievecirc_id = f"Task_{start_node}_retrieve_circuit"
+#         if containsPlaceholder:
+#             setvars1_id = f"Task_{start_node}_set_vars_1"
+#             backendreq_id = f"Task_{start_node}_backend_req"
+#             pollstat_id = f"Task_{start_node}_poll_status"
+#             retrievecirc_id = f"Task_{start_node}_retrieve_circuit"
 
-            updatevars_id = f"Task_{start_node}_update_vars"
-            analyzefailedtransf_id = f"Task_{start_node}_analyze_failed_transf"
+#             updatevars_id = f"Task_{start_node}_update_vars"
+#             analyzefailedtransf_id = f"Task_{start_node}_analyze_failed_transf"
 
-            gateway1_id = f"Task_{start_node}_gateway_1"
-            gateway2_id = f"Task_{start_node}_gateway_2"
+#             gateway1_id = f"Task_{start_node}_gateway_1"
+#             gateway2_id = f"Task_{start_node}_gateway_2"
 
-            altend1_id = f"Task_{start_node}_alt_end_1"
-            alt_ends[start_node].insert(0, altend1_id)
+#             altend1_id = f"Task_{start_node}_alt_end_1"
+#             alt_ends[start_node].insert(0, altend1_id)
 
-            update_tasks[start_node] = updatevars_id
-            fail_transf_tasks[start_node] = analyzefailedtransf_id
+#             update_tasks[start_node] = updatevars_id
+#             fail_transf_tasks[start_node] = analyzefailedtransf_id
             
-            inserted_chains[start_node] = (
-                setvars1_id, 
-                backendreq_id, 
-                gateway1_id, 
-                pollstat_id, 
-                gateway2_id, 
-                retrievecirc_id, 
-                createdeploym_id, 
-                exejob_id, 
-                gateway3_id, 
-                getjobres_id, 
-                gateway4_id, 
-                setvars2_id
-                )
-        else:
-            inserted_chains[start_node] = (
-                setcirc_id, 
-                createdeploym_id, 
-                exejob_id, 
-                gateway3_id, 
-                getjobres_id, 
-                gateway4_id, 
-                setvars2_id
-                )
+#             inserted_chains[start_node] = (
+#                 setvars1_id, 
+#                 backendreq_id, 
+#                 gateway1_id, 
+#                 pollstat_id, 
+#                 gateway2_id, 
+#                 retrievecirc_id, 
+#                 createdeploym_id, 
+#                 exejob_id, 
+#                 gateway3_id, 
+#                 getjobres_id, 
+#                 gateway4_id, 
+#                 setvars2_id
+#                 )
+#         else:
+#             inserted_chains[start_node] = (
+#                 setcirc_id, 
+#                 createdeploym_id, 
+#                 exejob_id, 
+#                 gateway3_id, 
+#                 getjobres_id, 
+#                 gateway4_id, 
+#                 setvars2_id
+#                 )
 
-    # collect alternative end events (ONLY the synthetic ones)
-    for ends in alt_ends.values():
-        for eid in ends:
-            alt_end_event_ids.add(eid)
+#     # collect alternative end events (ONLY the synthetic ones)
+#     for ends in alt_ends.values():
+#         for eid in ends:
+#             alt_end_event_ids.add(eid)
 
-    # Determine node levels first (base)
-    task_positions = {}
-    level_positions = defaultdict(list)
-    node_level = {}
+#     # Determine node levels first (base)
+#     task_positions = {}
+#     level_positions = defaultdict(list)
+#     node_level = {}
 
-    # start chains will be at level 0, original nodes pushed to level+1
-    for nid in node_ids:
-        if nid in start_nodes:
-            node_level[nid] = 1 if containsPlaceholder else 0
+#     # start chains will be at level 0, original nodes pushed to level+1
+#     for nid in node_ids:
+#         if nid in start_nodes:
+#             node_level[nid] = 1 if containsPlaceholder else 0
 
-        # other nodes left to compute
+#         # other nodes left to compute
 
-    # compute levels by topo_order, using incoming preds' levels
-    for nid in topo_order:
-        if nid not in node_level:
-            preds = incoming[nid]
-            if preds:
-                node_level[nid] = max(node_level.get(p, 0) for p in preds) + 1
-            else:
-                node_level[nid] = 1  # if isolated, place after chain level
-        level_positions[node_level[nid]].append(nid)
+#     # compute levels by topo_order, using incoming preds' levels
+#     for nid in topo_order:
+#         if nid not in node_level:
+#             preds = incoming[nid]
+#             if preds:
+#                 node_level[nid] = max(node_level.get(p, 0) for p in preds) + 1
+#             else:
+#                 node_level[nid] = 1  # if isolated, place after chain level
+#         level_positions[node_level[nid]].append(nid)
 
-    def place_gateway_between(left_id, right_id, gateway_id):
-        lx, ly = task_positions[left_id]
-        rx, _ = task_positions[right_id]
+#     def place_gateway_between(left_id, right_id, gateway_id):
+#         lx, ly = task_positions[left_id]
+#         rx, _ = task_positions[right_id]
 
-        gx = lx + BPMN_TASK_WIDTH + ((rx - (lx + BPMN_TASK_WIDTH)) // 2) - BPMN_GW_WIDTH // 2
-        gy = ly + BPMN_TASK_HEIGHT // 2 - BPMN_GW_HEIGHT // 2
+#         gx = lx + BPMN_TASK_WIDTH + ((rx - (lx + BPMN_TASK_WIDTH)) // 2) - BPMN_GW_WIDTH // 2
+#         gy = ly + BPMN_TASK_HEIGHT // 2 - BPMN_GW_HEIGHT // 2
 
-        task_positions[gateway_id] = (gx, gy)
+#         task_positions[gateway_id] = (gx, gy)
 
 
-    # place chain tasks at level 0; if multiple start nodes, they'll be stacked vertically
-    chain_level = 0
-    for i, start_node in enumerate(start_nodes):
-        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET + chain_level * (BPMN_TASK_WIDTH + BPMN_GAP_X)
-        y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
+#     # place chain tasks at level 0; if multiple start nodes, they'll be stacked vertically
+#     chain_level = 0
+#     for i, start_node in enumerate(start_nodes):
+#         x = BPMN_START_X + BPMN_CHAIN_X_OFFSET + chain_level * (BPMN_TASK_WIDTH + BPMN_GAP_X)
+#         y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
 
-        chain = inserted_chains[start_node]
-        human_id = human_tasks[start_node]
+#         chain = inserted_chains[start_node]
+#         human_id = human_tasks[start_node]
 
-        # ----- always present -----
-        tail = chain[-6:]
-        (
-            createdeploym_id,
-            exejob_id,
-            gateway3_id,
-            getjobres_id,
-            gateway4_id,
-            setvars2_id,
-        ) = tail
+#         # ----- always present -----     
+#         tail = chain[-6:]
+#         (
+#             createdeploym_id,
+#             exejob_id,
+#             gateway3_id,
+#             getjobres_id,
+#             gateway4_id,
+#             setvars2_id,
+#         ) = tail
 
-        # ----- place common tasks -----
-        task_positions[createdeploym_id] = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        task_positions[exejob_id]         = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        task_positions[getjobres_id]      = (x + 6 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        place_gateway_between(exejob_id, getjobres_id, gateway3_id)
+#         # ----- place common tasks -----
+#         task_positions[createdeploym_id] = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+#         task_positions[exejob_id]         = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+#         task_positions[getjobres_id]      = (x + 6 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+#         place_gateway_between(exejob_id, getjobres_id, gateway3_id)
 
-        task_positions[setvars2_id] = (x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        place_gateway_between(getjobres_id, setvars2_id, gateway4_id)
+#         task_positions[setvars2_id] = (x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+#         place_gateway_between(getjobres_id, setvars2_id, gateway4_id)
 
-        task_positions[human_id] = (x + 8 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+#         task_positions[human_id] = (x + 8 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
 
-        # ----- place transformation tasks -----
-        if containsPlaceholder:
-            (
-                setvars1_id,
-                backendreq_id,
-                gateway1_id,
-                pollstat_id,
-                gateway2_id,
-                retrievecirc_id,
-                *_,
-            ) = chain
+#         # ----- place transformation tasks -----
+#         if containsPlaceholder:
+#             (
+#                 setvars1_id,
+#                 backendreq_id,
+#                 gateway1_id,
+#                 pollstat_id,
+#                 gateway2_id,
+#                 retrievecirc_id,
+#                 *_,
+#             ) = chain
 
-            updatevars_id = update_tasks[start_node]
-            analyzefailedtransf_id = fail_transf_tasks[start_node]
-            analyzefailedjob_id = fail_job_tasks[start_node]
+#             updatevars_id = update_tasks[start_node]
+#             analyzefailedtransf_id = fail_transf_tasks[start_node]
+#             analyzefailedjob_id = fail_job_tasks[start_node]
 
-            task_positions[setvars1_id] = (x, y)
-            task_positions[backendreq_id] = (x + 1 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-            task_positions[pollstat_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-            place_gateway_between(backendreq_id, pollstat_id, gateway1_id)
+#             task_positions[setvars1_id] = (x, y)
+#             task_positions[backendreq_id] = (x + 1 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+#             task_positions[pollstat_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+#             place_gateway_between(backendreq_id, pollstat_id, gateway1_id)
 
-            task_positions[retrievecirc_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-            place_gateway_between(pollstat_id, retrievecirc_id, gateway2_id)
+#             task_positions[retrievecirc_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+#             place_gateway_between(pollstat_id, retrievecirc_id, gateway2_id)
 
-            task_positions[updatevars_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y - BPMN_TASK_HEIGHT - 30)
+#             task_positions[updatevars_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y - BPMN_TASK_HEIGHT - 30)
 
-            gx2, gy2 = task_positions[gateway2_id]
-            task_positions[analyzefailedtransf_id] = (gx2, gy2 + BPMN_TASK_HEIGHT + 20)
+#             gx2, gy2 = task_positions[gateway2_id]
+#             task_positions[analyzefailedtransf_id] = (gx2, gy2 + BPMN_TASK_HEIGHT + 20)
 
-            task_positions[analyzefailedjob_id] = (x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y + BPMN_TASK_HEIGHT + 30)
+#             task_positions[analyzefailedjob_id] = (x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y + BPMN_TASK_HEIGHT + 30)
 
-        else:
-            # ----- no placeholder part -----
-            setcirc_id = chain[0]
-            analyzefailedjob_id = fail_job_tasks[start_node]
+#         else:
+#             # ----- no placeholder part -----
+#             setcirc_id = chain[0]
+#             analyzefailedjob_id = fail_job_tasks[start_node]
 
-            task_positions[setcirc_id] = (x, y)
-            task_positions[analyzefailedjob_id] = (x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y + BPMN_TASK_HEIGHT + 30)
+#             task_positions[setcirc_id] = (x, y)
+#             task_positions[analyzefailedjob_id] = (x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y + BPMN_TASK_HEIGHT + 30)
 
-        # ----- alternative end events -----
-        for j, altend_id in enumerate(alt_ends.get(start_node, [])):
-            afj_id = fail_job_tasks[start_node]
-            afj_x, afj_y = task_positions[afj_id]
+#         # ----- alternative end events -----
+#         for j, altend_id in enumerate(alt_ends.get(start_node, [])):
+#             afj_id = fail_job_tasks[start_node]
+#             afj_x, afj_y = task_positions[afj_id]
 
-            if altend_id.endswith("_alt_end_2"):
+#             if altend_id.endswith("_alt_end_2"):
 
-                task_positions[altend_id] = (afj_x + BPMN_TASK_WIDTH + BPMN_GAP_X // 2, afj_y + 22)
+#                 task_positions[altend_id] = (afj_x + BPMN_TASK_WIDTH + BPMN_GAP_X // 2, afj_y + 22)
 
-            else:
-                task_positions[altend_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X) + 30, afj_y + 28)
+#             else:
+#                 task_positions[altend_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X) + 30, afj_y + 28)
 
-    # assign positions for original nodes from level_positions
-    for level, nids in level_positions.items():
-        for i, nid in enumerate(nids):
-            # shift x by +1 level because chain occupies level 0
-            x = start_x + 170 + (level + 3) * (task_w + gap_x)
-            y = 200 + i * (task_h + gap_y)
-            if not nid.startswith("quantum_group_"):
-                task_positions[f"Task_{nid}"] = (x, y)
+#     # assign positions for original nodes from level_positions
+#     for level, nids in level_positions.items():
+#         for i, nid in enumerate(nids):
+#             # shift x by +1 level because chain occupies level 0
+#             x = start_x + 170 + (level + 3) * (task_w + gap_x)
+#             y = 200 + i * (task_h + gap_y)
+#             if not nid.startswith("quantum_group_"):
+#                 task_positions[f"Task_{nid}"] = (x, y)
 
-    if containsPlaceholder:
-        ordered_starts = start_nodes
-        last_start_node = ordered_starts[-1]
-        last_human_id = human_tasks[last_start_node]
-        last_x, last_y = task_positions[last_human_id]
-    else:
-        last_task_id = max(
-            task_positions.items(),
-            key=lambda kv: kv[1][0]
-        )[0]
-        last_x, last_y = task_positions[last_task_id]
+#     if containsPlaceholder:
+#         ordered_starts = start_nodes
+#         last_start_node = ordered_starts[-1]
+#         last_human_id = human_tasks[last_start_node]
+#         last_x, last_y = task_positions[last_human_id]
+#     else:
+#         last_task_id = max(
+#             task_positions.items(),
+#             key=lambda kv: kv[1][0]
+#         )[0]
+#         last_x, last_y = task_positions[last_task_id]
 
-    end_x = last_x + task_w + gap_x
-    end_y = last_y + (task_h // 2) - 18
+#     end_x = last_x + task_w + gap_x
+#     end_y = last_y + (task_h // 2) - 18
 
-    # Create service tasks for all original composite nodes
-    for nid, node in nodes.items():
-        # if we already created chain tasks for this nid (they're not in `nodes`), skip
-        # nodes are only composite nodes, chain tasks are additional synthetic tasks
-        task_id = f"Task_{nid}"
-        node_type = getattr(node, "type", "Task")
-        task_el = None
+#     # Create service tasks for all original composite nodes
+#     for nid, node in nodes.items():
+#         # if we already created chain tasks for this nid (they're not in `nodes`), skip
+#         # nodes are only composite nodes, chain tasks are additional synthetic tasks
+#         task_id = f"Task_{nid}"
+#         node_type = getattr(node, "type", "Task")
+#         task_el = None
 
-        if task_el is not None:
-            # Add metadata as extensionElements/properties
-            for key, val in metadata.get(nid, {}).items():
-                ext = ET.SubElement(task_el, qn(BPMN2_NS, "extensionElements"))
-                ET.SubElement(ext, qn(BPMN2_NS, "property"), {"name": key, "value": str(val)})
+#         if task_el is not None:
+#             # Add metadata as extensionElements/properties
+#             for key, val in metadata.get(nid, {}).items():
+#                 ext = ET.SubElement(task_el, qn(BPMN2_NS, "extensionElements"))
+#                 ET.SubElement(ext, qn(BPMN2_NS, "property"), {"name": key, "value": str(val)})
 
-    # Create synthetic service tasks for chains
-    # One chain per start_node
-    for start_node, chain in inserted_chains.items():
-        human_id = human_tasks[start_node]
-        analyzefailedjob_id = fail_job_tasks[start_node]
+#     # Create synthetic service tasks for chains
+#     # One chain per start_node
+#     for start_node, chain in inserted_chains.items():
+#         human_id = human_tasks[start_node]
+#         analyzefailedjob_id = fail_job_tasks[start_node]
 
-        alt_end_ids = alt_ends[start_node]
-        altend2_id = alt_end_ids[-1]
-        altend1_id = alt_end_ids[0] if len(alt_end_ids) == 2 else None
+#         alt_end_ids = alt_ends[start_node]
+#         altend2_id = alt_end_ids[-1]
+#         altend1_id = alt_end_ids[0] if len(alt_end_ids) == 2 else None
 
-        if containsPlaceholder:
-            (
-                setvars1_id, 
-                backendreq_id, 
-                gateway1_id, 
-                pollstat_id, 
-                gateway2_id, 
-                retrievecirc_id, 
-                createdeploym_id, 
-                exejob_id, 
-                gateway3_id, 
-                getjobres_id, 
-                gateway4_id, 
-                setvars2_id 
-            ) = chain
+#         if containsPlaceholder:
+#             (
+#                 setvars1_id, 
+#                 backendreq_id, 
+#                 gateway1_id, 
+#                 pollstat_id, 
+#                 gateway2_id, 
+#                 retrievecirc_id, 
+#                 createdeploym_id, 
+#                 exejob_id, 
+#                 gateway3_id, 
+#                 getjobres_id, 
+#                 gateway4_id, 
+#                 setvars2_id 
+#             ) = chain
         
-        else:
-            (
-                setcirc_id,
-                createdeploym_id, 
-                exejob_id, 
-                gateway3_id, 
-                getjobres_id, 
-                gateway4_id, 
-                setvars2_id
-            ) = chain
-
-        # ---------- always present ----------
-        # ----- create deployment -----
-        task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": createdeploym_id, "name": "Create Deployment", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
-        # extensionElements
-        ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
-        connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
-        # connectorId
-        ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
-        # output/input
-        io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
-        # input: headers
-        headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
-        header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
-        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
-        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
-        # input: method
-        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "POST"
-        # input: payload
-        payload_param = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
-        payload_script = ET.SubElement(payload_param, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-        payload_script.text = """
-import groovy.json.JsonBuilder
-
-def circuit = execution.getVariable("circuit")
-
-def program = [
-    programs: [
-        [
-            quantumCircuit: circuit,
-assemblerLanguage: "QASM3",
-            pythonFilePath: "",
-            pythonFileMetadata: ""
-        ]
-    ],
-    name: "DeploymentName"
-]
-
-return new JsonBuilder(program).toPrettyString()
-        """
-        # input: url
-        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8080/deployments/"
-        # output: deploymentId
-        out_deploymentId = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "deploymentId"})
-        out_script = ET.SubElement(out_deploymentId, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-        out_script.text = """
-import groovy.json.JsonSlurper
-
-def resp = new JsonSlurper()
-    .parseText(connector.getVariable("response"))
-
-return resp.id
-        """
-
-        # ----- execute job -----
-        task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": exejob_id, "name": "Execute Job", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
-        # extensionElements
-        ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
-        connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
-        # connectorId
-        ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
-        # output/input
-        io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
-        # input: headers
-        headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
-        header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
-        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
-        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
-        # input: method
-        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "POST"
-        # input: payload
-        payload_param = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
-        payload_script = ET.SubElement(payload_param, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-        payload_script.text = """
-import groovy.json.JsonBuilder
-
-def deploymentId = execution.getVariable("deploymentId")
-
-def program = [
-    name           : "JobName",
-    providerName   : "IBM",
-    deviceName     : "aer_simulator",
-    shots          : 1024,
-    errorMitigation: "none",
-    cutToWidth     : null,
-    token          : "",
-    type           : "RUNNER",
-    deploymentId   : deploymentId
-]
-
-def requestString = new JsonBuilder(program).toPrettyString()
-
-return requestString
-        """
-        # input: url
-        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8080/jobs/"
-        # output: jobId
-        out_jobId = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "jobId"})
-        out_script = ET.SubElement(out_jobId, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-        out_script.text = """
-import groovy.json.JsonSlurper
-
-def resp = new JsonSlurper()
-    .parseText(connector.getVariable("response"))
-
-return resp.self
-        """
-
-        # ----- get job results -----
-        task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": getjobres_id, "name": "Get Job Results"})
-        # extensionElements
-        ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
-        connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
-        # connectorId
-        ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
-        # output/input
-        io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
-        # input: headers
-        headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
-        header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
-        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
-        ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
-        # input: method
-        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "GET"
-        # input: url
-        ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8080${jobId}"
-        # output: resultExecution
-        out_resultExecution = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "resultExecution"})
-        out_script = ET.SubElement(out_resultExecution, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-        out_script.text = """
-import groovy.json.JsonSlurper
-import groovy.json.JsonBuilder
-
-def resp = new JsonSlurper()
-    .parseText(connector.getVariable("response"))
-
-return new JsonBuilder(resp.results).toString()
-        """
-        # output: statusJob
-        out_statusJob = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "statusJob"})
-        out_script = ET.SubElement(out_statusJob, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-        out_script.text = """
-import groovy.json.JsonSlurper
-
-def resp = new JsonSlurper()
-    .parseText(connector.getVariable("response"))
-
-return resp.state
-        """
-
-        # ----- set variables -----
-        task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setvars2_id, "name": "Set Variables", "scriptFormat": "groovy"})
-        script = ET.SubElement(task, qn(BPMN2_NS, "script"))
-        script.text = """
-def status = execution.getVariable("statusJob")
-def containsPlaceholder = execution.getVariable("containsPlaceholder") == true
-
-// defensive defaults
-def jobFailed   = false
-def shouldRetry = false
-def isCompleted = false
-
-if (containsPlaceholder) {
-
-    // complex logic
-    def iterations = execution.getVariable("iterations") ?: 0
-    def MAX_RETRIES = 10
-
-    if (status == "COMPLETED") {
-        isCompleted = true
-    }
-    else if (status == "FAILED") {
-        jobFailed = true
-    }
-    else {
-        if (iterations < MAX_RETRIES) {
-            shouldRetry = true
-        } else {
-            jobFailed = true
-        }
-    }
-
-    execution.setVariable("iterations", iterations + 1)
-
-} else {
-
-    if (status == "FINISHED") {
-        isCompleted = true
-    }
-    else if (status == "ERROR") {
-        jobFailed = true
-    }
-    else {
-        shouldRetry = true
-    }
-}
-
-// evaluation variables
-execution.setVariable("isCompleted", isCompleted)
-execution.setVariable("shouldRetry", shouldRetry)
-execution.setVariable("jobFailed", jobFailed)
-        """
-
-        # ----- analyze results -----
-        ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": human_id, "name": "Analyze Results"})
-
-        # 3rd exlusive gateway
-        create_exclusive_gateway(gateway3_id)
-
-        # 4th exlusive gateway
-        create_exclusive_gateway(gateway4_id)
-
-        # ----- analyze failed job -----
-        ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": analyzefailedjob_id, "name": "Analyze Failed Job"})
-
-        # 2nd alternative ending
-        ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": altend2_id, "name": ""})
-
-        if containsPlaceholder:
-            updatevars_id = update_tasks[start_node]
-            analyzefailedtransf_id = fail_transf_tasks[start_node]
-
-            # ---------- contains placeholder tasks ----------
-            # ----- set variables -----
-            task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setvars1_id, "name": "Set Variables", "scriptFormat": "groovy"})
-            script = ET.SubElement(task, qn(BPMN2_NS, "script"))
-            script.text = """
-            def model = '''
-            {
-            "metadata": {
-                "version": "1.0.0",
-                "name": "Auto Model",
-                "description": "Generated by Camunda",
-                "author": "Camunda",
-                "containsPlaceholder": true
-            },
-            "nodes": [],
-            "edges": []
-            }
-            '''
-
-            // defensive initialization
-            execution.setVariable("jobFailed", false)
-            execution.setVariable("shouldRetry", false)
-            execution.setVariable("isCompleted", false)
-
-            execution.setVariable("model", model)
-
-            def groupId = execution.getVariable("groupId")
-            execution.setVariable("groupId", groupId == null ? 0 : groupId + 1)
-
-            def iterations = execution.getVariable("iterations")
-            execution.setVariable("iterations", execution.getVariable("iterations") ?: 0)
-            """
-
-            # ----- send backend request -----
-            task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": backendreq_id, "name": "Send Backend Request", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
-            ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
-            connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
-            ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
-            io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
-            # input: method
-            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "POST"
-            # input: url
-            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8000/compile"
-            # input: headers
-            headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
-            header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
-            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
-            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
-            # input: payload
-            payload_param = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
-            payload_script = ET.SubElement(payload_param, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-            payload_script.text = """
-import groovy.json.JsonSlurper
-import groovy.json.JsonBuilder
-
-def modelStr = execution.getVariable("model")
-def modelObj = new JsonSlurper().parseText(modelStr)
-return new JsonBuilder(modelObj).toPrettyString()
-            """
-            # output: uuid
-            out_uuid = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "uuid"})
-            out_script = ET.SubElement(out_uuid, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-            out_script.text = """
-import groovy.json.JsonSlurper
-
-def resp = new JsonSlurper()
-    .parseText(connector.getVariable("response"))
-
-return resp.uuid
-            """
-
-            # ----- poll status -----
-            task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": pollstat_id, "name": "Poll Status", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
-            # extensionElements
-            ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
-            connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
-            # connectorId
-            ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
-            # output/input
-            io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
-            # input: headers
-            headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
-            header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
-            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
-            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
-            # input: method
-            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "GET"
-            # input: url
-            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8000/status/${uuid}"
-            # output: status
-            out_status = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "status"})
-            out_script = ET.SubElement(out_status, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-            out_script.text = """
-import groovy.json.JsonSlurper
-
-def resp = new JsonSlurper()
-    .parseText(connector.getVariable("response"))
-
-return resp.status
-            """
-
-            # ----- retrieve circuit -----
-            task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": retrievecirc_id, "name": "Retrieve Circuit"})
-            # extensionElements
-            ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
-            connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
-            # connectorId
-            ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
-            # output/input
-            io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
-            # input: headers
-            headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
-            header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
-            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
-            ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
-            # input: method
-            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "GET"
-            # input: url
-            ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8000/results/${uuid}"
-            # output: circuit
-            out_circuit = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "circuit"})
-            out_script = ET.SubElement(out_circuit, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-            out_script.text = """
-return connector.getVariable("response")
-            """
-
-            # 1st exlusive gateway
-            create_exclusive_gateway(gateway1_id)
-
-            # 2nd exlusive gateway
-            create_exclusive_gateway(gateway2_id)
-
-            # ----- update variables -----
-            task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": updatevars_id, "name": "Update Variables"})
-            script = ET.SubElement(task, qn(BPMN2_NS, "script"))
-            script.text = """
-def status = execution.getVariable("status")
-
-def isCompleted = (status?.toLowerCase() == "completed")
-execution.setVariable("isCompleted", isCompleted)
-
-def iterations = execution.getVariable("iterations") ?: 0
-def shouldRetry = (!isCompleted && iterations < 10)
-execution.setVariable("shouldRetry", shouldRetry)
-
-execution.setVariable("jobFailed", !isCompleted && !shouldRetry)
-            """
-
-            # analyze failed transformation
-            ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": analyzefailedtransf_id, "name": "Analyze Failed Transformation"})
-
-            # 1st alternative ending
-            ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": altend1_id, "name": ""})
-
-        else:
-            # ----- set circuit -----
-            task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setcirc_id, "name": "Set Circuit", "scriptFormat": "groovy", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "true"})
-            script = ET.SubElement(task, qn(BPMN2_NS, "script"))
-            script.text = """
-// defensive initialization
-execution.setVariable("jobFailed", false)
-execution.setVariable("shouldRetry", false)
-execution.setVariable("isCompleted", false)
-execution.setVariable("iterations", execution.getVariable("iterations") ?: 0)
-
-// --- QASM placeholder ---
-// TODO: replace with real QASM string from modeler/backend
-def qasmPlaceholder = '''
-OPENQASM 3.1;
-include "stdgates.inc";
-qubit[1] q;
-h q[0];
-'''
-
-execution.setVariable("circuit", qasmPlaceholder)
-
-return true
-"""
-
-    ordered_starts = start_nodes
-    # Sequence flows (we will build flow_map with tuples (flow_id, src, tgt))
-    flow_map = []
-
-    if containsPlaceholder:
-        for i, start_node in enumerate(ordered_starts):
-            chain = inserted_chains[start_node]
-            human_id = human_tasks[start_node]
-
-            (
-                setvars1_id,
-                backendreq_id,
-                gateway1_id,
-                pollstat_id,
-                gateway2_id,
-                retrievecirc_id,
-                createdeploym_id,
-                exejob_id,
-                gateway3_id,
-                getjobres_id,
-                gateway4_id,
-                setvars2_id,
-            ) = chain
-
-            updatevars_id = update_tasks[start_node]
-            analyzefailedtransf_id = fail_transf_tasks[start_node]
-            analyzefailedjob_id = fail_job_tasks[start_node]
-
-            alt_end_ids = alt_ends[start_node]
-            altend2_id = alt_end_ids[-1]
-            altend1_id = alt_end_ids[0] if len(alt_end_ids) == 2 else None
-
-            # Start -> first quantum group
-            if i == 0:
-                flow_map.append((new_flow(), start_id, chain[0]))
-
-            # linear part before gateway2: set variables -> send backend request -> gateway1 -> poll status
-            flow_map.append((new_flow(), setvars1_id, backendreq_id))
-            fid = new_flow()
-            flow_map.append((fid, gateway1_id, pollstat_id))
-            gateway_default_targets[gateway1_id] = fid
-            flow_map.append((new_flow(), backendreq_id, gateway1_id))
-            flow_map.append((new_flow(), pollstat_id, gateway2_id))
-
-            # gateway2 branches
-            fid_retrieve = new_flow()
-            flow_map.append((fid_retrieve, gateway2_id, retrievecirc_id))
-            fid_default = new_flow()
-            flow_map.append((fid_default, gateway2_id, analyzefailedtransf_id))
-            gateway_default_targets[gateway2_id] = fid_default
-            flow_map.append((new_flow(), gateway2_id, updatevars_id))
-
-            # success path: retrieve circuit -> create deployment -> execute job -> gateway3 -> get job result -> gateway4 -> set variables -> human task
-            flow_map.append((new_flow(), retrievecirc_id, createdeploym_id))
-            flow_map.append((new_flow(), createdeploym_id, exejob_id))
-            flow_map.append((new_flow(), exejob_id, gateway3_id))
-            fid = new_flow()
-            flow_map.append((fid, gateway3_id, getjobres_id))
-            gateway_default_targets[gateway3_id] = fid
-            flow_map.append((new_flow(), getjobres_id, gateway4_id))
-            fid = new_flow()
-            flow_map.append((fid, gateway4_id, setvars2_id))
-            gateway_default_targets[gateway4_id] = fid
-            flow_map.append((new_flow(), setvars2_id, human_id))
-
-            # gateway4 branches
-            flow_map.append((new_flow(), gateway4_id, analyzefailedjob_id))
-            flow_map.append((new_flow(), analyzefailedjob_id, altend2_id))
-            flow_map.append((new_flow(), gateway4_id, gateway3_id))
-
-            # analyze failed transformation -> end event
-            if altend1_id is not None:
-                flow_map.append((new_flow(), analyzefailedtransf_id, altend1_id))
-
-            # update variables -> gateway1
-            flow_map.append((new_flow(), updatevars_id, gateway1_id))
-
-            # Human → next or end
-            if i + 1 < len(ordered_starts):
-                next_chain = inserted_chains[ordered_starts[i + 1]]
-                flow_map.append((new_flow(), human_id, next_chain[0]))
-            else:
-                flow_map.append((new_flow(), human_id, end_id))
+#         else:
+#             (
+#                 setcirc_id,
+#                 createdeploym_id, 
+#                 exejob_id, 
+#                 gateway3_id, 
+#                 getjobres_id, 
+#                 gateway4_id, 
+#                 setvars2_id
+#             ) = chain
+
+#         # ---------- always present ----------
+#         # ----- create deployment -----
+#         task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": createdeploym_id, "name": "Create Deployment", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
+#         # extensionElements
+#         ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+#         connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+#         # connectorId
+#         ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+#         # output/input
+#         io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+#         # input: headers
+#         headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+#         header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+#         ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+#         ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+#         # input: method
+#         ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "POST"
+#         # input: payload
+#         payload_param = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
+#         payload_script = ET.SubElement(payload_param, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+#         payload_script.text = """
+# import groovy.json.JsonBuilder
+
+# def circuit = execution.getVariable("circuit")
+
+# def program = [
+#     programs: [
+#         [
+#             quantumCircuit: circuit,
+# assemblerLanguage: "QASM3",
+#             pythonFilePath: "",
+#             pythonFileMetadata: ""
+#         ]
+#     ],
+#     name: "DeploymentName"
+# ]
+
+# return new JsonBuilder(program).toPrettyString()
+#         """
+#         # input: url
+#         ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8080/deployments/"
+#         # output: deploymentId
+#         out_deploymentId = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "deploymentId"})
+#         out_script = ET.SubElement(out_deploymentId, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+#         out_script.text = """
+# import groovy.json.JsonSlurper
+
+# def resp = new JsonSlurper()
+#     .parseText(connector.getVariable("response"))
+
+# return resp.id
+#         """
+
+#         # ----- execute job -----
+#         task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": exejob_id, "name": "Execute Job", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
+#         # extensionElements
+#         ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+#         connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+#         # connectorId
+#         ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+#         # output/input
+#         io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+#         # input: headers
+#         headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+#         header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+#         ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+#         ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+#         # input: method
+#         ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "POST"
+#         # input: payload
+#         payload_param = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
+#         payload_script = ET.SubElement(payload_param, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+#         payload_script.text = """
+# import groovy.json.JsonBuilder
+
+# def deploymentId = execution.getVariable("deploymentId")
+
+# def program = [
+#     name           : "JobName",
+#     providerName   : "IBM",
+#     deviceName     : "aer_simulator",
+#     shots          : 1024,
+#     errorMitigation: "none",
+#     cutToWidth     : null,
+#     token          : "",
+#     type           : "RUNNER",
+#     deploymentId   : deploymentId
+# ]
+
+# def requestString = new JsonBuilder(program).toPrettyString()
+
+# return requestString
+#         """
+#         # input: url
+#         ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8080/jobs/"
+#         # output: jobId
+#         out_jobId = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "jobId"})
+#         out_script = ET.SubElement(out_jobId, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+#         out_script.text = """
+# import groovy.json.JsonSlurper
+
+# def resp = new JsonSlurper()
+#     .parseText(connector.getVariable("response"))
+
+# return resp.self
+#         """
+
+#         # ----- get job results -----
+#         task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": getjobres_id, "name": "Get Job Results"})
+#         # extensionElements
+#         ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+#         connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+#         # connectorId
+#         ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+#         # output/input
+#         io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+#         # input: headers
+#         headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+#         header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+#         ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+#         ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+#         # input: method
+#         ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "GET"
+#         # input: url
+#         ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8080${jobId}"
+#         # output: resultExecution
+#         out_resultExecution = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "resultExecution"})
+#         out_script = ET.SubElement(out_resultExecution, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+#         out_script.text = """
+# import groovy.json.JsonSlurper
+# import groovy.json.JsonBuilder
+
+# def resp = new JsonSlurper()
+#     .parseText(connector.getVariable("response"))
+
+# return new JsonBuilder(resp.results).toString()
+#         """
+#         # output: statusJob
+#         out_statusJob = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "statusJob"})
+#         out_script = ET.SubElement(out_statusJob, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+#         out_script.text = """
+# import groovy.json.JsonSlurper
+
+# def resp = new JsonSlurper()
+#     .parseText(connector.getVariable("response"))
+
+# return resp.state
+#         """
+
+#         # ----- set variables -----
+#         task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setvars2_id, "name": "Set Variables", "scriptFormat": "groovy"})
+#         script = ET.SubElement(task, qn(BPMN2_NS, "script"))
+#         script.text = """
+# def status = execution.getVariable("statusJob")
+# def containsPlaceholder = execution.getVariable("containsPlaceholder") == true
+
+# // defensive defaults
+# def jobFailed   = false
+# def shouldRetry = false
+# def isCompleted = false
+
+# if (containsPlaceholder) {
+
+#     // complex logic
+#     def iterations = execution.getVariable("iterations") ?: 0
+#     def MAX_RETRIES = 10
+
+#     if (status == "COMPLETED") {
+#         isCompleted = true
+#     }
+#     else if (status == "FAILED") {
+#         jobFailed = true
+#     }
+#     else {
+#         if (iterations < MAX_RETRIES) {
+#             shouldRetry = true
+#         } else {
+#             jobFailed = true
+#         }
+#     }
+
+#     execution.setVariable("iterations", iterations + 1)
+
+# } else {
+
+#     if (status == "FINISHED") {
+#         isCompleted = true
+#     }
+#     else if (status == "ERROR") {
+#         jobFailed = true
+#     }
+#     else {
+#         shouldRetry = true
+#     }
+# }
+
+# // evaluation variables
+# execution.setVariable("isCompleted", isCompleted)
+# execution.setVariable("shouldRetry", shouldRetry)
+# execution.setVariable("jobFailed", jobFailed)
+#         """
+
+#         # ----- analyze results -----
+#         ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": human_id, "name": "Analyze Results"})
+
+#         # 3rd exlusive gateway
+#         create_exclusive_gateway(gateway3_id)
+
+#         # 4th exlusive gateway
+#         create_exclusive_gateway(gateway4_id)
+
+#         # ----- analyze failed job -----
+#         ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": analyzefailedjob_id, "name": "Analyze Failed Job"})
+
+#         # 2nd alternative ending
+#         ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": altend2_id, "name": ""})
+
+#         if containsPlaceholder:
+#             updatevars_id = update_tasks[start_node]
+#             analyzefailedtransf_id = fail_transf_tasks[start_node]
+
+#             # ---------- contains placeholder tasks ----------
+#             # ----- set variables -----
+#             task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setvars1_id, "name": "Set Variables", "scriptFormat": "groovy"})
+#             script = ET.SubElement(task, qn(BPMN2_NS, "script"))
+#             script.text = """
+#             def model = '''
+#             {
+#             "metadata": {
+#                 "version": "1.0.0",
+#                 "name": "Auto Model",
+#                 "description": "Generated by Camunda",
+#                 "author": "Camunda",
+#                 "containsPlaceholder": true
+#             },
+#             "nodes": [],
+#             "edges": []
+#             }
+#             '''
+
+#             // defensive initialization
+#             execution.setVariable("jobFailed", false)
+#             execution.setVariable("shouldRetry", false)
+#             execution.setVariable("isCompleted", false)
+
+#             execution.setVariable("model", model)
+
+#             def groupId = execution.getVariable("groupId")
+#             execution.setVariable("groupId", groupId == null ? 0 : groupId + 1)
+
+#             def iterations = execution.getVariable("iterations")
+#             execution.setVariable("iterations", execution.getVariable("iterations") ?: 0)
+#             """
+
+#             # ----- send backend request -----
+#             task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": backendreq_id, "name": "Send Backend Request", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
+#             ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+#             connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+#             ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+#             io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+#             # input: method
+#             ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "POST"
+#             # input: url
+#             ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8000/compile"
+#             # input: headers
+#             headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+#             header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+#             ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+#             ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+#             # input: payload
+#             payload_param = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
+#             payload_script = ET.SubElement(payload_param, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+#             payload_script.text = """
+# import groovy.json.JsonSlurper
+# import groovy.json.JsonBuilder
+
+# def modelStr = execution.getVariable("model")
+# def modelObj = new JsonSlurper().parseText(modelStr)
+# return new JsonBuilder(modelObj).toPrettyString()
+#             """
+#             # output: uuid
+#             out_uuid = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "uuid"})
+#             out_script = ET.SubElement(out_uuid, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+#             out_script.text = """
+# import groovy.json.JsonSlurper
+
+# def resp = new JsonSlurper()
+#     .parseText(connector.getVariable("response"))
+
+# return resp.uuid
+#             """
+
+#             # ----- poll status -----
+#             task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": pollstat_id, "name": "Poll Status", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "false"})
+#             # extensionElements
+#             ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+#             connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+#             # connectorId
+#             ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+#             # output/input
+#             io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+#             # input: headers
+#             headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+#             header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+#             ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+#             ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+#             # input: method
+#             ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "GET"
+#             # input: url
+#             ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8000/status/${uuid}"
+#             # output: status
+#             out_status = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "status"})
+#             out_script = ET.SubElement(out_status, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+#             out_script.text = """
+# import groovy.json.JsonSlurper
+
+# def resp = new JsonSlurper()
+#     .parseText(connector.getVariable("response"))
+
+# return resp.status
+#             """
+
+#             # ----- retrieve circuit -----
+#             task = ET.SubElement(process, qn(BPMN2_NS, "serviceTask"), {"id": retrievecirc_id, "name": "Retrieve Circuit"})
+#             # extensionElements
+#             ext = ET.SubElement(task, qn(BPMN2_NS, "extensionElements"))
+#             connector = ET.SubElement(ext, qn(CAMUNDA_NS, "connector"))
+#             # connectorId
+#             ET.SubElement(connector, qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+#             # output/input
+#             io = ET.SubElement(connector, qn(CAMUNDA_NS, "inputOutput"))
+#             # input: headers
+#             headers = ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+#             header_map = ET.SubElement(headers, qn(CAMUNDA_NS, "map"))
+#             ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Accept"}).text = "application/json"
+#             ET.SubElement(header_map, qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}).text = "application/json"
+#             # input: method
+#             ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = "GET"
+#             # input: url
+#             ET.SubElement(io, qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = "http://${ipAdress}:8000/results/${uuid}"
+#             # output: circuit
+#             out_circuit = ET.SubElement(io, qn(CAMUNDA_NS, "outputParameter"), {"name": "circuit"})
+#             out_script = ET.SubElement(out_circuit, qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+#             out_script.text = """
+# return connector.getVariable("response")
+#             """
+
+#             # 1st exlusive gateway
+#             create_exclusive_gateway(gateway1_id)
+
+#             # 2nd exlusive gateway
+#             create_exclusive_gateway(gateway2_id)
+
+#             # ----- update variables -----
+#             task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": updatevars_id, "name": "Update Variables"})
+#             script = ET.SubElement(task, qn(BPMN2_NS, "script"))
+#             script.text = """
+# def status = execution.getVariable("status")
+
+# def isCompleted = (status?.toLowerCase() == "completed")
+# execution.setVariable("isCompleted", isCompleted)
+
+# def iterations = execution.getVariable("iterations") ?: 0
+# def shouldRetry = (!isCompleted && iterations < 10)
+# execution.setVariable("shouldRetry", shouldRetry)
+
+# execution.setVariable("jobFailed", !isCompleted && !shouldRetry)
+#             """
+
+#             # analyze failed transformation
+#             ET.SubElement(process, qn(BPMN2_NS, "userTask"), {"id": analyzefailedtransf_id, "name": "Analyze Failed Transformation"})
+
+#             # 1st alternative ending
+#             ET.SubElement(process, qn(BPMN2_NS, "endEvent"), {"id": altend1_id, "name": ""})
+
+#         else:
+#             # ----- set circuit -----
+#             task = ET.SubElement(process, qn(BPMN2_NS, "scriptTask"), {"id": setcirc_id, "name": "Set Circuit", "scriptFormat": "groovy", qn(CAMUNDA_NS, "asyncAfter"): "true", qn(CAMUNDA_NS, "exclusive"): "true"})
+#             script = ET.SubElement(task, qn(BPMN2_NS, "script"))
+#             script.text = """
+# // defensive initialization
+# execution.setVariable("jobFailed", false)
+# execution.setVariable("shouldRetry", false)
+# execution.setVariable("isCompleted", false)
+# execution.setVariable("iterations", execution.getVariable("iterations") ?: 0)
+
+# // --- QASM placeholder ---
+# // TODO: replace with real QASM string from modeler/backend
+# def qasmPlaceholder = '''
+# OPENQASM 3.1;
+# include "stdgates.inc";
+# qubit[1] q;
+# h q[0];
+# '''
+
+# execution.setVariable("circuit", qasmPlaceholder)
+
+# return true
+# """
+
+#     ordered_starts = start_nodes
+#     # Sequence flows (we will build flow_map with tuples (flow_id, src, tgt))
+#     flow_map = []
+
+#     if containsPlaceholder:
+#         for i, start_node in enumerate(ordered_starts):
+#             chain = inserted_chains[start_node]
+#             human_id = human_tasks[start_node]
+
+#             (
+#                 setvars1_id,
+#                 backendreq_id,
+#                 gateway1_id,
+#                 pollstat_id,
+#                 gateway2_id,
+#                 retrievecirc_id,
+#                 createdeploym_id,
+#                 exejob_id,
+#                 gateway3_id,
+#                 getjobres_id,
+#                 gateway4_id,
+#                 setvars2_id,
+#             ) = chain
+
+#             updatevars_id = update_tasks[start_node]
+#             analyzefailedtransf_id = fail_transf_tasks[start_node]
+#             analyzefailedjob_id = fail_job_tasks[start_node]
+
+#             alt_end_ids = alt_ends[start_node]
+#             altend2_id = alt_end_ids[-1]
+#             altend1_id = alt_end_ids[0] if len(alt_end_ids) == 2 else None
+
+#             # Start -> first quantum group
+#             if i == 0:
+#                 flow_map.append((new_flow(), start_id, chain[0]))
+
+#             # linear part before gateway2: set variables -> send backend request -> gateway1 -> poll status
+#             flow_map.append((new_flow(), setvars1_id, backendreq_id))
+#             fid = new_flow()
+#             flow_map.append((fid, gateway1_id, pollstat_id))
+#             gateway_default_targets[gateway1_id] = fid
+#             flow_map.append((new_flow(), backendreq_id, gateway1_id))
+#             flow_map.append((new_flow(), pollstat_id, gateway2_id))
+
+#             # gateway2 branches
+#             fid_retrieve = new_flow()
+#             flow_map.append((fid_retrieve, gateway2_id, retrievecirc_id))
+#             fid_default = new_flow()
+#             flow_map.append((fid_default, gateway2_id, analyzefailedtransf_id))
+#             gateway_default_targets[gateway2_id] = fid_default
+#             flow_map.append((new_flow(), gateway2_id, updatevars_id))
+
+#             # success path: retrieve circuit -> create deployment -> execute job -> gateway3 -> get job result -> gateway4 -> set variables -> human task
+#             flow_map.append((new_flow(), retrievecirc_id, createdeploym_id))
+#             flow_map.append((new_flow(), createdeploym_id, exejob_id))
+#             flow_map.append((new_flow(), exejob_id, gateway3_id))
+#             fid = new_flow()
+#             flow_map.append((fid, gateway3_id, getjobres_id))
+#             gateway_default_targets[gateway3_id] = fid
+#             flow_map.append((new_flow(), getjobres_id, gateway4_id))
+#             fid = new_flow()
+#             flow_map.append((fid, gateway4_id, setvars2_id))
+#             gateway_default_targets[gateway4_id] = fid
+#             flow_map.append((new_flow(), setvars2_id, human_id))
+
+#             # gateway4 branches
+#             flow_map.append((new_flow(), gateway4_id, analyzefailedjob_id))
+#             flow_map.append((new_flow(), analyzefailedjob_id, altend2_id))
+#             flow_map.append((new_flow(), gateway4_id, gateway3_id))
+
+#             # analyze failed transformation -> end event
+#             if altend1_id is not None:
+#                 flow_map.append((new_flow(), analyzefailedtransf_id, altend1_id))
+
+#             # update variables -> gateway1
+#             flow_map.append((new_flow(), updatevars_id, gateway1_id))
+
+#             # Human → next or end
+#             if i + 1 < len(ordered_starts):
+#                 next_chain = inserted_chains[ordered_starts[i + 1]]
+#                 flow_map.append((new_flow(), human_id, next_chain[0]))
+#             else:
+#                 flow_map.append((new_flow(), human_id, end_id))
         
-    else:
-        for i, start_node in enumerate(ordered_starts):
-            chain = inserted_chains[start_node]
-            human_id = human_tasks[start_node]
+#     else:
+#         for i, start_node in enumerate(ordered_starts):
+#             chain = inserted_chains[start_node]
+#             human_id = human_tasks[start_node]
 
-            (
-                setcirc_id,
-                createdeploym_id,
-                exejob_id,
-                gateway3_id,
-                getjobres_id,
-                gateway4_id,
-                setvars2_id,
-            ) = chain
+#             (
+#                 setcirc_id,
+#                 createdeploym_id,
+#                 exejob_id,
+#                 gateway3_id,
+#                 getjobres_id,
+#                 gateway4_id,
+#                 setvars2_id,
+#             ) = chain
 
-            analyzefailedjob_id = fail_job_tasks[start_node]
-            altend2_id = alt_ends[start_node][0]
+#             analyzefailedjob_id = fail_job_tasks[start_node]
+#             altend2_id = alt_ends[start_node][0]
 
-            # Start → first task
-            if i == 0:
-                flow_map.append((new_flow(), start_id, setcirc_id))
+#             # Start → first task
+#             if i == 0:
+#                 flow_map.append((new_flow(), start_id, setcirc_id))
 
-            # linear execution: set circuit -> create deployment -> execute job -> gateway3 -> get job result -> gateway4
-            flow_map.append((new_flow(), setcirc_id, createdeploym_id))
-            flow_map.append((new_flow(), createdeploym_id, exejob_id))
-            flow_map.append((new_flow(), exejob_id, gateway3_id))
-            fid = new_flow()
-            flow_map.append((fid, gateway3_id, getjobres_id))
-            gateway_default_targets[gateway3_id] = fid
-            flow_map.append((new_flow(), getjobres_id, gateway4_id))
+#             # linear execution: set circuit -> create deployment -> execute job -> gateway3 -> get job result -> gateway4
+#             flow_map.append((new_flow(), setcirc_id, createdeploym_id))
+#             flow_map.append((new_flow(), createdeploym_id, exejob_id))
+#             flow_map.append((new_flow(), exejob_id, gateway3_id))
+#             fid = new_flow()
+#             flow_map.append((fid, gateway3_id, getjobres_id))
+#             gateway_default_targets[gateway3_id] = fid
+#             flow_map.append((new_flow(), getjobres_id, gateway4_id))
 
-            # gateway4 branches
-            fid = new_flow()
-            flow_map.append((fid, gateway4_id, setvars2_id))
-            gateway_default_targets[gateway4_id] = fid
-            flow_map.append((new_flow(), gateway4_id, analyzefailedjob_id))
-            flow_map.append((new_flow(), gateway4_id, gateway3_id))
+#             # gateway4 branches
+#             fid = new_flow()
+#             flow_map.append((fid, gateway4_id, setvars2_id))
+#             gateway_default_targets[gateway4_id] = fid
+#             flow_map.append((new_flow(), gateway4_id, analyzefailedjob_id))
+#             flow_map.append((new_flow(), gateway4_id, gateway3_id))
 
-            # set variables -> human task
-            flow_map.append((new_flow(), setvars2_id, human_id))
+#             # set variables -> human task
+#             flow_map.append((new_flow(), setvars2_id, human_id))
 
-            # analyze failed job -> end event
-            flow_map.append((new_flow(), analyzefailedjob_id, altend2_id))
+#             # analyze failed job -> end event
+#             flow_map.append((new_flow(), analyzefailedjob_id, altend2_id))
 
-            # Human → next or end
-            if i + 1 < len(ordered_starts):
-                next_chain = inserted_chains[ordered_starts[i + 1]]
-                flow_map.append((new_flow(), human_id, next_chain[0]))
-            else:
-                flow_map.append((new_flow(), human_id, end_id))
+#             # Human → next or end
+#             if i + 1 < len(ordered_starts):
+#                 next_chain = inserted_chains[ordered_starts[i + 1]]
+#                 flow_map.append((new_flow(), human_id, next_chain[0]))
+#             else:
+#                 flow_map.append((new_flow(), human_id, end_id))
     
-    for gateway_id, default_fid in gateway_default_targets.items():
-        gw = process.find(f".//*[@id='{gateway_id}']")
-        if gw is not None:
-            gw.set("default", default_fid)
+#     for gateway_id, default_fid in gateway_default_targets.items():
+#         gw = process.find(f".//*[@id='{gateway_id}']")
+#         if gw is not None:
+#             gw.set("default", default_fid)
 
-    # Add incoming/outgoing and sequenceFlow elements for all flows in flow_map
-    for fid, src, tgt in flow_map:
-        # src/ tgt can be StartEvent_1, EndEvent_1, synthetic Task_{...} or real Task_{nid}
-        # Ensure we add outgoing to the source element if present
-        # The process.find search needs the exact id used in element creation above
-        # Special-case start_id and end_id
-        # If src is one of our synthetic chain task ids, it's present as id directly
-        # If src is a composite node id, the element id is Task_{src}
-        src_search_id = src if src in (start_id, end_id) or src.startswith("Task_") else f"Task_{src}"
-        tgt_search_id = tgt if tgt in (start_id, end_id) or tgt.startswith("Task_") else f"Task_{tgt}"
+#     # Add incoming/outgoing and sequenceFlow elements for all flows in flow_map
+#     for fid, src, tgt in flow_map:
+#         # src/ tgt can be StartEvent_1, EndEvent_1, synthetic Task_{...} or real Task_{nid}
+#         # Ensure we add outgoing to the source element if present
+#         # The process.find search needs the exact id used in element creation above
+#         # Special-case start_id and end_id
+#         # If src is one of our synthetic chain task ids, it's present as id directly
+#         # If src is a composite node id, the element id is Task_{src}
+#         src_search_id = src if src in (start_id, end_id) or src.startswith("Task_") else f"Task_{src}"
+#         tgt_search_id = tgt if tgt in (start_id, end_id) or tgt.startswith("Task_") else f"Task_{tgt}"
 
-        src_el = process.find(f".//*[@id='{src_search_id}']")
-        tgt_el = process.find(f".//*[@id='{tgt_search_id}']")
+#         src_el = process.find(f".//*[@id='{src_search_id}']")
+#         tgt_el = process.find(f".//*[@id='{tgt_search_id}']")
 
-        if src_el is not None:
-            ET.SubElement(src_el, qn(BPMN2_NS, "outgoing")).text = fid
-        if tgt_el is not None:
-            ET.SubElement(tgt_el, qn(BPMN2_NS, "incoming")).text = fid
+#         if src_el is not None:
+#             ET.SubElement(src_el, qn(BPMN2_NS, "outgoing")).text = fid
+#         if tgt_el is not None:
+#             ET.SubElement(tgt_el, qn(BPMN2_NS, "incoming")).text = fid
 
-        # create the sequenceFlow element
-        source_ref = src if src in (start_id, end_id) or src.startswith("Task_") else f"Task_{src}"
-        target_ref = tgt if tgt in (start_id, end_id) or tgt.startswith("Task_") else f"Task_{tgt}"
-        sf = ET.SubElement(process, qn(BPMN2_NS, "sequenceFlow"), {
-            "id": fid,
-            "sourceRef": source_ref,
-            "targetRef": target_ref
-        })
+#         # create the sequenceFlow element
+#         source_ref = src if src in (start_id, end_id) or src.startswith("Task_") else f"Task_{src}"
+#         target_ref = tgt if tgt in (start_id, end_id) or tgt.startswith("Task_") else f"Task_{tgt}"
+#         sf = ET.SubElement(process, qn(BPMN2_NS, "sequenceFlow"), {
+#             "id": fid,
+#             "sourceRef": source_ref,
+#             "targetRef": target_ref
+#         })
 
-        # gateway conditions
-        if src in gateway_default_targets:
-            default_fid = gateway_default_targets[src]
+#         # gateway conditions
+#         if src in gateway_default_targets:
+#             default_fid = gateway_default_targets[src]
 
-            if fid != default_fid and (src.endswith("_gateway_2") or src.endswith("_gateway_4")):
+#             if fid != default_fid and (src.endswith("_gateway_2") or src.endswith("_gateway_4")):
 
-                # ----- Gateway 2 -----
-                if src.endswith("_gateway_2"):
+#                 # ----- Gateway 2 -----
+#                 if src.endswith("_gateway_2"):
 
-                    if tgt == retrievecirc_id:
-                        cond = ET.SubElement(sf, qn(BPMN2_NS, "conditionExpression"), {qn(XSI_NS, "type"): "bpmn:tFormalExpression"})
-                        cond.text = '${status == "completed"}'
+#                     if tgt == retrievecirc_id:
+#                         cond = ET.SubElement(sf, qn(BPMN2_NS, "conditionExpression"), {qn(XSI_NS, "type"): "bpmn:tFormalExpression"})
+#                         cond.text = '${status == "completed"}'
 
-                    elif tgt == updatevars_id:
-                        cond = ET.SubElement(sf, qn(BPMN2_NS, "conditionExpression"), {qn(XSI_NS, "type"): "bpmn:tFormalExpression"})
-                        cond.text = '${status != "completed"}'
+#                     elif tgt == updatevars_id:
+#                         cond = ET.SubElement(sf, qn(BPMN2_NS, "conditionExpression"), {qn(XSI_NS, "type"): "bpmn:tFormalExpression"})
+#                         cond.text = '${status != "completed"}'
 
-                # ----- Gateway 4 -----
-                elif src.endswith("_gateway_4"):
-                    cond = ET.SubElement(sf, qn(BPMN2_NS, "conditionExpression"), {qn(XSI_NS, "type"): "bpmn:tFormalExpression"})
+#                 # ----- Gateway 4 -----
+#                 elif src.endswith("_gateway_4"):
+#                     cond = ET.SubElement(sf, qn(BPMN2_NS, "conditionExpression"), {qn(XSI_NS, "type"): "bpmn:tFormalExpression"})
 
-                    if tgt == analyzefailedjob_id:
-                        cond.text = '${jobFailed}'
+#                     if tgt == analyzefailedjob_id:
+#                         cond.text = '${jobFailed}'
 
-                    elif tgt == gateway3_id:
-                        cond.text = '${!jobFailed && shouldRetry}'
+#                     elif tgt == gateway3_id:
+#                         cond.text = '${!jobFailed && shouldRetry}'
 
-    # Diagram shapes and edges
-    diagram = ET.SubElement(defs, qn(BPMNDI_NS, "BPMNDiagram"), {"id": "BPMNDiagram_1"})
-    plane = ET.SubElement(diagram, qn(BPMNDI_NS, "BPMNPlane"), {"id": "BPMNPlane_1", "bpmnElement": f"Process_{process_id}"})
+#     # Diagram shapes and edges
+#     diagram = ET.SubElement(defs, qn(BPMNDI_NS, "BPMNDiagram"), {"id": "BPMNDiagram_1"})
+#     plane = ET.SubElement(diagram, qn(BPMNDI_NS, "BPMNPlane"), {"id": "BPMNPlane_1", "bpmnElement": f"Process_{process_id}"})
 
-    # Start shape
-    start_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{start_id}_di", "bpmnElement": start_id})
-    ET.SubElement(start_shape, qn(DC_NS, "Bounds"), x=str(start_x), y=str(start_y), width=str(BPMN_EVENT_WIDTH), height=str(BPMN_EVENT_HEIGHT))
+#     # Start shape
+#     start_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{start_id}_di", "bpmnElement": start_id})
+#     ET.SubElement(start_shape, qn(DC_NS, "Bounds"), x=str(start_x), y=str(start_y), width=str(BPMN_EVENT_WIDTH), height=str(BPMN_EVENT_HEIGHT))
 
-    # collect all real BPMN element ids (Tasks, Gateways, Events)
-    valid_bpmn_ids = {
-        el.attrib["id"]
-        for el in process.findall(".//*[@id]")
-    }
+#     # collect all real BPMN element ids (Tasks, Gateways, Events)
+#     valid_bpmn_ids = {
+#         el.attrib["id"]
+#         for el in process.findall(".//*[@id]")
+#     }
 
-    # Task shapes - include synthetic chain tasks and real tasks
-    for elem_id, (x, y) in task_positions.items():
-        if elem_id not in valid_bpmn_ids:
-            continue
-        if "_gateway_" in elem_id:
-            continue
-        if elem_id in alt_end_event_ids:
-            continue
+#     # Task shapes - include synthetic chain tasks and real tasks
+#     for elem_id, (x, y) in task_positions.items():
+#         if elem_id not in valid_bpmn_ids:
+#             continue
+#         if "_gateway_" in elem_id:
+#             continue
+#         if elem_id in alt_end_event_ids:
+#             continue
 
-        shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{elem_id}_di", "bpmnElement": elem_id})
-        ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(task_w), height=str(task_h))
+#         shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{elem_id}_di", "bpmnElement": elem_id})
+#         ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(task_w), height=str(task_h))
 
-    # End shape
-    end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{end_id}_di", "bpmnElement": end_id})
-    ET.SubElement(end_shape, qn(DC_NS, "Bounds"), x=str(end_x), y=str(end_y), width=str(BPMN_EVENT_WIDTH), height=str(BPMN_EVENT_HEIGHT))
+#     # End shape
+#     end_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{end_id}_di", "bpmnElement": end_id})
+#     ET.SubElement(end_shape, qn(DC_NS, "Bounds"), x=str(end_x), y=str(end_y), width=str(BPMN_EVENT_WIDTH), height=str(BPMN_EVENT_HEIGHT))
 
-    for eid in alt_end_event_ids:
-        x, y = task_positions[eid]
-        shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{eid}_di", "bpmnElement": eid})
-        ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(BPMN_EVENT_WIDTH), height=str(BPMN_EVENT_HEIGHT))
+#     for eid in alt_end_event_ids:
+#         x, y = task_positions[eid]
+#         shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{eid}_di", "bpmnElement": eid})
+#         ET.SubElement(shape, qn(DC_NS, "Bounds"), x=str(x), y=str(y), width=str(BPMN_EVENT_WIDTH), height=str(BPMN_EVENT_HEIGHT))
 
-    # Gateway shapes
-    for start_node in start_nodes:
-        for idx in (1, 2, 3, 4):
-            gateway_id = f"Task_{start_node}_gateway_{idx}"
+#     # Gateway shapes
+#     for start_node in start_nodes:
+#         for idx in (1, 2, 3, 4):
+#             gateway_id = f"Task_{start_node}_gateway_{idx}"
 
-            if gateway_id not in task_positions:
-                continue 
+#             if gateway_id not in task_positions:
+#                 continue 
 
-            gx, gy = task_positions[gateway_id]
+#             gx, gy = task_positions[gateway_id]
 
-            gateway_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{gateway_id}_di", "bpmnElement": gateway_id})
-            ET.SubElement(gateway_shape, qn(DC_NS, "Bounds"), x=str(gx), y=str(gy), width=str(BPMN_GW_WIDTH), height=str(BPMN_GW_HEIGHT))
+#             gateway_shape = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNShape"), {"id": f"{gateway_id}_di", "bpmnElement": gateway_id})
+#             ET.SubElement(gateway_shape, qn(DC_NS, "Bounds"), x=str(gx), y=str(gy), width=str(BPMN_GW_WIDTH), height=str(BPMN_GW_HEIGHT))
 
-    def right_center(elem_id):
-        x, y = task_positions[elem_id]
-        if "_gateway_" in elem_id:
-            return x + BPMN_GW_WIDTH, y + BPMN_GW_HEIGHT // 2
-        return x + BPMN_TASK_WIDTH, y + BPMN_TASK_HEIGHT // 2
-
-
-    def left_center(elem_id):
-        x, y = task_positions[elem_id]
-        if "_gateway_" in elem_id:
-            return x, y + BPMN_GW_HEIGHT // 2
-        return x, y + BPMN_TASK_HEIGHT // 2
+#     def right_center(elem_id):
+#         x, y = task_positions[elem_id]
+#         if "_gateway_" in elem_id:
+#             return x + BPMN_GW_WIDTH, y + BPMN_GW_HEIGHT // 2
+#         return x + BPMN_TASK_WIDTH, y + BPMN_TASK_HEIGHT // 2
 
 
-    def top_center(elem_id):
-        x, y = task_positions[elem_id]
-        if "_gateway_" in elem_id:
-            return x + BPMN_GW_WIDTH // 2, y
-        return x + BPMN_TASK_WIDTH // 2, y
+#     def left_center(elem_id):
+#         x, y = task_positions[elem_id]
+#         if "_gateway_" in elem_id:
+#             return x, y + BPMN_GW_HEIGHT // 2
+#         return x, y + BPMN_TASK_HEIGHT // 2
 
 
-    def bottom_center(elem_id):
-        x, y = task_positions[elem_id]
-        if "_gateway_" in elem_id:
-            return x + BPMN_GW_WIDTH // 2, y + BPMN_GW_HEIGHT
-        return x + BPMN_TASK_WIDTH // 2, y + BPMN_TASK_HEIGHT
+#     def top_center(elem_id):
+#         x, y = task_positions[elem_id]
+#         if "_gateway_" in elem_id:
+#             return x + BPMN_GW_WIDTH // 2, y
+#         return x + BPMN_TASK_WIDTH // 2, y
+
+
+#     def bottom_center(elem_id):
+#         x, y = task_positions[elem_id]
+#         if "_gateway_" in elem_id:
+#             return x + BPMN_GW_WIDTH // 2, y + BPMN_GW_HEIGHT
+#         return x + BPMN_TASK_WIDTH // 2, y + BPMN_TASK_HEIGHT
 
     
-    # docking rules (for layout only)
-    right_dock_targets = set()
-    left_dock_sources = set()
-    top_dock_sources = set()
-    top_dock_targets = set()
-    bottom_dock_sources = set()
+#     # docking rules (for layout only)
+#     right_dock_targets = set()
+#     left_dock_sources = set()
+#     top_dock_sources = set()
+#     top_dock_targets = set()
+#     bottom_dock_sources = set()
 
-    if containsPlaceholder:
-        for start_node, chain in inserted_chains.items():
-            (
-                setvars1_id,
-                backendreq_id,
-                gateway1_id,
-                pollstat_id,
-                gateway2_id,
-                retrievecirc_id,
-                createdeploym_id,
-                exejob_id,
-                gateway3_id,
-                getjobres_id,
-                gateway4_id,
-                setvars2_id,
-            ) = chain
+#     if containsPlaceholder:
+#         for start_node, chain in inserted_chains.items():
+#             (
+#                 setvars1_id,
+#                 backendreq_id,
+#                 gateway1_id,
+#                 pollstat_id,
+#                 gateway2_id,
+#                 retrievecirc_id,
+#                 createdeploym_id,
+#                 exejob_id,
+#                 gateway3_id,
+#                 getjobres_id,
+#                 gateway4_id,
+#                 setvars2_id,
+#             ) = chain
 
-            updatevars_id = update_tasks[start_node]
-            analyzefailedtransf_id = fail_transf_tasks[start_node]
-            analyzefailedjob_id = fail_job_tasks[start_node]
+#             updatevars_id = update_tasks[start_node]
+#             analyzefailedtransf_id = fail_transf_tasks[start_node]
+#             analyzefailedjob_id = fail_job_tasks[start_node]
 
-            # source docking
-            top_dock_sources.add((gateway2_id, updatevars_id))
-            bottom_dock_sources.add((gateway2_id, analyzefailedtransf_id))
-            bottom_dock_sources.add((gateway4_id, analyzefailedjob_id))
-            top_dock_sources.add((gateway4_id, gateway3_id))
+#             # source docking
+#             top_dock_sources.add((gateway2_id, updatevars_id))
+#             bottom_dock_sources.add((gateway2_id, analyzefailedtransf_id))
+#             bottom_dock_sources.add((gateway4_id, analyzefailedjob_id))
+#             top_dock_sources.add((gateway4_id, gateway3_id))
 
-            # target docking
-            top_dock_targets.add((updatevars_id, gateway1_id))
-            top_dock_targets.add((gateway2_id, analyzefailedtransf_id))
-            top_dock_targets.add((gateway4_id, gateway3_id))
+#             # target docking
+#             top_dock_targets.add((updatevars_id, gateway1_id))
+#             top_dock_targets.add((gateway2_id, analyzefailedtransf_id))
+#             top_dock_targets.add((gateway4_id, gateway3_id))
 
-            # special left/right
-            right_dock_targets.add((gateway2_id, updatevars_id))
-            left_dock_sources.add((updatevars_id, gateway1_id))
+#             # special left/right
+#             right_dock_targets.add((gateway2_id, updatevars_id))
+#             left_dock_sources.add((updatevars_id, gateway1_id))
 
-    else:
-        for start_node, chain in inserted_chains.items():
-            (
-                setcirc_id,
-                createdeploym_id,
-                exejob_id,
-                gateway3_id,
-                getjobres_id,
-                gateway4_id,
-                setvars2_id,
-            ) = chain
+#     else:
+#         for start_node, chain in inserted_chains.items():
+#             (
+#                 setcirc_id,
+#                 createdeploym_id,
+#                 exejob_id,
+#                 gateway3_id,
+#                 getjobres_id,
+#                 gateway4_id,
+#                 setvars2_id,
+#             ) = chain
 
-            analyzefailedjob_id = fail_job_tasks[start_node]
+#             analyzefailedjob_id = fail_job_tasks[start_node]
 
-            # source docking
-            bottom_dock_sources.add((gateway4_id, analyzefailedjob_id))
-            top_dock_sources.add((gateway4_id, gateway3_id))
+#             # source docking
+#             bottom_dock_sources.add((gateway4_id, analyzefailedjob_id))
+#             top_dock_sources.add((gateway4_id, gateway3_id))
 
-            # target docking
-            top_dock_targets.add((gateway4_id, gateway3_id))
+#             # target docking
+#             top_dock_targets.add((gateway4_id, gateway3_id))
 
-    # Edge shapes: create waypoints for every flow in flow_map
-    for fid, src, tgt in flow_map:
-        edge = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNEdge"), {"id": f"{fid}_di", "bpmnElement": fid})
+#     # Edge shapes: create waypoints for every flow in flow_map
+#     for fid, src, tgt in flow_map:
+#         edge = ET.SubElement(plane, qn(BPMNDI_NS, "BPMNEdge"), {"id": f"{fid}_di", "bpmnElement": fid})
 
-        # Source waypoint
-        if src == start_id:
-            sx = start_x + BPMN_EVENT_WIDTH
-            sy = start_y + BPMN_EVENT_HEIGHT // 2
-        else:
-            src_key = src if src.startswith("Task_") else f"Task_{src}"
+#         # Source waypoint
+#         if src == start_id:
+#             sx = start_x + BPMN_EVENT_WIDTH
+#             sy = start_y + BPMN_EVENT_HEIGHT // 2
+#         else:
+#             src_key = src if src.startswith("Task_") else f"Task_{src}"
 
-            if (src, tgt) in bottom_dock_sources:
-                sx, sy = bottom_center(src_key)
-            elif (src, tgt) in top_dock_sources:
-                sx, sy = top_center(src_key)
-            elif (src, tgt) in left_dock_sources:
-                sx, sy = left_center(src_key)
-            else:
-                sx, sy = right_center(src_key)
+#             if (src, tgt) in bottom_dock_sources:
+#                 sx, sy = bottom_center(src_key)
+#             elif (src, tgt) in top_dock_sources:
+#                 sx, sy = top_center(src_key)
+#             elif (src, tgt) in left_dock_sources:
+#                 sx, sy = left_center(src_key)
+#             else:
+#                 sx, sy = right_center(src_key)
 
-        # Target waypoint
-        if tgt == end_id:
-            tx = end_x
-            ty = end_y + BPMN_EVENT_HEIGHT // 2
-        elif tgt in alt_end_event_ids:
-            x, y = task_positions[tgt]
-            tx = x
-            ty = y + BPMN_EVENT_HEIGHT // 2
-        else:
-            tgt_key = tgt if tgt.startswith("Task_") else f"Task_{tgt}"
+#         # Target waypoint
+#         if tgt == end_id:
+#             tx = end_x
+#             ty = end_y + BPMN_EVENT_HEIGHT // 2
+#         elif tgt in alt_end_event_ids:
+#             x, y = task_positions[tgt]
+#             tx = x
+#             ty = y + BPMN_EVENT_HEIGHT // 2
+#         else:
+#             tgt_key = tgt if tgt.startswith("Task_") else f"Task_{tgt}"
 
-            if (src, tgt) in top_dock_targets:
-                tx, ty = top_center(tgt_key)
-            elif (src, tgt) in right_dock_targets:
-                tx, ty = right_center(tgt_key)
-            else:
-                tx, ty = left_center(tgt_key)
+#             if (src, tgt) in top_dock_targets:
+#                 tx, ty = top_center(tgt_key)
+#             elif (src, tgt) in right_dock_targets:
+#                 tx, ty = right_center(tgt_key)
+#             else:
+#                 tx, ty = left_center(tgt_key)
 
-        ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy)))
-        ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty)))
+#         ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy)))
+#         ET.SubElement(edge, qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty)))
 
-    all_activities = list(nodes.keys())
-    for start_node, chain in inserted_chains.items():
-        all_activities.extend(chain)
-        all_activities += [
-            human_tasks[start_node],
-            fail_job_tasks[start_node],
-            alt_ends[start_node][-1],
-        ]
+#     all_activities = list(nodes.keys())
+#     for start_node, chain in inserted_chains.items():
+#         all_activities.extend(chain)
+#         all_activities += [
+#             human_tasks[start_node],
+#             fail_job_tasks[start_node],
+#             alt_ends[start_node][-1],
+#         ]
 
-        if containsPlaceholder:
-            all_activities += [
-                update_tasks[start_node],
-                fail_transf_tasks[start_node],
-                alt_ends[start_node][0],
-            ]
+#         if containsPlaceholder:
+#             all_activities += [
+#                 update_tasks[start_node],
+#                 fail_transf_tasks[start_node],
+#                 alt_ends[start_node][0],
+#             ]
 
-    # Optional: store them in metadata for later reference
-    # Had to comment it due to the fact it's not used and the types are not fitting
-    # metadata["all_activities"] = all_activities
+#     # Optional: store them in metadata for later reference
+#     # Had to comment it due to the fact it's not used and the types are not fitting
+#     # metadata["all_activities"] = all_activities
 
-    print("All activities in process:", all_activities)
+#     print("All activities in process:", all_activities)
 
-    return ET.tostring(defs, encoding="utf-8", xml_declaration=True).decode("utf-8"), all_activities
+#     return ET.tostring(defs, encoding="utf-8", xml_declaration=True).decode("utf-8"), all_activities
 
 
 
