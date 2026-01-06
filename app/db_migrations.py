@@ -68,6 +68,29 @@ MIGRATIONS: tuple[Migration, ...] = (
             """,
         ),
     ),
+    Migration(
+        name="0005_add_music_features",
+        statements=(
+            """
+            CREATE TABLE IF NOT EXISTS "music_features" (
+                "id" UUID PRIMARY KEY,
+                "sourceHash" VARCHAR NOT NULL,
+                "format" VARCHAR NOT NULL,
+                "schemaVersion" VARCHAR NOT NULL,
+                "features" JSONB NOT NULL,
+                "featureVector" JSONB,
+                "featureVectorSchema" JSONB,
+                "partCount" INTEGER,
+                "durationSeconds" DOUBLE PRECISION,
+                "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """,
+            'CREATE INDEX IF NOT EXISTS "ix_music_features_sourceHash" ON "music_features" ("sourceHash")',
+            'CREATE INDEX IF NOT EXISTS "ix_music_features_format" ON "music_features" ("format")',
+            'CREATE INDEX IF NOT EXISTS "ix_music_features_schemaVersion" ON "music_features" ("schemaVersion")',
+            'CREATE INDEX IF NOT EXISTS "ix_music_features_createdAt" ON "music_features" ("createdAt")',
+        ),
+    ),
 )
 
 

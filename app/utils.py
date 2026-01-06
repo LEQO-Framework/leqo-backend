@@ -3,7 +3,7 @@ Utils used throughout the whole application.
 """
 
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 from uuid import UUID
 
 from openqasm3.ast import Program
@@ -17,6 +17,7 @@ from app.model.database_model import (
     CompileRequestPayload,
     CompileResult,
     EnrichResult,
+    MusicFeature,
     SingleEnrichResult,
     StatusResponseDb,
 )
@@ -343,6 +344,93 @@ async def get_results_overview_from_db(
             }
             for row in rows.all()
         ]
+
+
+def _music_feature_to_dict(feature: MusicFeature) -> dict[str, object]:
+    return {
+        "id": str(feature.id),
+        "sourceHash": feature.sourceHash,
+        "format": feature.format,
+        "schemaVersion": feature.schemaVersion,
+        "features": feature.features,
+        "featureVector": feature.featureVector,
+        "featureVectorSchema": feature.featureVectorSchema,
+        "partCount": feature.partCount,
+        "durationSeconds": feature.durationSeconds,
+        "createdAt": feature.createdAt.isoformat() if feature.createdAt else None,
+    }
+
+
+async def add_music_feature_to_db(
+    engine: AsyncEngine,
+    *,
+    source_hash: str,
+    fmt: str,
+    schema_version: str,
+    features: dict[str, Any],
+    feature_vector: list[float] | None,
+    feature_vector_schema: list[str] | None,
+    part_count: int | None,
+    duration_seconds: float | None,
+) -> UUID:
+    """
+    Insert extracted features into the music_features table.
+    Returns the existing id if a matching record already exists.
+    """
+
+    async with AsyncSession(engine) as session:
+        existing = await session.execute(
+            select(MusicFeature).where(
+                MusicFeature.sourceHash == source_hash,
+                MusicFeature.schemaVersion == schema_version,
+                MusicFeature.format == fmt,
+            )
+        )
+        existing_feature = existing.scalar_one_or_none()
+        if existing_feature is not None:
+            return existing_feature.id
+
+        new_feature = MusicFeature(
+            sourceHash=source_hash,
+            format=fmt,
+            schemaVersion=schema_version,
+            features=features,
+            featureVector=feature_vector,
+            featureVectorSchema=feature_vector_schema,
+            partCount=part_count,
+            durationSeconds=duration_seconds,
+        )
+        session.add(new_feature)
+        await session.commit()
+        return new_feature.id
+
+
+async def get_music_feature_from_db(
+    engine: AsyncEngine, feature_id: UUID
+) -> dict[str, object] | None:
+    """
+    Fetch a music feature record by id.
+    """
+
+    async with AsyncSession(engine) as session:
+        feature = await session.get(MusicFeature, feature_id)
+        if feature is None:
+            return None
+        return _music_feature_to_dict(feature)
+
+
+async def get_music_features_by_source_hash(
+    engine: AsyncEngine, source_hash: str
+) -> list[dict[str, object]]:
+    """
+    Fetch music features by source hash.
+    """
+
+    async with AsyncSession(engine) as session:
+        rows = await session.execute(
+            select(MusicFeature).where(MusicFeature.sourceHash == source_hash)
+        )
+        return [_music_feature_to_dict(row) for row in rows.scalars().all()]
 
 
 async def store_compile_request_payload(

@@ -5,7 +5,8 @@ Database schema for everything stored in the database.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import UUID, ForeignKey, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text, UUID, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.model.StatusResponse import StatusType
@@ -101,4 +102,27 @@ class SingleEnrichResult(Base):
 
     enrich_result: Mapped["EnrichResult"] = relationship(
         "EnrichResult", back_populates="results"
+    )
+
+
+class MusicFeature(Base):
+    """
+    Store extracted music features for downstream analysis.
+    """
+
+    __tablename__ = "music_features"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    sourceHash: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    format: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    schemaVersion: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    features: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    featureVector: Mapped[list[float] | None] = mapped_column(JSONB, nullable=True)
+    featureVectorSchema: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    partCount: Mapped[int | None] = mapped_column(nullable=True)
+    durationSeconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True, nullable=False
     )

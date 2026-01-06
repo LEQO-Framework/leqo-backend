@@ -2,6 +2,36 @@
 
 This directory contains helper scripts for interacting with the LEQO backend.
 
+## Music Feature Extractor
+
+The `extract_music_features.py` script runs the backend feature extractor locally without
+calling the API. It reads MusicXML (or base64-encoded binary formats like MXL/MIDI), parses
+score metadata, and outputs a JSON payload that matches the `music_features` schema stored
+by the backend.
+
+### Usage
+
+```bash
+python scripts/extract_music_features.py tests/music/simple.musicxml --format musicxml
+```
+
+Optional output file:
+
+```bash
+python scripts/extract_music_features.py path/to/score.mxl --format mxl --output features.json
+```
+
+### Behavior
+
+- The script expects UTF-8 MusicXML for `musicxml`/`xml` formats.
+- For `mxl` or `midi`, it base64-encodes the file and passes it to the extractor.
+- The extractor reads per-part metadata (key/time/clef/tempo/dynamics/directions),
+  computes ambitus and pitch-class distribution, and returns a stable JSON schema.
+- If `music21` is installed, it is used as a fallback to compute ambitus when XML
+  pitch data is missing, and to derive pitch-class distributions from MIDI files.
+- The output includes a feature vector (`feature_vector`) and its schema
+  (`feature_vector_schema`) for downstream clustering.
+
 ## `request_helper.py`
 
 A lightweight CLI utility that lets you quickly exercise the API without having to write curl commands.

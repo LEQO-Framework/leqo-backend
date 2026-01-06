@@ -44,6 +44,8 @@ from app.utils import (
     add_result_to_db,
     add_status_response_to_db,
     get_compile_request_payload,
+    get_music_feature_from_db,
+    get_music_features_by_source_hash,
     get_results_from_db,
     get_results_overview_from_db,
     get_status_response_from_db,
@@ -323,6 +325,41 @@ async def get_request_payload(
         )
 
     return JSONResponse(status_code=200, content=json.loads(payload))
+
+
+@app.get("/features/{uuid}", response_model=None)
+async def get_music_feature(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> JSONResponse:
+    """
+    Fetch a stored music feature payload by id.
+    """
+
+    feature = await get_music_feature_from_db(engine, uuid)
+    if feature is None:
+        raise HTTPException(
+            status_code=404, detail=f"No feature with uuid '{uuid}' found."
+        )
+
+    return JSONResponse(status_code=200, content=feature)
+
+
+@app.get("/features", response_model=None)
+async def get_music_features(
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+    source_hash: str | None = None,
+) -> JSONResponse:
+    """
+    Fetch stored music features by source hash.
+    """
+
+    if source_hash is None:
+        raise HTTPException(
+            status_code=400, detail="Query parameter 'source_hash' is required."
+        )
+
+    features = await get_music_features_by_source_hash(engine, source_hash)
+    return JSONResponse(status_code=200, content=features)
 
 
 async def process_compile_request(

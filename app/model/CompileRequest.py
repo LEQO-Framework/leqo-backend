@@ -98,6 +98,66 @@ class ImplementationNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
+class MusicDataNode(BaseNode):
+    """
+    Node containing music data for feature extraction.
+    """
+
+    type: Literal["music-data"] = "music-data"
+
+    format: Literal[
+        "musicxml",
+        "musicxml-xml",
+        "xml",
+        "musicxml-mxl",
+        "mxl",
+        "midi",
+        "mscx",
+        "abc",
+        "unknown",
+    ] = "musicxml"
+    """Declared format of the music data."""
+
+    content: str
+    """Raw content (UTF-8 text for MusicXML or base64 for binary formats)."""
+
+    sourceName: str | None = None
+    """Optional source name or filename."""
+
+    metadata: dict[str, Any] | None = None
+    """Optional metadata provided by the client."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_music_data(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+
+        normalized = data.copy()
+        node_type = normalized.get("type")
+        if node_type in {"musicDataNode", "musicData"}:
+            normalized["type"] = "music-data"
+
+        node_data = normalized.get("data")
+        if isinstance(node_data, dict):
+            if "format" not in normalized:
+                normalized["format"] = node_data.get("format") or node_data.get(
+                    "fileFormat"
+                )
+            if "content" not in normalized:
+                normalized["content"] = node_data.get("content")
+            if "sourceName" not in normalized:
+                normalized["sourceName"] = node_data.get("sourceName") or node_data.get(
+                    "filename"
+                )
+            if "metadata" not in normalized and "metadata" in node_data:
+                normalized["metadata"] = node_data.get("metadata")
+
+        return normalized
+
+
 # region Boundary Nodes
 class EncodeValueNode(BaseNode):
     """
@@ -532,6 +592,7 @@ class OperatorNode(BaseNode):
 
 NestableNode = (
     ImplementationNode
+    | MusicDataNode
     | BoundaryNode
     | GateNode
     | ParameterizedGateNode
@@ -641,6 +702,8 @@ class CompileRequest(BaseModel):
                         converted["type"] = "prepare"
                     elif node_type == "measurementNode":
                         converted["type"] = "measure"
+                    elif node_type in {"musicDataNode", "musicData"}:
+                        converted["type"] = "music-data"
                     elif node_type == "dataTypeNode":
                         data_field = converted.get("data")
                         if isinstance(data_field, dict):
@@ -674,6 +737,7 @@ EnrichableNode = (
     | AncillaNode
     | OperatorNode
     | QubitNode
+    | MusicDataNode
 )
 
 

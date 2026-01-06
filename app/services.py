@@ -26,6 +26,7 @@ from app.enricher.gates import GateEnricherStrategy
 from app.enricher.literals import LiteralEnricherStrategy
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.enricher.merger import MergerEnricherStrategy
+from app.enricher.music_feature import MusicFeatureEnricherStrategy
 from app.enricher.models import Base as EnricherBase
 from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
@@ -93,6 +94,7 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
     strategies = [
         # Stub workflow strategy (placeholder for future logic)
         WorkflowEnricherStrategy(),
+        MusicFeatureEnricherStrategy(engine),
         LiteralEnricherStrategy(),
         MeasurementEnricherStrategy(),
         SplitterEnricherStrategy(),
