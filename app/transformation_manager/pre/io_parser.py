@@ -43,6 +43,9 @@ from app.model.data_types import (
 from app.model.data_types import (
     IntType as LeqoIntType,
 )
+from app.model.data_types import (
+    FileType as LeqoFileType,
+)
 from app.openqasm3.visitor import LeqoTransformer
 from app.transformation_manager.graph import (
     ClassicalIOInstance,

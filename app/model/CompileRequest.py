@@ -264,7 +264,34 @@ class FloatLiteralNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
-LiteralNode = BitLiteralNode | BoolLiteralNode | IntLiteralNode | FloatLiteralNode
+class StringLiteralNode(BaseNode):
+    """
+    Node representing a string literal.
+    """
+
+    type: Literal["string"] = "string"
+
+    value: str
+    """String value."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class FileLiteralNode(BaseNode):
+    """
+    Node representing a file reference (URL or file path).
+    Used for ML plugin data inputs.
+    """
+
+    type: Literal["file"] = "file"
+
+    value: str
+    """File path or URL."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+LiteralNode = BitLiteralNode | BoolLiteralNode | IntLiteralNode | FloatLiteralNode | StringLiteralNode | FileLiteralNode
 # endregion
 
 

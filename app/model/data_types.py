@@ -100,5 +100,23 @@ class FloatType(ClassicalType):
         return AstFloatType(IntegerLiteral(self.size))
 
 
-LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType
+@dataclass(frozen=True)
+class FileType(ClassicalType):
+    """
+    A file reference (URL or file path).
+    This type represents external data sources for ML plugins.
+    """
+
+    @property
+    def size(self) -> int:
+        """Files don't have a fixed bit size, return 0."""
+        return 0
+
+    @staticmethod
+    def with_size(size: int | None) -> "FileType":
+        """Size parameter is ignored for file types."""
+        return FileType()
+
+
+LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType | FileType
 LeqoSupportedType = QubitType | LeqoSupportedClassicalType
