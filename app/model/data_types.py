@@ -130,5 +130,25 @@ class ArrayType(ClassicalType):
         return ArrayType(IntType.with_size(size), length)
 
 
-LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType | ArrayType
+@dataclass(frozen=True)
+class FileType(ClassicalType):
+    """
+    A file reference (URL or file path).
+    This type represents external data sources for ML plugins.
+    """
+
+    @property
+    def size(self) -> int:
+        """Files don't have a fixed bit size, return 0."""
+        return 0
+
+    @staticmethod
+    def with_size(size: int | None) -> "FileType":
+        """Size parameter is ignored for file types."""
+        return FileType()
+
+
+LeqoSupportedClassicalType = (
+    IntType | FloatType | BitType | BoolType | ArrayType | FileType
+)
 LeqoSupportedType = QubitType | LeqoSupportedClassicalType

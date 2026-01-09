@@ -5,11 +5,14 @@ Provides enricher strategy for enriching literal nodes
  * :class:`~app.model.CompileRequest.FloatLiteralNode`
  * :class:`~app.model.CompileRequest.BitLiteralNode`
  * :class:`~app.model.CompileRequest.BoolLiteralNode`
+ * :class:`~app.model.CompileRequest.StringLiteralNode`
+ * :class:`~app.model.CompileRequest.FileLiteralNode`
 """
 
 from typing import override
 
 from openqasm3.ast import (
+    Annotation,
     ArrayLiteral,
     ArrayType,
     BitType,
@@ -35,9 +38,11 @@ from app.model.CompileRequest import (
     ArrayLiteralNode,
     BitLiteralNode,
     BoolLiteralNode,
+    FileLiteralNode,
     FloatLiteralNode,
     IntLiteralNode,
     QubitNode,
+    StringLiteralNode,
 )
 from app.model.CompileRequest import (
     Node as FrontendNode,
@@ -157,6 +162,33 @@ class LiteralEnricherStrategy(EnricherStrategy):
                                 array_literal,
                             ),
                             leqo_output("out", 0, Identifier("literal")),
+                        ],
+                    ),
+                    ImplementationMetaData(width=0, depth=1),
+                )
+            case StringLiteralNode():
+                # String literals are stored as annotations/metadata for ML plugins
+                # OpenQASM doesn't have native string types
+                return EnrichmentResult(
+                    implementation(
+                        node,
+                        [
+                            Annotation(f'@leqo_string("{node.value}")'),
+                            leqo_output("out", 0, Identifier("string_literal")),
+                        ],
+                    ),
+                    ImplementationMetaData(width=0, depth=1),
+                )
+
+            case FileLiteralNode():
+                # File paths/URLs are stored as annotations for ML plugin data inputs
+                # These won't be compiled to quantum operations
+                return EnrichmentResult(
+                    implementation(
+                        node,
+                        [
+                            Annotation(f'@leqo_file("{node.value}")'),
+                            leqo_output("out", 0, Identifier("file_literal")),
                         ],
                     ),
                     ImplementationMetaData(width=0, depth=1),
