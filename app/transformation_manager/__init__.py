@@ -4,10 +4,19 @@ Provides the ore logic of the backend.
 
 from __future__ import annotations
 
-from collections import defaultdict
-from collections.abc import AsyncIterator
+import io
+import json
+import os
+import random
 import re
-from typing import Annotated, Any, Literal, cast
+import string
+import uuid
+import xml.etree.ElementTree as ET
+import zipfile
+from collections import defaultdict
+from collections.abc import AsyncIterator, Iterable
+from pathlib import Path
+from typing import Annotated, Any, Dict, Literal, Tuple, cast
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
@@ -53,18 +62,6 @@ from app.transformation_manager.post import postprocess
 from app.transformation_manager.pre import preprocess
 from app.transformation_manager.pre.utils import PreprocessingException
 from app.utils import not_none
-import xml.etree.ElementTree as ET
-import xml.etree.ElementTree as ET
-from typing import Iterable, Dict, Tuple
-import uuid
-import random
-import string
-import io
-import zipfile
-from pathlib import Path
-import os
-import io
-import json
 
 # BPMN Layout Configuration
 BPMN_START_X = 252              # X position of start event
@@ -522,7 +519,7 @@ class WorkflowProcessor(CommonProcessor):
     def from_compile_request(
         request: CompileRequest,
         enricher: Annotated[Enricher, Depends(get_enricher)],
-    ) -> "WorkflowProcessor":
+    ) -> WorkflowProcessor:
         graph = FrontendGraph.create(request.nodes, request.edges)
         processor = WorkflowProcessor(enricher, graph, request.metadata, original_request=request)
         processor.target = request.compilation_target
@@ -649,7 +646,7 @@ class WorkflowProcessor(CommonProcessor):
         ) as master_zip:
 
             for node_id in composite_nodes:
-                activity_name = "Activity_" + node_id.replace(' ', '_')
+                activity_name = "Activity_" + node_id.replace(" ", "_")
 
                 if "_human" in activity_name:
                     continue
@@ -706,50 +703,50 @@ class WorkflowProcessor(CommonProcessor):
                             app_lines += [
                                 f"    # Logic for {node_id}",
                                 f"    model_data = {safe_request_str}",
-                                f"    return model_data",
+                                "    return model_data",
                             ]
 
                         elif node_id.endswith("_send_compile"):
                             app_lines += [
                                 f"    # Logic for {node_id}",
                                 f"    model_data = {safe_request_str}",
-                                f"    model = json.loads(model_data)",
-                                f"    url = f\"{{BACKEND_URL}}/compile\"",
-                                f"    response = requests.post(url, json=model)",
-                                f"    response.raise_for_status()",
-                                f"    data = response.json()",
-                                f"    uuid = data.get('uuid')",
-                                f"    if not uuid:",
-                                f"        raise ValueError('Backend response does not contain uuid')",
-                                f"    return uuid"
+                                "    model = json.loads(model_data)",
+                                '    url = f"{BACKEND_URL}/compile"',
+                                "    response = requests.post(url, json=model)",
+                                "    response.raise_for_status()",
+                                "    data = response.json()",
+                                "    uuid = data.get('uuid')",
+                                "    if not uuid:",
+                                "        raise ValueError('Backend response does not contain uuid')",
+                                "    return uuid"
                             ]
 
                         elif node_id.endswith("_poll_result"):
                             app_lines += [
                                 f"    # Logic for {node_id}",
-                                f"    uuid = kwargs.get('uuid')",
-                                f"    if not uuid:",
-                                f"        raise ValueError('Missing uuid')",
-                                f"    status_url = f\"{{BACKEND_URL}}/status/{{uuid}}\"",
-                                f"    for attempt in range(20):",
-                                f"        resp = requests.get(status_url)",
-                                f"        if resp.ok:",
-                                f"            data = resp.json()",
-                                f"            if data.get('status') in ('completed','failed'):",
-                                f"                return data",
-                                f"        time.sleep(10)",
-                                f"    return {{'status': 'timeout'}}",
+                                "    uuid = kwargs.get('uuid')",
+                                "    if not uuid:",
+                                "        raise ValueError('Missing uuid')",
+                                '    status_url = f"{BACKEND_URL}/status/{uuid}"',
+                                "    for attempt in range(20):",
+                                "        resp = requests.get(status_url)",
+                                "        if resp.ok:",
+                                "            data = resp.json()",
+                                "            if data.get('status') in ('completed','failed'):",
+                                "                return data",
+                                "        time.sleep(10)",
+                                "    return {'status': 'timeout'}",
                             ]
 
                         elif node_id.endswith("_set_vars"):
                             app_lines += [
                                 f"    # Logic for {node_id}",
-                                f"    status = kwargs.get('status')",
-                                f"    location = kwargs.get('location')",
-                                f"    result = {{'status': status, 'location': location}}",
-                                f"    with open('final_result.json', 'w') as f:",
-                                f"        json.dump(result, f)",
-                                f"    return result",
+                                "    status = kwargs.get('status')",
+                                "    location = kwargs.get('location')",
+                                "    result = {'status': status, 'location': location}",
+                                "    with open('final_result.json', 'w') as f:",
+                                "        json.dump(result, f)",
+                                "    return result",
                             ]
 
                         else:
@@ -924,7 +921,8 @@ ET.register_namespace("camunda", CAMUNDA_NS)
 ET.register_namespace("quantme", QUANTME_NS)
 
 def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], edges: list[tuple[str,str]], metadata: dict[str, dict[str, Any]] | None = None, start_event_classical_nodes: list[Any] | None = None, containsPlaceholder: bool = False) -> tuple[str, list[str]]:
-    """Generate BPMN XML workflow diagram with correct left-to-right layout.
+    """
+    Generate BPMN XML workflow diagram with correct left-to-right layout.
 
     For composite nodes which are quantum groups (ids starting with 'quantum_group_')
     the same chain is created per group and connected to the group's node.

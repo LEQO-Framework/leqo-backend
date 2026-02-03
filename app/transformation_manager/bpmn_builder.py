@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import uuid
 import xml.etree.ElementTree as ET
 from collections import defaultdict, deque
-from typing import Any, Tuple, Optional
+from typing import Any
+
 from app.transformation_manager import bpmn_templates as GroovyScript
 
 # BPMN namespaces
@@ -623,9 +625,9 @@ class BpmnBuilder:
                 elif src.endswith("_gateway_4"):
                      cond = ET.SubElement(sf, self.qn(BPMN2_NS, "conditionExpression"), {self.qn(XSI_NS, "type"): "bpmn:tFormalExpression"})
                      if tgt.endswith("_analyze_failed_job"):
-                          cond.text = '${jobFailed}'
+                          cond.text = "${jobFailed}"
                      elif tgt.endswith("_gateway_3"):
-                          cond.text = '${!jobFailed && shouldRetry}'
+                          cond.text = "${!jobFailed && shouldRetry}"
 
     def _create_diagram(self, start_nodes: list[str]) -> None:
         """Generates the BPMNDI Diagram section with shapes and edges."""
@@ -720,27 +722,27 @@ class BpmnBuilder:
             elif eid in self.alt_end_event_ids: 
                 w, h = BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
         
-            if mode == 'bottom': return x + w // 2, y + h
-            if mode == 'top': return x + w // 2, y
-            if mode == 'left': return x, y + h // 2
-            if mode == 'right': return x + w, y + h // 2
+            if mode == "bottom": return x + w // 2, y + h
+            if mode == "top": return x + w // 2, y
+            if mode == "left": return x, y + h // 2
+            if mode == "right": return x + w, y + h // 2
             return x + w, y + h // 2 # default right
 
         for fid, src, tgt in self.flow_map:
             edge = ET.SubElement(plane, self.qn(BPMNDI_NS, "BPMNEdge"), {"id": f"{fid}_di", "bpmnElement": fid})
             
             # Source
-            mode = 'right'
-            if (src, tgt) in bottom_dock_sources: mode = 'bottom'
-            elif (src, tgt) in top_dock_sources: mode = 'top'
-            elif (src, tgt) in left_dock_sources: mode = 'left'
+            mode = "right"
+            if (src, tgt) in bottom_dock_sources: mode = "bottom"
+            elif (src, tgt) in top_dock_sources: mode = "top"
+            elif (src, tgt) in left_dock_sources: mode = "left"
             
             sx, sy = get_center(src, mode)
             
             # Target
-            mode = 'left'
-            if (src, tgt) in top_dock_targets: mode = 'top'
-            elif (src, tgt) in right_dock_targets: mode = 'right'
+            mode = "left"
+            if (src, tgt) in top_dock_targets: mode = "top"
+            elif (src, tgt) in right_dock_targets: mode = "right"
             
             tx, ty = get_center(tgt, mode)
             
