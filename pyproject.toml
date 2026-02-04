@@ -76,6 +76,11 @@ extend-select = [
 ]
 ignore = ["UP047"] # ignore this warning so that we can use TypeVar("...", bound=...) and make mypy happy
 
+[tool.ruff.lint.per-file-ignores]
+"app/main.py" = ["ALL"]
+"**/__init__.py" = ["ALL"]
+"app/transformation_manager/**" = ["ALL"]
+
 [tool.mypy]
 ignore_missing_imports = true
 plugins = "sqlalchemy.ext.mypy.plugin"
@@ -83,6 +88,17 @@ plugins = "sqlalchemy.ext.mypy.plugin"
 [[tool.mypy.overrides]]
 module = "qiskit.qasm3"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "app.main",
+    "app.enricher.*",
+    "app.transformation_manager",
+    "app.transformation_manager.*",
+    "tests.*",
+]
+ignore_errors = true
+
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"

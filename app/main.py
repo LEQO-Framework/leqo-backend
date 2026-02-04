@@ -9,12 +9,17 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal, cast
 from uuid import UUID, uuid4
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
 from sqlalchemy.ext.asyncio import AsyncEngine
-from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse
+from starlette.responses import (
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
@@ -29,8 +34,10 @@ from app.model.StatusResponse import (
 )
 from app.services import (
     get_db_engine,
+    get_qrms_url,
     get_request_url,
     get_result_url,
+    get_service_deployment_models_url,
     get_settings,
     leqo_lifespan,
 )
@@ -44,10 +51,17 @@ from app.utils import (
     add_result_to_db,
     add_status_response_to_db,
     get_compile_request_payload,
+    get_qrms,
+    list_qrm_ids,
+    get_service_deployment_models,
+    list_service_deployment_ids,
     get_results_from_db,
     get_results_overview_from_db,
     get_status_response_from_db,
+    StoredFilePayload,
     store_compile_request_payload,
+    store_qrms,
+    store_service_deployment_models,
     update_status_response_in_db,
 )
 
@@ -123,9 +137,20 @@ async def post_compile(
         engine,
     )
 
-    return RedirectResponse(
-        url=f"{settings.api_base_url}status/{uuid}",
-        status_code=303,
+    return JSONResponse(
+        status_code=200,
+        content={
+            "uuid": str(uuid),
+            "links": {
+                "status": f"{settings.api_base_url}status/{uuid}",
+                "result": get_result_url(uuid, settings),
+                "request": get_request_url(uuid, settings),
+                "qrms": get_qrms_url(uuid, settings),
+                "serviceDeploymentModels": get_service_deployment_models_url(
+                    uuid, settings
+                ),
+            },
+        },
     )
 
 
@@ -244,11 +269,15 @@ async def _resolve_result_response(
 
     request_link = get_request_url(uuid, settings)
     result_link = get_result_url(uuid, settings)
+    qrms_link = get_qrms_url(uuid, settings)
+    service_models_link = get_service_deployment_models_url(uuid, settings)
     headers = {
         "Link": ", ".join(
             (
                 f'<{request_link}>; rel="request"',
                 f'<{result_link}>; rel="result"',
+                f'<{qrms_link}>; rel="qrms"',
+                f'<{service_models_link}>; rel="service-deployment-models"',
             )
         )
     }
@@ -287,6 +316,10 @@ async def get_result(
                     "links": {
                         "result": get_result_url(item_uuid, settings),
                         "request": get_request_url(item_uuid, settings),
+                        "qrms": get_qrms_url(item_uuid, settings),
+                        "serviceDeploymentModels": get_service_deployment_models_url(
+                            item_uuid, settings
+                        ),
                     },
                 }
             )
@@ -325,6 +358,123 @@ async def get_request_payload(
     return JSONResponse(status_code=200, content=json.loads(payload))
 
 
+@app.get("/qrms", response_model=list[UUID])
+async def list_qrms(
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+) -> list[UUID]:
+    """
+    Return all UUIDs that currently have stored Quantum Resource Models.
+    """
+
+    return await list_qrm_ids(engine)
+
+
+@app.get("/qrms/{uuid}", response_model=None)
+async def get_qrms_payload(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> Response:
+    """
+    Fetch the Quantum Resource Models file associated with a UUID.
+    """
+
+    stored_file = await get_qrms(engine, uuid)
+    if stored_file is None:
+        raise HTTPException(
+            status_code=404, detail=f"No QRMs with uuid '{uuid}' found."
+        )
+
+    headers = {}
+    if stored_file.filename:
+        safe_filename = stored_file.filename.replace('"', "")
+        headers["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
+
+    media_type = stored_file.content_type or "application/octet-stream"
+    return Response(content=stored_file.content, media_type=media_type, headers=headers)
+
+
+@app.get("/service-deployment-models", response_model=list[UUID])
+async def list_service_deployment_models(
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+) -> list[UUID]:
+    """
+    Return all UUIDs that currently have stored service deployment models.
+    """
+
+    return await list_service_deployment_ids(engine)
+
+
+@app.get("/service-deployment-models/{uuid}", response_model=None)
+async def get_service_deployment_models_payload(
+    uuid: UUID, engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+) -> Response:
+    """
+    Fetch the Service Deployment Models file associated with a UUID.
+    """
+
+    stored_file = await get_service_deployment_models(engine, uuid)
+    if stored_file is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No service deployment models with uuid '{uuid}' found.",
+        )
+
+    headers = {}
+    if stored_file.filename:
+        safe_filename = stored_file.filename.replace('"', "")
+        headers["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
+
+    media_type = stored_file.content_type or "application/octet-stream"
+    return Response(content=stored_file.content, media_type=media_type, headers=headers)
+
+
+@app.post("/qrms/{uuid}", response_model=None, status_code=204)
+async def put_qrms_payload(
+    uuid: UUID,
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+    file: UploadFile = File(...),
+) -> Response:
+    """
+    Store or update the Quantum Resource Models file for the given UUID.
+    """
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Uploaded QRMs file is empty.")
+
+    stored_file = StoredFilePayload(
+        content=data,
+        filename=file.filename,
+        content_type=file.content_type,
+    )
+    await store_qrms(engine, uuid, stored_file)
+    return Response(status_code=204)
+
+
+@app.post("/service-deployment-models/{uuid}", response_model=None, status_code=204)
+async def put_service_deployment_models_payload(
+    uuid: UUID,
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+    file: UploadFile = File(...),
+) -> Response:
+    """
+    Store or update the Service Deployment Models file for the given UUID.
+    """
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(
+            status_code=400, detail="Uploaded service deployment models file is empty."
+        )
+
+    stored_file = StoredFilePayload(
+        content=data,
+        filename=file.filename,
+        content_type=file.content_type,
+    )
+    await store_service_deployment_models(engine, uuid, stored_file)
+    return Response(status_code=204)
+
+
 async def process_compile_request(
     uuid: UUID,
     createdAt: datetime,
@@ -346,33 +496,68 @@ async def process_compile_request(
     try:
         result: str | list[ImplementationNode]
         if target == "workflow":
+            original_request = getattr(processor, "original_request", None)
+            if original_request is not None:
+                contains_placeholder = getattr(
+                    getattr(original_request, "metadata", None),
+                    "containsPlaceholder",
+                    False,
+                )
+                print("Contains placeholder:", contains_placeholder)
+            qasm = "" if contains_placeholder else await processor.process()
+            print("QASM")
+            print(qasm)
+            print("Requets")
+            print(processor.original_request)
             workflow_processor = WorkflowProcessor(
                 processor.enricher,
                 processor.frontend_graph,
                 processor.optimize,
+                result=qasm,
+                original_request=processor.original_request,
             )
             workflow_processor.target = target
-            result = await workflow_processor.process()
-        else:
-            result = await processor.process()
-        await add_result_to_db(engine, uuid, result, target)
+            # result = await workflow_processor.process()
 
-        status = SuccessStatus(
-            uuid=uuid,
-            createdAt=createdAt,
-            completedAt=datetime.now(UTC),
-            progress=Progress(percentage=100, currentStep="done"),
-            result=get_result_url(uuid, settings),
-        )
+            bpmn_xml = await workflow_processor.process()
+            print(f"[INFO] BPMN XML generated ({len(bpmn_xml)} chars)")
+            status = SuccessStatus(
+                uuid=uuid,
+                createdAt=createdAt,
+                completedAt=datetime.now(UTC),
+                progress=Progress(percentage=100, currentStep="done"),
+                result=get_result_url(uuid, settings),
+            )
+
+            await add_result_to_db(engine, uuid, bpmn_xml, target)
+            await update_status_response_in_db(engine, status, target)
+
+        else:
+            print("ENRICHMENT vorher")
+            result = await processor.process()
+            print("ENRICHMENT fertig")
+            print(result)
+            status = SuccessStatus(
+                uuid=uuid,
+                createdAt=createdAt,
+                completedAt=datetime.now(UTC),
+                progress=Progress(percentage=100, currentStep="done"),
+                result=get_result_url(uuid, settings),
+            )
+            await add_result_to_db(engine, uuid, result, target)
+            await update_status_response_in_db(engine, status, target)
+
     except Exception as ex:
         status = FailedStatus(
             uuid=uuid,
             createdAt=createdAt,
             progress=Progress(percentage=100, currentStep="done"),
-            result=LeqoProblemDetails.from_exception(ex),
+            result=LeqoProblemDetails.from_exception(
+                ex, is_debug=True, include_traceback=True
+            ),
         )
 
-    await update_status_response_in_db(engine, status, target)
+    # await update_status_response_in_db(engine, status, target)
 
 
 async def process_enrich_request(
@@ -439,16 +624,113 @@ async def post_debug_compile(
     try:
         target = _get_processor_target(processor)
         if target == "workflow":
+            original_request = getattr(processor, "original_request", None)
+            print(original_request)
+            metadata = getattr(processor, "containsPlaceholder", None)
+            print(metadata)
+            qasm = await processor.process()
             workflow_processor = WorkflowProcessor(
                 processor.enricher,
                 processor.frontend_graph,
                 processor.optimize,
+                result=qasm,
+                original_request=processor.original_request,
             )
             workflow_processor.target = target
             result = await workflow_processor.process()
             return JSONResponse(status_code=200, content=jsonable_encoder(result))
 
         return await processor.process()
+    except Exception as ex:
+        return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
+
+
+@app.post(
+    "/debug/workflow",
+    response_model=None,
+    responses={
+        400: {"model": LeqoProblemDetails},
+        500: {"model": LeqoProblemDetails},
+    },
+)
+async def post_debug_workflow(
+    processor: Annotated[
+        MergingProcessor, Depends(MergingProcessor.from_compile_request)
+    ],
+    settings: Annotated[Settings, Depends(get_settings)],
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
+) -> JSONResponse:
+    """
+    Process a compile request directly into a workflow representation,
+    optionally including QRMs and service deployment models supplied by the client.
+
+    This endpoint should only be used for debugging purposes.
+    """
+
+    try:
+        processor.target = "workflow"
+        workflow_processor = WorkflowProcessor(
+            processor.enricher,
+            processor.frontend_graph,
+            processor.optimize,
+        )
+        workflow_processor.target = "workflow"
+        result = await workflow_processor.process()
+        request_uuid = uuid4()
+
+        created_status = CreatedStatus.init_status(request_uuid)
+        metadata = getattr(processor.original_request, "metadata", None)
+        name = getattr(metadata, "name", None) if metadata is not None else None
+        description = (
+            getattr(metadata, "description", None) if metadata is not None else None
+        )
+        original_request = getattr(processor, "original_request", None)
+
+        await add_status_response_to_db(
+            engine,
+            created_status,
+            "workflow",
+            name=name,
+            description=description,
+        )
+
+        if original_request is not None:
+            await store_compile_request_payload(
+                engine, request_uuid, original_request.model_dump_json()
+            )
+
+        await add_result_to_db(engine, request_uuid, result, "workflow")
+
+        success_status = SuccessStatus(
+            uuid=request_uuid,
+            createdAt=created_status.createdAt,
+            completedAt=datetime.now(UTC),
+            progress=Progress(percentage=100, currentStep="done"),
+            result=get_result_url(request_uuid, settings),
+        )
+
+        await update_status_response_in_db(
+            engine,
+            success_status,
+            "workflow",
+            name=name,
+            description=description,
+        )
+
+        response_payload = {
+            "uuid": request_uuid,
+            "workflow": result,
+            "links": {
+                "status": f"{settings.api_base_url}status/{request_uuid}",
+                "result": get_result_url(request_uuid, settings),
+                "request": get_request_url(request_uuid, settings),
+                "qrms": get_qrms_url(request_uuid, settings),
+                "serviceDeploymentModels": get_service_deployment_models_url(
+                    request_uuid, settings
+                ),
+            },
+        }
+        return JSONResponse(status_code=200, content=jsonable_encoder(response_payload))
     except Exception as ex:
         return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
 
@@ -475,5 +757,40 @@ async def post_debug_enrich(
 
     try:
         return await processor.enrich_all()
+    except Exception as ex:
+        return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
+
+
+@app.post("/compileGroup", response_model=None)
+async def post_compileGroup(
+    processor: Annotated[
+        MergingProcessor, Depends(MergingProcessor.from_compile_request)
+    ],
+    groupID: int = 0,  # default groupID is 0 #Annotated?
+) -> str | JSONResponse:
+    """
+    Compiles the request to an openqasm3 program for the specified quantum group (groupID) in one request.
+    No redirects and no polling of different endpoints needed.
+
+    """
+
+    try:
+        target = _get_processor_target(processor)
+        # if target == "qasm": # needed?
+        # qasm = await processor.process()
+        workflow_processor = WorkflowProcessor(
+            processor.enricher,
+            processor.frontend_graph,
+            processor.optimize,
+            original_request=processor.original_request,
+        )
+        workflow_processor.target = target
+        quantum_groups = await workflow_processor.identify_quantum_groups()
+        # create subgraph of frontend graph for quantum group with groupID
+        group_nodes = quantum_groups[f"quantum_group_{groupID}"]
+        subgraph = processor.frontend_graph.create_subgraph(group_nodes)
+        processor.frontend_graph = subgraph
+        return await processor.process()
+    # TODO: IndexError abfangen & an Frontend zurück geben (groupID out of bounds)
     except Exception as ex:
         return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()

@@ -68,6 +68,9 @@ class MetaData(BaseModel, OptimizeSettings):
     optimizeDepth: Annotated[int, Field(gt=0)] | None = None
     """Optimization setting for reducing circuit depth (optional)."""
 
+    containsPlaceholder: bool | None = None
+    """Specifies if the model contains placeholder."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
@@ -350,7 +353,7 @@ class IntLiteralNode(BaseNode):
     bitSize: int = Field(default=32, ge=1)
     """"Bit size of the integer (optional)."""
 
-    value: int
+    value: int | str
     """Integer value."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
@@ -366,7 +369,7 @@ class FloatLiteralNode(BaseNode):
     bitSize: int = Field(default=32, ge=1)
     """Bit size of the float (optional)."""
 
-    value: float
+    value: int | str | float
     """Float value."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)

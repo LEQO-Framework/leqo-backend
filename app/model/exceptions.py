@@ -1,3 +1,4 @@
+import traceback
 from io import StringIO
 from typing import Literal
 
@@ -177,23 +178,30 @@ class LeqoProblemDetails(ProblemDetails):
 
     @staticmethod
     def from_exception(
-        ex: BaseException, is_debug: bool = False
+        ex: BaseException,
+        is_debug: bool = False,
+        include_traceback: bool = False,
     ) -> "LeqoProblemDetails":
         stream = StringIO()
         print_exception(stream, ex, is_debug)
+        detail = stream.getvalue()
+
+        if include_traceback and not isinstance(ex, DiagnosticError):
+            trace = "".join(traceback.TracebackException.from_exception(ex).format())
+            detail = f"{detail}\n{trace}" if detail else trace
 
         if not isinstance(ex, DiagnosticError):
             return LeqoProblemDetails(
                 status=500,
                 type=type(ex).__name__ if is_debug else "<Redacted>",
                 title="Internal Server Error",
-                detail=stream.getvalue(),
+                detail=detail,
             )
 
         return LeqoProblemDetails(
             status=400,
             type=type(ex).__name__,
             title="Bad Request",
-            detail=stream.getvalue(),
+            detail=detail,
             node=ex.node,
         )

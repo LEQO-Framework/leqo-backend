@@ -31,7 +31,6 @@ from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.enricher.qiskit_prepare import HAS_QISKIT, QiskitPrepareStateEnricherStrategy
 from app.enricher.splitter import SplitterEnricherStrategy
-from app.enricher.workflow import WorkflowEnricherStrategy
 from app.model.database_model import Base
 from app.utils import not_none
 
@@ -91,8 +90,6 @@ def get_db_engine() -> AsyncEngine:
 
 def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enricher:
     strategies = [
-        # Stub workflow strategy (placeholder for future logic)
-        WorkflowEnricherStrategy(),
         LiteralEnricherStrategy(),
         MeasurementEnricherStrategy(),
         SplitterEnricherStrategy(),
@@ -138,3 +135,23 @@ def get_request_url(
     """
 
     return f"{settings.api_base_url}request/{uuid}"
+
+
+def get_qrms_url(
+    uuid: UUID, settings: Annotated[Settings, Depends(get_settings)]
+) -> str:
+    """
+    Return the full URL for the Quantum Resource Models of a request.
+    """
+
+    return f"{settings.api_base_url}qrms/{uuid}"
+
+
+def get_service_deployment_models_url(
+    uuid: UUID, settings: Annotated[Settings, Depends(get_settings)]
+) -> str:
+    """
+    Return the full URL for the Service Deployment Models of a request.
+    """
+
+    return f"{settings.api_base_url}service-deployment-models/{uuid}"
