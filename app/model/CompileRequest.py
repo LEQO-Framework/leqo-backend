@@ -369,7 +369,7 @@ class FloatLiteralNode(BaseNode):
     bitSize: int = Field(default=32, ge=1)
     """Bit size of the float (optional)."""
 
-    value: int | str
+    value: int | str | float
     """Float value."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
