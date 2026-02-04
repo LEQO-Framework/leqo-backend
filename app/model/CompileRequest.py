@@ -67,7 +67,7 @@ class MetaData(BaseModel, OptimizeSettings):
 
     optimizeDepth: Annotated[int, Field(gt=0)] | None = None
     """Optimization setting for reducing circuit depth (optional)."""
-    
+
     containsPlaceholder: bool | None = None
     """Specifies if the model contains placeholder."""
 
