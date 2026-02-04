@@ -76,12 +76,14 @@ class FrontendGraph(FrontendGraphBase):
         subgraph = FrontendGraph()
         for node in nodes:
             subgraph.append_node(node)
-        for (source, target) in self.edge_data.keys():
-            #if(source in subgraph.node_data.keys() and target in subgraph.node_data.keys()): 
-            if(target in subgraph.node_data.keys()): # to include (non-quantum) input nodes of subgraph, otherwise enrichment fails
+        for source, target in self.edge_data.keys():
+            # if(source in subgraph.node_data.keys() and target in subgraph.node_data.keys()):
+            if (
+                target in subgraph.node_data.keys()
+            ):  # to include (non-quantum) input nodes of subgraph, otherwise enrichment fails
                 edge: Edge = self.edge_data[(source, target)][0]
                 subgraph.append_edge(edge)
-                if (source not in subgraph.node_data.keys()):
+                if source not in subgraph.node_data.keys():
                     source_node = self.node_data[source]
                     subgraph.append_node(source_node)
         return subgraph
@@ -100,4 +102,3 @@ class FrontendGraph(FrontendGraphBase):
         for edge in edges:
             graph.append_edge(edge)
         return graph
-

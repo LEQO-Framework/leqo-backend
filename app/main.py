@@ -14,7 +14,12 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.params import Depends
 from sqlalchemy.ext.asyncio import AsyncEngine
-from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
+from starlette.responses import (
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
@@ -57,7 +62,7 @@ from app.utils import (
     store_compile_request_payload,
     store_qrms,
     store_service_deployment_models,
-    update_status_response_in_db
+    update_status_response_in_db,
 )
 
 """
@@ -132,21 +137,21 @@ async def post_compile(
         engine,
     )
 
-
     return JSONResponse(
-    status_code=200,
-    content={
-        "uuid": str(uuid),
-        "links": {
-            "status": f"{settings.api_base_url}status/{uuid}",
-            "result": get_result_url(uuid, settings),
-            "request": get_request_url(uuid, settings),
-            "qrms": get_qrms_url(uuid, settings),
-            "serviceDeploymentModels": get_service_deployment_models_url(uuid, settings),
-        }
-    }
-)
-
+        status_code=200,
+        content={
+            "uuid": str(uuid),
+            "links": {
+                "status": f"{settings.api_base_url}status/{uuid}",
+                "result": get_result_url(uuid, settings),
+                "request": get_request_url(uuid, settings),
+                "qrms": get_qrms_url(uuid, settings),
+                "serviceDeploymentModels": get_service_deployment_models_url(
+                    uuid, settings
+                ),
+            },
+        },
+    )
 
 
 @app.post("/enrich")
@@ -355,7 +360,7 @@ async def get_request_payload(
 
 @app.get("/qrms", response_model=list[UUID])
 async def list_qrms(
-    engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
 ) -> list[UUID]:
     """
     Return all UUIDs that currently have stored Quantum Resource Models.
@@ -389,7 +394,7 @@ async def get_qrms_payload(
 
 @app.get("/service-deployment-models", response_model=list[UUID])
 async def list_service_deployment_models(
-    engine: Annotated[AsyncEngine, Depends(get_db_engine)]
+    engine: Annotated[AsyncEngine, Depends(get_db_engine)],
 ) -> list[UUID]:
     """
     Return all UUIDs that currently have stored service deployment models.
@@ -496,7 +501,7 @@ async def process_compile_request(
                 contains_placeholder = getattr(
                     getattr(original_request, "metadata", None),
                     "containsPlaceholder",
-                    False
+                    False,
                 )
                 print("Contains placeholder:", contains_placeholder)
             qasm = "" if contains_placeholder else await processor.process()
@@ -509,27 +514,28 @@ async def process_compile_request(
                 processor.frontend_graph,
                 processor.optimize,
                 result=qasm,
-                original_request=processor.original_request
+                original_request=processor.original_request,
             )
             workflow_processor.target = target
-            #result = await workflow_processor.process()
-            
+            # result = await workflow_processor.process()
+
             bpmn_xml = await workflow_processor.process()
             print(f"[INFO] BPMN XML generated ({len(bpmn_xml)} chars)")
             status = SuccessStatus(
-            uuid=uuid,
-            createdAt=createdAt,
-            completedAt=datetime.now(UTC),
-            progress=Progress(percentage=100, currentStep="done"),
-            result=get_result_url(uuid, settings),
+                uuid=uuid,
+                createdAt=createdAt,
+                completedAt=datetime.now(UTC),
+                progress=Progress(percentage=100, currentStep="done"),
+                result=get_result_url(uuid, settings),
             )
 
-        
             await add_result_to_db(engine, uuid, bpmn_xml, target)
             await update_status_response_in_db(engine, status, target)
 
         else:
+            print("ENRICHMENT vorher")
             result = await processor.process()
+            print("ENRICHMENT fertig")
             print(result)
             status = SuccessStatus(
                 uuid=uuid,
@@ -541,7 +547,6 @@ async def process_compile_request(
             await add_result_to_db(engine, uuid, result, target)
             await update_status_response_in_db(engine, status, target)
 
-           
     except Exception as ex:
         status = FailedStatus(
             uuid=uuid,
@@ -552,7 +557,7 @@ async def process_compile_request(
             ),
         )
 
-    #await update_status_response_in_db(engine, status, target)
+    # await update_status_response_in_db(engine, status, target)
 
 
 async def process_enrich_request(
@@ -629,7 +634,7 @@ async def post_debug_compile(
                 processor.frontend_graph,
                 processor.optimize,
                 result=qasm,
-                original_request=processor.original_request
+                original_request=processor.original_request,
             )
             workflow_processor.target = target
             result = await workflow_processor.process()
@@ -725,9 +730,7 @@ async def post_debug_workflow(
                 ),
             },
         }
-        return JSONResponse(
-            status_code=200, content=jsonable_encoder(response_payload)
-        )
+        return JSONResponse(status_code=200, content=jsonable_encoder(response_payload))
     except Exception as ex:
         return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
 
@@ -757,12 +760,13 @@ async def post_debug_enrich(
     except Exception as ex:
         return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()
 
+
 @app.post("/compileGroup", response_model=None)
 async def post_compileGroup(
     processor: Annotated[
         MergingProcessor, Depends(MergingProcessor.from_compile_request)
     ],
-    groupID: int = 0 #default groupID is 0 #Annotated?
+    groupID: int = 0,  # default groupID is 0 #Annotated?
 ) -> str | JSONResponse:
     """
     Compiles the request to an openqasm3 program for the specified quantum group (groupID) in one request.
@@ -772,14 +776,14 @@ async def post_compileGroup(
 
     try:
         target = _get_processor_target(processor)
-        #if target == "qasm": # needed?
-            #qasm = await processor.process()
+        # if target == "qasm": # needed?
+        # qasm = await processor.process()
         workflow_processor = WorkflowProcessor(
-                processor.enricher,
-                processor.frontend_graph,
-                processor.optimize,
-                original_request=processor.original_request
-            )
+            processor.enricher,
+            processor.frontend_graph,
+            processor.optimize,
+            original_request=processor.original_request,
+        )
         workflow_processor.target = target
         quantum_groups = await workflow_processor.identify_quantum_groups()
         # create subgraph of frontend graph for quantum group with groupID
@@ -787,6 +791,6 @@ async def post_compileGroup(
         subgraph = processor.frontend_graph.create_subgraph(group_nodes)
         processor.frontend_graph = subgraph
         return await processor.process()
-    #TODO: IndexError abfangen & an Frontend zurück geben (groupID out of bounds)
+    # TODO: IndexError abfangen & an Frontend zurück geben (groupID out of bounds)
     except Exception as ex:
         return LeqoProblemDetails.from_exception(ex, is_debug=True).to_response()

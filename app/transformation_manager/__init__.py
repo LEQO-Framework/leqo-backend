@@ -67,21 +67,20 @@ import io
 import json
 
 # BPMN Layout Configuration
-BPMN_START_X = 252              # X position of start event
-BPMN_START_Y = 222              # Y position of start event
-BPMN_TASK_WIDTH = 120           # Width of each task box
-BPMN_TASK_HEIGHT = 80           # Height of each task box
-BPMN_GAP_X = 220                # Horizontal spacing between tasks
-BPMN_GAP_Y = 150                # Vertical spacing between rows
-BPMN_CHAIN_X_OFFSET = 170       # Offset from start to first chain task
-BPMN_CHAIN_Y_BASE = 200         # Base Y position for chain tasks
-BPMN_WAYPOINT_Y_OFFSET = 40     # Y offset to task center for waypoints
-BPMN_EVENT_WIDTH = 36           # Width of start/end events
-BPMN_EVENT_HEIGHT = 36          # Height of start/end events
-BPMN_FLOW_ID_LENGTH = 7         # Length of generated flow IDs
-BPMN_GW_WIDTH = 50              # Width of gateway
-BPMN_GW_HEIGHT = 50             # Height of gateway
-
+BPMN_START_X = 252  # X position of start event
+BPMN_START_Y = 222  # Y position of start event
+BPMN_TASK_WIDTH = 120  # Width of each task box
+BPMN_TASK_HEIGHT = 80  # Height of each task box
+BPMN_GAP_X = 220  # Horizontal spacing between tasks
+BPMN_GAP_Y = 150  # Vertical spacing between rows
+BPMN_CHAIN_X_OFFSET = 170  # Offset from start to first chain task
+BPMN_CHAIN_Y_BASE = 200  # Base Y position for chain tasks
+BPMN_WAYPOINT_Y_OFFSET = 40  # Y offset to task center for waypoints
+BPMN_EVENT_WIDTH = 36  # Width of start/end events
+BPMN_EVENT_HEIGHT = 36  # Height of start/end events
+BPMN_FLOW_ID_LENGTH = 7  # Length of generated flow IDs
+BPMN_GW_WIDTH = 50  # Width of gateway
+BPMN_GW_HEIGHT = 50  # Height of gateway
 
 
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
@@ -114,7 +113,7 @@ class CommonProcessor:
         optimize_settings: OptimizeSettings,
         qiskit_compat: bool = False,
         result: str | None = None,
-        original_request: CompileRequest |None = None,
+        original_request: CompileRequest | None = None,
     ) -> None:
         self.enricher = enricher
         self.frontend_graph = frontend_graph
@@ -384,16 +383,17 @@ class MergingProcessor(CommonProcessor):
 
         :return: The final QASM program as a string.
         """
+        print("pricess gestartet")
         await self.process_nodes()
+        print("nodes")
 
         if self.optimize.optimizeWidth is not None:
             optimize(self.graph)
 
         literal_nodes: set[str]
         used_literal_nodes: set[str]
-        #if self.qiskit_compat and self.target == "qasm":
+        # if self.qiskit_compat and self.target == "qasm":
         literal_nodes, used_literal_nodes = self._collect_literal_nodes()
-       
 
         merged_program = merge_nodes(self.graph)
         processed_program = postprocess(
@@ -402,6 +402,7 @@ class MergingProcessor(CommonProcessor):
             literal_nodes=literal_nodes,
             literal_nodes_with_consumers=used_literal_nodes,
         )
+        print("final programm")
         return leqo_dumps(processed_program)
 
 
@@ -524,11 +525,13 @@ class WorkflowProcessor(CommonProcessor):
         enricher: Annotated[Enricher, Depends(get_enricher)],
     ) -> "WorkflowProcessor":
         graph = FrontendGraph.create(request.nodes, request.edges)
-        processor = WorkflowProcessor(enricher, graph, request.metadata, original_request=request)
+        processor = WorkflowProcessor(
+            enricher, graph, request.metadata, original_request=request
+        )
         processor.target = request.compilation_target
         processor.original_request = request
         return processor
-        
+
     async def process(self) -> tuple[str, bytes]:
         """Run enrichment, classify nodes, group quantum nodes, and return BPMN XML."""
 
@@ -536,7 +539,9 @@ class WorkflowProcessor(CommonProcessor):
         quantum_groups = await self.identify_quantum_groups()
 
         # Prepare node metadata
-        node_metadata: dict[str, dict[str, Any]] = {node_id: {} for node_id in self.frontend_graph.nodes}
+        node_metadata: dict[str, dict[str, Any]] = {
+            node_id: {} for node_id in self.frontend_graph.nodes
+        }
 
         # Attach quantum group info
         for group_id, nodes in quantum_groups.items():
@@ -568,9 +573,13 @@ class WorkflowProcessor(CommonProcessor):
         for src, tgt in edges:
             src_gid = node_to_group.get(src, src)
             tgt_gid = node_to_group.get(tgt, tgt)
-            if src_gid != tgt_gid and src_gid in composite_nodes and tgt_gid in composite_nodes:
+            if (
+                src_gid != tgt_gid
+                and src_gid in composite_nodes
+                and tgt_gid in composite_nodes
+            ):
                 collapsed_edges.add((src_gid, tgt_gid))
-        collapsed_edges_list: list[tuple[str,str]] = list(collapsed_edges)
+        collapsed_edges_list: list[tuple[str, str]] = list(collapsed_edges)
 
         # Generate BPMN XML
         bpmn_xml, all_activities = _implementation_nodes_to_bpmn_xml(
@@ -578,19 +587,21 @@ class WorkflowProcessor(CommonProcessor):
             composite_nodes,
             collapsed_edges_list,
             metadata=node_metadata,
-            start_event_classical_nodes=[node for node in nodes_dict.values() if getattr(node, "type", None) in CLASSICAL_TYPES],
-            containsPlaceholder=self.original_request.metadata.containsPlaceholder        
+            start_event_classical_nodes=[
+                node
+                for node in nodes_dict.values()
+                if getattr(node, "type", None) in CLASSICAL_TYPES
+            ],
+            containsPlaceholder=self.original_request.metadata.containsPlaceholder,
         )
         print("Service Task Generation")
         # Generate ZIP-of-ZIPs for Python files
-        #service_zip_bytes = await self.generate_service_zips(all_activities, node_metadata)
-        
+        # service_zip_bytes = await self.generate_service_zips(all_activities, node_metadata)
+
         # Generate QRMs
         qrms = await generate_qrms(quantum_groups)
-        #return service_zip_bytes
+        # return service_zip_bytes
         return bpmn_xml
-
-
 
     async def identify_quantum_groups(self) -> dict[str, list[ImplementationNode]]:
         """
@@ -600,7 +611,8 @@ class WorkflowProcessor(CommonProcessor):
         quantum_nodes = [
             self.frontend_graph.node_data[node_id]
             for node_id in self.frontend_graph.nodes
-            if getattr(self.frontend_graph.node_data[node_id], "type", None) not in CLASSICAL_TYPES
+            if getattr(self.frontend_graph.node_data[node_id], "type", None)
+            not in CLASSICAL_TYPES
         ]
 
         # print(f"Quantum nodes: {[node.id for node in quantum_nodes]}")
@@ -624,6 +636,7 @@ class WorkflowProcessor(CommonProcessor):
                 neighbor = self.frontend_graph.node_data[neighbor_id]
                 if getattr(neighbor, "type", None) not in CLASSICAL_TYPES:
                     dfs(neighbor, group_id)
+
         group_counter = 0
         for node in quantum_nodes:
             if node.id not in visited:
@@ -632,7 +645,9 @@ class WorkflowProcessor(CommonProcessor):
 
         return dict(groups)
 
-    async def generate_service_zips(self,composite_nodes: list[str],node_metadata: dict[str, dict[str, Any]]) -> bytes:
+    async def generate_service_zips(
+        self, composite_nodes: list[str], node_metadata: dict[str, dict[str, Any]]
+    ) -> bytes:
         """
         Generate one ZIP per node.
         Each ZIP contains a single service with logic ONLY for that node.
@@ -643,13 +658,10 @@ class WorkflowProcessor(CommonProcessor):
         master_zip_buffer = io.BytesIO()
 
         with zipfile.ZipFile(
-            master_zip_buffer,
-            mode="w",
-            compression=zipfile.ZIP_DEFLATED
+            master_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED
         ) as master_zip:
-
             for node_id in composite_nodes:
-                activity_name = "Activity_" + node_id.replace(' ', '_')
+                activity_name = "Activity_" + node_id.replace(" ", "_")
 
                 if "_human" in activity_name:
                     continue
@@ -657,19 +669,13 @@ class WorkflowProcessor(CommonProcessor):
                 activity_zip_buffer = io.BytesIO()
 
                 with zipfile.ZipFile(
-                    activity_zip_buffer,
-                    mode="w",
-                    compression=zipfile.ZIP_DEFLATED
+                    activity_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED
                 ) as activity_zip:
-
                     # ---------- inner service.zip ----------
                     inner_service_buffer = io.BytesIO()
                     with zipfile.ZipFile(
-                        inner_service_buffer,
-                        mode="w",
-                        compression=zipfile.ZIP_DEFLATED
+                        inner_service_buffer, mode="w", compression=zipfile.ZIP_DEFLATED
                     ) as inner_service_zip:
-
                         # ---------- serialize request ----------
                         assert self.original_request is not None
                         try:
@@ -677,15 +683,12 @@ class WorkflowProcessor(CommonProcessor):
                         except Exception:
                             full_request_json = json.loads(
                                 self.original_request.json(
-                                    exclude_none=True,
-                                    exclude_unset=True
+                                    exclude_none=True, exclude_unset=True
                                 )
                             )
 
                         safe_request_str = json.dumps(
-                            full_request_json,
-                            indent=4,
-                            ensure_ascii=False
+                            full_request_json, indent=4, ensure_ascii=False
                         )
 
                         # ---------- app.py ----------
@@ -714,14 +717,14 @@ class WorkflowProcessor(CommonProcessor):
                                 f"    # Logic for {node_id}",
                                 f"    model_data = {safe_request_str}",
                                 f"    model = json.loads(model_data)",
-                                f"    url = f\"{{BACKEND_URL}}/compile\"",
+                                f'    url = f"{{BACKEND_URL}}/compile"',
                                 f"    response = requests.post(url, json=model)",
                                 f"    response.raise_for_status()",
                                 f"    data = response.json()",
                                 f"    uuid = data.get('uuid')",
                                 f"    if not uuid:",
                                 f"        raise ValueError('Backend response does not contain uuid')",
-                                f"    return uuid"
+                                f"    return uuid",
                             ]
 
                         elif node_id.endswith("_poll_result"):
@@ -730,7 +733,7 @@ class WorkflowProcessor(CommonProcessor):
                                 f"    uuid = kwargs.get('uuid')",
                                 f"    if not uuid:",
                                 f"        raise ValueError('Missing uuid')",
-                                f"    status_url = f\"{{BACKEND_URL}}/status/{{uuid}}\"",
+                                f'    status_url = f"{{BACKEND_URL}}/status/{{uuid}}"',
                                 f"    for attempt in range(20):",
                                 f"        resp = requests.get(status_url)",
                                 f"        if resp.ok:",
@@ -757,10 +760,7 @@ class WorkflowProcessor(CommonProcessor):
                                 f"    raise NotImplementedError('Unknown node type: {node_id}')"
                             ]
 
-                        inner_service_zip.writestr(
-                            "app.py",
-                            "\n".join(app_lines)
-                        )
+                        inner_service_zip.writestr("app.py", "\n".join(app_lines))
 
                         # ---------- polling_agent.py ----------
                         polling_agent_code = (
@@ -801,26 +801,20 @@ class WorkflowProcessor(CommonProcessor):
                         )
 
                         inner_service_zip.writestr(
-                            "polling_agent.py",
-                            polling_agent_code
+                            "polling_agent.py", polling_agent_code
                         )
 
-                        inner_service_zip.writestr(
-                            "requirements.txt",
-                            "requests\n"
-                        )
+                        inner_service_zip.writestr("requirements.txt", "requests\n")
 
                     # ---------- Docker layer ----------
                     middle_service_buffer = io.BytesIO()
                     with zipfile.ZipFile(
                         middle_service_buffer,
                         mode="w",
-                        compression=zipfile.ZIP_DEFLATED
+                        compression=zipfile.ZIP_DEFLATED,
                     ) as middle_zip:
-
                         middle_zip.writestr(
-                            "service.zip",
-                            inner_service_buffer.getvalue()
+                            "service.zip", inner_service_buffer.getvalue()
                         )
 
                         middle_zip.writestr(
@@ -831,23 +825,18 @@ class WorkflowProcessor(CommonProcessor):
         && unzip /tmp/service.zip -d /service \
         && pip install -r /service/requirements.txt
     CMD ["python", "/service/polling_agent.py"]
-    """
+    """,
                         )
 
                     activity_zip.writestr(
-                        "service.zip",
-                        middle_service_buffer.getvalue()
+                        "service.zip", middle_service_buffer.getvalue()
                     )
 
                 master_zip.writestr(
-                    f"{activity_name}.zip",
-                    activity_zip_buffer.getvalue()
+                    f"{activity_name}.zip", activity_zip_buffer.getvalue()
                 )
 
         return master_zip_buffer.getvalue()
-
-
-
 
 
 class EnrichmentInserter:
@@ -901,8 +890,9 @@ class EnrichmentInserter:
             await session.commit()
 
 
-def random_id(prefix: str ="Flow") -> str:
+def random_id(prefix: str = "Flow") -> str:
     return f"{prefix}_{''.join(random.choices(string.ascii_lowercase + string.digits, k=7))}"
+
 
 # BPMN namespaces
 BPMN2_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -910,9 +900,9 @@ BPMNDI_NS = "http://www.omg.org/spec/BPMN/20100524/DI"
 DC_NS = "http://www.omg.org/spec/DD/20100524/DC"
 DI_NS = "http://www.omg.org/spec/DD/20100524/DI"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
-CAMUNDA_NS="http://camunda.org/schema/1.0/bpmn" 
-OpenTOSCA_NS="https://github.com/UST-QuAntiL/OpenTOSCA"
-QUANTME_NS="https://github.com/UST-QuAntiL/QuantME-Quantum4BPMN"
+CAMUNDA_NS = "http://camunda.org/schema/1.0/bpmn"
+OpenTOSCA_NS = "https://github.com/UST-QuAntiL/OpenTOSCA"
+QUANTME_NS = "https://github.com/UST-QuAntiL/QuantME-Quantum4BPMN"
 
 ET.register_namespace("bpmn2", BPMN2_NS)
 ET.register_namespace("bpmndi", BPMNDI_NS)
@@ -923,7 +913,15 @@ ET.register_namespace("opentosca", OpenTOSCA_NS)
 ET.register_namespace("camunda", CAMUNDA_NS)
 ET.register_namespace("quantme", QUANTME_NS)
 
-def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], edges: list[tuple[str,str]], metadata: dict[str, dict[str, Any]] | None = None, start_event_classical_nodes: list[Any] | None = None, containsPlaceholder: bool = False) -> tuple[str, list[str]]:
+
+def _implementation_nodes_to_bpmn_xml(
+    process_id: str,
+    nodes: dict[str, Any],
+    edges: list[tuple[str, str]],
+    metadata: dict[str, dict[str, Any]] | None = None,
+    start_event_classical_nodes: list[Any] | None = None,
+    containsPlaceholder: bool = False,
+) -> tuple[str, list[str]]:
     """Generate BPMN XML workflow diagram with correct left-to-right layout.
 
     For composite nodes which are quantum groups (ids starting with 'quantum_group_')
@@ -932,17 +930,18 @@ def _implementation_nodes_to_bpmn_xml(process_id: str, nodes: dict[str, Any], ed
     chain task (Set Variables) is linked into that node so the chain appears
     before the node in the diagram.
     """
-    
+
     builder = BpmnBuilder(
         process_id=process_id,
         nodes=nodes,
         edges=edges,
         metadata=metadata,
         start_event_classical_nodes=start_event_classical_nodes,
-        containsPlaceholder=containsPlaceholder
+        containsPlaceholder=containsPlaceholder,
     )
 
     return builder.build()
+
 
 async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> bytes:
     """
@@ -956,14 +955,15 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
     Returns:
         dict[str, bytes]: mapping of node_id -> zip file content (bytes)
     """
-    
 
     output_dir = "/tmp/generated_qrms"
     os.makedirs(output_dir, exist_ok=True)
 
     combined_zip_buffer = io.BytesIO()
 
-    with zipfile.ZipFile(combined_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as combined_zip:
+    with zipfile.ZipFile(
+        combined_zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED
+    ) as combined_zip:
         for group_id, nodes in quantum_groups.items():
             for node in nodes:
                 node_id = getattr(node, "id", "unknown_node")
@@ -985,7 +985,11 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
                 )
 
                 process_id = f"Process_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
-                process_el = ET.SubElement(detector_defs, "bpmn:process", {"id": process_id, "isExecutable": "true"})
+                process_el = ET.SubElement(
+                    detector_defs,
+                    "bpmn:process",
+                    {"id": process_id, "isExecutable": "true"},
+                )
                 detector_task_id = f"Task_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
                 ET.SubElement(
                     process_el,
@@ -993,7 +997,9 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
                     {"id": detector_task_id, "url": f"{node_label}/maxcut"},
                 )
 
-                detector_xml = ET.tostring(detector_defs, encoding="utf-8", xml_declaration=True).decode("utf-8")
+                detector_xml = ET.tostring(
+                    detector_defs, encoding="utf-8", xml_declaration=True
+                ).decode("utf-8")
 
                 # Replacement BPMN
                 executor_defs = ET.Element(
@@ -1010,9 +1016,13 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
                     },
                 )
 
-                executor_process_id = f"Process_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+                executor_process_id = (
+                    f"Process_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+                )
                 executor_process = ET.SubElement(
-                    executor_defs, "bpmn:process", {"id": executor_process_id, "isExecutable": "true"}
+                    executor_defs,
+                    "bpmn:process",
+                    {"id": executor_process_id, "isExecutable": "true"},
                 )
 
                 executor_task_id = f"Task_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
@@ -1026,11 +1036,15 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
                     },
                 )
 
-                executor_xml = ET.tostring(executor_defs, encoding="utf-8", xml_declaration=True).decode("utf-8")
+                executor_xml = ET.tostring(
+                    executor_defs, encoding="utf-8", xml_declaration=True
+                ).decode("utf-8")
 
                 # Add both BPMN files to the combined ZIP
                 combined_zip.writestr(f"Activity_{node_id}/detector.bpmn", detector_xml)
-                combined_zip.writestr(f"Activity_{node_id}/replacement.bpmn", executor_xml)
+                combined_zip.writestr(
+                    f"Activity_{node_id}/replacement.bpmn", executor_xml
+                )
 
                 print(f"[INFO] Added QRM BPMNs for node {node_id} to master ZIP")
 
