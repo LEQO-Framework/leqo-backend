@@ -9,7 +9,7 @@ import re
 from abc import ABC
 from collections.abc import Iterable
 from contextlib import suppress
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -353,7 +353,7 @@ class IntLiteralNode(BaseNode):
     bitSize: int = Field(default=32, ge=1)
     """"Bit size of the integer (optional)."""
 
-    value: Union[int, str]
+    value: int | str
     """Integer value."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
@@ -369,7 +369,7 @@ class FloatLiteralNode(BaseNode):
     bitSize: int = Field(default=32, ge=1)
     """Bit size of the float (optional)."""
 
-    value: Union[int, str]
+    value: int | str
     """Float value."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
