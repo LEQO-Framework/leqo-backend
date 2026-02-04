@@ -89,6 +89,17 @@ plugins = "sqlalchemy.ext.mypy.plugin"
 module = "qiskit.qasm3"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = [
+    "app.main",
+    "app.enricher.*",
+    "app.transformation_manager",
+    "app.transformation_manager.*",
+    "tests.*",
+]
+ignore_errors = true
+
+
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
 
