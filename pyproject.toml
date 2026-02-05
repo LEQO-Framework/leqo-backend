@@ -12,6 +12,7 @@ dependencies = [
     "psycopg-binary>=3.2.6",
     "pydantic-settings>=2.9.1",
     "python-dotenv>=1.0.1",
+    "qiskit>=2.2.2",
     "sqlalchemy[asyncio,mypy]>=2.0.38",
 ]
 
@@ -35,11 +36,13 @@ dev = [
     "types-pyyaml>=6.0.12.20250516",
     "cyclonedx-bom>=6.1.1",
     "sphinxcontrib-datatemplates>=0.11.0",
+    
 ]
-qiskit = [
-    "qiskit>=2.0.0",
+# ıf we need to do quantum circuit simulation in the backend 
+sim = [
     "qiskit-aer>=0.17.2",
 ]
+
 
 # https://github.com/DSD-DBS/py-capellambse/blob/b0d63fac33c90d15f0d2d4c6c111184a5801ce6c/pyproject.toml#L174-L204
 [tool.ruff.lint]
