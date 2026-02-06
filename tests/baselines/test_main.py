@@ -1,6 +1,7 @@
 import json
 import os
 from collections.abc import Iterator
+from functools import lru_cache
 from json import JSONDecodeError, dumps
 from pathlib import Path
 from time import sleep
@@ -12,6 +13,7 @@ from httpx import Response
 from pydantic import BaseModel
 from starlette.testclient import TestClient
 
+from app.config import Settings
 from app.main import app
 
 TModel = TypeVar("TModel", bound=BaseModel)
@@ -20,6 +22,7 @@ SUCCESS_CODE = 200
 POLL_INTERVAL = 0.1
 MAX_ATTEMPTS = 5
 TEST_DIR = Path(__file__).parent
+LITERAL_NODE_TYPES = {"bit", "bool", "int", "float", "array"}
 
 
 class Baseline(BaseModel):
@@ -34,6 +37,93 @@ class InsertBaseline(BaseModel):
     merge_request: str
     merge_status: int
     merge_result: str
+
+
+@lru_cache
+def _qiskit_compat_enabled() -> bool:
+    return Settings().qiskit_compat_mode
+
+
+def _collect_literal_nodes(request: str) -> tuple[set[str], set[str]]:
+    payload = json.loads(request)
+    literal_nodes = {
+        node["id"]
+        for node in payload.get("nodes", [])
+        if node.get("type") in LITERAL_NODE_TYPES
+    }
+    used_literal_nodes = {
+        edge["source"][0]
+        for edge in payload.get("edges", [])
+        if edge.get("source", [None])[0] in literal_nodes
+    }
+    return literal_nodes, used_literal_nodes
+
+
+def _strip_literal_blocks(qasm: str, literal_nodes: set[str]) -> str:
+    if not literal_nodes:
+        return qasm
+
+    lines = qasm.splitlines()
+    output: list[str] = []
+    skipping: str | None = None
+
+    for line in lines:
+        stripped = line.strip()
+        if skipping is not None:
+            if stripped == f"/* End node {skipping} */":
+                skipping = None
+            continue
+
+        if stripped.startswith("/* Start node ") and stripped.endswith(" */"):
+            node_id = stripped[len("/* Start node ") : -len(" */")]
+            if node_id in literal_nodes:
+                skipping = node_id
+                continue
+
+        output.append(line)
+
+    result = "\n".join(output)
+    if qasm.endswith("\n"):
+        result += "\n"
+    return result
+
+
+def _insert_qiskit_warning(qasm: str, literal_nodes_with_consumers: set[str]) -> str:
+    if not literal_nodes_with_consumers:
+        return qasm
+
+    warning = (
+        "/* Qiskit compatibility warning: literal outputs from "
+        f"{', '.join(sorted(literal_nodes_with_consumers))} feed other nodes; "
+        "resulting circuit may be incompatible. */"
+    )
+    lines = qasm.splitlines()
+    if not lines:
+        return qasm
+
+    insert_at = 1
+    while insert_at < len(lines) and lines[insert_at].strip().startswith("include "):
+        insert_at += 1
+
+    lines.insert(insert_at, warning)
+    result = "\n".join(lines)
+    if qasm.endswith("\n"):
+        result += "\n"
+    return result
+
+
+def _expected_qasm(request: str, expected: str) -> str:
+    if not _qiskit_compat_enabled():
+        return expected
+    if not expected.lstrip().startswith("OPENQASM"):
+        return expected
+
+    literal_nodes, used_literal_nodes = _collect_literal_nodes(request)
+    if not literal_nodes:
+        return expected
+
+    adjusted = _strip_literal_blocks(expected, literal_nodes)
+    return _insert_qiskit_warning(adjusted, used_literal_nodes)
 
 
 def find_files(model: type[TModel], *paths: Path) -> Iterator[tuple[str, TModel]]:
@@ -134,7 +224,8 @@ def test_compile(test: tuple[str, Baseline], client: TestClient) -> None:
     _file, base = test
     response = handle_endpoints(client, base.request, "/compile")
 
-    assert base.expected_result == response.text
+    expected = _expected_qasm(base.request, base.expected_result)
+    assert expected == response.text
     assert base.expected_status == response.status_code
 
 
@@ -193,7 +284,8 @@ def test_debug_compile(test: tuple[str, Baseline], client: TestClient) -> None:
     )
 
     print(response.text)
-    assert base.expected_result == response.text
+    expected = _expected_qasm(base.request, base.expected_result)
+    assert expected == response.text
     assert base.expected_status == response.status_code
 
 
@@ -270,7 +362,8 @@ def test_insert(test: tuple[str, InsertBaseline], client: TestClient) -> None:
         content=base.merge_request,
     )
     print(response.text)
-    assert base.merge_result == response.text
+    expected = _expected_qasm(base.merge_request, base.merge_result)
+    assert expected == response.text
     assert base.merge_status == response.status_code
 
 
