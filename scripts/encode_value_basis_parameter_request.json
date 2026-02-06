@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Encode Value (basis) parameterized demo",
+    "description": "Basis encoding with parameterized literal value, bit size, bounds, and measurement indices.",
+    "author": "CLI Tester"
+  },
+  "parameters": {
+    "bits": 3,
+    "value": 5,
+    "bounds": 1,
+    "measure_indices": [0, 1, 2]
+  },
+  "nodes": [
+    {
+      "id": "literal",
+      "type": "int",
+      "label": "Input value",
+      "bitSize": "$bits",
+      "value": "$value"
+    },
+    {
+      "id": "encode",
+      "type": "encode",
+      "label": "Basis encoder",
+      "encoding": "basis",
+      "bounds": "$bounds"
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": "$measure_indices"
+    }
+  ],
+  "edges": [
+    { "source": ["literal", 0], "target": ["encode", 0] },
+    { "source": ["encode", 0], "target": ["measure", 0] }
+  ]
+}

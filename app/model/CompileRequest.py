@@ -33,6 +33,138 @@ def _infer_int_bit_size(value: int) -> int:
     return max(1, (-value - 1).bit_length() + 1)
 
 
+_PARAMETER_PREFIX = "$"
+
+
+def _resolve_parameter_reference(
+    value: Any,
+    parameters: dict[str, Any],
+    *,
+    path: str,
+) -> Any:
+    if isinstance(value, str) and value.startswith(_PARAMETER_PREFIX):
+        name = value[len(_PARAMETER_PREFIX) :].strip()
+        if not name:
+            raise ValueError(f"Empty parameter reference at {path}.")
+        if name not in parameters:
+            raise ValueError(f"Unknown parameter '{name}' referenced at {path}.")
+        return parameters[name]
+    return value
+
+
+def _apply_parameters_to_edge(
+    edge: dict[str, Any],
+    parameters: dict[str, Any],
+    *,
+    context: str,
+) -> dict[str, Any]:
+    if "size" in edge:
+        edge["size"] = _resolve_parameter_reference(
+            edge.get("size"),
+            parameters,
+            path=f"{context}.size",
+        )
+    return edge
+
+
+def _apply_parameters_to_block(
+    block: dict[str, Any],
+    parameters: dict[str, Any],
+    *,
+    context: str,
+) -> dict[str, Any]:
+    nodes = block.get("nodes")
+    if isinstance(nodes, list):
+        block["nodes"] = [
+            _apply_parameters_to_node(node, parameters, context=context)
+            if isinstance(node, dict)
+            else node
+            for node in nodes
+        ]
+
+    edges = block.get("edges")
+    if isinstance(edges, list):
+        block["edges"] = [
+            _apply_parameters_to_edge(edge, parameters, context=f"{context}.edge")
+            if isinstance(edge, dict)
+            else edge
+            for edge in edges
+        ]
+
+    return block
+
+
+def _apply_parameters_to_node(
+    node: dict[str, Any],
+    parameters: dict[str, Any],
+    *,
+    context: str,
+) -> dict[str, Any]:
+    node_type = node.get("type")
+    node_id = node.get("id", "<unknown>")
+
+    def _resolve_field(field: str) -> None:
+        if field in node:
+            node[field] = _resolve_parameter_reference(
+                node.get(field),
+                parameters,
+                path=f"{context}.node[{node_id}].{field}",
+            )
+
+    match node_type:
+        case "encode":
+            _resolve_field("bounds")
+        case "prepare":
+            _resolve_field("size")
+        case "splitter":
+            _resolve_field("numberOutputs")
+        case "merger":
+            _resolve_field("numberInputs")
+        case "measure":
+            _resolve_field("indices")
+        case "qubit":
+            _resolve_field("size")
+        case "gate-with-param":
+            _resolve_field("parameter")
+        case "bit" | "bool":
+            _resolve_field("value")
+        case "int" | "float":
+            _resolve_field("value")
+            _resolve_field("bitSize")
+        case "array":
+            if "values" in node:
+                _resolve_field("values")
+            elif "value" in node:
+                _resolve_field("value")
+            _resolve_field("elementBitSize")
+        case "ancilla":
+            _resolve_field("size")
+        case "repeat":
+            _resolve_field("iterations")
+            block = node.get("block")
+            if isinstance(block, dict):
+                node["block"] = _apply_parameters_to_block(
+                    block, parameters, context=f"{context}.node[{node_id}].block"
+                )
+        case "if-then-else":
+            then_block = node.get("thenBlock")
+            if isinstance(then_block, dict):
+                node["thenBlock"] = _apply_parameters_to_block(
+                    then_block,
+                    parameters,
+                    context=f"{context}.node[{node_id}].thenBlock",
+                )
+            else_block = node.get("elseBlock")
+            if isinstance(else_block, dict):
+                node["elseBlock"] = _apply_parameters_to_block(
+                    else_block,
+                    parameters,
+                    context=f"{context}.node[{node_id}].elseBlock",
+                )
+
+    return node
+
+
 class OptimizeSettings(ABC):
     """
     Abstract base class providing optimization settings.
@@ -615,6 +747,9 @@ class CompileRequest(BaseModel):
     metadata: MetaData
     """General information and optimization preferences."""
 
+    parameters: dict[str, Any] | None = None
+    """Optional parameters available for resolving parameter references."""
+
     compilation_target: Literal["qasm", "workflow"] = "qasm"
     """Compilation target. Either "qasm" (default) or "workflow"."""
 
@@ -633,6 +768,8 @@ class CompileRequest(BaseModel):
             return data
 
         normalized = data.copy()
+        parameters_raw = normalized.get("parameters")
+        parameters = parameters_raw if isinstance(parameters_raw, dict) else {}
         nodes = normalized.get("nodes")
         if isinstance(nodes, list):
             converted_nodes: list[Any] = []
@@ -661,10 +798,22 @@ class CompileRequest(BaseModel):
                                     and "bitSize" in data_field
                                 ):
                                     converted["elementBitSize"] = data_field["bitSize"]
+                    converted = _apply_parameters_to_node(
+                        converted, parameters, context="compileRequest"
+                    )
                     converted_nodes.append(converted)
                 else:
                     converted_nodes.append(node)
             normalized["nodes"] = converted_nodes
+
+        edges = normalized.get("edges")
+        if isinstance(edges, list):
+            normalized["edges"] = [
+                _apply_parameters_to_edge(edge.copy(), parameters, context="edges")
+                if isinstance(edge, dict)
+                else edge
+                for edge in edges
+            ]
 
         return normalized
 

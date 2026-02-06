@@ -36,6 +36,7 @@ Example payloads:
 
 - `compile_request.json` - small sanity check with a custom implementation.
 - `encode_value_basis_request.json` - uses the basis encoder with a 3-bit integer input and measures the resulting register.
+- `encode_value_basis_parameter_request.json` - parameterized basis-encoding request (bit size, value, bounds, and measurement indices).
 - `encode_value_basis_negative_request.json` - drives the basis encoder with a negative integer to inspect the two's-complement bit pattern.
 - `encode_value_basis_array_request.json` - feeds the basis encoder with an array literal and reads every qubit.
 - `encode_value_basis_list_request.json` - illustrates encoding multiple integers in the basis, concatenating the registers, and reading all outputs at once.
