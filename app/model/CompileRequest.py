@@ -433,6 +433,16 @@ LiteralNode = (
     | FloatLiteralNode
     | ArrayLiteralNode
 )
+
+class PluginNode(BaseNode):
+    type: Literal["plugin"] = "plugin"
+    pluginName: str
+    inputs: list[Any] = []
+    outputs: list[Any] = []
+
+class FileLiteralNode(BaseNode):
+    type: Literal["file"] = "file"
+    value: str
 # endregion
 
 
@@ -541,6 +551,8 @@ NestableNode = (
     | LiteralNode
     | AncillaNode
     | OperatorNode
+    | PluginNode
+    | FileLiteralNode
 )
 Node = NestableNode | QubitNode | ControlFlowNode
 

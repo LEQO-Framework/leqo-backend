@@ -65,6 +65,7 @@ from pathlib import Path
 import os
 import io
 import json
+import traceback; traceback.print_exc()
 
 # BPMN Layout Configuration
 BPMN_START_X = 252  # X position of start event
@@ -383,7 +384,7 @@ class MergingProcessor(CommonProcessor):
 
         :return: The final QASM program as a string.
         """
-        print("pricess gestartet")
+        print("process gestartet")
         await self.process_nodes()
         print("nodes")
 
@@ -538,6 +539,16 @@ class WorkflowProcessor(CommonProcessor):
         # Identify quantum groups
         quantum_groups = await self.identify_quantum_groups()
 
+        # Identify plugin components
+        plugin_components = []
+
+        try:
+            print("call identify_plugin_components")
+            plugin_components = await self.identify_plugin_components()
+            print("identify_plugin_components SUCCESS:", plugin_components)
+        except Exception as e:
+            print("identify_plugin_components call failed:", e)
+
         # Prepare node metadata
         node_metadata: dict[str, dict[str, Any]] = {
             node_id: {} for node_id in self.frontend_graph.nodes
@@ -582,18 +593,25 @@ class WorkflowProcessor(CommonProcessor):
         collapsed_edges_list: list[tuple[str, str]] = list(collapsed_edges)
 
         # Generate BPMN XML
-        bpmn_xml, all_activities = _implementation_nodes_to_bpmn_xml(
-            "workflow_process",
-            composite_nodes,
-            collapsed_edges_list,
-            metadata=node_metadata,
-            start_event_classical_nodes=[
-                node
-                for node in nodes_dict.values()
-                if getattr(node, "type", None) in CLASSICAL_TYPES
-            ],
-            containsPlaceholder=self.original_request.metadata.containsPlaceholder,
-        )
+        try:
+            bpmn_xml, all_activities = _implementation_nodes_to_bpmn_xml(
+                "workflow_process",
+                composite_nodes,
+                collapsed_edges_list,
+                metadata=node_metadata,
+                start_event_classical_nodes=[
+                    node
+                    for node in nodes_dict.values()
+                    if getattr(node, "type", None) in CLASSICAL_TYPES
+                ],
+                containsPlaceholder=self.original_request.metadata.containsPlaceholder,
+                plugin_components=plugin_components,
+            )
+        except Exception as e:
+            print("!!! BPMN GENERATION FAILED !!!", repr(e))
+            # Optional: setze Status auf failed
+            return "", b""  # oder wie immer Fehler gehandhabt werden
+
         print("Service Task Generation")
         # Generate ZIP-of-ZIPs for Python files
         # service_zip_bytes = await self.generate_service_zips(all_activities, node_metadata)
@@ -602,6 +620,54 @@ class WorkflowProcessor(CommonProcessor):
         qrms = await generate_qrms(quantum_groups)
         # return service_zip_bytes
         return bpmn_xml
+
+    async def identify_plugin_components(self) -> dict[str, dict]:
+        """
+        Identify and collect all plugin components present in the frontend graph.
+
+        Returns:
+            dict[str, dict]: A dictionary mapping plugin names to information about
+              each plugin component, including involved nodes and connection edges.
+        """
+        # Collect plugin nodes
+        plugin_nodes = [
+            self.frontend_graph.node_data[node_id]
+            for node_id in self.frontend_graph.nodes
+            if getattr(self.frontend_graph.node_data[node_id], "type", None) == "plugin"
+        ]
+
+        plugin_components = {}
+        # Iterate over each plugin node and gather its component nodes and relevant edges
+        for plugin in plugin_nodes:
+            component_nodes = set()
+            edges = []
+
+            # Always add the plugin node itself to the component_nodes set
+            component_nodes.add(plugin.id)
+
+            # Find all nodes with edges targeting the plugin node and collect those nodes
+            for edge in self.frontend_graph.edge_data.values():
+                for e in edge:
+                    if e.target[0] == plugin.id:
+                        src_id = e.source[0]
+                        component_nodes.add(src_id)
+                        edges.append((src_id, plugin.id))
+
+            # Identify input nodes for the plugin, filtering to types 'file' and 'int'           
+            input_nodes = [
+                self.frontend_graph.node_data[nid]
+                for nid in component_nodes
+                if getattr(self.frontend_graph.node_data[nid], "type", None) in ("file", "int")
+            ]
+
+            # Store information about this plugin component under its pluginName
+            plugin_components[plugin.pluginName] = {
+                "plugin_node": plugin,
+                "input_nodes": input_nodes,
+                "all_nodes": [self.frontend_graph.node_data[nid] for nid in component_nodes],
+                "edges": edges,
+            }
+        return plugin_components
 
     async def identify_quantum_groups(self) -> dict[str, list[ImplementationNode]]:
         """
@@ -921,6 +987,7 @@ def _implementation_nodes_to_bpmn_xml(
     metadata: dict[str, dict[str, Any]] | None = None,
     start_event_classical_nodes: list[Any] | None = None,
     containsPlaceholder: bool = False,
+    plugin_components=None, 
 ) -> tuple[str, list[str]]:
     """Generate BPMN XML workflow diagram with correct left-to-right layout.
 
@@ -938,6 +1005,7 @@ def _implementation_nodes_to_bpmn_xml(
         metadata=metadata,
         start_event_classical_nodes=start_event_classical_nodes,
         containsPlaceholder=containsPlaceholder,
+        plugin_components=plugin_components,
     )
 
     return builder.build()

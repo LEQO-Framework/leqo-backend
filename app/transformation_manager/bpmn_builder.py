@@ -40,6 +40,7 @@ class BpmnBuilder:
         metadata: dict[str, Any] | None = None,
         start_event_classical_nodes: list[Any] | None = None,
         containsPlaceholder: bool = False,
+        plugin_components=None,
     ):
         """
         Initializes the BpmnBuilder.
@@ -58,6 +59,7 @@ class BpmnBuilder:
         self.metadata = metadata or {}
         self.start_event_classical_nodes = start_event_classical_nodes or []
         self.containsPlaceholder = containsPlaceholder
+        self.plugin_components = plugin_components or []
 
         self._register_namespaces()
         self._init_xml()
@@ -126,7 +128,10 @@ class BpmnBuilder:
 
         # Create Chains
         for start_node in start_nodes:
-            if self.containsPlaceholder:
+            if self.plugin_components:
+                print("not implemented yet")
+                self._create_chain_standard(start_node) # TODO: Implement a new chain function for plugins and replace this line
+            elif self.containsPlaceholder:
                 self._create_chain_placeholder(start_node)
             else:
                 self._create_chain_standard(start_node)
