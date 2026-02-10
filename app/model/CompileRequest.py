@@ -465,6 +465,52 @@ LiteralNode = (
 # endregion
 
 
+# region PluginNode
+class PluginInputDescription(BaseModel):
+    """
+    Description of an Input of a PluginNode.
+    """
+
+    contentType: list[str]
+    dataType: str
+    parameter: str
+    required: bool
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class PluginOutputDescription(BaseModel):
+    """
+    Description of an Output of a PluginNode.
+    """
+
+    contentType: list[str]
+    dataType: str
+    name: str
+    required: bool
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class PluginNode(BaseNode):
+    """
+    Node representing a qhana plugin.
+    """
+
+    type: Literal["plugin"] = "plugin"
+
+    pluginName: str
+    """The plugin used."""
+
+    inputs: list[PluginInputDescription]
+    outputs: list[PluginOutputDescription]
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+# endregion
+
+
 class AncillaNode(BaseNode):
     """
     Node allocating ancillary qubits for temporary computation.
@@ -568,6 +614,7 @@ NestableNode = (
     | GateNode
     | ParameterizedGateNode
     | LiteralNode
+    | PluginNode
     | AncillaNode
     | OperatorNode
 )
