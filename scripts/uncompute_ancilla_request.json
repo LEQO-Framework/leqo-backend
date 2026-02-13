@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Uncompute + Ancilla Reuse Demo",
+    "description": "Producer exposes uncomputable ancillae; consumer needs clean workspace so width optimization can decide to uncompute and reuse.",
+    "author": "CLI Tester",
+    "optimizeWidth": 1
+  },
+  "nodes": [
+    {
+      "id": "producer",
+      "type": "implementation",
+      "label": "Creates uncomputable ancillae",
+      "implementation": "OPENQASM 3.1;\nqubit data;\nh data;\nqubit[2] anc;\ncx data, anc[0];\ncx anc[0], anc[1];\n@leqo.output 0\nlet out = data;\n@leqo.uncompute\nif (false) {\n    cx anc[0], anc[1];\n    cx data, anc[0];\n    @leqo.reusable\n    let anc_clean = anc;\n}"
+    },
+    {
+      "id": "consumer",
+      "type": "implementation",
+      "label": "Requires clean workspace",
+      "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit in_data;\nqubit[2] work;\ncx in_data, work[0];\nx work[1];\n@leqo.output 0\nlet out = in_data;"
+    }
+  ],
+  "edges": [
+    { "source": ["producer", 0], "target": ["consumer", 0] }
+  ]
+}
