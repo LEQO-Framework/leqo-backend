@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal, cast
 
 from fastapi import Depends
 from networkx.algorithms.dag import topological_sort
+from openqasm3.ast import Program
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.config import Settings
@@ -24,6 +25,7 @@ from app.model.CompileRequest import (
     ImplementationNode,
     InsertRequest,
     IntLiteralNode,
+    MusicDataNode,
     NestedBlock,
     OptimizeSettings,
     RepeatNode,
@@ -462,7 +464,16 @@ class EnrichingProcessor(CommonProcessor):
                             implementation=leqo_dumps(enriched.implementation),
                         )
                     )
-                    self._process_node(enriched_node, requested_inputs)
+                    if isinstance(frontend_node, MusicDataNode):
+                        empty_program = Program(statements=[], version="3.1")
+                        self.frontend_to_processed[enriched_node.id] = (
+                            ProcessedProgramNode(
+                                ProgramNode(enriched_node.id),
+                                empty_program,
+                            )
+                        )
+                    else:
+                        self._process_node(enriched_node, requested_inputs)
                     yield enriched_node
 
     async def enrich_all(self) -> list[ImplementationNode]:

@@ -401,8 +401,10 @@ async def add_music_feature_to_db(
             durationSeconds=duration_seconds,
         )
         session.add(new_feature)
+        await session.flush()
+        new_id = new_feature.id
         await session.commit()
-        return new_feature.id
+        return new_id
 
 
 async def get_music_feature_from_db(

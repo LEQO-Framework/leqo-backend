@@ -21,6 +21,23 @@ Optional output file:
 python scripts/extract_music_features.py path/to/score.mxl --format mxl --output features.json
 ```
 
+### API Mode (Batch)
+
+You can also call the running backend API to extract features in bulk:
+
+```bash
+python scripts/extract_music_features.py music-files/mxl-files \
+  --format mxl \
+  --api \
+  --output-dir music-files/mxl-features \
+  --batch-size 10 \
+  --overwrite
+```
+
+Notes:
+- `--output-dir` is required for directory inputs in API mode.
+- The default endpoint is `/debug/enrich`; override with `--endpoint` if needed.
+
 ### Behavior
 
 - The script expects UTF-8 MusicXML for `musicxml`/`xml` formats.
