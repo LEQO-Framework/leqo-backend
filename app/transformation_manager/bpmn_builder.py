@@ -100,7 +100,10 @@ class BpmnBuilder:
         self.process = ET.SubElement(
             self.defs,
             self.qn(BPMN2_NS, "process"),
-            {"id": f"Process_{self.process_id}", "isExecutable": "true"},
+            {"id": f"Process_{self.process_id}",
+             "isExecutable": "true",
+             self.qn(CAMUNDA_NS, "historyTimeToLive"): "360000",
+            }, 
         )
 
     def qn(self, ns: str, tag: str) -> str:
@@ -129,8 +132,8 @@ class BpmnBuilder:
         # Create Chains
         for start_node in start_nodes:
             if self.plugin_components:
-                print("not implemented yet")
-                self._create_chain_standard(start_node) # TODO: Implement a new chain function for plugins and replace this line
+                print("generating clustering workflow")
+                self._create_chain_clustering(start_node)
             elif self.containsPlaceholder:
                 self._create_chain_placeholder(start_node)
             else:
@@ -233,85 +236,66 @@ class BpmnBuilder:
         task_id: str,
         name: str,
         connector_payload_script: str | None = None,
-        connector_output_var: str | None = None,
-        connector_output_script: str | None = None,
+        connector_output_parameters: list = None,
         extra_inputs: dict[str, str] | None = None,
+        extra_input_maps: dict[str, dict[str, str]] | None = None,
         extra_outputs: dict[str, str] | None = None,
         async_after: bool = True,
         exclusive: bool = False,
+        method: str = "POST",
+        url: str = None,
     ) -> None:
         """Creates a Service Task with Camunda connector configuration."""
         attrs = {"id": task_id, "name": name}
-        if async_after:
-            attrs[self.qn(CAMUNDA_NS, "asyncAfter")] = "true"
-        if exclusive:
-            attrs[self.qn(CAMUNDA_NS, "exclusive")] = (
-                "true"  # usually false in code unless setCircuit
-            )
-        else:
-            attrs[self.qn(CAMUNDA_NS, "exclusive")] = "false"
-
+        attrs[self.qn(CAMUNDA_NS, "asyncAfter")] = "true" if async_after else "false"
+        attrs[self.qn(CAMUNDA_NS, "exclusive")] = "true" if exclusive else "false"
         task = ET.SubElement(self.process, self.qn(BPMN2_NS, "serviceTask"), attrs)
 
-        if connector_payload_script or extra_inputs or extra_outputs:
-            ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
-            connector = ET.SubElement(ext, self.qn(CAMUNDA_NS, "connector"))
-            ET.SubElement(
-                connector, self.qn(CAMUNDA_NS, "connectorId")
-            ).text = "http-connector"
-            io = ET.SubElement(connector, self.qn(CAMUNDA_NS, "inputOutput"))
+        ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
+        connector = ET.SubElement(ext, self.qn(CAMUNDA_NS, "connector"))
+        io = ET.SubElement(connector, self.qn(CAMUNDA_NS, "inputOutput"))
 
-            # Common headers
-            headers = ET.SubElement(
-                io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"}
-            )
-            header_map = ET.SubElement(headers, self.qn(CAMUNDA_NS, "map"))
-            ET.SubElement(
-                header_map, self.qn(CAMUNDA_NS, "entry"), {"key": "Accept"}
-            ).text = "application/json"
-            ET.SubElement(
-                header_map, self.qn(CAMUNDA_NS, "entry"), {"key": "Content-Type"}
-            ).text = "application/json"
+        # method
+        ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = method
 
-            if extra_inputs:
-                for k, v in extra_inputs.items():
-                    ET.SubElement(
-                        io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": k}
-                    ).text = v
+        # header
+        headers = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+        header_map = ET.SubElement(headers, self.qn(CAMUNDA_NS, "map"))
+        # standard entry
+        header_entries = {"Accept": "application/json", "Content-Type": "application/json"}
+        if extra_input_maps and "headers" in extra_input_maps:
+            header_entries.update(extra_input_maps["headers"])
+        for k, v in header_entries.items():
+            ET.SubElement(header_map, self.qn(CAMUNDA_NS, "entry"), {"key": k}).text = v
 
-            if connector_payload_script:
-                payload_param = ET.SubElement(
-                    io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"}
-                )
-                script = ET.SubElement(
-                    payload_param,
-                    self.qn(CAMUNDA_NS, "script"),
-                    {"scriptFormat": "groovy"},
-                )
-                script.text = connector_payload_script
+        # url
+        ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = url
 
-            if connector_output_var and connector_output_script:
-                out_param = ET.SubElement(
-                    io,
-                    self.qn(CAMUNDA_NS, "outputParameter"),
-                    {"name": connector_output_var},
-                )
-                script = ET.SubElement(
-                    out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"}
-                )
-                script.text = connector_output_script
+        # extra inputs
+        if extra_inputs:
+            for k, v in extra_inputs.items():
+                ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": k}).text = v
 
-            if extra_outputs:
-                for k, v in extra_outputs.items():
-                    out_param = ET.SubElement(
-                        io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": k}
-                    )
-                    script = ET.SubElement(
-                        out_param,
-                        self.qn(CAMUNDA_NS, "script"),
-                        {"scriptFormat": "groovy"},
-                    )
-                    script.text = v
+        # payload param
+        if connector_payload_script:
+            payload_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
+            script = ET.SubElement(payload_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+            script.text = connector_payload_script
+
+        # output
+        for param in connector_output_parameters:
+            out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": param["name"]})
+            script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": param.get("scriptFormat", "groovy")})
+            script.text = param["script"]
+
+        # extra output params
+        if extra_outputs:
+            for k, v in extra_outputs.items():
+                out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": k})
+                script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+                script.text = v
+
+        ET.SubElement(connector, self.qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
 
     def _create_script_task(
         self,
@@ -320,15 +304,55 @@ class BpmnBuilder:
         script_content: str,
         async_after: bool = False,
         exclusive: bool = False,
+        result_variable: str = None,
+        connector: bool = False,
+        connector_id: str = "http-connector",
+        connector_input_parameters: list = None,
+        connector_output_parameters: list = None,
     ) -> None:
-        """Creates a Script Task with Groovy script content."""
+        """Creates a Script Task with Groovy script content and option for camunda connector"""
         attrs = {"id": task_id, "name": name, "scriptFormat": "groovy"}
         if async_after:
             attrs[self.qn(CAMUNDA_NS, "asyncAfter")] = "true"
         if exclusive:
             attrs[self.qn(CAMUNDA_NS, "exclusive")] = "true"
+        if result_variable:
+            attrs[self.qn(CAMUNDA_NS, "resultVariable")] = result_variable
 
         task = ET.SubElement(self.process, self.qn(BPMN2_NS, "scriptTask"), attrs)
+
+        # connector/IO script
+        if connector:
+            ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
+            connector_el = ET.SubElement(ext, self.qn(CAMUNDA_NS, "connector"))
+            io = ET.SubElement(connector_el, self.qn(CAMUNDA_NS, "inputOutput"))
+
+            # input parameter
+            if connector_input_parameters:
+                for param in connector_input_parameters:
+                    input_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": param["name"]})
+                    if "value" in param:
+                        input_param.text = param["value"]
+                    if "map" in param:
+                        header_map = ET.SubElement(input_param, self.qn(CAMUNDA_NS, "map"))
+                        for k, v in param["map"].items():
+                            ET.SubElement(header_map, self.qn(CAMUNDA_NS, "entry"), {"key": k}).text = v
+
+            # output parameter
+            if connector_output_parameters:
+                for param in connector_output_parameters:
+                    op = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": param["name"]})
+                    if "script" in param:
+                        script = ET.SubElement(op, self.qn(CAMUNDA_NS, "script"), {
+                            "scriptFormat": param.get("scriptFormat", "groovy")
+                        })
+                        script.text = param["script"]
+                    elif "value" in param:
+                        op.text = param["value"]
+
+            ET.SubElement(connector_el, self.qn(CAMUNDA_NS, "connectorId")).text = connector_id
+
+        # normal script
         ET.SubElement(task, self.qn(BPMN2_NS, "script")).text = script_content
 
     def _create_chain_common(
@@ -356,39 +380,72 @@ class BpmnBuilder:
         self._create_service_task(
             createdeploym_id,
             "Create Deployment",
-            GroovyScript.PAYLOAD_CREATE_DEPLOYMENT,
-            "deploymentId",
-            GroovyScript.OUTPUT_DEPLOYMENT_ID,
-            extra_inputs={
-                "method": "POST",
-                "url": "http://${ipAdress}:8080/deployments/",
+            async_after=True,
+            exclusive=False,
+            method="POST",
+            url="http://${ipAdress}:8080/deployments/",
+            extra_input_maps={
+                "headers": {
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
             },
+            connector_payload_script=GroovyScript.PAYLOAD_CREATE_DEPLOYMENT,
+            connector_output_parameters=[
+                {"name": "deploymentId", "script": GroovyScript.OUTPUT_DEPLOYMENT_ID},
+            ],
         )
 
         self._create_service_task(
             exejob_id,
             "Execute Job",
-            GroovyScript.PAYLOAD_EXECUTE_JOB,
-            "jobId",
-            GroovyScript.OUTPUT_JOB_ID,
-            extra_inputs={"method": "POST", "url": "http://${ipAdress}:8080/jobs/"},
+            async_after=True,
+            exclusive=False,
+            method="POST",
+            url="http://${ipAdress}:8080/jobs/",
+            extra_input_maps={
+                "headers": {
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            },
+            connector_payload_script=GroovyScript.PAYLOAD_EXECUTE_JOB,
+            connector_output_parameters=[
+                {"name": "jobId", "script": GroovyScript.OUTPUT_JOB_ID},
+            ],
         )
 
         self._create_service_task(
             getjobres_id,
             "Get Job Results",
-            extra_inputs={"method": "GET", "url": "http://${ipAdress}:8080${jobId}"},
-            extra_outputs={
-                "resultExecution": GroovyScript.OUTPUT_RESULT_EXECUTION,
-                "statusJob": GroovyScript.OUTPUT_STATUS_JOB,
-            },
-            async_after=False,
+            async_after=True,
             exclusive=False,
-        )  # Defaults in orig code? Check below... orig code didn't specify async on getjobres, so False.
-
-        self._create_script_task(
-            setvars2_id, "Set Variables", GroovyScript.SCRIPT_SET_VARS_2
+            method="GET",
+            url="http://${ipAdress}:8080${jobId}",
+            extra_input_maps={
+                "headers": {
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            },
+            connector_output_parameters=[
+                {"name": "resultExecution", "script": GroovyScript.OUTPUT_RESULT_EXECUTION},
+                {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_JOB}
+            ],
         )
+
+        if self.plugin_components:
+            self._create_script_task(
+            setvars2_id,
+            "Set Variables",
+            GroovyScript.SCRIPT_CLUSTERING_SET_VARS
+            )
+        else:
+            self._create_script_task(
+            setvars2_id,
+            "Set Variables",
+            GroovyScript.SCRIPT_SET_VARS_2
+            )
 
         ET.SubElement(
             self.process,
@@ -550,6 +607,101 @@ class BpmnBuilder:
             setvars2_id,
         )
 
+    def _create_chain_clustering(self, start_node: str) -> None:
+        """
+        Creates a clustering plugin execution chain.
+        StartEvent -> Load File -> Call Clustering Plugin -> Poll Job Results -> Set Variables -> Analyze Results -> EndEvent
+        """
+        load_file_id = f"Task_{start_node}_load_file"
+        call_plugin_id = f"Task_{start_node}_call_plugin"
+        poll_job_id = f"Task_{start_node}_poll_job_res"
+
+        # Get needed parts from common parts
+        (
+            _,
+            _,
+            _,
+            setvars2_id,
+            gateway3_id,
+            gateway4_id,
+        ) = self._create_chain_common(start_node)
+
+        # Specific parts
+        self._create_script_task(
+            load_file_id,
+            "Load File",
+            GroovyScript.SCRIPT_LOAD_FILE,
+            async_after=True,
+            exclusive=True,
+            result_variable="circuit",
+            connector=True,
+            connector_input_parameters=[
+                {
+                    "name": "headers",
+                    "map": {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    }
+                }
+            ],
+            connector_output_parameters=[
+                {
+                    "name": "circuit",
+                    "script": GroovyScript.OUTPUT_PARAM_LOAD_FILE
+                }
+                ]
+        )
+
+        plugin_name = "classical-k-means" # this is hardcoded -> resolve dynamically
+        task_name = self.get_plugin_task_name(plugin_name)
+
+        self._create_service_task(
+            call_plugin_id,
+            task_name,
+            async_after=True,
+            exclusive=False,
+            method="POST",
+            url="http://${ipAdress}:5005/plugins/classical-k-means@v0-1-1/process/",
+            extra_input_maps={
+                "headers": {
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            },
+            connector_payload_script=GroovyScript.PAYLOAD_CALL_KMEANS,
+            connector_output_parameters=[
+                {"name": "deploymentId", "script": GroovyScript.OUTPUT_KMEANS_DEPLOYMENT_ID},
+            ],
+        )
+
+        self._create_service_task(
+            poll_job_id,
+            "Poll Job Results",
+            async_after=True,
+            exclusive=False,
+            method="GET",
+            url="http://${ipAdress}:5005/${deploymentId}",
+            extra_input_maps={
+                "headers": {
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            },
+            connector_output_parameters=[
+                {"name": "resultExecution", "script": GroovyScript.OUTPUT_RESULT_EXECUTION},
+                {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_JOB}
+            ]
+        )
+
+        self.inserted_chains[start_node] = (
+            load_file_id,
+            call_plugin_id,
+            gateway3_id,
+            poll_job_id,
+            gateway4_id,
+            setvars2_id,
+        )
+
     def _calculate_layout(
         self,
         start_nodes: list[str],
@@ -601,37 +753,70 @@ class BpmnBuilder:
             human_id = self.human_tasks[start_node]
 
             # Common tail always present
-            tail = chain[-6:]
-            (
-                createdeploym_id,
-                exejob_id,
-                gateway3_id,
-                getjobres_id,
-                gateway4_id,
-                setvars2_id,
-            ) = tail
+            tail = chain
+            if self.plugin_components: # plugin
+                tail = chain[-6:]
+                (
+                    _,
+                    call_plugin_id,
+                    gateway3_id,
+                    poll_job_id,
+                    gateway4_id,
+                    setvars2_id,
+                ) = tail
 
-            # place common tasks
-            self.task_positions[createdeploym_id] = (
-                x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                y,
-            )
-            self.task_positions[exejob_id] = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-            self.task_positions[getjobres_id] = (
-                x + 6 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                y,
-            )
+                # place common tasks
+                self.task_positions[call_plugin_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+                self.task_positions[poll_job_id] = (
+                    x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
+                    y,
+                )
 
-            # Gateway 3
-            self._place_gateway_between(exejob_id, getjobres_id, gateway3_id)
-            self.task_positions[setvars2_id] = (
-                x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                y,
-            )
+                # Gateway 3
+                self._place_gateway_between(call_plugin_id, poll_job_id, gateway3_id)
+                self.task_positions[setvars2_id] = (
+                    x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
+                    y,
+                    )
+                
+                # Gateway 4
+                self._place_gateway_between(poll_job_id, setvars2_id, gateway4_id)
+                self.task_positions[human_id] = (
+                    x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), 
+                    y,
+                    )
+            else: # non plugin
+                tail = chain[-6:]
+                (
+                    createdeploym_id,
+                    exejob_id,
+                    gateway3_id,
+                    getjobres_id,
+                    gateway4_id,
+                    setvars2_id,
+                ) = tail
 
-            # Gateway 4
-            self._place_gateway_between(getjobres_id, setvars2_id, gateway4_id)
-            self.task_positions[human_id] = (x + 8 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+                # place common tasks
+                self.task_positions[createdeploym_id] = (
+                    x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
+                    y,
+                    )
+                self.task_positions[exejob_id] = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+                self.task_positions[getjobres_id] = (
+                    x + 6 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
+                    y,
+                    )
+
+                # Gateway 3
+                self._place_gateway_between(exejob_id, getjobres_id, gateway3_id)
+                self.task_positions[setvars2_id] = (
+                    x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
+                    y,
+                    )
+                
+                # Gateway 4
+                self._place_gateway_between(getjobres_id, setvars2_id, gateway4_id)
+                self.task_positions[human_id] = (x + 8 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
 
             analyzefailedjob_id = self.fail_job_tasks[start_node]
             # place transformation tasks
@@ -653,44 +838,52 @@ class BpmnBuilder:
                 self.task_positions[backendreq_id] = (
                     x + 1 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
                     y,
-                )
+                    )
                 self.task_positions[pollstat_id] = (
                     x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
                     y,
-                )
+                    )
 
                 # Gateway 1
                 self._place_gateway_between(backendreq_id, pollstat_id, gateway1_id)
                 self.task_positions[retrievecirc_id] = (
                     x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
                     y,
-                )
+                    )
 
                 # Gateway 2
                 self._place_gateway_between(pollstat_id, retrievecirc_id, gateway2_id)
                 self.task_positions[updatevars_id] = (
                     x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
                     y - BPMN_TASK_HEIGHT - 30,
-                )
+                    )
 
                 gx2, gy2 = self.task_positions[gateway2_id]
                 self.task_positions[analyzefailedtransf_id] = (
                     gx2,
                     gy2 + BPMN_TASK_HEIGHT + 20,
-                )
+                    )
                 self.task_positions[analyzefailedjob_id] = (
                     x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
                     y + BPMN_TASK_HEIGHT + 30,
-                )
+                    )
 
             else:
                 # no placeholder part
-                setcirc_id = chain[0]
-                self.task_positions[setcirc_id] = (x, y)
-                self.task_positions[analyzefailedjob_id] = (
-                    x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y + BPMN_TASK_HEIGHT + 30,
-                )
+                if self.plugin_components: # plugin workflow
+                    load_file_id = chain[0]
+                    self.task_positions[load_file_id] = (x, y)
+                    self.task_positions[analyzefailedjob_id] = (
+                        x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
+                        y + BPMN_TASK_HEIGHT + 30,
+                        )
+                else: # non plugin workflow
+                    setcirc_id = chain[0]
+                    self.task_positions[setcirc_id] = (x, y)
+                    self.task_positions[analyzefailedjob_id] = (
+                        x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
+                        y + BPMN_TASK_HEIGHT + 30,
+                        )
 
             # alternative end events
             afj_x, afj_y = self.task_positions[analyzefailedjob_id]
@@ -698,14 +891,14 @@ class BpmnBuilder:
                 if altend_id.endswith("_alt_end_2"):
                     self.task_positions[altend_id] = (
                         afj_x + BPMN_TASK_WIDTH + BPMN_GAP_X // 2,
-                        afj_y + 28,
-                    )
+                        afj_y + 22,
+                        )
                 else:
                     # alt_end_1
                     self.task_positions[altend_id] = (
                         x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X) + 30,
-                        afj_y + 28,
-                    )
+                        afj_y + 22,
+                        )
 
         # Place original nodes
         for level, nids in level_positions.items():
@@ -733,9 +926,13 @@ class BpmnBuilder:
 
             # unpack chain tail
             createdeploym_id = chain[-6]
-            exejob_id = chain[-5]
+            if self.plugin_components: # plugin
+                call_plugin_id = chain[-5]
+                poll_job_id = chain[-3]
+            else: # non plugin
+                exejob_id = chain[-5]
+                getjobres_id = chain[-3]
             gateway3_id = chain[-4]
-            getjobres_id = chain[-3]
             gateway4_id = chain[-2]
             setvars2_id = chain[-1]
 
@@ -780,20 +977,31 @@ class BpmnBuilder:
                 flow_map.append((self.new_flow(), updatevars_id, gateway1_id))
 
             else:
-                setcirc_id = chain[0]
-                if i == 0:
-                    flow_map.append((self.new_flow(), self.start_id, setcirc_id))
-                flow_map.append((self.new_flow(), setcirc_id, createdeploym_id))
+                if self.plugin_components: # plugin
+                    load_file_id = chain[0]
+                    if i == 0:
+                        flow_map.append((self.new_flow(), self.start_id, load_file_id))
+                        flow_map.append((self.new_flow(), load_file_id, call_plugin_id))
+                else: # non plugin
+                    setcirc_id = chain[0]
+                    if i == 0:
+                        flow_map.append((self.new_flow(), self.start_id, setcirc_id))
+                    flow_map.append((self.new_flow(), setcirc_id, createdeploym_id))
 
             # Common tail flows
-            flow_map.append((self.new_flow(), createdeploym_id, exejob_id))
-            flow_map.append((self.new_flow(), exejob_id, gateway3_id))
-
-            fid = self.new_flow()
-            flow_map.append((fid, gateway3_id, getjobres_id))
-            self.gateway_default_targets[gateway3_id] = fid
-
-            flow_map.append((self.new_flow(), getjobres_id, gateway4_id))
+            if self.plugin_components: # plugin
+                flow_map.append((self.new_flow(), call_plugin_id, gateway3_id))
+                fid = self.new_flow()
+                flow_map.append((fid, gateway3_id, poll_job_id))
+                self.gateway_default_targets[gateway3_id] = fid
+                flow_map.append((self.new_flow(), poll_job_id, gateway4_id))
+            else: # non plugin
+                flow_map.append((self.new_flow(), createdeploym_id, exejob_id))
+                flow_map.append((self.new_flow(), exejob_id, gateway3_id))
+                fid = self.new_flow()
+                flow_map.append((fid, gateway3_id, getjobres_id))
+                self.gateway_default_targets[gateway3_id] = fid
+                flow_map.append((self.new_flow(), getjobres_id, gateway4_id))
 
             fid = self.new_flow()
             flow_map.append((fid, gateway4_id, setvars2_id))
@@ -939,7 +1147,15 @@ class BpmnBuilder:
         left_dock_sources = set()
         right_dock_targets = set()
 
-        if self.containsPlaceholder:
+        if self.plugin_components: # plugin
+            for start_node, chain in self.inserted_chains.items():
+                for fid, src, tgt in self.flow_map:
+                    if src.endswith("_gateway_4") and tgt.endswith("_gateway_3"):
+                        top_dock_sources.add((src, tgt))
+                        top_dock_targets.add((src, tgt))
+                    if src.endswith("_gateway_4") and tgt.endswith("_analyze_failed_job"):
+                        bottom_dock_sources.add((src, tgt))
+        elif self.containsPlaceholder: # placeholder
             for start_node, chain in self.inserted_chains.items():
                 # Reconstruct specific IDs from chain
                 gateway2_id = chain[4]
@@ -961,7 +1177,7 @@ class BpmnBuilder:
 
                 right_dock_targets.add((gateway2_id, updatevars_id))
                 left_dock_sources.add((updatevars_id, gateway1_id))
-        else:
+        else: # non placeholder
             for start_node, chain in self.inserted_chains.items():
                 gateway3_id = chain[3]
                 gateway4_id = chain[5]
@@ -1047,3 +1263,13 @@ class BpmnBuilder:
             ET.SubElement(
                 edge, self.qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty))
             )
+
+    def get_plugin_task_name(self, plugin_name: str) -> str:
+        name_map = {
+            "classical-k-means": "K-Means",
+            "classical-k-medoids": "K-Medoids",
+            "quantum-k-means": "K-Means",
+            "quantum-k-medoids": "K-Medoids",
+        }
+        readable = name_map.get(plugin_name, plugin_name.replace("-", " ").title())
+        return f"Call {readable} Clustering"

@@ -514,7 +514,7 @@ class EnrichingProcessor(CommonProcessor):
         return [x async for x in self.enrich()]
 
 
-CLASSICAL_TYPES = {"int", "float", "angle", "boolean", "bit"}
+CLASSICAL_TYPES = {"int", "float", "angle", "boolean", "bit", "file"}
 
 
 class WorkflowProcessor(CommonProcessor):
@@ -554,43 +554,52 @@ class WorkflowProcessor(CommonProcessor):
             node_id: {} for node_id in self.frontend_graph.nodes
         }
 
-        # Attach quantum group info
-        for group_id, nodes in quantum_groups.items():
-            for node in nodes:
-                node_id = getattr(node, "id", None)
-                if node_id:
-                    node_metadata[node_id]["quantum_group"] = group_id
+        if not quantum_groups:
+            print("No quantum groups detected. Using plugin nodes as start nodes")
+            nodes_dict = dict(self.frontend_graph.node_data)
+            print("nodes_dict: ", nodes_dict)
+            edges = list(self.frontend_graph.edges)
+            print("edges: ", edges)
+            composite_nodes = {nid: node for nid, node in nodes_dict.items() if getattr(node, "type", None) == "plugin"}
+            collapsed_edges_list = [(src, tgt) for src, tgt in edges if src in composite_nodes and tgt in composite_nodes]
+        else:
+            # Attach quantum group info
+            for group_id, nodes in quantum_groups.items():
+                for node in nodes:
+                    node_id = getattr(node, "id", None)
+                    if node_id:
+                        node_metadata[node_id]["quantum_group"] = group_id
 
-        # Collapse quantum groups into composite nodes
-        nodes_dict: dict[str, Any] = dict(self.frontend_graph.node_data)
-        edges = list(self.frontend_graph.edges)
+            # Collapse quantum groups into composite nodes
+            nodes_dict: dict[str, Any] = dict(self.frontend_graph.node_data)
+            edges = list(self.frontend_graph.edges)
 
-        node_to_group: dict[str, str] = {}
-        for gid, group_nodes in quantum_groups.items():
-            for n in group_nodes:
-                node_to_group[n.id] = gid
+            node_to_group: dict[str, str] = {}
+            for gid, group_nodes in quantum_groups.items():
+                for n in group_nodes:
+                    node_to_group[n.id] = gid
 
-        composite_nodes: dict[str, Any] = {}
-        for nid, node in nodes_dict.items():
-            ngid = node_to_group.get(nid)
-            if ngid:
-                if ngid not in composite_nodes:
-                    composite_nodes[ngid] = node  # pick representative
-            elif getattr(node, "type", None) not in CLASSICAL_TYPES:
-                composite_nodes[nid] = node
+            composite_nodes: dict[str, Any] = {}
+            for nid, node in nodes_dict.items():
+                ngid = node_to_group.get(nid)
+                if ngid:
+                    if ngid not in composite_nodes:
+                        composite_nodes[ngid] = node  # pick representative
+                elif getattr(node, "type", None) not in CLASSICAL_TYPES:
+                    composite_nodes[nid] = node
 
-        # Remap edges to composite nodes
-        collapsed_edges: set[tuple[str, str]] = set()
-        for src, tgt in edges:
-            src_gid = node_to_group.get(src, src)
-            tgt_gid = node_to_group.get(tgt, tgt)
-            if (
-                src_gid != tgt_gid
-                and src_gid in composite_nodes
-                and tgt_gid in composite_nodes
-            ):
-                collapsed_edges.add((src_gid, tgt_gid))
-        collapsed_edges_list: list[tuple[str, str]] = list(collapsed_edges)
+            # Remap edges to composite nodes
+            collapsed_edges: set[tuple[str, str]] = set()
+            for src, tgt in edges:
+                src_gid = node_to_group.get(src, src)
+                tgt_gid = node_to_group.get(tgt, tgt)
+                if (
+                    src_gid != tgt_gid
+                    and src_gid in composite_nodes
+                    and tgt_gid in composite_nodes
+                ):
+                    collapsed_edges.add((src_gid, tgt_gid))
+            collapsed_edges_list: list[tuple[str, str]] = list(collapsed_edges)
 
         # Generate BPMN XML
         try:
@@ -609,15 +618,15 @@ class WorkflowProcessor(CommonProcessor):
             )
         except Exception as e:
             print("!!! BPMN GENERATION FAILED !!!", repr(e))
-            # Optional: setze Status auf failed
-            return "", b""  # oder wie immer Fehler gehandhabt werden
+            return "", b""
 
         print("Service Task Generation")
         # Generate ZIP-of-ZIPs for Python files
         # service_zip_bytes = await self.generate_service_zips(all_activities, node_metadata)
 
         # Generate QRMs
-        qrms = await generate_qrms(quantum_groups)
+        if quantum_groups:
+            qrms = await generate_qrms(quantum_groups)
         # return service_zip_bytes
         return bpmn_xml
 
@@ -677,8 +686,10 @@ class WorkflowProcessor(CommonProcessor):
         quantum_nodes = [
             self.frontend_graph.node_data[node_id]
             for node_id in self.frontend_graph.nodes
-            if getattr(self.frontend_graph.node_data[node_id], "type", None)
-            not in CLASSICAL_TYPES
+            if (
+                getattr(self.frontend_graph.node_data[node_id], "type", None) not in CLASSICAL_TYPES
+                and getattr(self.frontend_graph.node_data[node_id], "type", None) != "plugin"
+            )
         ]
 
         # print(f"Quantum nodes: {[node.id for node in quantum_nodes]}")
