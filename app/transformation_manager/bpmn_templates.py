@@ -69,37 +69,24 @@ def resp = new JsonSlurper()
 
 return resp.state"""
 
-SCRIPT_SET_VARS_2 = """def model= "{\"metadata\":{\"optimizeWidth\":null,\"optimizeDepth\":null,\"version\":\"1.0.0\",\"name\":\"My Model\",\"description\":\"This is a model.\",\"author\":\"\",\"containsPlaceholder\":false},\"compilation_target\":\"qasm\",\"nodes\":[{\"id\":\"1a1f4fe0-9c18-4956-a394-c6326ab10f80\",\"label\":null,\"type\":\"qubit\",\"size\":1},{\"id\":\"1d9e5132-79f3-475d-ba91-7e63b89fef85\",\"label\":null,\"type\":\"gate\",\"gate\":\"h\"}],\"edges\":[{\"source\":[\"1a1f4fe0-9c18-4956-a394-c6326ab10f80\",0],\"target\":[\"1d9e5132-79f3-475d-ba91-7e63b89fef85\",0],\"size\":null,\"identifier\":null}]}"
+SCRIPT_SET_VARS_PLACEHOLDER = """def model= '{"metadata":{"optimizeWidth":null,"optimizeDepth":null,"version":"1.0.0","name":"My Model","description":"This is a model.","author":"","containsPlaceholder":false},"compilation_target":"qasm","nodes":[{"id":"1a1f4fe0-9c18-4956-a394-c6326ab10f80","label":null,"type":"qubit","size":1},{"id":"1d9e5132-79f3-475d-ba91-7e63b89fef85","label":null,"type":"gate","gate":"h"}],"edges":[{"source":["1a1f4fe0-9c18-4956-a394-c6326ab10f80",0],"target":["1d9e5132-79f3-475d-ba91-7e63b89fef85",0],"size":null,"identifier":null}]}'
 execution.setVariable("model", model)
 def groupId = execution.getVariable("groupId")
 if (!groupId){
-execution.setVariable("groupId", 0)
+    execution.setVariable("groupId", 0)
 }else{
-execution.setVariable("groupId", groupId+1)
+    execution.setVariable("groupId", groupId+1)
 }
 
-def iterations= execution.getVariable("iterations")
+def iterations = execution.getVariable("iterations")
 if (!iterations){
-execution.setVariable("iterations", 0)
-}else{
-execution.setVariable("iterations", iterations+1)
+    execution.setVariable("iterations", 0)
+} else {
+    execution.setVariable("iterations", iterations+1)
 }"""
 
-SCRIPT_SET_VARS_1 = """def model= "{\"metadata\":{\"optimizeWidth\":null,\"optimizeDepth\":null,\"version\":\"1.0.0\",\"name\":\"My Model\",\"description\":\"This is a model.\",\"author\":\"\",\"containsPlaceholder\":false},\"compilation_target\":\"qasm\",\"nodes\":[{\"id\":\"1a1f4fe0-9c18-4956-a394-c6326ab10f80\",\"label\":null,\"type\":\"qubit\",\"size\":1},{\"id\":\"1d9e5132-79f3-475d-ba91-7e63b89fef85\",\"label\":null,\"type\":\"gate\",\"gate\":\"h\"}],\"edges\":[{\"source\":[\"1a1f4fe0-9c18-4956-a394-c6326ab10f80\",0],\"target\":[\"1d9e5132-79f3-475d-ba91-7e63b89fef85\",0],\"size\":null,\"identifier\":null}]}"
-execution.setVariable("model", model)
-def groupId = execution.getVariable("groupId")
-if (!groupId){
-execution.setVariable("groupId", 0)
-}else{
-execution.setVariable("groupId", groupId+1)
-}
-
-def iterations= execution.getVariable("iterations")
-if (!iterations){
-execution.setVariable("iterations", 0)
-}else{
-execution.setVariable("iterations", iterations+1)
-}"""
+SCRIPT_SET_VARS = """def groupId = execution.getVariable("groupId")
+groupId = groupId + 1"""
 
 PAYLOAD_BACKEND_REQ = """import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder

@@ -66,7 +66,6 @@ class BpmnBuilder:
 
         self.start_id = "StartEvent_1"
         self.end_id = "EndEvent_1"
-        self.gateway_default_targets = {}
         self.task_positions = {}
         self.inserted_chains = {}
         self.human_tasks = {}
@@ -183,21 +182,6 @@ class BpmnBuilder:
             },
         )
 
-        if self.start_event_classical_nodes:
-            for node in self.start_event_classical_nodes:
-                node_id = getattr(node, "id", None) or "unknown"
-                node_label = getattr(node, "label", None) or node_id
-                ET.SubElement(
-                    form,
-                    self.qn(CAMUNDA_NS, "formField"),
-                    {
-                        "id": f"Input_{node_id.replace('-', '_')}_value",
-                        "label": node_label,
-                        "type": "string",
-                        "defaultValue": "0",
-                    },
-                )
-
     def _create_end_event(self) -> None:
         """Creates the End Event."""
         ET.SubElement(self.process, self.qn(BPMN2_NS, "endEvent"), {"id": self.end_id})
@@ -213,8 +197,6 @@ class BpmnBuilder:
     def _create_exclusive_gateway(self, gateway_id: str) -> None:
         """Creates an Exclusive Gateway element."""
         attrs = {"id": gateway_id}
-        if gateway_id in self.gateway_default_targets:
-            attrs["default"] = self.gateway_default_targets[gateway_id]
         ET.SubElement(self.process, self.qn(BPMN2_NS, "exclusiveGateway"), attrs)
 
     def _place_gateway_between(self, left_id: str, right_id: str, gateway_id: str):
@@ -444,7 +426,7 @@ class BpmnBuilder:
             self._create_script_task(
             setvars2_id,
             "Set Variables",
-            GroovyScript.SCRIPT_SET_VARS_2
+            GroovyScript.SCRIPT_SET_VARS
             )
 
         ET.SubElement(
@@ -542,10 +524,9 @@ class BpmnBuilder:
         self._create_script_task(
             setvars1_id,
             "Set Variables",
-            GroovyScript.SCRIPT_SET_VARS_1,
+            GroovyScript.SCRIPT_SET_VARS_PLACEHOLDER,
             result_variable="matrix"
         )
-        print("set vars created")
 
         self._create_service_task(
             backendreq_id,
@@ -557,7 +538,7 @@ class BpmnBuilder:
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/json"
                 }
             },
             connector_payload_script=GroovyScript.PAYLOAD_BACKEND_REQ,
@@ -565,7 +546,6 @@ class BpmnBuilder:
                 {"name": "uuid", "script": GroovyScript.OUTPUT_UUID}
             ],
         )
-        print("send backend req created")
 
         self._create_service_task(
             pollstat_id,
@@ -577,14 +557,13 @@ class BpmnBuilder:
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/json"
                 }
             },
             connector_output_parameters=[
                 {"name": "status", "script": GroovyScript.OUTPUT_STATUS}
             ]
         )
-        print("poll stat created")
 
         self._create_service_task(
             retrievecirc_id,
@@ -596,14 +575,13 @@ class BpmnBuilder:
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/json"
                 }
             },
             connector_output_parameters=[
                 {"name": "circuit", "script": GroovyScript.OUTPUT_CIRCUIT}
             ],
         )
-        print("retr circ created")
 
         self._create_exclusive_gateway(
             gateway1_id
@@ -618,7 +596,6 @@ class BpmnBuilder:
             GroovyScript.SCRIPT_UPDATE_VARS,
             result_variable="matrix",
         )
-        print("update vars created")
 
         ET.SubElement(
             self.process,
@@ -995,7 +972,6 @@ class BpmnBuilder:
 
                 fid = self.new_flow()
                 flow_map.append((fid, gateway1_id, pollstat_id))
-                self.gateway_default_targets[gateway1_id] = fid
 
                 flow_map.append((self.new_flow(), backendreq_id, gateway1_id))
                 flow_map.append((self.new_flow(), pollstat_id, gateway2_id))
@@ -1006,7 +982,6 @@ class BpmnBuilder:
 
                 fid_def = self.new_flow()
                 flow_map.append((fid_def, gateway2_id, analyzefailedtransf_id))
-                self.gateway_default_targets[gateway2_id] = fid_def
 
                 flow_map.append((self.new_flow(), gateway2_id, updatevars_id))
 
@@ -1033,19 +1008,16 @@ class BpmnBuilder:
                 flow_map.append((self.new_flow(), call_plugin_id, gateway3_id))
                 fid = self.new_flow()
                 flow_map.append((fid, gateway3_id, poll_job_id))
-                self.gateway_default_targets[gateway3_id] = fid
                 flow_map.append((self.new_flow(), poll_job_id, gateway4_id))
             else: # non plugin
                 flow_map.append((self.new_flow(), createdeploym_id, exejob_id))
                 flow_map.append((self.new_flow(), exejob_id, gateway3_id))
                 fid = self.new_flow()
                 flow_map.append((fid, gateway3_id, getjobres_id))
-                self.gateway_default_targets[gateway3_id] = fid
                 flow_map.append((self.new_flow(), getjobres_id, gateway4_id))
 
             fid = self.new_flow()
             flow_map.append((fid, gateway4_id, setvars2_id))
-            self.gateway_default_targets[gateway4_id] = fid
 
             flow_map.append((self.new_flow(), setvars2_id, human_id))
             flow_map.append((self.new_flow(), gateway4_id, analyzefailedjob_id))
@@ -1058,12 +1030,6 @@ class BpmnBuilder:
                 flow_map.append((self.new_flow(), human_id, next_chain[0]))
             else:
                 flow_map.append((self.new_flow(), human_id, self.end_id))
-
-        # Update gateway defaults in XML
-        for gateway_id, default_fid in self.gateway_default_targets.items():
-            gw = self.process.find(f".//*[@id='{gateway_id}']")
-            if gw is not None:
-                gw.set("default", default_fid)
 
         # Create Sequence Flows
         for fid, src, tgt in flow_map:
@@ -1094,29 +1060,30 @@ class BpmnBuilder:
         )
 
         # gateway conditions
-        if src in self.gateway_default_targets:
-            default_fid = self.gateway_default_targets[src]
-            if fid != default_fid:
-                if src.endswith("_gateway_2"):
-                    cond = ET.SubElement(
-                        sf,
-                        self.qn(BPMN2_NS, "conditionExpression"),
-                        {self.qn(XSI_NS, "type"): "bpmn:tFormalExpression"},
-                    )
-                    if tgt.endswith("_retrieve_circuit"):
-                        cond.text = '${status == "completed"}'
-                    elif tgt.endswith("_update_vars"):
-                        cond.text = '${status != "completed"}'
-                elif src.endswith("_gateway_4"):
-                    cond = ET.SubElement(
-                        sf,
-                        self.qn(BPMN2_NS, "conditionExpression"),
-                        {self.qn(XSI_NS, "type"): "bpmn:tFormalExpression"},
-                    )
-                    if tgt.endswith("_analyze_failed_job"):
-                        cond.text = "${jobFailed}"
-                    elif tgt.endswith("_gateway_3"):
-                        cond.text = "${!jobFailed && shouldRetry}"
+        if src.endswith("_gateway_2"):
+            cond = ET.SubElement(
+                sf,
+                self.qn(BPMN2_NS, "conditionExpression"),
+                {self.qn(XSI_NS, "type"): "bpmn:tFormalExpression"},
+            )
+            if tgt.endswith("_retrieve_circuit"):
+                cond.text = '${status == "completed"}'
+            elif tgt.endswith("_update_vars"):
+                cond.text = '${status != "completed" && iterations < 10}'
+            elif tgt.endswith("_analyze_failed_transf"):
+                cond.text = '${iterations >= 10}'
+        elif src.endswith("_gateway_4"):
+            cond = ET.SubElement(
+                sf,
+                self.qn(BPMN2_NS, "conditionExpression"),
+                {self.qn(XSI_NS, "type"): "bpmn:tFormalExpression"},
+            )
+            if tgt.endswith("_analyze_failed_job"):
+                cond.text = '${statusJob == "ERROR"}'
+            elif tgt.endswith("_gateway_3"):
+                cond.text = '${statusJob == "ERROR"}'
+            elif tgt.endswith("_set_vars_2"):
+                cond.text = '${statusJob == "FINISHED"}'
 
     def _create_diagram(self, start_nodes: list[str]) -> None:
         """Generates the BPMNDI Diagram section with shapes and edges."""
