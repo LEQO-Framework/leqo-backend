@@ -495,9 +495,10 @@ class BpmnBuilder:
         self._create_script_task(
             setcirc_id,
             "Set Circuit",
-            GroovyScript.SCRIPT_SET_CIRCUIT,
+            GroovyScript.SCRIPT_LOAD_FILE, # both tasks have the same script content
             async_after=True,
             exclusive=True,
+            result_variable="circuit"
         )
 
         self.inserted_chains[start_node] = (
@@ -539,39 +540,70 @@ class BpmnBuilder:
 
         # Specific parts
         self._create_script_task(
-            setvars1_id, "Set Variables", GroovyScript.SCRIPT_SET_VARS_1
+            setvars1_id,
+            "Set Variables",
+            GroovyScript.SCRIPT_SET_VARS_1,
+            result_variable="matrix"
         )
+        print("set vars created")
 
         self._create_service_task(
             backendreq_id,
             "Send Backend Request",
-            GroovyScript.PAYLOAD_BACKEND_REQ,
-            "uuid",
-            GroovyScript.OUTPUT_UUID,
-            extra_inputs={"method": "POST", "url": "http://${ipAdress}:8000/compile"},
+            async_after=True,
+            exclusive=False,
+            method="POST",
+            url="http://${ipAdress}:8000/compile",
+            extra_input_maps={
+                "headers": {
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            },
+            connector_payload_script=GroovyScript.PAYLOAD_BACKEND_REQ,
+            connector_output_parameters=[
+                {"name": "uuid", "script": GroovyScript.OUTPUT_UUID}
+            ],
         )
+        print("send backend req created")
 
         self._create_service_task(
             pollstat_id,
             "Poll Status",
-            extra_inputs={
-                "method": "GET",
-                "url": "http://${ipAdress}:8000/status/${uuid}",
+            async_after=True,
+            exclusive=False,
+            method="GET",
+            url="http://${ipAdress}:8000/status/${uuid}",
+            extra_input_maps={
+                "headers": {
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
             },
-            extra_outputs={"status": GroovyScript.OUTPUT_STATUS},
+            connector_output_parameters=[
+                {"name": "status", "script": GroovyScript.OUTPUT_STATUS}
+            ]
         )
+        print("poll stat created")
 
         self._create_service_task(
             retrievecirc_id,
             "Retrieve Circuit",
-            extra_inputs={
-                "method": "GET",
-                "url": "http://${ipAdress}:8000/results/${uuid}",
-            },
-            extra_outputs={"circuit": GroovyScript.OUTPUT_CIRCUIT},
-            async_after=False,
+            async_after=True,
             exclusive=False,
-        )  # check defaults
+            method="GET",
+            url="http://${ipAdress}:8000/results/${uuid}",
+            extra_input_maps={
+                "headers": {
+                    "Accept": "application/json",
+                    "Content-Type": "application/x-www-form-urlencoded"
+                }
+            },
+            connector_output_parameters=[
+                {"name": "circuit", "script": GroovyScript.OUTPUT_CIRCUIT}
+            ],
+        )
+        print("retr circ created")
 
         self._create_exclusive_gateway(
             gateway1_id
@@ -581,15 +613,23 @@ class BpmnBuilder:
         )  # gateway_default_targets is always empty at this stage therefore there will be no default attribute
 
         self._create_script_task(
-            updatevars_id, "Update Variables", GroovyScript.SCRIPT_UPDATE_VARS
+            updatevars_id,
+            "Update Variables",
+            GroovyScript.SCRIPT_UPDATE_VARS,
+            result_variable="matrix",
         )
+        print("update vars created")
+
         ET.SubElement(
             self.process,
             self.qn(BPMN2_NS, "userTask"),
             {"id": analyzefailedtransf_id, "name": "Analyze Failed Transformation"},
         )
+
         ET.SubElement(
-            self.process, self.qn(BPMN2_NS, "endEvent"), {"id": altend1_id, "name": ""}
+            self.process,
+            self.qn(BPMN2_NS, "endEvent"),
+            {"id": altend1_id, "name": ""}
         )
 
         self.inserted_chains[start_node] = (
@@ -649,7 +689,7 @@ class BpmnBuilder:
                     "name": "circuit",
                     "script": GroovyScript.OUTPUT_PARAM_LOAD_FILE
                 }
-                ]
+            ]
         )
 
         plugin_name = "classical-k-means" # this is hardcoded -> resolve dynamically
