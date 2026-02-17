@@ -369,12 +369,12 @@ class BpmnBuilder:
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/json"
                 }
             },
-            connector_payload_script=GroovyScript.PAYLOAD_CREATE_DEPLOYMENT,
+            connector_payload_script=GroovyScript.PAYLOAD_CREATE_DEPLOYMENT_COMMON,
             connector_output_parameters=[
-                {"name": "deploymentId", "script": GroovyScript.OUTPUT_DEPLOYMENT_ID},
+                {"name": "deploymentId", "script": GroovyScript.OUTPUT_DEPLOYMENT_ID_COMMON},
             ],
         )
 
@@ -388,12 +388,12 @@ class BpmnBuilder:
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/json"
                 }
             },
-            connector_payload_script=GroovyScript.PAYLOAD_EXECUTE_JOB,
+            connector_payload_script=GroovyScript.PAYLOAD_EXECUTE_JOB_COMMON,
             connector_output_parameters=[
-                {"name": "jobId", "script": GroovyScript.OUTPUT_JOB_ID},
+                {"name": "jobId", "script": GroovyScript.OUTPUT_JOB_ID_COMMON},
             ],
         )
 
@@ -403,16 +403,16 @@ class BpmnBuilder:
             async_after=True,
             exclusive=False,
             method="GET",
-            url="http://${ipAdress}:8080${jobId}",
+            url="http://${ipAdress}:8080/${jobId}",
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/json"
                 }
             },
             connector_output_parameters=[
-                {"name": "resultExecution", "script": GroovyScript.OUTPUT_RESULT_EXECUTION},
-                {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_JOB}
+                {"name": "resultExecution", "script": GroovyScript.OUTPUT_RESULT_EXECUTION_COMMON},
+                {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_JOB_COMMON}
             ],
         )
 
@@ -420,13 +420,13 @@ class BpmnBuilder:
             self._create_script_task(
             setvars2_id,
             "Set Variables",
-            GroovyScript.SCRIPT_CLUSTERING_SET_VARS
+            GroovyScript.SCRIPT_SET_VARS_CLUSTERING
             )
         else:
             self._create_script_task(
             setvars2_id,
             "Set Variables",
-            GroovyScript.SCRIPT_SET_VARS
+            GroovyScript.SCRIPT_SET_VARS_COMMON
             )
 
         ET.SubElement(
@@ -477,7 +477,7 @@ class BpmnBuilder:
         self._create_script_task(
             setcirc_id,
             "Set Circuit",
-            GroovyScript.SCRIPT_LOAD_FILE, # both tasks have the same script content
+            GroovyScript.SCRIPT_LOAD_FILE_CLUSTERING, # both tasks have the same script content
             async_after=True,
             exclusive=True,
             result_variable="circuit"
@@ -541,9 +541,9 @@ class BpmnBuilder:
                     "Content-Type": "application/json"
                 }
             },
-            connector_payload_script=GroovyScript.PAYLOAD_BACKEND_REQ,
+            connector_payload_script=GroovyScript.PAYLOAD_BACKEND_REQ_PLACEHOLDER,
             connector_output_parameters=[
-                {"name": "uuid", "script": GroovyScript.OUTPUT_UUID}
+                {"name": "uuid", "script": GroovyScript.OUTPUT_UUID_PLACEHOLDER}
             ],
         )
 
@@ -561,7 +561,7 @@ class BpmnBuilder:
                 }
             },
             connector_output_parameters=[
-                {"name": "status", "script": GroovyScript.OUTPUT_STATUS}
+                {"name": "status", "script": GroovyScript.OUTPUT_STATUS_PLACEHOLDER}
             ]
         )
 
@@ -579,7 +579,7 @@ class BpmnBuilder:
                 }
             },
             connector_output_parameters=[
-                {"name": "circuit", "script": GroovyScript.OUTPUT_CIRCUIT}
+                {"name": "circuit", "script": GroovyScript.OUTPUT_CIRCUIT_PLACEHOLDER}
             ],
         )
 
@@ -593,7 +593,7 @@ class BpmnBuilder:
         self._create_script_task(
             updatevars_id,
             "Update Variables",
-            GroovyScript.SCRIPT_UPDATE_VARS,
+            GroovyScript.SCRIPT_UPDATE_VARS_PLACEHOLDER,
             result_variable="matrix",
         )
 
@@ -647,7 +647,7 @@ class BpmnBuilder:
         self._create_script_task(
             load_file_id,
             "Load File",
-            GroovyScript.SCRIPT_LOAD_FILE,
+            GroovyScript.SCRIPT_LOAD_FILE_CLUSTERING,
             async_after=True,
             exclusive=True,
             result_variable="circuit",
@@ -664,7 +664,7 @@ class BpmnBuilder:
             connector_output_parameters=[
                 {
                     "name": "circuit",
-                    "script": GroovyScript.OUTPUT_PARAM_LOAD_FILE
+                    "script": GroovyScript.OUTPUT_PARAM_LOAD_FILE_CLUSTERING
                 }
             ]
         )
@@ -685,9 +685,9 @@ class BpmnBuilder:
                     "Content-Type": "application/x-www-form-urlencoded"
                 }
             },
-            connector_payload_script=GroovyScript.PAYLOAD_CALL_KMEANS,
+            connector_payload_script=GroovyScript.PAYLOAD_CALL_CLUSTERING,
             connector_output_parameters=[
-                {"name": "deploymentId", "script": GroovyScript.OUTPUT_KMEANS_DEPLOYMENT_ID},
+                {"name": "deploymentId", "script": GroovyScript.OUTPUT_CALL_CLUSTERING},
             ],
         )
 
@@ -705,8 +705,8 @@ class BpmnBuilder:
                 }
             },
             connector_output_parameters=[
-                {"name": "resultExecution", "script": GroovyScript.OUTPUT_RESULT_EXECUTION},
-                {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_JOB}
+                {"name": "resultExecution", "script": GroovyScript.OUTPUT_RESULT_CLUSTERING},
+                {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_CLUSTERING}
             ]
         )
 
@@ -1081,7 +1081,7 @@ class BpmnBuilder:
             if tgt.endswith("_analyze_failed_job"):
                 cond.text = '${statusJob == "ERROR"}'
             elif tgt.endswith("_gateway_3"):
-                cond.text = '${statusJob == "ERROR"}'
+                cond.text = '${statusJob != "ERROR" && statusJob != "FINISHED"}'
             elif tgt.endswith("_set_vars_2"):
                 cond.text = '${statusJob == "FINISHED"}'
 

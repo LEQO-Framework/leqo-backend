@@ -2,15 +2,16 @@
 Groovy script templates for BPMN service tasks.
 """
 
-PAYLOAD_CREATE_DEPLOYMENT = """import groovy.json.JsonBuilder
+PAYLOAD_CREATE_DEPLOYMENT_COMMON = """import groovy.json.JsonBuilder
 
 def circuit = execution.getVariable("circuit")
+println "Circuit: ${circuit}"
 
 def program = [
     programs: [
         [
             quantumCircuit: circuit,
-assemblerLanguage: "QASM3",
+            assemblerLanguage: "QASM3",
             pythonFilePath: "",
             pythonFileMetadata: ""
         ]
@@ -18,18 +19,23 @@ assemblerLanguage: "QASM3",
     name: "DeploymentName"
 ]
 
+println "program: ${program}"
+
 return new JsonBuilder(program).toPrettyString()"""
 
-OUTPUT_DEPLOYMENT_ID = """import groovy.json.JsonSlurper
+OUTPUT_DEPLOYMENT_ID_COMMON = """import groovy.json.JsonSlurper
 
 def resp = new JsonSlurper()
     .parseText(connector.getVariable("response"))
+    
+println "Response: ${resp}"
 
 return resp.id"""
 
-PAYLOAD_EXECUTE_JOB = """import groovy.json.JsonBuilder
+PAYLOAD_EXECUTE_JOB_COMMON = """import groovy.json.JsonBuilder
 
 def deploymentId = execution.getVariable("deploymentId")
+println "deploymentId: ${deploymentId}"
 
 def program = [
     name           : "JobName",
@@ -44,34 +50,41 @@ def program = [
 ]
 
 def requestString = new JsonBuilder(program).toPrettyString()
+println "RequestString"
+println requestString
 
 return requestString"""
 
-OUTPUT_JOB_ID = """import groovy.json.JsonSlurper
+OUTPUT_JOB_ID_COMMON = """import groovy.json.JsonSlurper
 
 def resp = new JsonSlurper()
     .parseText(connector.getVariable("response"))
+println "Response: ${resp}"
 
 return resp.self"""
 
-OUTPUT_RESULT_EXECUTION = """import groovy.json.JsonSlurper
+OUTPUT_RESULT_EXECUTION_COMMON = """import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 
 def resp = new JsonSlurper()
     .parseText(connector.getVariable("response"))
+println "Response: ${resp}"
 
 return new JsonBuilder(resp.results).toString()"""
 
-OUTPUT_STATUS_JOB = """import groovy.json.JsonSlurper
+OUTPUT_STATUS_JOB_COMMON = """import groovy.json.JsonSlurper
 
 def resp = new JsonSlurper()
     .parseText(connector.getVariable("response"))
+println "Response: ${resp}"
 
 return resp.state"""
 
 SCRIPT_SET_VARS_PLACEHOLDER = """def model= '{"metadata":{"optimizeWidth":null,"optimizeDepth":null,"version":"1.0.0","name":"My Model","description":"This is a model.","author":"","containsPlaceholder":false},"compilation_target":"qasm","nodes":[{"id":"1a1f4fe0-9c18-4956-a394-c6326ab10f80","label":null,"type":"qubit","size":1},{"id":"1d9e5132-79f3-475d-ba91-7e63b89fef85","label":null,"type":"gate","gate":"h"}],"edges":[{"source":["1a1f4fe0-9c18-4956-a394-c6326ab10f80",0],"target":["1d9e5132-79f3-475d-ba91-7e63b89fef85",0],"size":null,"identifier":null}]}'
 execution.setVariable("model", model)
 def groupId = execution.getVariable("groupId")
+println "groupId: ${groupId}"
+
 if (!groupId){
     execution.setVariable("groupId", 0)
 }else{
@@ -79,19 +92,23 @@ if (!groupId){
 }
 
 def iterations = execution.getVariable("iterations")
+
 if (!iterations){
     execution.setVariable("iterations", 0)
 } else {
     execution.setVariable("iterations", iterations+1)
 }"""
 
-SCRIPT_SET_VARS = """def groupId = execution.getVariable("groupId")
+SCRIPT_SET_VARS_COMMON = """def groupId = execution.getVariable("groupId")
+if (groupId == null) {
+    groupId = 1
+}
 groupId = groupId + 1"""
 
-PAYLOAD_BACKEND_REQ = """import groovy.json.JsonSlurper
+PAYLOAD_BACKEND_REQ_PLACEHOLDER = """import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
 def modelStr = execution.getVariable("model")
-print(modelStr)
+println(modelStr)
 
 def modelObj = new JsonSlurper().parseText(modelStr)
 
@@ -100,49 +117,29 @@ println("===============================")
 println(requestString)
 return requestString"""
 
-OUTPUT_UUID = """def resp = connector.getVariable("response");
-println("Response")
-println(response)
+OUTPUT_UUID_PLACEHOLDER = """def resp = connector.getVariable("response");
+println "Response: ${resp}"
 resp = new groovy.json.JsonSlurper().parseText(resp)
 println("Response to extract uuid: " + resp.toString());
 uuid= resp.get('uuid')
 println(uuid);
 return uuid;"""
 
-OUTPUT_STATUS = """def resp = connector.getVariable("response");
-println("Response")
-println(response)
+# Backend
+OUTPUT_STATUS_PLACEHOLDER = """def resp = connector.getVariable("response");
+println "Response: ${resp}"
 resp = new groovy.json.JsonSlurper().parseText(resp)
 println("Response to extract status: " + resp.toString());
-status= resp.get('status')
+status= resp.get('state')
 println(status);
 return status;"""
 
-OUTPUT_CIRCUIT = """return connector.getVariable("response")"""
+OUTPUT_CIRCUIT_PLACEHOLDER = """return connector.getVariable("response")"""
 
-SCRIPT_UPDATE_VARS = """def iterations= execution.getVariable("iterations")
+SCRIPT_UPDATE_VARS_PLACEHOLDER = """def iterations= execution.getVariable("iterations")
 execution.setVariable("iterations", iterations+1)"""
 
-SCRIPT_SET_CIRCUIT = """// defensive initialization
-execution.setVariable("jobFailed", false)
-execution.setVariable("shouldRetry", false)
-execution.setVariable("isCompleted", false)
-execution.setVariable("iterations", execution.getVariable("iterations") ?: 0)
-
-// --- QASM placeholder ---
-// TODO: replace with real QASM string from modeler/backend
-def qasmPlaceholder = '''
-OPENQASM 3.1;
-include "stdgates.inc";
-qubit[1] q;
-h q[0];
-'''
-
-execution.setVariable("circuit", qasmPlaceholder)
-
-return true"""
-
-SCRIPT_LOAD_FILE = '''execution.setVariable("circuit", """OPENQASM 3.1;
+SCRIPT_LOAD_FILE_CLUSTERING = '''execution.setVariable("circuit", """OPENQASM 3.1;
 include "stdgates.inc";
 qubit[1] leqo_reg;
 /* Start node e1239b18-6fa4-465e-86ef-dfd16700149a */
@@ -168,13 +165,13 @@ let leqo_d8d0d6144e55565e92223d41f2bd2f7c_qubit_out = leqo_d8d0d6144e55565e92223
 /* End node 9c2ea4d5-60c4-4353-9ac7-2a5e66760bd7 */
 """)'''
 
-OUTPUT_PARAM_LOAD_FILE = """def resp = connector.getVariable("response");
+OUTPUT_PARAM_LOAD_FILE_CLUSTERING = """def resp = connector.getVariable("response");
 println("Response")
 println(response)
 
 return response;"""
 
-PAYLOAD_CALL_KMEANS = """import java.net.URLEncoder
+PAYLOAD_CALL_CLUSTERING = """import java.net.URLEncoder
 
 def uri = "http://${ipAdress}:9091/experiments/2/data/entity_distances_aggregator_mean_from_transformers_attr_dist_transformer_linear_inverse_from_sym_max_mean_Yyfegz-Otytf.json/download?version=1"
 
@@ -193,7 +190,7 @@ println formData
 
 formData"""
 
-OUTPUT_KMEANS_DEPLOYMENT_ID = """println "=================== RESPONSE ==================="
+OUTPUT_CALL_CLUSTERING = """println "=================== RESPONSE ==================="
 println "Status Code: ${statusCode}"
 println "Headers: ${headers}"
 println "Body: ${response}"
@@ -210,31 +207,34 @@ println "Redirect URL: ${redirectUrl}"
 
 redirectUrl"""
 
-OUTPUT_POLL_JOB_RES = """import groovy.json.JsonSlurper
-import groovy.json.JsonBuilder
 
-def respText = connector.getVariable("response")
-
-println("Raw response:")
-println(respText)
-
-def respObj = new JsonSlurper().parseText(respText)
-
-def resultExecutionObj = respObj.results
-
-def resultExecutionJson = new JsonBuilder(resultExecutionObj).toString()
-
-println("Extracted resultExecution (JSON):")
-println(resultExecutionJson)
-return resultExecutionJson"""
-
-OUTPUT_STATUS_JOB = """println("Response")
+OUTPUT_STATUS_JOB_COMMON = """println("Response")
 println(response)
 resp = new groovy.json.JsonSlurper().parseText(response)
 println("Response to extract statusJob: " + resp.toString());
-statusJob= resp.get('status')
+statusJob= resp.get('state')
 println(statusJob);
 return statusJob;"""
 
-SCRIPT_CLUSTERING_SET_VARS = """def groupId = execution.getVariable("groupId")
+SCRIPT_SET_VARS_CLUSTERING = """def groupId = execution.getVariable("groupId")
+if (groupId == null) {
+    groupId = 1
+}
 groupId = groupId + 1"""
+
+OUTPUT_STATUS_CLUSTERING = """println("Response")
+println(response)
+resp = new groovy.json.JsonSlurper().parseText(response)
+println("Response to extract statusJob: " + resp.toString());
+statusJob= resp.get('state')
+println(statusJob);
+return statusJob;"""
+
+OUTPUT_RESULT_CLUSTERING = """import groovy.json.JsonSlurper
+import groovy.json.JsonBuilder
+
+def resp = new JsonSlurper()
+    .parseText(connector.getVariable("response"))
+println "Response: ${resp}"
+
+return new JsonBuilder(resp.results).toString()"""

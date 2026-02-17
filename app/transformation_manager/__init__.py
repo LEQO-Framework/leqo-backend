@@ -1008,6 +1008,14 @@ def _implementation_nodes_to_bpmn_xml(
     chain task (Set Variables) is linked into that node so the chain appears
     before the node in the diagram.
     """
+    print(f"_implementation_nodes_to_bpmn_xml called with:\n" \
+        f"process_id={process_id}\n" \
+        f"nodes={nodes}\n" \
+        f"edges={edges}\n" \
+        f"metadata={metadata}\n" \
+        f"start_event_classical_nodes={start_event_classical_nodes}\n" \
+        f"containsPlaceholder={containsPlaceholder}\n" \
+        f"plugin_components={plugin_components}\n")
 
     builder = BpmnBuilder(
         process_id=process_id,
