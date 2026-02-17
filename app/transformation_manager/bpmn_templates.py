@@ -216,17 +216,15 @@ statusJob= resp.get('state')
 println(statusJob);
 return statusJob;"""
 
-SCRIPT_SET_VARS_CLUSTERING = """def groupId = execution.getVariable("groupId")
-if (groupId == null) {
-    groupId = 1
-}
-groupId = groupId + 1"""
+SCRIPT_SET_VARS_CLUSTERING = """
+print "Set Variables"
+"""
 
 OUTPUT_STATUS_CLUSTERING = """println("Response")
 println(response)
 resp = new groovy.json.JsonSlurper().parseText(response)
 println("Response to extract statusJob: " + resp.toString());
-statusJob= resp.get('state')
+statusJob= resp.get('status')
 println(statusJob);
 return statusJob;"""
 
@@ -235,6 +233,6 @@ import groovy.json.JsonBuilder
 
 def resp = new JsonSlurper()
     .parseText(connector.getVariable("response"))
-println "Response: ${resp}"
+println "Response to extract resultExecution: ${resp}"
 
-return new JsonBuilder(resp.results).toString()"""
+return resp.toString()"""

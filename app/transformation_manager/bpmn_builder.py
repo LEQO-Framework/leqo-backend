@@ -671,7 +671,7 @@ class BpmnBuilder:
 
         plugin_name = "classical-k-means" # this is hardcoded -> resolve dynamically
         task_name = self.get_plugin_task_name(plugin_name)
-
+        
         self._create_service_task(
             call_plugin_id,
             task_name,
@@ -1079,11 +1079,11 @@ class BpmnBuilder:
                 {self.qn(XSI_NS, "type"): "bpmn:tFormalExpression"},
             )
             if tgt.endswith("_analyze_failed_job"):
-                cond.text = '${statusJob == "ERROR"}'
+                cond.text = '${statusJob == "ERROR" || statusJob == "FAILURE"}'
             elif tgt.endswith("_gateway_3"):
-                cond.text = '${statusJob != "ERROR" && statusJob != "FINISHED"}'
+                cond.text = '${statusJob != "ERROR" && statusJob != "FINISHED" && statusJob != "FAILURE" && statusJob != "SUCCESS"}'
             elif tgt.endswith("_set_vars_2"):
-                cond.text = '${statusJob == "FINISHED"}'
+                cond.text = '${statusJob == "FINISHED" || statusJob == "SUCCESS"}'
 
     def _create_diagram(self, start_nodes: list[str]) -> None:
         """Generates the BPMNDI Diagram section with shapes and edges."""
