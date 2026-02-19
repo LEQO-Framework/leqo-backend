@@ -350,11 +350,20 @@ class IntLiteralNode(BaseNode):
 
     type: Literal["int"] = "int"
 
-    bitSize: int = Field(default=32, ge=1)
+    bitSize: int | None = Field(default=None, ge=1)
+
     """"Bit size of the integer (optional)."""
 
     value: int | str
     """Integer value."""
+
+    @model_validator(mode="after")
+    def _default_bit_size(self) -> IntLiteralNode:
+        int_v = int(self.value)
+        self.value = int_v
+        if self.bitSize is None:
+            self.bitSize = _infer_int_bit_size(int_v)  
+        return self
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -366,7 +375,9 @@ class FloatLiteralNode(BaseNode):
 
     type: Literal["float"] = "float"
 
-    bitSize: int = Field(default=32, ge=1)
+    
+    bitSize: int | None = Field(default=None, ge=1)
+
     """Bit size of the float (optional)."""
 
     value: int | str | float
