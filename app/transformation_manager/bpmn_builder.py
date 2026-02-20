@@ -149,30 +149,27 @@ class BpmnBuilder:
                 print("creating placeholder flow")
                 self._create_placeholder_flow(start_node)
             else:
-                print("_create_nonPlaceholder_flow is not implemented yet") # TODO
+                print("creating nonPlaceholder flow")
+                self._create_non_placeholder_flow(start_node)
 
         # Connect chains if there are multiple
         self.connect_chains()
 
-        self.create_diagram_global()
+        self._create_diagram()
 
-        try:
-            all_activities = list(self.nodes.keys())
-            for start_node, chain in self.inserted_chains.items():
-                all_activities.extend(chain)
-                for task_map in [self.human_tasks, self.fail_job_tasks, self.update_tasks, self.fail_transf_tasks]:
-                    task_id = task_map.get(start_node)
-                    if task_id:
-                        all_activities.append(task_id)
-                if self.alt_ends.get(start_node):
-                    if len(self.alt_ends[start_node]) >= 1:
-                        all_activities.append(self.alt_ends[start_node][0])
-                    if len(self.alt_ends[start_node]) >= 2:
-                        all_activities.append(self.alt_ends[start_node][-1])
-            all_activities = [x for x in all_activities if x is not None]
-        except Exception as e:
-            print("there is something wrong with the activities", repr(e))
-            return "", b""
+        all_activities = list(self.nodes.keys())
+        for start_node, chain in self.inserted_chains.items():
+            all_activities.extend(chain)
+            for task_map in [self.human_tasks, self.fail_job_tasks, self.update_tasks, self.fail_transf_tasks]:
+                task_id = task_map.get(start_node)
+                if task_id:
+                    all_activities.append(task_id)
+            if self.alt_ends.get(start_node):
+                if len(self.alt_ends[start_node]) >= 1:
+                    all_activities.append(self.alt_ends[start_node][0])
+                if len(self.alt_ends[start_node]) >= 2:
+                    all_activities.append(self.alt_ends[start_node][-1])
+        all_activities = [x for x in all_activities if x is not None]
 
         return ET.tostring(self.defs, encoding="unicode"), all_activities
 
@@ -217,6 +214,28 @@ class BpmnBuilder:
 
         # Connect Flows
         flow_map = self._connect_placeholder_flows(start_node)
+        self.flow_map_per_node[start_node] = flow_map
+
+        self.chain_level += 1
+
+    def _create_non_placeholder_flow(
+            self,
+            start_node: str,
+    ) -> None:
+        """
+        Creates a flow for flows without a placeholder. Momentarily the containsPlaceholder 
+        variable is globally for the whole diagram instead of per start_node.
+        """
+
+        # Generate the nonPlaceholder chain
+        self._create_chain_standard(start_node)
+
+        # Layout
+        positions = self._calculate_standard_layout(start_node)
+        self.task_positions_per_node[start_node] = positions
+
+        # Connect Flows
+        flow_map = self._connect_standard_flows(start_node)
         self.flow_map_per_node[start_node] = flow_map
 
         self.chain_level += 1
@@ -377,7 +396,72 @@ class BpmnBuilder:
 
         print("placeholder layout calculated")
 
-        return positions        
+        return positions
+
+    def _calculate_standard_layout(
+            self, 
+            start_node: str
+            ):
+        """Calculates positions for all elements in the standard flow."""
+        positions = {}
+        chain = self.inserted_chains[start_node]
+        human_id = self.human_tasks[start_node]
+        analyzefailedjob_id = self.fail_job_tasks[start_node]
+
+        (
+            setcirc_id,
+            createdeploym_id,
+            exejob_id,
+            gateway3_id,
+            getjobres_id,
+            gateway4_id,
+            setvars2_id,
+        ) = chain
+
+        # Place first chain tasks at level 0; if multiple start nodes, they'll be stacked vertically
+        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
+        y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
+
+        # Place tasks
+        positions[setcirc_id] = (x, y)
+        positions[createdeploym_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[exejob_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[getjobres_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[setvars2_id] = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[human_id] = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[analyzefailedjob_id] = (
+            x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
+            y + BPMN_TASK_HEIGHT + 30,
+        )
+
+        # Gateway 3
+        self._place_gateway_between(exejob_id, getjobres_id, gateway3_id, positions)
+
+        # Gateway 4
+        self._place_gateway_between(getjobres_id, setvars2_id, gateway4_id, positions)
+
+        if hasattr(self, "task_positions") and gateway3_id in self.task_positions:
+            positions[gateway3_id] = self.task_positions[gateway3_id]
+        if hasattr(self, "task_positions") and gateway4_id in self.task_positions:
+            positions[gateway4_id] = self.task_positions[gateway4_id]
+
+        # Alternative End-Events
+        afj_x, afj_y = positions[analyzefailedjob_id]
+        for altend_id in self.alt_ends.get(start_node, []):
+            if altend_id.endswith("_alt_end_2"):
+                positions[altend_id] = (
+                    afj_x + BPMN_TASK_WIDTH + BPMN_GAP_X // 2,
+                    afj_y + 22,
+                )
+            else:
+                positions[altend_id] = (
+                    x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X) + 30,
+                    afj_y + 22,
+                )
+
+        print("standard layout calculated")
+
+        return positions
 
     def _connect_plugin_flows(
             self, 
@@ -487,8 +571,55 @@ class BpmnBuilder:
         print("placeholder flow: main edges connected")
 
         return flow_map
+    
+    def _connect_standard_flows(
+            self,
+            start_node
+            ):
+        """Creates a sequence flow for standard chains. Connecting the chains will be separately."""
+        chain = self.inserted_chains[start_node]
+        human_id = self.human_tasks[start_node]
+        altend2_id = self.alt_ends[start_node][-1]
+        analyzefailedjob_id = self.fail_job_tasks[start_node]
 
-    def create_diagram_global(self):
+        (
+            setcirc_id,
+            createdeploym_id,
+            exejob_id,
+            gateway3_id,
+            getjobres_id,
+            gateway4_id,
+            setvars2_id,
+        ) = chain
+
+        self.chain_heads.append(chain[0])
+        self.chain_ends.append(self.human_tasks[start_node])
+
+        flow_map = []
+
+        if self.chain_level == 0:
+            flow_map.append((self.new_flow(), self.start_id, setcirc_id))
+
+        flow_map.append((self.new_flow(), setcirc_id, createdeploym_id))
+        flow_map.append((self.new_flow(), createdeploym_id, exejob_id))
+        flow_map.append((self.new_flow(), exejob_id, gateway3_id))
+        flow_map.append((self.new_flow(), gateway3_id, getjobres_id))
+        flow_map.append((self.new_flow(), getjobres_id, gateway4_id))
+        flow_map.append((self.new_flow(), gateway4_id, setvars2_id))
+        flow_map.append((self.new_flow(), setvars2_id, human_id))
+        flow_map.append((self.new_flow(), gateway4_id, analyzefailedjob_id))
+        flow_map.append((self.new_flow(), analyzefailedjob_id, altend2_id))
+        flow_map.append((self.new_flow(), gateway4_id, gateway3_id))
+
+        # Create Sequence Flows
+        for fid, src, tgt in flow_map:
+            self._create_sequence_flow(fid, src, tgt)
+
+        print("standard flow: main edges connected")
+
+        return flow_map
+
+    def _create_diagram(self):
         """Generates the BPMNDI Diagram section with shapes and edges."""
 
         def add_shape(eid: str, x: int, y: int, w: int, h: int):
@@ -600,6 +731,12 @@ class BpmnBuilder:
 
             # Custom-Docking
             if src.endswith("_human") and tgt.endswith("_load_file"):
+                mode_src = "bottom"
+                mode_tgt = "top"
+            elif src.endswith("_human") and tgt.endswith("_set_circuit"):
+                mode_src = "bottom"
+                mode_tgt = "top"
+            elif src.endswith("_human") and tgt.endswith("_set_vars_1"):
                 mode_src = "bottom"
                 mode_tgt = "top"
             elif src.endswith("_gateway_4") and tgt.endswith("_analyze_failed_job"):
@@ -1576,192 +1713,6 @@ class BpmnBuilder:
                 cond.text = '${statusJob != "ERROR" && statusJob != "FINISHED" && statusJob != "FAILURE" && statusJob != "SUCCESS"}'
             elif tgt.endswith("_set_vars_2"):
                 cond.text = '${statusJob == "FINISHED" || statusJob == "SUCCESS"}'
-
-    def _create_diagram(self, start_nodes: list[str]) -> None:
-        """Generates the BPMNDI Diagram section with shapes and edges."""
-
-        def add_shape(eid: str, x: Any, y, w, h):
-            shape = ET.SubElement(
-                plane,
-                self.qn(BPMNDI_NS, "BPMNShape"),
-                {"id": f"{eid}_di", "bpmnElement": eid},
-            )
-            ET.SubElement(
-                shape,
-                self.qn(DC_NS, "Bounds"),
-                x=str(x),
-                y=str(y),
-                width=str(w),
-                height=str(h),
-            )
-
-        diagram = ET.SubElement(
-            self.defs, self.qn(BPMNDI_NS, "BPMNDiagram"), {"id": "BPMNDiagram_1"}
-        )
-        plane = ET.SubElement(
-            diagram,
-            self.qn(BPMNDI_NS, "BPMNPlane"),
-            {"id": "BPMNPlane_1", "bpmnElement": f"Process_{self.process_id}"},
-        )
-
-        # Start shape
-        add_shape(
-            self.start_id,
-            BPMN_START_X,
-            BPMN_START_Y,
-            BPMN_EVENT_WIDTH,
-            BPMN_EVENT_HEIGHT,
-        )
-
-        # collect all real BPMN element ids (Tasks, Gateways, Events)
-        valid_bpmn_ids = {el.attrib["id"] for el in self.process.findall(".//*[@id]")}
-
-        # End Event X/Y - calculated based on last task
-        # Find max X task
-        last_x, last_y = BPMN_START_X, BPMN_START_Y
-        if self.task_positions:
-            last_task_id = max(self.task_positions.items(), key=lambda kv: kv[1][0])[0]
-            last_x, last_y = self.task_positions[last_task_id]
-
-        end_x = last_x + BPMN_TASK_WIDTH + BPMN_GAP_X
-        end_y = last_y + (BPMN_TASK_HEIGHT // 2) - 18
-        add_shape(self.end_id, end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
-
-        for eid, (x, y) in self.task_positions.items():
-            if eid not in valid_bpmn_ids:
-                continue
-
-            if "_gateway_" in eid:
-                add_shape(eid, x, y, BPMN_GW_WIDTH, BPMN_GW_HEIGHT)
-            elif eid in self.alt_end_event_ids:
-                add_shape(eid, x, y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
-            else:
-                add_shape(eid, x, y, BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT)
-
-        # Edges
-        # Docking logic simplified for readability
-        top_dock_sources = set()
-        bottom_dock_sources = set()
-        top_dock_targets = set()
-        left_dock_sources = set()
-        right_dock_targets = set()
-
-        if self.containsPlugin: # plugin
-            for start_node, chain in self.inserted_chains.items():
-                for fid, src, tgt in self.flow_map:
-                    if src.endswith("_gateway_4") and tgt.endswith("_gateway_3"):
-                        top_dock_sources.add((src, tgt))
-                        top_dock_targets.add((src, tgt))
-                    if src.endswith("_gateway_4") and tgt.endswith("_analyze_failed_job"):
-                        bottom_dock_sources.add((src, tgt))
-        elif self.containsPlaceholder: # placeholder
-            for start_node, chain in self.inserted_chains.items():
-                # Reconstruct specific IDs from chain
-                gateway2_id = chain[4]
-                gateway3_id = chain[8]
-                gateway4_id = chain[10]
-                gateway1_id = chain[2]
-                updatevars_id = self.update_tasks[start_node]
-                analyzefailedtransf_id = self.fail_transf_tasks[start_node]
-                analyzefailedjob_id = self.fail_job_tasks[start_node]
-
-                top_dock_sources.add((gateway2_id, updatevars_id))
-                bottom_dock_sources.add((gateway2_id, analyzefailedtransf_id))
-                bottom_dock_sources.add((gateway4_id, analyzefailedjob_id))
-                top_dock_sources.add((gateway4_id, gateway3_id))
-
-                top_dock_targets.add((updatevars_id, gateway1_id))
-                top_dock_targets.add((gateway2_id, analyzefailedtransf_id))
-                top_dock_targets.add((gateway4_id, gateway3_id))
-
-                right_dock_targets.add((gateway2_id, updatevars_id))
-                left_dock_sources.add((updatevars_id, gateway1_id))
-        else: # non placeholder
-            for start_node, chain in self.inserted_chains.items():
-                gateway3_id = chain[3]
-                gateway4_id = chain[5]
-                analyzefailedjob_id = self.fail_job_tasks[start_node]
-
-                bottom_dock_sources.add((gateway4_id, analyzefailedjob_id))
-                top_dock_sources.add((gateway4_id, gateway3_id))
-                top_dock_targets.add((gateway4_id, gateway3_id))
-
-        def get_center(eid: str, mode: str) -> tuple[int, int]:
-            x, y = self.task_positions.get(eid, (0, 0))
-            w, h = BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT
-            if "_gateway_" in eid:
-                w, h = BPMN_GW_WIDTH, BPMN_GW_HEIGHT
-            # Start/End events handled separately usually?
-            # But flow map has start_id/end_id
-            if eid == self.start_id:
-                x, y, w, h = (
-                    BPMN_START_X,
-                    BPMN_START_Y,
-                    BPMN_EVENT_WIDTH,
-                    BPMN_EVENT_HEIGHT,
-                )
-            elif eid == self.end_id:
-                x, y, w, h = end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
-            elif eid in self.alt_end_event_ids:
-                w, h = BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
-
-            if mode == "bottom":
-                return x + w // 2, y + h
-            if mode == "top":
-                return x + w // 2, y
-            if mode == "left":
-                return x, y + h // 2
-            if mode == "right":
-                return x + w, y + h // 2
-            return x + w, y + h // 2  # default right
-
-        for fid, src, tgt in self.flow_map:
-            edge = ET.SubElement(
-                plane,
-                self.qn(BPMNDI_NS, "BPMNEdge"),
-                {"id": f"{fid}_di", "bpmnElement": fid},
-            )
-
-            # Source
-            mode = "right"
-            if (src, tgt) in bottom_dock_sources:
-                mode = "bottom"
-            elif (src, tgt) in top_dock_sources:
-                mode = "top"
-            elif (src, tgt) in left_dock_sources:
-                mode = "left"
-
-            sx, sy = get_center(src, mode)
-
-            # Target
-            mode = "left"
-            if (src, tgt) in top_dock_targets:
-                mode = "top"
-            elif (src, tgt) in right_dock_targets:
-                mode = "right"
-
-            tx, ty = get_center(tgt, mode)
-
-            ET.SubElement(
-                edge, self.qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy))
-            )
-            if "_gateway_" in src and "_gateway_" in tgt:
-                ET.SubElement(
-                    edge,
-                    self.qn(DI_NS, "waypoint"),
-                    x=str(int(sx)),
-                    y=str(int(sy) - 35),
-                )
-                ET.SubElement(
-                    edge,
-                    self.qn(DI_NS, "waypoint"),
-                    x=str(int(tx)),
-                    y=str(int(ty) - 35),
-                )
-
-            ET.SubElement(
-                edge, self.qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty))
-            )
 
     def get_plugin_task_name(self, plugin_name: str) -> str:
         name_map = {
