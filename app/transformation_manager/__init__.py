@@ -539,67 +539,48 @@ class WorkflowProcessor(CommonProcessor):
         # Identify quantum groups
         quantum_groups = await self.identify_quantum_groups()
 
-        # Identify plugin components
-        plugin_components = []
-
-        try:
-            print("call identify_plugin_components")
-            plugin_components = await self.identify_plugin_components()
-            print("identify_plugin_components SUCCESS:", plugin_components)
-        except Exception as e:
-            print("identify_plugin_components call failed:", e)
-
         # Prepare node metadata
         node_metadata: dict[str, dict[str, Any]] = {
             node_id: {} for node_id in self.frontend_graph.nodes
         }
 
-        if not quantum_groups:
-            print("No quantum groups detected. Using plugin nodes as start nodes")
-            nodes_dict = dict(self.frontend_graph.node_data)
-            print("nodes_dict: ", nodes_dict)
-            edges = list(self.frontend_graph.edges)
-            print("edges: ", edges)
-            composite_nodes = {nid: node for nid, node in nodes_dict.items() if getattr(node, "type", None) == "plugin"}
-            collapsed_edges_list = [(src, tgt) for src, tgt in edges if src in composite_nodes and tgt in composite_nodes]
-        else:
-            # Attach quantum group info
-            for group_id, nodes in quantum_groups.items():
-                for node in nodes:
-                    node_id = getattr(node, "id", None)
-                    if node_id:
-                        node_metadata[node_id]["quantum_group"] = group_id
+        # Attach quantum group info
+        for group_id, nodes in quantum_groups.items():
+            for node in nodes:
+                node_id = getattr(node, "id", None)
+                if node_id:
+                    node_metadata[node_id]["quantum_group"] = group_id
 
-            # Collapse quantum groups into composite nodes
-            nodes_dict: dict[str, Any] = dict(self.frontend_graph.node_data)
-            edges = list(self.frontend_graph.edges)
+        # Collapse quantum groups into composite nodes
+        nodes_dict: dict[str, Any] = dict(self.frontend_graph.node_data)
+        edges = list(self.frontend_graph.edges)
 
-            node_to_group: dict[str, str] = {}
-            for gid, group_nodes in quantum_groups.items():
-                for n in group_nodes:
-                    node_to_group[n.id] = gid
+        node_to_group: dict[str, str] = {}
+        for gid, group_nodes in quantum_groups.items():
+            for n in group_nodes:
+                node_to_group[n.id] = gid
 
-            composite_nodes: dict[str, Any] = {}
-            for nid, node in nodes_dict.items():
-                ngid = node_to_group.get(nid)
-                if ngid:
-                    if ngid not in composite_nodes:
-                        composite_nodes[ngid] = node  # pick representative
-                elif getattr(node, "type", None) not in CLASSICAL_TYPES:
-                    composite_nodes[nid] = node
+        composite_nodes: dict[str, Any] = {}
+        for nid, node in nodes_dict.items():
+            ngid = node_to_group.get(nid)
+            if ngid:
+                if ngid not in composite_nodes:
+                    composite_nodes[ngid] = node  # pick representative
+            elif getattr(node, "type", None) not in CLASSICAL_TYPES:
+                composite_nodes[nid] = node
 
-            # Remap edges to composite nodes
-            collapsed_edges: set[tuple[str, str]] = set()
-            for src, tgt in edges:
-                src_gid = node_to_group.get(src, src)
-                tgt_gid = node_to_group.get(tgt, tgt)
-                if (
-                    src_gid != tgt_gid
-                    and src_gid in composite_nodes
-                    and tgt_gid in composite_nodes
-                ):
-                    collapsed_edges.add((src_gid, tgt_gid))
-            collapsed_edges_list: list[tuple[str, str]] = list(collapsed_edges)
+        # Remap edges to composite nodes
+        collapsed_edges: set[tuple[str, str]] = set()
+        for src, tgt in edges:
+            src_gid = node_to_group.get(src, src)
+            tgt_gid = node_to_group.get(tgt, tgt)
+            if (
+                src_gid != tgt_gid
+                and src_gid in composite_nodes
+                and tgt_gid in composite_nodes
+            ):
+                collapsed_edges.add((src_gid, tgt_gid))
+        collapsed_edges_list: list[tuple[str, str]] = list(collapsed_edges)
 
         # Generate BPMN XML
         try:
@@ -614,7 +595,6 @@ class WorkflowProcessor(CommonProcessor):
                     if getattr(node, "type", None) in CLASSICAL_TYPES
                 ],
                 containsPlaceholder=self.original_request.metadata.containsPlaceholder,
-                plugin_components=plugin_components,
             )
         except Exception as e:
             print("!!! BPMN GENERATION FAILED !!!", repr(e))
@@ -629,54 +609,6 @@ class WorkflowProcessor(CommonProcessor):
             qrms = await generate_qrms(quantum_groups)
         # return service_zip_bytes
         return bpmn_xml
-
-    async def identify_plugin_components(self) -> dict[str, dict]:
-        """
-        Identify and collect all plugin components present in the frontend graph.
-
-        Returns:
-            dict[str, dict]: A dictionary mapping plugin names to information about
-              each plugin component, including involved nodes and connection edges.
-        """
-        # Collect plugin nodes
-        plugin_nodes = [
-            self.frontend_graph.node_data[node_id]
-            for node_id in self.frontend_graph.nodes
-            if getattr(self.frontend_graph.node_data[node_id], "type", None) == "plugin"
-        ]
-
-        plugin_components = {}
-        # Iterate over each plugin node and gather its component nodes and relevant edges
-        for plugin in plugin_nodes:
-            component_nodes = set()
-            edges = []
-
-            # Always add the plugin node itself to the component_nodes set
-            component_nodes.add(plugin.id)
-
-            # Find all nodes with edges targeting the plugin node and collect those nodes
-            for edge in self.frontend_graph.edge_data.values():
-                for e in edge:
-                    if e.target[0] == plugin.id:
-                        src_id = e.source[0]
-                        component_nodes.add(src_id)
-                        edges.append((src_id, plugin.id))
-
-            # Identify input nodes for the plugin, filtering to types 'file' and 'int'           
-            input_nodes = [
-                self.frontend_graph.node_data[nid]
-                for nid in component_nodes
-                if getattr(self.frontend_graph.node_data[nid], "type", None) in ("file", "int")
-            ]
-
-            # Store information about this plugin component under its pluginName
-            plugin_components[plugin.pluginName] = {
-                "plugin_node": plugin,
-                "input_nodes": input_nodes,
-                "all_nodes": [self.frontend_graph.node_data[nid] for nid in component_nodes],
-                "edges": edges,
-            }
-        return plugin_components
 
     async def identify_quantum_groups(self) -> dict[str, list[ImplementationNode]]:
         """
@@ -998,7 +930,6 @@ def _implementation_nodes_to_bpmn_xml(
     metadata: dict[str, dict[str, Any]] | None = None,
     start_event_classical_nodes: list[Any] | None = None,
     containsPlaceholder: bool = False,
-    plugin_components=None, 
 ) -> tuple[str, list[str]]:
     """Generate BPMN XML workflow diagram with correct left-to-right layout.
 
@@ -1014,8 +945,7 @@ def _implementation_nodes_to_bpmn_xml(
         f"edges={edges}\n" \
         f"metadata={metadata}\n" \
         f"start_event_classical_nodes={start_event_classical_nodes}\n" \
-        f"containsPlaceholder={containsPlaceholder}\n" \
-        f"plugin_components={plugin_components}\n")
+        f"containsPlaceholder={containsPlaceholder}\n")
 
     builder = BpmnBuilder(
         process_id=process_id,
@@ -1024,7 +954,6 @@ def _implementation_nodes_to_bpmn_xml(
         metadata=metadata,
         start_event_classical_nodes=start_event_classical_nodes,
         containsPlaceholder=containsPlaceholder,
-        plugin_components=plugin_components,
     )
 
     return builder.build()
