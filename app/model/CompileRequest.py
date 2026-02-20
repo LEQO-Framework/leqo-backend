@@ -362,7 +362,7 @@ class IntLiteralNode(BaseNode):
         int_v = int(self.value)
         self.value = int_v
         if self.bitSize is None:
-            self.bitSize = _infer_int_bit_size(int_v)  
+            self.bitSize = _infer_int_bit_size(int_v)
         return self
 
     model_config = ConfigDict(use_attribute_docstrings=True)
@@ -375,7 +375,6 @@ class FloatLiteralNode(BaseNode):
 
     type: Literal["float"] = "float"
 
-    
     bitSize: int | None = Field(default=None, ge=1)
 
     """Bit size of the float (optional)."""
