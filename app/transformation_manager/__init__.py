@@ -619,7 +619,8 @@ class WorkflowProcessor(CommonProcessor):
             self.frontend_graph.node_data[node_id]
             for node_id in self.frontend_graph.nodes
             if (
-                getattr(self.frontend_graph.node_data[node_id], "type", None) not in CLASSICAL_TYPES
+                node_id in self.frontend_graph.node_data
+                and getattr(self.frontend_graph.node_data[node_id], "type", None) not in CLASSICAL_TYPES
                 and getattr(self.frontend_graph.node_data[node_id], "type", None) != "plugin"
             )
         ]
