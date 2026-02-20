@@ -1716,10 +1716,9 @@ class BpmnBuilder:
 
     def get_plugin_task_name(self, plugin_name: str) -> str:
         name_map = {
-            "classical-k-means": "K-Means",
-            "classical-k-medoids": "K-Medoids",
-            "quantum-k-means": "K-Means",
-            "quantum-k-medoids": "K-Medoids",
+            "classical-k-means": "Classical-K-Means",
+            "classical-k-medoids": "Classical-K-Medoids",
+            "quantum-k-means": "Quantum-K-Means",
         }
         readable = name_map.get(plugin_name, plugin_name.replace("-", " ").title())
         return f"Call {readable} Clustering"

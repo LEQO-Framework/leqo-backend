@@ -424,6 +424,21 @@ class ArrayLiteralNode(BaseNode):
             )
             self.elementBitSize = bit_size
         return self
+    
+class StringLiteralNode(BaseNode):
+    """
+    Node representing a string literal.
+    """
+
+    type: Literal["string"] = "string"
+
+    bitSize: int = Field(default=32, ge=1)
+    """"Bit size of the string (optional)."""
+
+    value: str
+    """String value."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 LiteralNode = (
@@ -432,17 +447,8 @@ LiteralNode = (
     | IntLiteralNode
     | FloatLiteralNode
     | ArrayLiteralNode
+    | StringLiteralNode
 )
-
-class PluginNode(BaseNode):
-    type: Literal["plugin"] = "plugin"
-    pluginName: str
-    inputs: list[Any] = []
-    outputs: list[Any] = []
-
-class FileLiteralNode(BaseNode):
-    type: Literal["file"] = "file"
-    value: str
 # endregion
 
 
@@ -542,6 +548,31 @@ class OperatorNode(BaseNode):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+class PluginNode(BaseNode):
+    """
+    Node representing a plugin.
+    """
+
+    type: Literal["plugin"] = "plugin"
+
+    pluginName: str
+    """Name of the plugin"""
+
+    inputs: list[Any] = []
+    """Possible inputs"""
+
+    outputs: list[Any] = []
+    """Possible outputs"""
+
+class FileLiteralNode(BaseNode):
+    """
+    Node representing a file as a url.
+    """
+
+    type: Literal["file"] = "file"
+
+    value: str
+    """The url"""
 
 NestableNode = (
     ImplementationNode
