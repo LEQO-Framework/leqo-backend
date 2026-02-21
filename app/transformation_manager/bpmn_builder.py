@@ -178,7 +178,7 @@ class BpmnBuilder:
         start_node: str, 
         plugin_name: str,
     ) -> None:
-        """Creates a flow for plugins. Momentarily it only works for classical-k-means"""
+        """Creates a flow for plugins."""
 
         # generate the plugin chain
         self._create_chain_clustering(start_node, plugin_name)
@@ -662,10 +662,6 @@ class BpmnBuilder:
             last_x, last_y = merged_positions[last_task_id]
         end_x = last_x + BPMN_TASK_WIDTH + BPMN_GAP_X
         end_y = last_y + (BPMN_TASK_HEIGHT // 2) - 18
-
-        # Add start- and end-event
-        merged_positions[self.start_id] = (BPMN_START_X, BPMN_START_Y)
-        merged_positions[self.end_id] = (end_x, end_y)
 
         # Start/End Shape
         add_shape(self.start_id, BPMN_START_X, BPMN_START_Y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
@@ -1263,6 +1259,14 @@ class BpmnBuilder:
         call_plugin_id = f"Task_{start_node}_call_plugin"
         poll_job_id = f"Task_{start_node}_poll_job_res"
 
+        # Get inputs
+        inputs = {}
+        for node in self.start_event_classical_nodes:
+            if node.type == "file":
+                inputs["entityPointsUrl"] = node.value
+            elif node.type == "int":
+                inputs["numberOfClusters"] = int(node.value)
+
         # Get needed parts from common parts
         (
             _,
@@ -1300,6 +1304,9 @@ class BpmnBuilder:
         )
 
         task_name = self.get_plugin_task_name(plugin_name)
+
+        file_url = inputs["entityPointsUrl"]
+        num_clusters = inputs["numberOfClusters"]
         
         self._create_service_task(
             call_plugin_id,
@@ -1314,7 +1321,11 @@ class BpmnBuilder:
                     "Content-Type": "application/x-www-form-urlencoded"
                 }
             },
-            connector_payload_script=GroovyScript.PAYLOAD_CALL_CLUSTERING,
+            connector_payload_script=GroovyScript.PAYLOAD_CALL_CLUSTERING.format(
+                entityPointsUrl=file_url, 
+                numberOfClusters=num_clusters,
+                maxIterations=inputs["maxIterations"] if "maxIterations" in inputs else "200", # default value of maxIterations is 200
+                ),
             connector_output_parameters=[
                 {"name": "deploymentId", "script": GroovyScript.OUTPUT_CALL_CLUSTERING},
             ],

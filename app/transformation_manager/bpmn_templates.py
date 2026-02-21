@@ -173,12 +173,12 @@ return response;"""
 
 PAYLOAD_CALL_CLUSTERING = """import java.net.URLEncoder
 
-def uri = "http://${ipAdress}:9091/experiments/2/data/entity_distances_aggregator_mean_from_transformers_attr_dist_transformer_linear_inverse_from_sym_max_mean_Yyfegz-Otytf.json/download?version=1"
+def uri = "{entityPointsUrl}"
 
 def data = [
-    "entityPointsUrl=${URLEncoder.encode(uri, 'UTF-8')}",
-    "numClusters=4",
-    "maxiter=200",
+    "entityPointsUrl=${{URLEncoder.encode(uri, 'UTF-8')}}",
+    "numClusters={numberOfClusters}",
+    "maxiter={maxIterations}",
     "relativeResidual=5",
     "visualize=true",
 ]
