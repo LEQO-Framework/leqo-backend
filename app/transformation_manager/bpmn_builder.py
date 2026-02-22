@@ -807,6 +807,36 @@ class BpmnBuilder:
                 "defaultValue": "192.168.178.65",
             },
         )
+        ET.SubElement(
+            form,
+            self.qn(CAMUNDA_NS, "formField"),
+            {
+                "id": "qunicornPort",
+                "label": "Qunicorn Endpoint Port",
+                "type": "string",
+                "defaultValue": "8080",
+            },
+        )
+        ET.SubElement(
+            form,
+            self.qn(CAMUNDA_NS, "formField"),
+            {
+                "id": "backendPort",
+                "label": "Leqo-Backend Endpoint Port",
+                "type": "string",
+                "defaultValue": "8000",
+            },
+        )
+        ET.SubElement(
+            form,
+            self.qn(CAMUNDA_NS, "formField"),
+            {
+                "id": "pluginPort",
+                "label": "QHAna Plugin Endpoint Port",
+                "type": "string",
+                "defaultValue": "5005",
+            },
+        )
 
     def _create_end_event(self) -> None:
         """Creates the End Event."""
@@ -991,7 +1021,7 @@ class BpmnBuilder:
             async_after=True,
             exclusive=False,
             method="POST",
-            url="http://${ipAdress}:8080/deployments/",
+            url="http://${ipAdress}:${qunicornPort}/deployments/",
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
@@ -1010,7 +1040,7 @@ class BpmnBuilder:
             async_after=True,
             exclusive=False,
             method="POST",
-            url="http://${ipAdress}:8080/jobs/",
+            url="http://${ipAdress}:${qunicornPort}/jobs/",
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
@@ -1029,7 +1059,7 @@ class BpmnBuilder:
             async_after=True,
             exclusive=False,
             method="GET",
-            url="http://${ipAdress}:8080/${jobId}",
+            url="http://${ipAdress}:${qunicornPort}/${jobId}",
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
@@ -1160,7 +1190,7 @@ class BpmnBuilder:
             async_after=True,
             exclusive=False,
             method="POST",
-            url="http://${ipAdress}:8000/compile",
+            url="http://${ipAdress}:${backendPort}/compile",
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
@@ -1179,7 +1209,7 @@ class BpmnBuilder:
             async_after=True,
             exclusive=False,
             method="GET",
-            url="http://${ipAdress}:8000/status/${uuid}",
+            url="http://${ipAdress}:${backendPort}/status/${uuid}",
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
@@ -1197,7 +1227,7 @@ class BpmnBuilder:
             async_after=True,
             exclusive=False,
             method="GET",
-            url="http://${ipAdress}:8000/results/${uuid}",
+            url="http://${ipAdress}:${backendPort}/results/${uuid}",
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
@@ -1314,7 +1344,7 @@ class BpmnBuilder:
             async_after=True,
             exclusive=False,
             method="POST",
-            url="http://${ipAdress}:5005/plugins/classical-k-means@v0-1-1/process/",
+            url="http://${ipAdress}:${pluginPort}/plugins/classical-k-means@v0-1-1/process/",
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
@@ -1337,7 +1367,7 @@ class BpmnBuilder:
             async_after=True,
             exclusive=False,
             method="GET",
-            url="http://${ipAdress}:5005/${deploymentId}",
+            url="http://${ipAdress}:${pluginPort}/${deploymentId}",
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
