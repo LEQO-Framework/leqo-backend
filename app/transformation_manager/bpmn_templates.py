@@ -127,10 +127,20 @@ return uuid;"""
 
 # Backend
 OUTPUT_STATUS_PLACEHOLDER = """def resp = connector.getVariable("response");
-println "Response: ${resp}"
+println("Response")
+println(response)
+resp = new groovy.json.JsonSlurper().parseText(resp)
+println("Response to extract statusJob: " + resp.toString());
+statusJob= resp.get('state')
+println(statusJob);
+return statusJob;"""
+
+OUTPUT_POLL_STATUS_PLACEHOLDER = """def resp = connector.getVariable("response");
+println("Response")
+println(response)
 resp = new groovy.json.JsonSlurper().parseText(resp)
 println("Response to extract status: " + resp.toString());
-status= resp.get('state')
+status= resp.get('status')
 println(status);
 return status;"""
 

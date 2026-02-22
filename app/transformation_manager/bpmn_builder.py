@@ -1187,7 +1187,7 @@ class BpmnBuilder:
                 }
             },
             connector_output_parameters=[
-                {"name": "status", "script": GroovyScript.OUTPUT_STATUS_PLACEHOLDER}
+                {"name": "status", "script": GroovyScript.OUTPUT_POLL_STATUS_PLACEHOLDER}
             ]
         )
 
