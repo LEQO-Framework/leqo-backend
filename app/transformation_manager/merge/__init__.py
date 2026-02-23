@@ -11,13 +11,17 @@ from openqasm3.ast import (
     BranchingStatement,
     Concatenation,
     Expression,
+    ForInLoop,
     Identifier,
     IntegerLiteral,
+    IntType,
     Pragma,
     Program,
     QASMNode,
     QubitDeclaration,
+    RangeDefinition,
     Statement,
+    WhileLoop
 )
 
 from app.openqasm3.ast import CommentStatement
@@ -229,3 +233,135 @@ def merge_nodes(graph: ProgramGraph) -> Program:
         all_statements.append(CommentStatement(f"End node {node.name}"))
 
     return Program(all_statements, version=OPENQASM_VERSION)
+
+
+def merge_while_nodes(
+        while_node_raw: ProgramNode,
+        endwhile_node_raw: ProgramNode,
+        loop_graph: ProgramGraph,
+        condition: Expression,
+) -> tuple[Program, int]:
+    """
+    Construct a single program with a WhileLoop from a sub-graph.
+    """
+    while_node = loop_graph.node_data[while_node_raw]
+    endwhile_node = loop_graph.node_data[endwhile_node_raw]
+
+    forbidden_classic_input_indexes = [
+        k for k, v in endwhile_node.io.inputs.items() if isinstance(v, ClassicalIOInstance)
+    ]
+    for e in loop_graph.in_edges(endwhile_node.raw):
+        for edge in loop_graph.edge_data[e]:
+            if isinstance(edge, IOConnection) and edge.target[1] in forbidden_classic_input_indexes:
+                raise NotImplementedError("Future Work: can't return classical output from while-loop node")
+
+    reg_name = f"leqo_{while_node.id.hex}_loop_reg"
+    loop_size = connect_qubits(loop_graph, reg_name, while_node)
+
+    all_statements = cast_to_program(
+        RemoveAnnotationTransformer(inputs=False, outputs=True).visit(
+            while_node.implementation,
+        ),
+    ).statements
+
+    input_size = sum([len(ids) for ids in while_node.qubit.declaration_to_ids.values()])
+    ancillae_size = loop_size - input_size
+    if ancillae_size > 0:
+        all_statements.append(
+            QubitDeclaration(
+                Identifier(f"leqo_{while_node.id.hex}_{ANCILLAES_NAME}"),
+                IntegerLiteral(ancillae_size),
+            ),
+        )
+
+    concat: Identifier | Concatenation | None = None
+    for declaration in [d for d in all_statements if isinstance(d, QubitDeclaration)]:
+        if concat is None:
+            concat = declaration.qubit
+        else:
+            concat = Concatenation(concat, declaration.qubit)
+    if concat is not None:
+        all_statements.append(AliasStatement(Identifier(reg_name), concat))
+
+    all_statements.append(
+        WhileLoop(
+            while_condition=condition,
+            block=graph_to_statements(loop_graph, while_node.raw, endwhile_node.raw),
+        ),
+    )
+
+    all_statements.extend(
+        cast_to_program(
+            RemoveAnnotationTransformer(inputs=True, outputs=False).visit(
+                endwhile_node.implementation,
+            ),
+        ).statements,
+    )
+    return Program(all_statements, version=OPENQASM_VERSION), loop_size
+
+
+def merge_for_nodes(
+        for_node_raw: ProgramNode,
+        endfor_node_raw: ProgramNode,
+        loop_graph: ProgramGraph,
+        iterator_id: Identifier,
+        range_def: RangeDefinition,
+) -> tuple[Program, int]:
+    """
+    Construct a single program with a ForInLoop from a sub-graph.
+    """
+    for_node = loop_graph.node_data[for_node_raw]
+    endfor_node = loop_graph.node_data[endfor_node_raw]
+
+    forbidden_classic_input_indexes = [
+        k for k, v in endfor_node.io.inputs.items() if isinstance(v, ClassicalIOInstance)
+    ]
+    for e in loop_graph.in_edges(endfor_node.raw):
+        for edge in loop_graph.edge_data[e]:
+            if isinstance(edge, IOConnection) and edge.target[1] in forbidden_classic_input_indexes:
+                raise NotImplementedError("Future Work: can't return classical output from for-loop node")
+
+    reg_name = f"leqo_{for_node.id.hex}_loop_reg"
+    loop_size = connect_qubits(loop_graph, reg_name, for_node)
+
+    all_statements = cast_to_program(
+        RemoveAnnotationTransformer(inputs=False, outputs=True).visit(
+            for_node.implementation,
+        ),
+    ).statements
+
+    input_size = sum([len(ids) for ids in for_node.qubit.declaration_to_ids.values()])
+    ancillae_size = loop_size - input_size
+    if ancillae_size > 0:
+        all_statements.append(
+            QubitDeclaration(
+                Identifier(f"leqo_{for_node.id.hex}_{ANCILLAES_NAME}"),
+                IntegerLiteral(ancillae_size),
+            ),
+        )
+
+    concat: Identifier | Concatenation | None = None
+    for declaration in [d for d in all_statements if isinstance(d, QubitDeclaration)]:
+        if concat is None:
+            concat = declaration.qubit
+        else:
+            concat = Concatenation(concat, declaration.qubit)
+    if concat is not None:
+        all_statements.append(AliasStatement(Identifier(reg_name), concat))
+
+    all_statements.append(
+        ForInLoop(
+            type=IntType(),
+            identifier=iterator_id,
+            set_declaration=range_def,
+            block=graph_to_statements(loop_graph, for_node.raw, endfor_node.raw),
+        ),
+    )
+    all_statements.extend(
+        cast_to_program(
+            RemoveAnnotationTransformer(inputs=True, outputs=False).visit(
+                endfor_node.implementation,
+            ),
+        ).statements,
+    )
+    return Program(all_statements, version=OPENQASM_VERSION), loop_size
