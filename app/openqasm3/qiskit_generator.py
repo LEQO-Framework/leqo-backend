@@ -5,7 +5,6 @@ import openqasm3.ast as qast
 class QasmToQiskitTranspiler:
     """
     Translates an OpenQASM 3 AST into a string of executable Python/Qiskit code.
-    Perfect for backend text generation and workflow engines.
     """
 
     def __init__(self):
@@ -20,7 +19,7 @@ class QasmToQiskitTranspiler:
     # Start
 
     def visit(self, node):
-        print(f"DEBUG: {self.get_clean_repr(node)}")
+        #print(f"DEBUG: {self.get_clean_repr(node)}")
         if node is None: return None
         if isinstance(node, list):
             for item in node: self.visit(item)
@@ -56,30 +55,92 @@ class QasmToQiskitTranspiler:
 
     # Setup
     def visit_Program(self, node):
-        # Write the Python imports and circuit initialization
+        # Pre-scan the AST to determine necessary imports and execution flags
+        uses_parameters = False
+        uses_classical_vars = False
+        uses_expr_logic = False
+
+        # Safely scan only AST nodes
+        def scan(n):
+            nonlocal uses_parameters, uses_classical_vars, uses_expr_logic
+
+            if isinstance(n, list):
+                for item in n:
+                    scan(item)
+            elif isinstance(n, qast.QASMNode):
+                # CHECK 1: IO Declarations
+                if isinstance(n, qast.IODeclaration):
+                    if isinstance(n.type, (qast.AngleType, qast.FloatType)) and n.io_identifier.name == "input":
+                        uses_parameters = True
+                    elif isinstance(n.type, (qast.IntType, qast.UintType, qast.BitType, qast.BoolType)):
+                        uses_classical_vars = True
+
+                # CHECK 2: Standard Classical Declarations
+                # This ensures "bit[2] b" triggers the import of "types"
+                if isinstance(n, qast.ClassicalDeclaration):
+                    uses_classical_vars = True
+
+                # CHECK 3: Expression Logic
+                if isinstance(n, (qast.BinaryExpression, qast.UnaryExpression, qast.ClassicalAssignment)):
+                    uses_expr_logic = True
+
+                # Recurse
+                for key, value in n.__dict__.items():
+                    if key not in ('span', 'annotations'):
+                        if isinstance(value, (qast.QASMNode, list)):
+                            scan(value)
+
+        scan(node.statements)
+
+        # --- EMIT IMPORTS ---
         self.emit("from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile")
+        if uses_parameters:
+            self.emit("from qiskit.circuit import Parameter")
+        if uses_classical_vars:
+            self.emit("from qiskit.circuit.classical import types")
+        if uses_expr_logic or uses_classical_vars:
+            self.emit("import qiskit.circuit.classical.expr as expr")
+
+        #TODO: add option to decide if and which simulator or completely split qiskit code and execution
         self.emit("from qiskit_aer import AerSimulator")
         self.emit("")
-        #could be expanded with annotation and parameters for how many qubits?
 
+        # --- CIRCUIT INIT ---
         self.emit("qc = QuantumCircuit()")
+        self.emit("inputs_list = []")  # <--- NEW: Track inputs explicitly
         self.emit("")
 
-        # Visit the rest of the AST
+        # --- VISIT BODY ---
         self.visit(node.statements)
 
-        #Append execution, annotations could be used to decide if we want to execute,
-        # annotation which simulator
+        # --- EXECUTION BLOCK ---
+        self.emit("")
+        self.emit("# --- EXECUTION ---")
         self.emit("simulator = AerSimulator()")
         self.emit("compiled_circuit = transpile(qc, simulator)")
+
+        # Parameter binding
+        if uses_parameters:
+            self.emit("# NOTE: Parameters detected. Binding placeholders for demonstration.")
+            self.emit("for param in compiled_circuit.parameters:")
+            self.emit("    compiled_circuit.assign_parameters({param: 0.1}, inplace=True)")
+
         self.emit("print(compiled_circuit)")
-        # annotation for shot amount
-        self.emit("job = simulator.run(compiled_circuit, shots=500)")
-        self.emit("result = job.result()")
-        self.emit("counts = result.get_counts(qc)")
+
+        # Smart run command
+        run_args = "compiled_circuit, shots=500"
+        if uses_classical_vars:
+            self.emit("# NOTE: Classical inputs detected. Defaulting inputs to 10.")
+            self.emit("input_map = {}")
+            self.emit("for inp in inputs_list:")  # <--- CHANGED: Use our tracked list
+            self.emit("    input_map[inp] = 10  # Default value")
+            run_args += ", inputs=input_map"
+
+        self.emit(f"job = simulator.run({run_args})")
+        self.emit("result_data = job.result()")
+        self.emit("counts = result_data.get_counts(qc)")
         self.emit("print('Simulation Results (500 shots):', counts)")
 
-        # Return the final stitched-together Python script
         return "\n".join(self.code_lines)
 
     def visit_QubitDeclaration(self, node):
@@ -105,11 +166,26 @@ class QasmToQiskitTranspiler:
         self.emit(f"{target_name} = {value_str}")
 
     # Gates
+
     def visit_QuantumGate(self, node):
         """Translates `x q[0];` -> `qc.x(q[0])`"""
+        """Translates `rx(theta) q[0];` -> `qc.rx(theta, q[0])`"""
         gate_name = node.name.name
+
+        # Resolve arguments (e.g., theta, phi, 3.14)
+        args_str = ""
+        if node.arguments:
+            # Recursively visit arguments to handle Expressions or Identifiers
+            processed_args = [self.visit(arg) for arg in node.arguments]
+            args_str = ", ".join(processed_args)
+
         qubits_str = ", ".join([self.format_bit(q) for q in node.qubits])
-        self.emit(f"qc.{gate_name}({qubits_str})")
+
+        # Qiskit syntax: qc.gate(params..., qubits...)
+        if args_str:
+            self.emit(f"qc.{gate_name}({args_str}, {qubits_str})")
+        else:
+            self.emit(f"qc.{gate_name}({qubits_str})")
 
     def visit_QuantumMeasurementStatement(self, node):
         """Translates `measure q[0] -> mid[0];` -> `qc.measure(q[0], mid[0])`"""
@@ -121,19 +197,23 @@ class QasmToQiskitTranspiler:
     #Control flow
 
     def visit_BranchingStatement(self, node):
-        """Translates OpenQASM `if` to Python `with qc.if_test(...):`"""
+        """Translates OpenQASM `if/else` to Qiskit `with qc.if_test() as _else:`"""
         cond_str = self.visit(node.condition)
 
-        # Write the Python context manager
-        self.emit(f"with qc.if_test({cond_str}):")
+        # If there is an else block, we must capture the context manager
+        if node.else_block:
+            self.emit(f"with qc.if_test({cond_str}) as _else:")
+        else:
+            self.emit(f"with qc.if_test({cond_str}):")
+
         self.indent_level += 1
         for stmt in node.if_block:
             self.visit(stmt)
         self.indent_level -= 1
 
-        # Increase indentation for the block contents
+        # Write the else block using the captured context manager
         if node.else_block:
-            self.emit("else:")
+            self.emit("with _else:")
             self.indent_level += 1
             for stmt in node.else_block:
                 self.visit(stmt)
@@ -214,6 +294,14 @@ class QasmToQiskitTranspiler:
             "^": "expr.bit_xor"
         }
 
+        # --- Integer Promotion ---
+        # Include == and != so bit[1] == 3 doesn't crash Qiskit!
+        comparison_ops = ["<", "<=", ">", ">=", "==", "!="]
+
+        if op_str in comparison_ops:
+            lhs = f"expr.cast({lhs}, types.Uint(32))"
+            rhs = f"expr.cast({rhs}, types.Uint(32))"
+
         func = op_funcs.get(op_str, f"UNKNOWN_OP_{op_str}")
         return f"{func}({lhs}, {rhs})"
 
@@ -246,6 +334,38 @@ class QasmToQiskitTranspiler:
 
     def visit_BooleanLiteral(self, node):
         return str(node.value)
+
+    def visit_BitstringLiteral(self, node):
+        """Translates Bitstring literals like "11" into their integer value (3)"""
+        return str(node.value)
+
+    def visit_ClassicalAssignment(self, node):
+        """Translates `result = n;` -> `qc.store(result, n)`"""
+        # Resolve the left and right sides
+        lvalue = self.visit(node.lvalue)
+        rvalue = self.visit(node.rvalue)
+
+        op_str = str(node.op).split('.')[-1]
+
+        if op_str == "=":
+            self.emit(f"qc.store({lvalue}, {rvalue})")
+        else:
+            # Map compound assignments to Qiskit expr operations
+            op_map = {
+                "+=": "expr.add",
+                "-=": "expr.sub",
+                "*=": "expr.mul",
+                "/=": "expr.div",
+                "&=": "expr.bit_and",
+                "|=": "expr.bit_or",
+                "^=": "expr.bit_xor",
+            }
+            func = op_map.get(op_str)
+            if func:
+                self.emit(f"qc.store({lvalue}, {func}({lvalue}, {rvalue}))")
+            else:
+                self.emit(f"# WARNING: Unsupported assignment operator {op_str}")
+                self.emit(f"qc.store({lvalue}, {rvalue})")
 
     # Helper
     def format_bit(self, node):
@@ -295,6 +415,47 @@ class QasmToQiskitTranspiler:
                 # Standard single index
                 return f"{collection}[{self.resolve_value(idx)}]"
 
+    def map_classical_type(self, ast_type):
+        """Maps OpenQASM AST types to Qiskit classical types."""
+        # Qiskit's classical type system currently only implements `Uint` and `Bool`.
+        # Signed `Int` and `Float` variables are not yet supported in Qiskit,
+        # so we map all integer/bit types to unsigned integers (Uint).
+
+        if isinstance(ast_type, qast.BoolType):
+            return "types.Bool()"
+
+        # For Int, Uint, and Bit, extract the size and fallback to Uint
+        size = 32
+        if hasattr(ast_type, "size") and ast_type.size is not None:
+            size = int(self.resolve_value(ast_type.size))
+
+        return f"types.Uint({size})"
+
+    def visit_IODeclaration(self, node):
+        """
+        Translates:
+          input angle theta -> theta = Parameter('theta')
+          input int x       -> x = qc.add_input('x', types.Uint(32))
+          output int y      -> y = expr.Var.new('y', types.Uint(32))
+                               qc.add_uninitialized_var(y)
+        """
+        name = node.identifier.name
+        io_mode = node.io_identifier.name
+
+        if io_mode == "input":
+            if isinstance(node.type, (qast.AngleType, qast.FloatType)):
+                self.emit(f"{name} = Parameter('{name}')")
+            else:
+                q_type = self.map_classical_type(node.type)
+                self.emit(f"{name} = qc.add_input('{name}', {q_type})")
+                self.emit(f"inputs_list.append({name})")  # <--- NEW
+
+        elif io_mode == "output":
+            q_type = self.map_classical_type(node.type)
+            # Create variable first, then add as uninitialized
+            self.emit(f"{name} = expr.Var.new('{name}', {q_type})")
+            self.emit(f"qc.add_uninitialized_var({name})")
+
 #AST printing
 
     def get_clean_repr(self, node):
@@ -330,7 +491,7 @@ class QasmToQiskitTranspiler:
 
 # Test
 if __name__ == "__main__":
-    source = """
+    source1 = """
         OPENQASM 3.0;
 
         qubit[2] q;
@@ -362,64 +523,104 @@ if __name__ == "__main__":
         """
     source2="""
         OPENQASM 3.1;
+        /* --- INPUTS --- */
         @leqo.input 0
-        qubit[1] leqo_af4ab0884f0d5aa3a87cdf116e20543e_pass_node_declaration_0;
-        let leqo_af4ab0884f0d5aa3a87cdf116e20543e_pass_node_alias_0 = leqo_af4ab0884f0d5aa3a87cdf116e20543e_pass_node_declaration_0;
-        let leqo_af4ab0884f0d5aa3a87cdf116e20543e_loop_reg = leqo_af4ab0884f0d5aa3a87cdf116e20543e_pass_node_declaration_0;
+        qubit[1] q_main;
+        let q_main_alias = q_main;
+        
+        /* --- LOGIC --- */
+        // Create a reference to the qubit for the loop block
+        let q_ptr = q_main;
+        
+        // Loop 10 times (i = 0, 1, ..., 9)
         for int i in [0:10] {
-          let leqo_0f22e31da1be57ea8479533ced7f8788_q = leqo_af4ab0884f0d5aa3a87cdf116e20543e_loop_reg[{0}];
-          h leqo_0f22e31da1be57ea8479533ced7f8788_q;
-          let leqo_0f22e31da1be57ea8479533ced7f8788__out = leqo_0f22e31da1be57ea8479533ced7f8788_q;
+          // Apply Hadamard gate to the qubit inside the loop
+          let q_inner = q_ptr[{0}];
+          h q_inner;
+          let q_inner_out = q_inner;
         }
-        let leqo_7fa32f00e76450ae8a3f1fca36e8517a_pass_node_declaration_0 = leqo_af4ab0884f0d5aa3a87cdf116e20543e_loop_reg[{0}];
+        
+        /* --- OUTPUTS --- */
+        // Assign the final state of the qubit to the output variable
+        let q_out = q_ptr[{0}];
+        
         @leqo.output 0
-        let leqo_7fa32f00e76450ae8a3f1fca36e8517a_pass_node_alias_0 = leqo_7fa32f00e76450ae8a3f1fca36e8517a_pass_node_declaration_0;
+        let q_out_alias = q_out;
         """
     source3="""
         OPENQASM 3.1;
+        /* --- INPUTS --- */
         @leqo.input 0
-        int[32] leqo_0f993612d9615486a55a1cd3d4158b45_pass_node_declaration_0;
-        let leqo_0f993612d9615486a55a1cd3d4158b45_pass_node_alias_0 = leqo_0f993612d9615486a55a1cd3d4158b45_pass_node_declaration_0;
+        int[32] loop_counter;
+        let loop_counter_alias = loop_counter;
+        
         @leqo.input 1
-        qubit[1] leqo_0f993612d9615486a55a1cd3d4158b45_pass_node_declaration_1;
-        let leqo_0f993612d9615486a55a1cd3d4158b45_pass_node_alias_1 = leqo_0f993612d9615486a55a1cd3d4158b45_pass_node_declaration_1;
-        let leqo_0f993612d9615486a55a1cd3d4158b45_loop_reg = leqo_0f993612d9615486a55a1cd3d4158b45_pass_node_declaration_1;
-        while (leqo_0f993612d9615486a55a1cd3d4158b45_pass_node_declaration_0 < 5) {
-          let leqo_40da8ad6eead5c82b58a503771301f03_q = leqo_0f993612d9615486a55a1cd3d4158b45_loop_reg[{0}];
-          x leqo_40da8ad6eead5c82b58a503771301f03_q;
-          let leqo_40da8ad6eead5c82b58a503771301f03__out = leqo_40da8ad6eead5c82b58a503771301f03_q;
+        qubit[1] q_main;
+        let q_main_alias = q_main;
+        
+        /* --- LOGIC --- */
+        // Create a reference to the qubit for the loop block
+        let loop_reg = q_main;
+        
+        // Check if the integer input is less than 5
+        while (loop_counter < 5) {
+          // Apply Pauli-X to the qubit inside the loop
+          let q_inner = loop_reg[{0}];
+          x q_inner;
+          let q_inner_out = q_inner;
         }
-        int[32] leqo_e8d241f16cf659c4a39a85d20102754b_pass_node_declaration_0;
+        
+        /* --- OUTPUTS --- */
+        int[32] c_out;
+        
         @leqo.output 0
-        let leqo_e8d241f16cf659c4a39a85d20102754b_pass_node_alias_0 = leqo_e8d241f16cf659c4a39a85d20102754b_pass_node_declaration_0;
-        let leqo_e8d241f16cf659c4a39a85d20102754b_pass_node_declaration_1 = leqo_0f993612d9615486a55a1cd3d4158b45_loop_reg[{0}];
+        let c_out_alias = c_out;
+        
+        // Assign the final state of the qubit to the output variable
+        let q_out = loop_reg[{0}];
+        
         @leqo.output 1
-        let leqo_e8d241f16cf659c4a39a85d20102754b_pass_node_alias_1 = leqo_e8d241f16cf659c4a39a85d20102754b_pass_node_declaration_1;
+        let q_out_alias = q_out;
         """
     source4="""
         OPENQASM 3.1;
+        /* --- INPUTS --- */
         @leqo.input 0
-        bit[1] leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_declaration_0;
-        let leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_alias_0 = leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_declaration_0;
+        bit[1] c_in;
+        let c_in_alias = c_in;
+        
         @leqo.input 1
-        qubit[1] leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_declaration_1;
-        let leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_alias_1 = leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_declaration_1;
-        let leqo_0d7d0680d06d59c09b9b91da17539e91_if_reg = leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_declaration_1;
-        if (leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_declaration_0 == 3) {
-          let leqo_0f22e31da1be57ea8479533ced7f8788_q = leqo_0d7d0680d06d59c09b9b91da17539e91_if_reg[{0}];
-          h leqo_0f22e31da1be57ea8479533ced7f8788_q;
-          let leqo_0f22e31da1be57ea8479533ced7f8788__out = leqo_0f22e31da1be57ea8479533ced7f8788_q;
+        qubit[1] q_main;
+        let q_main_alias = q_main;
+        
+        /* --- LOGIC --- */
+        // Create a reference to the qubit for the logic block
+        let q_ptr = q_main;
+        
+        // Check if input bit equals 3 (Note: 1 bit can only be 0 or 1)
+        if (c_in == 3) {
+          // True Branch: Apply Hadamard
+          let q_true = q_ptr[{0}];
+          h q_true;
+          let q_true_out = q_true;
         } else {
-          let leqo_40da8ad6eead5c82b58a503771301f03_q = leqo_0d7d0680d06d59c09b9b91da17539e91_if_reg[{0}];
-          x leqo_40da8ad6eead5c82b58a503771301f03_q;
-          let leqo_40da8ad6eead5c82b58a503771301f03__out = leqo_40da8ad6eead5c82b58a503771301f03_q;
+          // False Branch: Apply Pauli-X
+          let q_false = q_ptr[{0}];
+          x q_false;
+          let q_false_out = q_false;
         }
-        bit[1] leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_0;
+        
+        /* --- OUTPUTS --- */
+        bit[1] c_out;
+        
         @leqo.output 0
-        let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_alias_0 = leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_0;
-        let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_1 = leqo_0d7d0680d06d59c09b9b91da17539e91_if_reg[{0}];
+        let c_out_alias = c_out;
+        
+        // Assign the final state of the qubit to the output variable
+        let q_out = q_ptr[{0}];
+        
         @leqo.output 1
-        let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_alias_1 = leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_1;
+        let q_out_alias = q_out;
         """
 
     source5="""
@@ -446,7 +647,36 @@ if __name__ == "__main__":
     }
     """
 
-    ast_node = openqasm3.parse(source6)
+    source7="""
+    OPENQASM 3.1;
+    
+    // Variational parameter (compile-time)
+    input angle[32] theta;
+    
+    // Logic parameter (runtime)
+    input int[32] n;
+    
+    // Result container
+    output int[32] result;
+    
+    qubit[1] q;
+    bit[1] c;
+    
+    // Use Parameter in gate
+    rx(theta) q[0];
+    
+    c[0] = measure q[0];
+    
+    // Use Input Variable in logic
+    if (n > 5) {
+        x q[0];
+    }
+    
+    // Write to Output (Mock assignment for demonstration)
+    result = n;
+    """
+
+    ast_node = openqasm3.parse(source1)
     transpiler = QasmToQiskitTranspiler()
     python_script = transpiler.visit(ast_node)
 
