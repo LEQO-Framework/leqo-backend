@@ -359,11 +359,20 @@ class IntLiteralNode(BaseNode):
 
     @model_validator(mode="after")
     def _default_bit_size(self) -> IntLiteralNode:
-        int_v = int(self.value)
-        self.value = int_v
-        if self.bitSize is None:
-            self.bitSize = _infer_int_bit_size(int_v)
+        try:
+            int_v = int(self.value)
+            self.value = int_v
+
+            if self.bitSize is None:
+                self.bitSize = _infer_int_bit_size(int_v)
+
+        except (ValueError, TypeError):
+            # Not an integer literal (e.g. "a")
+            # Leave value as-is and don't infer bitSize
+            pass
+
         return self
+
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
