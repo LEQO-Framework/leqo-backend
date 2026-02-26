@@ -96,20 +96,20 @@ class BpmnBuilder:
         self.defs = ET.Element(
             self.qn(BPMN2_NS, "definitions"),
             {
-                "id": "sample-diagram",
+                "id": f"Definitions_{uuid.uuid4().hex[:8]}",
                 "targetNamespace": "http://bpmn.io/schema/bpmn",
-                self.qn(
-                    XSI_NS, "schemaLocation"
-                ): "http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd",
-            },
+                "exporter": "QuantME Modeler",
+                "exporterVersion": "4.5.0-nightly.20220628",
+            }
         )
         self.process = ET.SubElement(
             self.defs,
             self.qn(BPMN2_NS, "process"),
-            {"id": f"Process_{self.process_id}",
-             "isExecutable": "true",
-             self.qn(CAMUNDA_NS, "historyTimeToLive"): "360000",
-            }, 
+            {
+                "id": f"Process_{self.process_id}",
+                "isExecutable": "true",
+                self.qn(CAMUNDA_NS, "historyTimeToLive"): "360000",
+            }
         )
 
     def qn(self, ns: str, tag: str) -> str:
@@ -132,7 +132,7 @@ class BpmnBuilder:
         self._create_end_event()
 
         # Analyze Structure
-        incoming, outgoing = self._analyze_graph()
+        incoming, _ = self._analyze_graph()
         start_nodes = [nid for nid in self.nodes.keys() if not incoming[nid]]
 
         # Create Chains
@@ -171,7 +171,53 @@ class BpmnBuilder:
                     all_activities.append(self.alt_ends[start_node][-1])
         all_activities = [x for x in all_activities if x is not None]
 
+        self.remove_invalid_incoming_outgoing(self.process)
+
+        self.indent(self.defs)
         return ET.tostring(self.defs, encoding="unicode"), all_activities
+    
+    def indent(self, elem, level=0):
+        """
+        Fügt Zeilenumbrüche und Einrückungen zum ElementTree-XML-Objekt hinzu – für Pretty-Print.
+        """
+        i = "\n" + level*"  "
+        if len(elem):
+            if not elem.text or not elem.text.strip():
+                elem.text = i + "  "
+            for child in elem:
+                self.indent(child, level+1)
+                if not child.tail or not child.tail.strip():
+                    child.tail = i + "  "
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = i
+        else:
+            if level and (not elem.tail or not elem.tail.strip()):
+                elem.tail = i
+
+    def remove_invalid_incoming_outgoing(self, process):
+        for el in process.findall(".//*[@id]"):
+            tag = el.tag
+            # nur den letzten Teil extrahieren (namespace-agnostisch)
+            if tag.endswith("startEvent"):
+                for c in list(el):
+                    if c.tag.endswith("incoming"):
+                        el.remove(c)
+            if tag.endswith("endEvent"):
+                for c in list(el):
+                    if c.tag.endswith("outgoing"):
+                        el.remove(c)
+
+    def _fix_incoming_outgoing_order(self, element):
+        """Sort extension, then all incoming, then all outgoing, then the rest."""
+        # sortiere alle Kinder
+        ext = [c for c in list(element) if c.tag.endswith("extensionElements")]
+        incomings = [c for c in list(element) if c.tag.endswith("incoming")]
+        outgoings = [c for c in list(element) if c.tag.endswith("outgoing")]
+        rest = [c for c in list(element) if c not in ext + incomings + outgoings]
+        for c in list(element):
+            element.remove(c)
+        for c in ext + incomings + outgoings + rest:
+            element.append(c)
 
     def _create_plugin_flow(
         self, 
@@ -264,12 +310,12 @@ class BpmnBuilder:
         y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
 
         # Place tasks
-        positions[load_file_id] = (x, y)
-        positions[call_plugin_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[poll_job_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[setvars2_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[human_id] = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[analyzefailedjob_id] = (
+        positions[load_file_id]         = (x, y)
+        positions[call_plugin_id]       = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[poll_job_id]          = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[setvars2_id]          = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[human_id]             = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[analyzefailedjob_id]  = (
             x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
             y + BPMN_TASK_HEIGHT + 30,
         )
@@ -335,16 +381,16 @@ class BpmnBuilder:
         y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
 
         # Place tasks
-        positions[setvars1_id] = (x, y)
-        positions[backendreq_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[pollstat_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[retrievecirc_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[createdeploym_id] = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[exejob_id] = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[getjobres_id] = (x + 6 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[setvars2_id] = (x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[human_id] = (x + 8 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[updatevars_id] = (
+        positions[setvars1_id]         = (x, y)
+        positions[backendreq_id]       = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[pollstat_id]         = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[retrievecirc_id]     = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[createdeploym_id]    = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[exejob_id]           = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[getjobres_id]        = (x + 6 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[setvars2_id]         = (x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[human_id]            = (x + 8 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[updatevars_id]       = (
             x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
             y - BPMN_TASK_HEIGHT - 30,
         )
@@ -365,7 +411,7 @@ class BpmnBuilder:
         # Gateway 4
         self._place_gateway_between(getjobres_id, setvars2_id, gateway4_id, positions)
 
-        gx2, gy2 = positions[gateway2_id]
+        gx2, _ = positions[gateway2_id]
         positions[analyzefailedtransf_id] = (
             gx2,
             y + BPMN_TASK_HEIGHT + 30,
@@ -423,12 +469,12 @@ class BpmnBuilder:
         y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
 
         # Place tasks
-        positions[setcirc_id] = (x, y)
-        positions[createdeploym_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[exejob_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[getjobres_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[setvars2_id] = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[human_id] = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[setcirc_id]          = (x, y)
+        positions[createdeploym_id]    = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[exejob_id]           = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[getjobres_id]        = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[setvars2_id]         = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[human_id]            = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
         positions[analyzefailedjob_id] = (
             x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
             y + BPMN_TASK_HEIGHT + 30,
@@ -626,7 +672,11 @@ class BpmnBuilder:
             shape = ET.SubElement(
                 plane,
                 self.qn(BPMNDI_NS, "BPMNShape"),
-                {"id": f"{eid}_di", "bpmnElement": eid},
+                {
+                    "id": f"{eid}_di", 
+                    "bpmnElement": eid,
+                    "isMarkerVisible": "true",
+                },
             )
             ET.SubElement(
                 shape,
@@ -837,6 +887,17 @@ class BpmnBuilder:
                 "defaultValue": "5005",
             },
         )
+
+        if self.containsPlaceholder:
+            ET.SubElement(
+                form,
+                self.qn(CAMUNDA_NS, "formField"),
+                {
+                    "id": "placeholder",
+                    "label": "Placeholder",
+                    "type": "string",
+                },
+            )
 
     def _create_end_event(self) -> None:
         """Creates the End Event."""
@@ -1389,325 +1450,6 @@ class BpmnBuilder:
             setvars2_id,
         )
 
-    def _calculate_layout(
-        self,
-        start_nodes: list[str],
-        incoming: dict[str, list[str]],
-        outgoing: dict[str, list[str]],
-    ) -> None:
-        """Calculates positions for all elements in the diagram."""
-        # Topological Sort & Leveling
-        node_ids = list(self.nodes.keys())
-        node_level = {}
-        for nid in node_ids:
-            if nid in start_nodes:
-                node_level[nid] = 1 if self.containsPlaceholder else 0
-
-        # Topological sort
-        indegree = {nid: len(incoming[nid]) for nid in node_ids}
-        queue = deque(start_nodes)
-        topo_order = []
-        while queue:
-            nid = queue.popleft()
-            topo_order.append(nid)
-            for tgt in outgoing[nid]:
-                indegree[tgt] -= 1
-                if indegree[tgt] == 0:
-                    queue.append(tgt)
-        for nid in node_ids:
-            if nid not in topo_order:
-                topo_order.append(nid)
-
-        # compute levels by topo_order, using incoming predecessors' levels
-        level_positions = defaultdict(list)
-        for nid in topo_order:
-            if nid not in node_level:
-                predecessors = incoming[nid]
-                if predecessors:
-                    node_level[nid] = (
-                        max(node_level.get(p, 0) for p in predecessors) + 1
-                    )
-                else:
-                    node_level[nid] = 1
-            level_positions[node_level[nid]].append(nid)
-
-        # place chain tasks at level 0; if multiple start nodes, they'll be stacked vertically
-        for chain_level, start_node in enumerate(start_nodes):
-            x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
-            y = BPMN_CHAIN_Y_BASE + chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
-
-            chain = self.inserted_chains[start_node]
-            human_id = self.human_tasks[start_node]
-
-            # Common tail always present
-            tail = chain
-            if self.containsPlugin: # plugin
-                tail = chain[-6:]
-                (
-                    _,
-                    call_plugin_id,
-                    gateway3_id,
-                    poll_job_id,
-                    gateway4_id,
-                    setvars2_id,
-                ) = tail
-
-                # place common tasks
-                self.task_positions[call_plugin_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-                self.task_positions[poll_job_id] = (
-                    x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y,
-                )
-
-                # Gateway 3
-                self._place_gateway_between(call_plugin_id, poll_job_id, gateway3_id)
-                self.task_positions[setvars2_id] = (
-                    x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y,
-                    )
-                
-                # Gateway 4
-                self._place_gateway_between(poll_job_id, setvars2_id, gateway4_id)
-                self.task_positions[human_id] = (
-                    x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), 
-                    y,
-                    )
-            else: # non plugin
-                tail = chain[-6:]
-                (
-                    createdeploym_id,
-                    exejob_id,
-                    gateway3_id,
-                    getjobres_id,
-                    gateway4_id,
-                    setvars2_id,
-                ) = tail
-
-                # place common tasks
-                self.task_positions[createdeploym_id] = (
-                    x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y,
-                    )
-                self.task_positions[exejob_id] = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-                self.task_positions[getjobres_id] = (
-                    x + 6 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y,
-                    )
-
-                # Gateway 3
-                self._place_gateway_between(exejob_id, getjobres_id, gateway3_id)
-                self.task_positions[setvars2_id] = (
-                    x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y,
-                    )
-                
-                # Gateway 4
-                self._place_gateway_between(getjobres_id, setvars2_id, gateway4_id)
-                self.task_positions[human_id] = (x + 8 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-
-            analyzefailedjob_id = self.fail_job_tasks[start_node]
-            # place transformation tasks
-            if self.containsPlaceholder:
-                (
-                    setvars1_id,
-                    backendreq_id,
-                    gateway1_id,
-                    pollstat_id,
-                    gateway2_id,
-                    retrievecirc_id,
-                    *_,
-                ) = chain
-
-                updatevars_id = self.update_tasks[start_node]
-                analyzefailedtransf_id = self.fail_transf_tasks[start_node]
-
-                self.task_positions[setvars1_id] = (x, y)
-                self.task_positions[backendreq_id] = (
-                    x + 1 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y,
-                    )
-                self.task_positions[pollstat_id] = (
-                    x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y,
-                    )
-
-                # Gateway 1
-                self._place_gateway_between(backendreq_id, pollstat_id, gateway1_id)
-                self.task_positions[retrievecirc_id] = (
-                    x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y,
-                    )
-
-                # Gateway 2
-                self._place_gateway_between(pollstat_id, retrievecirc_id, gateway2_id)
-                self.task_positions[updatevars_id] = (
-                    x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y - BPMN_TASK_HEIGHT - 30,
-                    )
-
-                gx2, gy2 = self.task_positions[gateway2_id]
-                self.task_positions[analyzefailedtransf_id] = (
-                    gx2,
-                    gy2 + BPMN_TASK_HEIGHT + 20,
-                    )
-                self.task_positions[analyzefailedjob_id] = (
-                    x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                    y + BPMN_TASK_HEIGHT + 30,
-                    )
-
-            else:
-                # no placeholder part
-                if self.containsPlugin: # plugin workflow
-                    load_file_id = chain[0]
-                    self.task_positions[load_file_id] = (x, y)
-                    self.task_positions[analyzefailedjob_id] = (
-                        x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                        y + BPMN_TASK_HEIGHT + 30,
-                        )
-                else: # non plugin workflow
-                    setcirc_id = chain[0]
-                    self.task_positions[setcirc_id] = (x, y)
-                    self.task_positions[analyzefailedjob_id] = (
-                        x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
-                        y + BPMN_TASK_HEIGHT + 30,
-                        )
-
-            # alternative end events
-            afj_x, afj_y = self.task_positions[analyzefailedjob_id]
-            for altend_id in self.alt_ends.get(start_node, []):
-                if altend_id.endswith("_alt_end_2"):
-                    self.task_positions[altend_id] = (
-                        afj_x + BPMN_TASK_WIDTH + BPMN_GAP_X // 2,
-                        afj_y + 22,
-                        )
-                else:
-                    # alt_end_1
-                    self.task_positions[altend_id] = (
-                        x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X) + 30,
-                        afj_y + 22,
-                        )
-
-        # Place original nodes
-        for level, nids in level_positions.items():
-            for i, nid in enumerate(nids):
-                # shift x by +1 level because chain occupies level 0
-                x = (
-                    BPMN_START_X
-                    + BPMN_CHAIN_X_OFFSET
-                    + (level + 3) * (BPMN_TASK_WIDTH + BPMN_GAP_X)
-                )
-                y = BPMN_CHAIN_Y_BASE + i * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
-                if not nid.startswith("quantum_group_"):
-                    self.task_positions[f"Task_{nid}"] = (x, y)
-
-    def _connect_flows(self, start_nodes: list[str]) -> None:
-        """Creates sequence flows connecting the chains and elements."""
-        ordered_starts = start_nodes
-        flow_map = []
-
-        for i, start_node in enumerate(ordered_starts):
-            chain = self.inserted_chains[start_node]
-            human_id = self.human_tasks[start_node]
-            altend2_id = self.alt_ends[start_node][-1]
-            analyzefailedjob_id = self.fail_job_tasks[start_node]
-
-            # unpack chain tail
-            createdeploym_id = chain[-6]
-            if self.containsPlugin: # plugin
-                call_plugin_id = chain[-5]
-                poll_job_id = chain[-3]
-            else: # non plugin
-                exejob_id = chain[-5]
-                getjobres_id = chain[-3]
-            gateway3_id = chain[-4]
-            gateway4_id = chain[-2]
-            setvars2_id = chain[-1]
-
-            if self.containsPlaceholder:
-                setvars1_id = chain[0]
-                backendreq_id = chain[1]
-                gateway1_id = chain[2]
-                pollstat_id = chain[3]
-                gateway2_id = chain[4]
-                retrievecirc_id = chain[5]
-
-                updatevars_id = self.update_tasks[start_node]
-                analyzefailedtransf_id = self.fail_transf_tasks[start_node]
-                altend1_id = self.alt_ends[start_node][0]
-
-                if i == 0:
-                    flow_map.append((self.new_flow(), self.start_id, setvars1_id))
-
-                flow_map.append((self.new_flow(), setvars1_id, backendreq_id))
-
-                fid = self.new_flow()
-                flow_map.append((fid, gateway1_id, pollstat_id))
-
-                flow_map.append((self.new_flow(), backendreq_id, gateway1_id))
-                flow_map.append((self.new_flow(), pollstat_id, gateway2_id))
-
-                # Gateway 2
-                fid_ret = self.new_flow()
-                flow_map.append((fid_ret, gateway2_id, retrievecirc_id))
-
-                fid_def = self.new_flow()
-                flow_map.append((fid_def, gateway2_id, analyzefailedtransf_id))
-
-                flow_map.append((self.new_flow(), gateway2_id, updatevars_id))
-
-                # Success path
-                flow_map.append((self.new_flow(), retrievecirc_id, createdeploym_id))
-
-                flow_map.append((self.new_flow(), analyzefailedtransf_id, altend1_id))
-                flow_map.append((self.new_flow(), updatevars_id, gateway1_id))
-
-            else:
-                if self.containsPlugin: # plugin
-                    load_file_id = chain[0]
-                    if i == 0:
-                        flow_map.append((self.new_flow(), self.start_id, load_file_id))
-                        flow_map.append((self.new_flow(), load_file_id, call_plugin_id))
-                else: # non plugin
-                    setcirc_id = chain[0]
-                    if i == 0:
-                        flow_map.append((self.new_flow(), self.start_id, setcirc_id))
-                    flow_map.append((self.new_flow(), setcirc_id, createdeploym_id))
-
-            # Common tail flows
-            if self.containsPlugin: # plugin
-                flow_map.append((self.new_flow(), call_plugin_id, gateway3_id))
-                fid = self.new_flow()
-                flow_map.append((fid, gateway3_id, poll_job_id))
-                flow_map.append((self.new_flow(), poll_job_id, gateway4_id))
-            else: # non plugin
-                flow_map.append((self.new_flow(), createdeploym_id, exejob_id))
-                flow_map.append((self.new_flow(), exejob_id, gateway3_id))
-                fid = self.new_flow()
-                flow_map.append((fid, gateway3_id, getjobres_id))
-                flow_map.append((self.new_flow(), getjobres_id, gateway4_id))
-
-            fid = self.new_flow()
-            flow_map.append((fid, gateway4_id, setvars2_id))
-
-            flow_map.append((self.new_flow(), setvars2_id, human_id))
-            flow_map.append((self.new_flow(), gateway4_id, analyzefailedjob_id))
-            flow_map.append((self.new_flow(), analyzefailedjob_id, altend2_id))
-            flow_map.append((self.new_flow(), gateway4_id, gateway3_id))
-
-            # Next or End
-            if i + 1 < len(ordered_starts):
-                next_chain = self.inserted_chains[ordered_starts[i + 1]]
-                flow_map.append((self.new_flow(), human_id, next_chain[0]))
-            else:
-                flow_map.append((self.new_flow(), human_id, self.end_id))
-
-        # Create Sequence Flows
-        for fid, src, tgt in flow_map:
-            self._create_sequence_flow(fid, src, tgt)
-
-        # Store edges for Diagram
-        self.flow_map = flow_map
-
     def _create_sequence_flow(self, fid: str, src: str, tgt: str) -> None:
         """Helper to create a single Sequence Flow element."""
         # Resolve IDs
@@ -1718,10 +1460,14 @@ class BpmnBuilder:
         src_el = self.process.find(f".//*[@id='{src_el_id}']")
         tgt_el = self.process.find(f".//*[@id='{tgt_el_id}']")
 
-        if src_el is not None:
-            ET.SubElement(src_el, self.qn(BPMN2_NS, "outgoing")).text = fid
         if tgt_el is not None:
-            ET.SubElement(tgt_el, self.qn(BPMN2_NS, "incoming")).text = fid
+            if tgt_el.tag != self.qn(BPMN2_NS, "startEvent"):
+                ET.SubElement(tgt_el, self.qn(BPMN2_NS, "incoming")).text = fid
+                self._fix_incoming_outgoing_order(tgt_el)
+        if src_el is not None:
+            if src_el.tag != self.qn(BPMN2_NS, "endEvent"):
+                ET.SubElement(src_el, self.qn(BPMN2_NS, "outgoing")).text = fid
+                self._fix_incoming_outgoing_order(src_el)
 
         sf = ET.SubElement(
             self.process,
