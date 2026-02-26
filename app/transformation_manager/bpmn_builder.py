@@ -178,7 +178,7 @@ class BpmnBuilder:
     
     def indent(self, elem, level=0):
         """
-        Fügt Zeilenumbrüche und Einrückungen zum ElementTree-XML-Objekt hinzu – für Pretty-Print.
+        Adds indentations to the ElementTree-XML-Object for a pretty print.
         """
         i = "\n" + level*"  "
         if len(elem):
@@ -197,7 +197,7 @@ class BpmnBuilder:
     def remove_invalid_incoming_outgoing(self, process):
         for el in process.findall(".//*[@id]"):
             tag = el.tag
-            # nur den letzten Teil extrahieren (namespace-agnostisch)
+            # just extract the last part
             if tag.endswith("startEvent"):
                 for c in list(el):
                     if c.tag.endswith("incoming"):
@@ -209,7 +209,7 @@ class BpmnBuilder:
 
     def _fix_incoming_outgoing_order(self, element):
         """Sort extension, then all incoming, then all outgoing, then the rest."""
-        # sortiere alle Kinder
+        # sort all children
         ext = [c for c in list(element) if c.tag.endswith("extensionElements")]
         incomings = [c for c in list(element) if c.tag.endswith("incoming")]
         outgoings = [c for c in list(element) if c.tag.endswith("outgoing")]
