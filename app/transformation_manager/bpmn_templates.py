@@ -227,7 +227,12 @@ println(statusJob);
 return statusJob;"""
 
 SCRIPT_SET_VARS_CLUSTERING = """
-print "Set Variables"
+import groovy.json.JsonOutput
+def resultExecution = execution.getVariable("resultExecution")
+def result = new groovy.json.JsonSlurper().parseText(resultExecution)
+result.outputs.eachWithIndex { output, i ->
+    execution.setVariable("outputHref_${i}", output.href)
+}
 """
 
 OUTPUT_STATUS_CLUSTERING = """println("Response")
@@ -240,9 +245,11 @@ return statusJob;"""
 
 OUTPUT_RESULT_CLUSTERING = """import groovy.json.JsonSlurper
 import groovy.json.JsonBuilder
+import groovy.json.JsonOutput
 
 def resp = new JsonSlurper()
     .parseText(connector.getVariable("response"))
 println "Response to extract resultExecution: ${resp}"
+def json = JsonOutput.prettyPrint(JsonOutput.toJson(resp))
 
-return resp.toString()"""
+return json"""
