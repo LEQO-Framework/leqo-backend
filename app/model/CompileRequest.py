@@ -359,11 +359,20 @@ class IntLiteralNode(BaseNode):
 
     @model_validator(mode="after")
     def _default_bit_size(self) -> IntLiteralNode:
-        int_v = int(self.value)
-        self.value = int_v
-        if self.bitSize is None:
-            self.bitSize = _infer_int_bit_size(int_v)
+        try:
+            int_v = int(self.value)
+            self.value = int_v
+
+            if self.bitSize is None:
+                self.bitSize = _infer_int_bit_size(int_v)
+
+        except (ValueError, TypeError):
+            # Not an integer literal (e.g. "a")
+            # Leave value as-is and don't infer bitSize
+            pass
+
         return self
+
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -434,6 +443,21 @@ class ArrayLiteralNode(BaseNode):
             )
             self.elementBitSize = bit_size
         return self
+    
+class StringLiteralNode(BaseNode):
+    """
+    Node representing a string literal.
+    """
+
+    type: Literal["string"] = "string"
+
+    bitSize: int = Field(default=32, ge=1)
+    """"Bit size of the string (optional)."""
+
+    value: str
+    """String value."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 LiteralNode = (
@@ -442,6 +466,7 @@ LiteralNode = (
     | IntLiteralNode
     | FloatLiteralNode
     | ArrayLiteralNode
+    | StringLiteralNode
 )
 # endregion
 
@@ -542,6 +567,31 @@ class OperatorNode(BaseNode):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+class PluginNode(BaseNode):
+    """
+    Node representing a plugin.
+    """
+
+    type: Literal["plugin"] = "plugin"
+
+    pluginName: str
+    """Name of the plugin"""
+
+    inputs: list[Any] = []
+    """Possible inputs"""
+
+    outputs: list[Any] = []
+    """Possible outputs"""
+
+class FileLiteralNode(BaseNode):
+    """
+    Node representing a file as a url.
+    """
+
+    type: Literal["file"] = "file"
+
+    value: str
+    """The url"""
 
 NestableNode = (
     ImplementationNode
@@ -551,6 +601,8 @@ NestableNode = (
     | LiteralNode
     | AncillaNode
     | OperatorNode
+    | PluginNode
+    | FileLiteralNode
 )
 Node = NestableNode | QubitNode | ControlFlowNode
 

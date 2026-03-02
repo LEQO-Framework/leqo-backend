@@ -497,14 +497,20 @@ async def process_compile_request(
         result: str | list[ImplementationNode]
         if target == "workflow":
             original_request = getattr(processor, "original_request", None)
-            if original_request is not None:
-                contains_placeholder = getattr(
-                    getattr(original_request, "metadata", None),
-                    "containsPlaceholder",
-                    False,
-                )
-                print("Contains placeholder:", contains_placeholder)
-            qasm = "" if contains_placeholder else await processor.process()
+            contains_plugin = False
+            if original_request is not None and hasattr(original_request, "nodes"):
+                contains_plugin = any(getattr(n, "type", None) == "plugin" for n in original_request.nodes)
+            contains_placeholder = getattr(
+                getattr(original_request, "metadata", None),
+                "containsPlaceholder",
+                False,
+            ) if original_request is not None else False
+            print("Contains placeholder:", contains_placeholder)
+            print("Contains plugin:", contains_plugin)
+            if contains_plugin:
+                qasm = ""
+            else:
+                qasm = "" if contains_placeholder else await processor.process()
             print("QASM")
             print(qasm)
             print("Requets")
