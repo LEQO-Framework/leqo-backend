@@ -4,6 +4,8 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict, deque
 from typing import Any, Tuple, Optional
 from app.transformation_manager import bpmn_templates as GroovyScript
+from app.model.CompileRequest import CompileRequest
+import json
 
 # BPMN namespaces
 BPMN2_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
@@ -40,6 +42,7 @@ class BpmnBuilder:
         metadata: dict[str, Any] | None = None,
         start_event_classical_nodes: list[Any] | None = None,
         containsPlaceholder: bool = False,
+        original_request: CompileRequest | None = None,
     ):
         """
         Initializes the BpmnBuilder.
@@ -52,6 +55,9 @@ class BpmnBuilder:
             start_event_classical_nodes: List of classical nodes to be inputs on Start Event.
             containsPlaceholder: Whether to generate the placeholder workflow structure.
         """
+        self.original_request = original_request
+        self.model_json = json.dumps(self.original_request.model_dump())
+        
         self.process_id = process_id
         self.nodes = nodes
         self.edges = edges
@@ -297,7 +303,6 @@ class BpmnBuilder:
         analyzefailedjob_id = self.fail_job_tasks[start_node]
 
         (
-            load_file_id,
             call_plugin_id,
             gateway3_id,
             poll_job_id,
@@ -310,13 +315,12 @@ class BpmnBuilder:
         y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
 
         # Place tasks
-        positions[load_file_id]         = (x, y)
-        positions[call_plugin_id]       = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[poll_job_id]          = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[setvars2_id]          = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[human_id]             = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[call_plugin_id]       = (x, y)
+        positions[poll_job_id]          = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[setvars2_id]          = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[human_id]             = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
         positions[analyzefailedjob_id]  = (
-            x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
+            x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
             y + BPMN_TASK_HEIGHT + 30,
         )
 
@@ -520,7 +524,6 @@ class BpmnBuilder:
         analyzefailedjob_id = self.fail_job_tasks[start_node]
 
         (
-            load_file_id,
             call_plugin_id,
             gateway3_id,
             poll_job_id,
@@ -534,9 +537,8 @@ class BpmnBuilder:
         flow_map = []
 
         if self.chain_level == 0:
-            flow_map.append((self.new_flow(), self.start_id, load_file_id))
+            flow_map.append((self.new_flow(), self.start_id, call_plugin_id))
 
-        flow_map.append((self.new_flow(), load_file_id, call_plugin_id))
         flow_map.append((self.new_flow(), call_plugin_id, gateway3_id))
         flow_map.append((self.new_flow(), gateway3_id, poll_job_id))
         flow_map.append((self.new_flow(), poll_job_id, gateway4_id))
@@ -776,10 +778,7 @@ class BpmnBuilder:
             )
 
             # Custom-Docking
-            if src.endswith("_human") and tgt.endswith("_load_file"):
-                mode_src = "bottom"
-                mode_tgt = "top"
-            elif src.endswith("_human") and tgt.endswith("_set_circuit"):
+            if src.endswith("_human") and tgt.endswith("_set_circuit"):
                 mode_src = "bottom"
                 mode_tgt = "top"
             elif src.endswith("_human") and tgt.endswith("_set_vars_1"):
@@ -1194,7 +1193,7 @@ class BpmnBuilder:
         self._create_script_task(
             setcirc_id,
             "Set Circuit",
-            GroovyScript.SCRIPT_LOAD_FILE_CLUSTERING, # both tasks have the same script content
+            GroovyScript.SCRIPT_SET_CIRCUIT,
             async_after=True,
             exclusive=True,
             result_variable="circuit"
@@ -1344,9 +1343,8 @@ class BpmnBuilder:
     def _create_chain_clustering(self, start_node: str, plugin_name: str) -> None:
         """
         Creates a clustering plugin execution chain.
-        StartEvent -> Load File -> Call Clustering Plugin -> Poll Job Results -> Set Variables -> Analyze Results -> EndEvent
+        StartEvent -> Set Variables -> Call Clustering Plugin -> Poll Job Results -> Set Variables -> Analyze Results -> EndEvent
         """
-        load_file_id = f"Task_{start_node}_load_file"
         call_plugin_id = f"Task_{start_node}_call_plugin"
         poll_job_id = f"Task_{start_node}_poll_job_res"
 
@@ -1369,31 +1367,6 @@ class BpmnBuilder:
         ) = self._create_chain_common(start_node)
 
         # Specific parts
-        self._create_script_task(
-            load_file_id,
-            "Load File",
-            GroovyScript.SCRIPT_LOAD_FILE_CLUSTERING,
-            async_after=True,
-            exclusive=True,
-            result_variable="circuit",
-            connector=True,
-            connector_input_parameters=[
-                {
-                    "name": "headers",
-                    "map": {
-                        "Accept": "application/json",
-                        "Content-Type": "application/json"
-                    }
-                }
-            ],
-            connector_output_parameters=[
-                {
-                    "name": "circuit",
-                    "script": GroovyScript.OUTPUT_PARAM_LOAD_FILE_CLUSTERING
-                }
-            ]
-        )
-
         task_name = self.get_plugin_task_name(plugin_name)
 
         file_url = inputs["entityPointsUrl"]
@@ -1442,7 +1415,6 @@ class BpmnBuilder:
         )
 
         self.inserted_chains[start_node] = (
-            load_file_id,
             call_plugin_id,
             gateway3_id,
             poll_job_id,

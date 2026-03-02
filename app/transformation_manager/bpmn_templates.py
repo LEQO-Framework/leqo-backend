@@ -82,6 +82,8 @@ return resp.state"""
 
 SCRIPT_SET_VARS_PLACEHOLDER = """def model= '{"metadata":{"optimizeWidth":null,"optimizeDepth":null,"version":"1.0.0","name":"My Model","description":"This is a model.","author":"","containsPlaceholder":false},"compilation_target":"qasm","nodes":[{"id":"1a1f4fe0-9c18-4956-a394-c6326ab10f80","label":null,"type":"qubit","size":1},{"id":"1d9e5132-79f3-475d-ba91-7e63b89fef85","label":null,"type":"gate","gate":"h"}],"edges":[{"source":["1a1f4fe0-9c18-4956-a394-c6326ab10f80",0],"target":["1d9e5132-79f3-475d-ba91-7e63b89fef85",0],"size":null,"identifier":null}]}'
 execution.setVariable("model", model)
+placeholder = execution.getVariable("placeholder");
+println("placeholder: ${placeholder}")
 def groupId = execution.getVariable("groupId")
 println "groupId: ${groupId}"
 
@@ -149,7 +151,7 @@ OUTPUT_CIRCUIT_PLACEHOLDER = """return connector.getVariable("response")"""
 SCRIPT_UPDATE_VARS_PLACEHOLDER = """def iterations= execution.getVariable("iterations")
 execution.setVariable("iterations", iterations+1)"""
 
-SCRIPT_LOAD_FILE_CLUSTERING = '''execution.setVariable("circuit", """OPENQASM 3.1;
+SCRIPT_SET_CIRCUIT = '''execution.setVariable("circuit", """OPENQASM 3.1;
 include "stdgates.inc";
 qubit[1] leqo_reg;
 /* Start node e1239b18-6fa4-465e-86ef-dfd16700149a */

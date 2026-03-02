@@ -595,6 +595,7 @@ class WorkflowProcessor(CommonProcessor):
                     if getattr(node, "type", None) in CLASSICAL_TYPES
                 ],
                 containsPlaceholder=self.original_request.metadata.containsPlaceholder,
+                original_request=self.original_request,
             )
         except Exception as e:
             print("!!! BPMN GENERATION FAILED !!!", repr(e))
@@ -931,6 +932,7 @@ def _implementation_nodes_to_bpmn_xml(
     metadata: dict[str, dict[str, Any]] | None = None,
     start_event_classical_nodes: list[Any] | None = None,
     containsPlaceholder: bool = False,
+    original_request: CompileRequest | None = None,
 ) -> tuple[str, list[str]]:
     """Generate BPMN XML workflow diagram with correct left-to-right layout.
 
@@ -955,6 +957,7 @@ def _implementation_nodes_to_bpmn_xml(
         metadata=metadata,
         start_event_classical_nodes=start_event_classical_nodes,
         containsPlaceholder=containsPlaceholder,
+        original_request=original_request,
     )
 
     return builder.build()
