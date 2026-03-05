@@ -1,0 +1,43 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Workflow Debug Request",
+    "description": "Seed request to exercise the /debug/workflow endpoint with QRMs and service deployment models.",
+    "author": "CLI Tester"
+  },
+  "compilation_target": "workflow",
+  "qrms": {
+    "status": "ok",
+    "note": "Test QRM payload for debug workflow endpoint"
+  },
+  "serviceDeploymentModels": {
+    "id": "demo-service-model",
+    "description": "Test service deployment models payload"
+  },
+  "nodes": [
+    {
+      "id": "literal",
+      "type": "float",
+      "label": "Angle input",
+      "bitSize": 32,
+      "value": 1.5707963267948966
+    },
+    {
+      "id": "encode",
+      "type": "encode",
+      "label": "Angle encoder",
+      "encoding": "angle",
+      "bounds": 0
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": [0]
+    }
+  ],
+  "edges": [
+    { "source": ["literal", 0], "target": ["encode", 0] },
+    { "source": ["encode", 0], "target": ["measure", 0] }
+  ]
+}

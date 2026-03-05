@@ -5,7 +5,7 @@ Database schema for everything stored in the database.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import UUID, ForeignKey, String, Text
+from sqlalchemy import UUID, ForeignKey, LargeBinary, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.model.StatusResponse import StatusType
@@ -62,6 +62,32 @@ class CompileRequestPayload(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     payload: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class QuantumResourceModel(Base):
+    """
+    Store Quantum Resource Model representations for a request.
+    """
+
+    __tablename__ = "qrms"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    payload: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    filename: Mapped[str | None] = mapped_column(String, nullable=True)
+    content_type: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class ServiceDeploymentModel(Base):
+    """
+    Store Service Deployment Model representations for a request.
+    """
+
+    __tablename__ = "service_deployment_models"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    payload: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    filename: Mapped[str | None] = mapped_column(String, nullable=True)
+    content_type: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class EnrichResult(Base):

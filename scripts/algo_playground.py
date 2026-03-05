@@ -351,8 +351,10 @@ class NoPredReturnedRequiredQuotient(NoPredDummy):
     @override
     def pop_nopred(self) -> ProcessedProgramNode:
         self.nopred.sort(
-            key=lambda x: (len(x.qubit.reusable_ids) + len(x.qubit.uncomputable_ids))
-            / (len(x.qubit.clean_ids) + 1),
+            key=lambda x: (
+                (len(x.qubit.reusable_ids) + len(x.qubit.uncomputable_ids))
+                / (len(x.qubit.clean_ids) + 1)
+            ),
             reverse=True,
         )
         result, self.nopred = self.nopred[0], self.nopred[1:]
@@ -670,8 +672,10 @@ class NoSuccReturnedRequiredQuotient(NoSuccDummy):
     @override
     def pop_nosucc(self) -> ProcessedProgramNode:
         self.nosucc.sort(
-            key=lambda x: (len(x.qubit.reusable_ids) + len(x.qubit.uncomputable_ids))
-            / (len(x.qubit.clean_ids) + 1),
+            key=lambda x: (
+                (len(x.qubit.reusable_ids) + len(x.qubit.uncomputable_ids))
+                / (len(x.qubit.clean_ids) + 1)
+            ),
             reverse=False,
         )
         result, self.nosucc = self.nosucc[0], self.nosucc[1:]

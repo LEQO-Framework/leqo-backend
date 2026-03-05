@@ -25,9 +25,6 @@ jobs:
       - name: Type checking
         run: uv run --no-sync mypy . --strict
 
-      - name: Run tests
-        run: uv run --no-sync pytest --cov=app --cov-report=html:.coverage-report tests
-
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:

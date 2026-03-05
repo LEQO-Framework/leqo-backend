@@ -68,6 +68,9 @@ class MetaData(BaseModel, OptimizeSettings):
     optimizeDepth: Annotated[int, Field(gt=0)] | None = None
     """Optimization setting for reducing circuit depth (optional)."""
 
+    containsPlaceholder: bool | None = None
+    """Specifies if the model contains placeholder."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
@@ -347,21 +350,22 @@ class IntLiteralNode(BaseNode):
 
     type: Literal["int"] = "int"
 
-    bitSize: int = Field(default=None, ge=1)
+    bitSize: int | None = Field(default=None, ge=1)
+
     """"Bit size of the integer (optional)."""
 
-    value: int
+    value: int | str
     """Integer value."""
-
-    model_config = ConfigDict(use_attribute_docstrings=True)
 
     @model_validator(mode="after")
     def _default_bit_size(self) -> IntLiteralNode:
-        # If no bitSize is provided, or if it's the old default (32) 
-        # but the value is small, put the optimal size.
-        if self.bitSize is None or self.bitSize == 32:
-            self.bitSize = _infer_int_bit_size(self.value)
+        int_v = int(self.value)
+        self.value = int_v
+        if self.bitSize is None:
+            self.bitSize = _infer_int_bit_size(int_v)
         return self
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class FloatLiteralNode(BaseNode):
@@ -371,10 +375,11 @@ class FloatLiteralNode(BaseNode):
 
     type: Literal["float"] = "float"
 
-    bitSize: int = Field(default=32, ge=1)
+    bitSize: int | None = Field(default=None, ge=1)
+
     """Bit size of the float (optional)."""
 
-    value: float
+    value: int | str | float
     """Float value."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
@@ -392,7 +397,7 @@ class ArrayLiteralNode(BaseNode):
 
     elementBitSize: int | None = Field(default=None, ge=1)
     """Bit width of each element in the array (only used for integers)."""
-    
+
     elementType: Literal["int", "float"] | None = None
     """Explicitly declare the type of the array elements."""
 
@@ -406,7 +411,7 @@ class ArrayLiteralNode(BaseNode):
 
         normalized = data.copy()
         raw_values = normalized.get("values", normalized.get("value"))
-        
+
         # Helper to parse string to int or float
         def parse_num(s):
             return float(s) if "." in str(s) else int(s)

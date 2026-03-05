@@ -27,6 +27,8 @@ python scripts/request_helper.py send payload.json /compile
 Options:
 
 - `--host http://localhost:8000` (default) - base URL for the API.
+- `--flag FLAG` - optional diagnostic flag forwarded as a repeated `flags` query parameter (repeatable, e.g. `--flag is_debug --flag include_traceback`).
+- `--show-stacktrace` - when the request fails, pretty-print the error payload and any embedded stack trace.
 
 For long-running endpoints (`/compile`, `/enrich`) the script polls `/status`, prints the result, and follows the `Link` header to show the stored request payload.
 
