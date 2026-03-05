@@ -8,6 +8,7 @@ from openqasm3.ast import ArrayLiteral as AstArrayLiteral
 from openqasm3.ast import ArrayType as AstArrayType
 from openqasm3.ast import BitType as AstBitType
 from openqasm3.ast import BoolType as AstBoolType
+from openqasm3.ast import FloatLiteral as AstFloatLiteral
 from openqasm3.ast import FloatType as AstFloatType
 from openqasm3.ast import IntegerLiteral
 from openqasm3.ast import IntType as AstIntType
@@ -109,7 +110,7 @@ class ArrayType(ClassicalType):
     An array of homogeneous classical values.
     """
 
-    element_type: IntType
+    element_type: IntType | FloatType
     length: int
 
     @property
@@ -122,12 +123,26 @@ class ArrayType(ClassicalType):
             [IntegerLiteral(self.length)],
         )
 
-    def literal(self, values: list[int]) -> AstArrayLiteral:
-        return AstArrayLiteral([IntegerLiteral(value) for value in values])
+    def literal(self, values: list[int | float]) -> AstArrayLiteral:
+        # Direct AstFloatLiteral creation (no cast)
+        if isinstance(self.element_type, FloatType):
+             return AstArrayLiteral([AstFloatLiteral(float(value)) for value in values])
+        return AstArrayLiteral([IntegerLiteral(int(value)) for value in values])
 
     @staticmethod
-    def with_size(size: int | None, length: int) -> "ArrayType":
-        return ArrayType(IntType.with_size(size), length)
+    def with_size(
+        size: int | None, 
+        length: int, 
+        *, 
+        is_float: bool = False
+    ) -> "ArrayType":
+        # Determine correct element type based on flag
+        element_type = (
+            FloatType.with_size(size)
+            if is_float
+            else IntType.with_size(size)
+        )
+        return ArrayType(element_type, length)
 
 
 LeqoSupportedClassicalType = IntType | FloatType | BitType | BoolType | ArrayType
