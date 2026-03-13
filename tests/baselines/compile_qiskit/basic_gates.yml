@@ -22,39 +22,34 @@ request: |
 expected_status: 200
 expected_result: |-
   from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile
-  from qiskit.circuit.classical import types
-  import qiskit.circuit.classical.expr as expr
   from qiskit_aer import AerSimulator
-
   qc = QuantumCircuit()
   inputs_list = []
-
   leqo_reg = QuantumRegister(1, 'leqo_reg')
   qc.add_register(leqo_reg)
-  # Start node q0
+  '# Start node q0'
   leqo_677c62829b2f503e829851dd8911e48a_literal = [leqo_reg[0]]
   leqo_677c62829b2f503e829851dd8911e48a_out = leqo_677c62829b2f503e829851dd8911e48a_literal
-  # End node q0
-  # Start node gate_h
+  '# End node q0'
+  '# Start node gate_h'
   leqo_e43a67bf75f9513e8e47811ceb82577e_q0 = [leqo_reg[0]]
   qc.h(leqo_e43a67bf75f9513e8e47811ceb82577e_q0)
   leqo_e43a67bf75f9513e8e47811ceb82577e_q0_out = leqo_e43a67bf75f9513e8e47811ceb82577e_q0
-  # End node gate_h
-  # Start node gate_x
+  '# End node gate_h'
+  '# Start node gate_x'
   leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0 = [leqo_reg[0]]
   qc.x(leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0)
   leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0_out = leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0
-  # End node gate_x
-  # Start node m0
+  '# End node gate_x'
+  '# Start node m0'
   leqo_5f9029b590825673813bc86fde8c5635_q = [leqo_reg[0]]
   leqo_5f9029b590825673813bc86fde8c5635_result = ClassicalRegister(1, 'leqo_5f9029b590825673813bc86fde8c5635_result')
   qc.add_register(leqo_5f9029b590825673813bc86fde8c5635_result)
   qc.measure(leqo_5f9029b590825673813bc86fde8c5635_q[0], leqo_5f9029b590825673813bc86fde8c5635_result[0])
   leqo_5f9029b590825673813bc86fde8c5635_out = leqo_5f9029b590825673813bc86fde8c5635_result
   leqo_5f9029b590825673813bc86fde8c5635_qubit_out = leqo_5f9029b590825673813bc86fde8c5635_q
-  # End node m0
-
-  # --- EXECUTION ---
+  '# End node m0'
+  ' --- EXECUTION ---'
   simulator = AerSimulator()
   compiled_circuit = transpile(qc, simulator)
   print(compiled_circuit)
@@ -62,4 +57,3 @@ expected_result: |-
   result_data = job.result()
   counts = result_data.get_counts(qc)
   print('Simulation Results (500 shots):', counts)
-

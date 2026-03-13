@@ -55,40 +55,36 @@ request: |
 expected_status: 200
 expected_result: |-
   from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile
-  from qiskit.circuit.classical import types
-  import qiskit.circuit.classical.expr as expr
   from qiskit_aer import AerSimulator
-
   qc = QuantumCircuit()
   inputs_list = []
-
   leqo_reg = QuantumRegister(2, 'leqo_reg')
   qc.add_register(leqo_reg)
-  # Start node q0
+  '# Start node q0'
   leqo_677c62829b2f503e829851dd8911e48a_literal = [leqo_reg[0]]
   leqo_677c62829b2f503e829851dd8911e48a_out = leqo_677c62829b2f503e829851dd8911e48a_literal
-  # End node q0
-  # Start node q1
+  '# End node q0'
+  '# Start node q1'
   leqo_64bc2e5f2880544d8c66cf84e4146b48_literal = [leqo_reg[1]]
   leqo_64bc2e5f2880544d8c66cf84e4146b48_out = leqo_64bc2e5f2880544d8c66cf84e4146b48_literal
-  # End node q1
-  # Start node h_init_0
+  '# End node q1'
+  '# Start node h_init_0'
   leqo_44accc199a45537aaec74d299be762a1_q0 = [leqo_reg[0]]
   qc.h(leqo_44accc199a45537aaec74d299be762a1_q0)
   leqo_44accc199a45537aaec74d299be762a1_q0_out = leqo_44accc199a45537aaec74d299be762a1_q0
-  # End node h_init_0
-  # Start node h_init_1
+  '# End node h_init_0'
+  '# Start node h_init_1'
   leqo_8c239eb75b6151ada2d4495e34a5a3c8_q0 = [leqo_reg[1]]
   qc.h(leqo_8c239eb75b6151ada2d4495e34a5a3c8_q0)
   leqo_8c239eb75b6151ada2d4495e34a5a3c8_q0_out = leqo_8c239eb75b6151ada2d4495e34a5a3c8_q0
-  # End node h_init_1
-  # Start node qaoa_loop
+  '# End node h_init_1'
+  '# Start node qaoa_loop'
   leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_pass_node_declaration_0 = [leqo_reg[0]]
   leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_pass_node_alias_0 = leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_pass_node_declaration_0
   leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_pass_node_declaration_1 = [leqo_reg[1]]
   leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_pass_node_alias_1 = leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_pass_node_declaration_1
-  leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_loop_reg = None
-  with qc.for_loop(range(3)) as layer:
+  leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_loop_reg = leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_pass_node_declaration_0 + leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_pass_node_declaration_1
+  with qc.for_loop(range(0, 3)) as layer:
       leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_68236f4ffd2b556dbe9a4b981caf9455_q0 = [leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_loop_reg[0]]
       leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_68236f4ffd2b556dbe9a4b981caf9455_q1 = [leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_loop_reg[1]]
       qc.cx(leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_68236f4ffd2b556dbe9a4b981caf9455_q0, leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_68236f4ffd2b556dbe9a4b981caf9455_q1)
@@ -112,25 +108,24 @@ expected_result: |-
   leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_848304c358bc5be38927084e7b55cc12_pass_node_alias_0 = leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_848304c358bc5be38927084e7b55cc12_pass_node_declaration_0
   leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_848304c358bc5be38927084e7b55cc12_pass_node_declaration_1 = [leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_d7e89328ced951039451abb49f80ebc4_loop_reg[1]]
   leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_848304c358bc5be38927084e7b55cc12_pass_node_alias_1 = leqo_e5111e10249b535a8dfdc3d569ea86d1_leqo_848304c358bc5be38927084e7b55cc12_pass_node_declaration_1
-  # End node qaoa_loop
-  # Start node m0
+  '# End node qaoa_loop'
+  '# Start node m0'
   leqo_5f9029b590825673813bc86fde8c5635_q = [leqo_reg[0]]
   leqo_5f9029b590825673813bc86fde8c5635_result = ClassicalRegister(1, 'leqo_5f9029b590825673813bc86fde8c5635_result')
   qc.add_register(leqo_5f9029b590825673813bc86fde8c5635_result)
   qc.measure(leqo_5f9029b590825673813bc86fde8c5635_q[0], leqo_5f9029b590825673813bc86fde8c5635_result[0])
   leqo_5f9029b590825673813bc86fde8c5635_out = leqo_5f9029b590825673813bc86fde8c5635_result
   leqo_5f9029b590825673813bc86fde8c5635_qubit_out = leqo_5f9029b590825673813bc86fde8c5635_q
-  # End node m0
-  # Start node m1
+  '# End node m0'
+  '# Start node m1'
   leqo_7b3bc777dca35b37aa766558530831c3_q = [leqo_reg[1]]
   leqo_7b3bc777dca35b37aa766558530831c3_result = ClassicalRegister(1, 'leqo_7b3bc777dca35b37aa766558530831c3_result')
   qc.add_register(leqo_7b3bc777dca35b37aa766558530831c3_result)
   qc.measure(leqo_7b3bc777dca35b37aa766558530831c3_q[0], leqo_7b3bc777dca35b37aa766558530831c3_result[0])
   leqo_7b3bc777dca35b37aa766558530831c3_out = leqo_7b3bc777dca35b37aa766558530831c3_result
   leqo_7b3bc777dca35b37aa766558530831c3_qubit_out = leqo_7b3bc777dca35b37aa766558530831c3_q
-  # End node m1
-
-  # --- EXECUTION ---
+  '# End node m1'
+  ' --- EXECUTION ---'
   simulator = AerSimulator()
   compiled_circuit = transpile(qc, simulator)
   print(compiled_circuit)
@@ -138,5 +133,3 @@ expected_result: |-
   result_data = job.result()
   counts = result_data.get_counts(qc)
   print('Simulation Results (500 shots):', counts)
-
-

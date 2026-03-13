@@ -9,7 +9,7 @@ services:
     ports:
       - "8000:80"
   postgres:
-    image: postgres:latest
+    image: postgres:17.2
     shm_size: 128mb
     environment:
       POSTGRES_USER: ${POSTGRES_USER}

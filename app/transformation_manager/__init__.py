@@ -36,7 +36,8 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import IntType, LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
-from app.openqasm3.qiskit_generator import QasmToQiskitTranspiler
+from app.openqasm3.universal_transpiler import UniversalTranspiler
+from app.openqasm3.qiskit_provider import QiskitProvider
 from app.services import get_db_engine, get_enricher, get_settings
 from app.transformation_manager.bpmn_builder import BpmnBuilder
 from app.transformation_manager.frontend_graph import FrontendGraph, TBaseNode
@@ -433,8 +434,9 @@ class MergingProcessor(CommonProcessor):
             )
 
             if self.target == "qiskit":
-                transpiler = QasmToQiskitTranspiler()
-                return transpiler.visit(processed_program)
+                provider = QiskitProvider()
+                transpiler = UniversalTranspiler(provider)
+                return transpiler.visit_Program(processed_program)
 
             print("final programm")
             return leqo_dumps(processed_program)

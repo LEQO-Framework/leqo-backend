@@ -35,24 +35,21 @@ expected_result: |-
   from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile
   from qiskit.circuit.classical import types
   import qiskit.circuit.classical.expr as expr
-  from qiskit_aer import AerSimulator
-
   qc = QuantumCircuit()
   inputs_list = []
-
   leqo_reg = QuantumRegister(1, 'leqo_reg')
   qc.add_register(leqo_reg)
-  # Start node q0
+  '# Start node q0'
   leqo_677c62829b2f503e829851dd8911e48a_literal = [leqo_reg[0]]
   leqo_677c62829b2f503e829851dd8911e48a_out = leqo_677c62829b2f503e829851dd8911e48a_literal
-  # End node q0
-  # Start node int_val
+  '# End node q0'
+  '# Start node int_val'
   leqo_58b74c095a7850b8bd99a8afc0fd201f_literal = ClassicalRegister(1, 'leqo_58b74c095a7850b8bd99a8afc0fd201f_literal')
   qc.add_register(leqo_58b74c095a7850b8bd99a8afc0fd201f_literal)
-  # Note: Register initialized to 0
+  'Note: Register initialized to 0'
   leqo_58b74c095a7850b8bd99a8afc0fd201f_out = leqo_58b74c095a7850b8bd99a8afc0fd201f_literal
-  # End node int_val
-  # Start node while_node
+  '# End node int_val'
+  '# Start node while_node'
   leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_declaration_0 = leqo_58b74c095a7850b8bd99a8afc0fd201f_out
   leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_alias_0 = leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_declaration_0
   leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_declaration_1 = [leqo_reg[0]]
@@ -67,7 +64,4 @@ expected_result: |-
   leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_alias_0 = leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_declaration_0
   leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_declaration_1 = [leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_loop_reg[0]]
   leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_alias_1 = leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_declaration_1
-  # End node while_node
-
-
-
+  '# End node while_node'
