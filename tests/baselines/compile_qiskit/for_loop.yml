@@ -1,0 +1,61 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "For Loop Qiskit",
+      "description": "Test for loop translation to Qiskit.",
+      "author": ""
+    },
+    "compilation_target": "qiskit",
+    "nodes": [
+      { "id": "q0", "type": "qubit" },
+      {
+        "id": "for_node",
+        "type": "for",
+        "iterator": "i",
+        "range_start": 0,
+        "range_end": 3,
+        "step": 1,
+        "block": {
+          "nodes": [
+            { "id": "gate_h", "type": "gate", "gate": "h" }
+          ],
+          "edges": [
+            { "source": ["for_node", 0], "target": ["gate_h", 0] },
+            { "source": ["gate_h", 0], "target": ["for_node", 0] }
+          ]
+        }
+      }
+    ],
+    "edges": [
+      { "source": ["q0", 0], "target": ["for_node", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |-
+  from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile
+  from qiskit_aer import AerSimulator
+
+  qc = QuantumCircuit()
+  inputs_list = []
+
+  leqo_reg = QuantumRegister(1, 'leqo_reg')
+  qc.add_register(leqo_reg)
+  # Start node q0
+  leqo_677c62829b2f503e829851dd8911e48a_literal = [leqo_reg[0]]
+  leqo_677c62829b2f503e829851dd8911e48a_out = leqo_677c62829b2f503e829851dd8911e48a_literal
+  # End node q0
+  # Start node for_node
+  leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_f3086812910754abb0fe024e99f4a5b0_pass_node_declaration_0 = [leqo_reg[0]]
+  leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_f3086812910754abb0fe024e99f4a5b0_pass_node_alias_0 = leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_f3086812910754abb0fe024e99f4a5b0_pass_node_declaration_0
+  leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_f3086812910754abb0fe024e99f4a5b0_loop_reg = leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_f3086812910754abb0fe024e99f4a5b0_pass_node_declaration_0
+  with qc.for_loop(range(4)) as i:
+      leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_e43a67bf75f9513e8e47811ceb82577e_q0 = [leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_f3086812910754abb0fe024e99f4a5b0_loop_reg[0]]
+      qc.h(leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_e43a67bf75f9513e8e47811ceb82577e_q0)
+      leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_e43a67bf75f9513e8e47811ceb82577e_q0_out = leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_e43a67bf75f9513e8e47811ceb82577e_q0
+  leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_2d6a7c7b4c5f551d9b9c076836ce983f_pass_node_declaration_0 = [leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_f3086812910754abb0fe024e99f4a5b0_loop_reg[0]]
+  leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_2d6a7c7b4c5f551d9b9c076836ce983f_pass_node_alias_0 = leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_2d6a7c7b4c5f551d9b9c076836ce983f_pass_node_declaration_0
+  # End node for_node
+
+
+

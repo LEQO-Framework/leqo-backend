@@ -1,0 +1,73 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "While Loop Qiskit",
+      "description": "Test while loop translation to Qiskit.",
+      "author": ""
+    },
+    "compilation_target": "qiskit",
+    "nodes": [
+      { "id": "q0", "type": "qubit" },
+      { "id": "int_val", "type": "int", "value": 0 },
+      {
+        "id": "while_node",
+        "type": "while",
+        "condition": "counter < 5",
+        "block": {
+          "nodes": [
+            { "id": "gate_x", "type": "gate", "gate": "x" }
+          ],
+          "edges": [
+            { "source": ["while_node", 1], "target": ["gate_x", 0] },
+            { "source": ["gate_x", 0], "target": ["while_node", 1] }
+          ]
+        }
+      }
+    ],
+    "edges": [
+      { "source": ["int_val", 0], "target": ["while_node", 0], "identifier": "counter" },
+      { "source": ["q0", 0], "target": ["while_node", 1] }
+    ]
+  }
+expected_status: 200
+expected_result: |-
+  from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile
+  from qiskit.circuit.classical import types
+  import qiskit.circuit.classical.expr as expr
+  from qiskit_aer import AerSimulator
+
+  qc = QuantumCircuit()
+  inputs_list = []
+
+  leqo_reg = QuantumRegister(1, 'leqo_reg')
+  qc.add_register(leqo_reg)
+  # Start node q0
+  leqo_677c62829b2f503e829851dd8911e48a_literal = [leqo_reg[0]]
+  leqo_677c62829b2f503e829851dd8911e48a_out = leqo_677c62829b2f503e829851dd8911e48a_literal
+  # End node q0
+  # Start node int_val
+  leqo_58b74c095a7850b8bd99a8afc0fd201f_literal = ClassicalRegister(1, 'leqo_58b74c095a7850b8bd99a8afc0fd201f_literal')
+  qc.add_register(leqo_58b74c095a7850b8bd99a8afc0fd201f_literal)
+  # Note: Register initialized to 0
+  leqo_58b74c095a7850b8bd99a8afc0fd201f_out = leqo_58b74c095a7850b8bd99a8afc0fd201f_literal
+  # End node int_val
+  # Start node while_node
+  leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_declaration_0 = leqo_58b74c095a7850b8bd99a8afc0fd201f_out
+  leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_alias_0 = leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_declaration_0
+  leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_declaration_1 = [leqo_reg[0]]
+  leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_alias_1 = leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_declaration_1
+  leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_loop_reg = leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_declaration_1
+  with qc.while_loop(expr.less(expr.cast(leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_pass_node_declaration_0, types.Uint(32)), expr.cast(5, types.Uint(32)))):
+      leqo_3ee4234ceef45191933b54778459e7dd_leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0 = [leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_loop_reg[0]]
+      qc.x(leqo_3ee4234ceef45191933b54778459e7dd_leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0)
+      leqo_3ee4234ceef45191933b54778459e7dd_leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0_out = leqo_3ee4234ceef45191933b54778459e7dd_leqo_2fb6b67067f752a1a4f49eac0ff2dbb4_q0
+  leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_declaration_0 = ClassicalRegister(1, 'leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_declaration_0')
+  qc.add_register(leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_declaration_0)
+  leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_alias_0 = leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_declaration_0
+  leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_declaration_1 = [leqo_3ee4234ceef45191933b54778459e7dd_leqo_1632e254ad0959e0aab4e7cf090721ba_loop_reg[0]]
+  leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_alias_1 = leqo_3ee4234ceef45191933b54778459e7dd_leqo_864fcd2a88f75ec0b3424001b56cbbd1_pass_node_declaration_1
+  # End node while_node
+
+
+

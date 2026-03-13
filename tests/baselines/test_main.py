@@ -199,6 +199,24 @@ def test_debug_compile(test: tuple[str, Baseline], client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "test",
+    find_files(Baseline, TEST_DIR / "compile_qiskit"),
+    ids=lambda test: test[0],
+)
+def test_debug_compile_qiskit(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = client.post(
+        "/debug/compile",
+        headers={"Content-Type": "application/json"},
+        content=base.request,
+    )
+
+    print(response.text)
+    assert base.expected_status == response.status_code
+    assert base.expected_result == response.text
+
+
+@pytest.mark.parametrize(
+    "test",
     find_files(Baseline, TEST_DIR / "compile_errors", TEST_DIR / "enrich_errors"),
     ids=lambda test: test[0],
 )

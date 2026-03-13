@@ -70,6 +70,7 @@ from pathlib import Path
 import os
 import io
 import json
+import traceback
 
 # BPMN Layout Configuration
 BPMN_START_X = 252  # X position of start event
@@ -411,31 +412,36 @@ class MergingProcessor(CommonProcessor):
         :return: The final QASM program as a string.
         """
         print("process gestartet")
-        await self.process_nodes()
-        print("nodes")
+        try:
+            await self.process_nodes()
+            print("nodes")
 
-        if self.optimize.optimizeWidth is not None:
-            optimize(self.graph)
+            if self.optimize.optimizeWidth is not None:
+                optimize(self.graph)
 
-        literal_nodes: set[str]
-        used_literal_nodes: set[str]
-        # if self.qiskit_compat and self.target == "qasm":
-        literal_nodes, used_literal_nodes = self._collect_literal_nodes()
+            literal_nodes: set[str]
+            used_literal_nodes: set[str]
+            # if self.qiskit_compat and self.target == "qasm":
+            literal_nodes, used_literal_nodes = self._collect_literal_nodes()
 
-        merged_program = merge_nodes(self.graph)
-        processed_program = postprocess(
-            merged_program,
-            qiskit_compat=self.qiskit_compat,
-            literal_nodes=literal_nodes,
-            literal_nodes_with_consumers=used_literal_nodes,
-        )
+            merged_program = merge_nodes(self.graph)
+            processed_program = postprocess(
+                merged_program,
+                qiskit_compat=self.qiskit_compat,
+                literal_nodes=literal_nodes,
+                literal_nodes_with_consumers=used_literal_nodes,
+            )
 
-        if self.target == "qiskit":
-            transpiler = QasmToQiskitTranspiler()
-            return transpiler.visit(processed_program)
+            if self.target == "qiskit":
+                transpiler = QasmToQiskitTranspiler()
+                return transpiler.visit(processed_program)
 
-        print("final programm")
-        return leqo_dumps(processed_program)
+            print("final programm")
+            return leqo_dumps(processed_program)
+        except Exception as e:
+            print(f"Compilation Failed: {e}")
+            traceback.print_exc()
+            raise e
 
 
 class EnrichingProcessor(CommonProcessor):

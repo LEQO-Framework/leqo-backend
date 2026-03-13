@@ -57,30 +57,35 @@ class QasmToQiskitTranspiler:
     def visit_Program(self, node):
         # Pre-scan the AST to determine necessary imports and execution flags
         uses_parameters = False
-        uses_classical_vars = False
+        uses_classical_imports = False
+        uses_runtime_inputs = False
         uses_expr_logic = False
+        uses_measurements = False
 
-        # Safely scan only AST nodes
         def scan(n):
-            nonlocal uses_parameters, uses_classical_vars, uses_expr_logic
+            nonlocal uses_parameters, uses_classical_imports, uses_runtime_inputs, uses_expr_logic, uses_measurements
 
             if isinstance(n, list):
-                for item in n:
-                    scan(item)
+                for item in n: scan(item)
             elif isinstance(n, qast.QASMNode):
-                # CHECK 1: IO Declarations
+                # CHECK: Measurements
+                if isinstance(n, (qast.QuantumMeasurement, qast.QuantumMeasurementStatement)):
+                    uses_measurements = True
+
+                # CHECK: IO Declarations
                 if isinstance(n, qast.IODeclaration):
-                    if isinstance(n.type, (qast.AngleType, qast.FloatType)) and n.io_identifier.name == "input":
-                        uses_parameters = True
-                    elif isinstance(n.type, (qast.IntType, qast.UintType, qast.BitType, qast.BoolType)):
-                        uses_classical_vars = True
+                    if n.io_identifier.name == "input":
+                        if isinstance(n.type, (qast.AngleType, qast.FloatType)):
+                            uses_parameters = True
+                        else:
+                            uses_runtime_inputs = True
+                            uses_classical_imports = True
 
-                # CHECK 2: Standard Classical Declarations
-                # This ensures "bit[2] b" triggers the import of "types"
+                # CHECK: Standard Classical Declarations
                 if isinstance(n, qast.ClassicalDeclaration):
-                    uses_classical_vars = True
+                    uses_classical_imports = True
 
-                # CHECK 3: Expression Logic
+                # CHECK: Expression Logic
                 if isinstance(n, (qast.BinaryExpression, qast.UnaryExpression, qast.ClassicalAssignment)):
                     uses_expr_logic = True
 
@@ -96,9 +101,9 @@ class QasmToQiskitTranspiler:
         self.emit("from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile")
         if uses_parameters:
             self.emit("from qiskit.circuit import Parameter")
-        if uses_classical_vars:
+        if uses_classical_imports:
             self.emit("from qiskit.circuit.classical import types")
-        if uses_expr_logic or uses_classical_vars:
+        if uses_expr_logic or uses_classical_imports:
             self.emit("import qiskit.circuit.classical.expr as expr")
 
         #TODO: add option to decide if and which simulator or completely split qiskit code and execution
@@ -107,39 +112,38 @@ class QasmToQiskitTranspiler:
 
         # --- CIRCUIT INIT ---
         self.emit("qc = QuantumCircuit()")
-        self.emit("inputs_list = []")  # <--- NEW: Track inputs explicitly
+        self.emit("inputs_list = []")
         self.emit("")
 
         # --- VISIT BODY ---
         self.visit(node.statements)
 
-        # --- EXECUTION BLOCK ---
-        self.emit("")
-        self.emit("# --- EXECUTION ---")
-        self.emit("simulator = AerSimulator()")
-        self.emit("compiled_circuit = transpile(qc, simulator)")
+        # --- ONLY EMIT EXECUTION IF MEASUREMENTS EXIST ---
+        if uses_measurements:
+            self.emit("")
+            self.emit("# --- EXECUTION ---")
+            self.emit("simulator = AerSimulator()")
+            self.emit("compiled_circuit = transpile(qc, simulator)")
 
-        # Parameter binding
-        if uses_parameters:
-            self.emit("# NOTE: Parameters detected. Binding placeholders for demonstration.")
-            self.emit("for param in compiled_circuit.parameters:")
-            self.emit("    compiled_circuit.assign_parameters({param: 0.1}, inplace=True)")
+            if uses_parameters:
+                self.emit("# NOTE: Parameters detected. Binding placeholders for demonstration.")
+                self.emit("for param in compiled_circuit.parameters:")
+                self.emit("    compiled_circuit.assign_parameters({param: 0.1}, inplace=True)")
 
-        self.emit("print(compiled_circuit)")
+            self.emit("print(compiled_circuit)")
 
-        # Smart run command
-        run_args = "compiled_circuit, shots=500"
-        if uses_classical_vars:
-            self.emit("# NOTE: Classical inputs detected. Defaulting inputs to 10.")
-            self.emit("input_map = {}")
-            self.emit("for inp in inputs_list:")  # <--- CHANGED: Use our tracked list
-            self.emit("    input_map[inp] = 10  # Default value")
-            run_args += ", inputs=input_map"
+            run_args = "compiled_circuit, shots=500"
+            if uses_runtime_inputs:
+                self.emit("# NOTE: Classical runtime inputs detected. Defaulting to 0.")
+                self.emit("input_map = {}")
+                self.emit("for inp in inputs_list:")
+                self.emit("    input_map[inp] = 0  # Default value")
+                run_args += ", inputs=input_map"
 
-        self.emit(f"job = simulator.run({run_args})")
-        self.emit("result_data = job.result()")
-        self.emit("counts = result_data.get_counts(qc)")
-        self.emit("print('Simulation Results (500 shots):', counts)")
+            self.emit(f"job = simulator.run({run_args})")
+            self.emit("result_data = job.result()")
+            self.emit("counts = result_data.get_counts(qc)")
+            self.emit("print('Simulation Results (500 shots):', counts)")
 
         return "\n".join(self.code_lines)
 
@@ -153,11 +157,29 @@ class QasmToQiskitTranspiler:
 
     def visit_ClassicalDeclaration(self, node):
         """Translates `bit[2] mid;` -> `mid = ClassicalRegister(2, 'mid'); qc.add_register(mid)`"""
+        """Translates `bit[1] c = measure q;` -> `c = ClassicalRegister... qc.measure(q, c)`"""
+        """Translates `bit[1] c = 0;`"""
         name = node.identifier.name
-        size = int(node.type.size.value)
+
+        size = 1
+        if hasattr(node.type, "size") and node.type.size:
+            size = int(self.resolve_value(node.type.size))
 
         self.emit(f"{name} = ClassicalRegister({size}, '{name}')")
         self.emit(f"qc.add_register({name})")
+
+        if hasattr(node, "init_expression") and node.init_expression:
+            expr_type = type(node.init_expression).__name__
+            if expr_type == "QuantumMeasurement":
+                qubit_str = self.format_bit(node.init_expression.qubit)
+                self.emit(f"qc.measure({qubit_str}, {name}[0])")
+            elif expr_type in ("IntegerLiteral", "FloatLiteral", "BooleanLiteral", "BitstringLiteral"):
+                # Simulators initialize classical bits to 0 automatically.
+                # We extract the value to keep the generated code documented.
+                val = self.visit(node.init_expression)
+                self.emit(f"# Note: Register initialized to {val}")
+            else:
+                self.emit(f"# TODO: Handle init_expression of type {expr_type}")
 
     def visit_AliasStatement(self, node):
         """Translates `let alias = q[0:1];` -> `alias = q[0:2]`"""
@@ -200,18 +222,19 @@ class QasmToQiskitTranspiler:
         """Translates OpenQASM `if/else` to Qiskit `with qc.if_test() as _else:`"""
         cond_str = self.visit(node.condition)
 
-        # If there is an else block, we must capture the context manager
         if node.else_block:
             self.emit(f"with qc.if_test({cond_str}) as _else:")
         else:
             self.emit(f"with qc.if_test({cond_str}):")
 
         self.indent_level += 1
-        for stmt in node.if_block:
-            self.visit(stmt)
+        if node.if_block:
+            for stmt in node.if_block:
+                self.visit(stmt)
+        else:
+            self.emit("pass")  # <--- FIX: Prevents IndentationError on empty blocks
         self.indent_level -= 1
 
-        # Write the else block using the captured context manager
         if node.else_block:
             self.emit("with _else:")
             self.indent_level += 1
@@ -321,8 +344,14 @@ class QasmToQiskitTranspiler:
 
     def visit_IndexedIdentifier(self, node):
         name = node.name.name
-        # Handle simple indexing: q[0]
-        idx_node = node.indices[0][0]
+        idx_element = node.indices[0]
+
+        # Unwrap DiscreteSet if present
+        if isinstance(idx_element, qast.DiscreteSet):
+            idx_node = idx_element.values[0]
+        else:
+            idx_node = idx_element[0]
+
         idx = self.visit(idx_node) if hasattr(idx_node, 'value') else self.resolve_value(idx_node)
         return f"{name}[{idx}]"
 
@@ -369,12 +398,20 @@ class QasmToQiskitTranspiler:
 
     # Helper
     def format_bit(self, node):
-        """Converts `q[0]` AST node to the Python string `'q[0]'`"""
+        """Converts `q[0]` or `q[{0}]` AST node to the Python string `'q[0]'`"""
         if isinstance(node, qast.Identifier):
             return node.name
         if isinstance(node, qast.IndexedIdentifier):
             name = node.name.name
-            index = int(node.indices[0][0].value)
+            idx_element = node.indices[0]
+
+            # Unwrap DiscreteSet if present (e.g. q[{0}])
+            if isinstance(idx_element, qast.DiscreteSet):
+                index_node = idx_element.values[0]
+            else:
+                index_node = idx_element[0]
+
+            index = int(self.resolve_value(index_node))
             return f"{name}[{index}]"
 
     def resolve_value(self, node):
@@ -455,6 +492,10 @@ class QasmToQiskitTranspiler:
             # Create variable first, then add as uninitialized
             self.emit(f"{name} = expr.Var.new('{name}', {q_type})")
             self.emit(f"qc.add_uninitialized_var({name})")
+
+    def visit_CommentStatement(self, node):
+        """Translates OpenQASM `// comment` into Python `# comment`"""
+        self.emit(f"# {node.comment}")
 
 #AST printing
 
