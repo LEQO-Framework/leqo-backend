@@ -457,8 +457,8 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         data_is_float = False
 
         if (
-            isinstance(val_to_check, (list, Iterable)) 
-            and not isinstance(val_to_check, (str, bytes)) 
+            isinstance(val_to_check, (list, Iterable))
+            and not isinstance(val_to_check, (str, bytes))
             and val_to_check
         ):
             sample = val_to_check[0]
@@ -505,14 +505,17 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         _register_size: int,
         raw_value: Any,
     ) -> dict[int, float]:
+        """Calculates rotations"""
+        result: dict[int, float] = {}
+
         if isinstance(classical_input, (FloatType, AstFloatType)):
             try:
                 val = raw_value.value if hasattr(raw_value, "value") else raw_value
-                return {0: max(0.0, min(float(val), 2 * pi))}
+                result = {0: max(0.0, min(float(val), 2 * pi))}
             except (TypeError, ValueError) as exc:
                 raise RuntimeError("Unsupported input for angle encoding") from exc
 
-        if isinstance(classical_input, (ArrayType, AstArrayType)):
+        elif isinstance(classical_input, (ArrayType, AstArrayType)):
             values = self._coerce_array_constant_value(classical_input, raw_value)
             element_type = self._get_element_type(classical_input)
             is_float_type = isinstance(element_type, (FloatType, AstFloatType))
@@ -521,35 +524,39 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             if is_float_type or is_float_data or values:
                 float_vals = [float(v) for v in values]
                 if not float_vals:
-                    return {}
-                min_v = min(float_vals)
-                max_v = max(float_vals)
+                    result = {}
+                else:
+                    min_v = min(float_vals)
+                    max_v = max(float_vals)
+                    if max_v > min_v:
+                        result = {
+                            index: ((v - min_v) / (max_v - min_v)) * (pi / 2)
+                            for index, v in enumerate(float_vals)
+                        }
+                    else:
+                        result = {
+                            index: max(0.0, min(v, pi / 2))
+                            for index, v in enumerate(float_vals)
+                        }
+            else:
+                length = self._get_array_length(classical_input)
+                result = dict.fromkeys(range(length), 0.0)
 
-                if max_v > min_v:
-                    return {
-                        index: ((v - min_v) / (max_v - min_v)) * (pi / 2)
-                        for index, v in enumerate(float_vals)
-                    }
-                return {
-                    index: max(0.0, min(v, pi / 2))
-                    for index, v in enumerate(float_vals)
-                }
-
-            length = self._get_array_length(classical_input)
-            return dict.fromkeys(range(length), 0.0)
-
-        if isinstance(classical_input, IntType):
+        elif isinstance(classical_input, IntType):
             val = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
             bit_size = classical_input.size or 32
             max_val = (1 << bit_size) - 1
             normalized = (val / max_val) * (pi / 2) if max_val > 0 else 0.0
-            return {0: normalized}
+            result = {0: normalized}
 
-        if isinstance(classical_input, (BitType, BoolType)):
+        elif isinstance(classical_input, (BitType, BoolType)):
             val = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
-            return {0: val * (pi / 2)}
+            result = {0: val * (pi / 2)}
 
-        return {0: 0.0}
+        else:
+            result = {0: 0.0}
+
+        return result
 
     def _build_basis_statements(
         self,
