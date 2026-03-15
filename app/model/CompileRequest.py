@@ -451,7 +451,7 @@ class ArrayLiteralNode(BaseNode):
                         for value in self.values 
                         if isinstance(value, int)
                     ), 
-                    default=1
+                    default=1,
                 )
                 if self.values
                 else 1

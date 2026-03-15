@@ -351,7 +351,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 element_size = not_none_or(
                     opt_call(expr_to_int, base_type.size), DEFAULT_INT_SIZE
                 )
-                leqo_type = LeqoArrayType.with_size(element_size, array_length, is_float=False)
+                leqo_type = LeqoArrayType.with_size(
+                    element_size, array_length, is_float=False
+                )
             case ArrayType(base_type=FloatType() as base_type, dimensions=dimensions):
                 if len(dimensions) != 1:
                     msg = f"Unsupported: float array declaration '{name}' with {len(dimensions)} dimensions"
@@ -365,7 +367,9 @@ class ParseAnnotationsVisitor(LeqoTransformer[None]):
                 element_size = not_none_or(
                     opt_call(expr_to_int, base_type.size), DEFAULT_FLOAT_SIZE
                 )
-                leqo_type = LeqoArrayType.with_size(element_size, array_length, is_float=True)
+                leqo_type = LeqoArrayType.with_size(
+                    element_size, array_length, is_float=True
+                )
             case _:
                 return self.generic_visit(node)
 

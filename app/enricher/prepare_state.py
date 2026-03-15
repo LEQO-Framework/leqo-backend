@@ -73,7 +73,9 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
     ) -> list[EnrichmentResult]:
         # Handle Uniform Superposition explicitly without DB lookup
         if isinstance(node, PrepareStateNode) and node.quantumState == "uniform":
-            self._check_constraints(node, {} if constraints is None else constraints.requested_inputs)
+            self._check_constraints(
+                node, {} if constraints is None else constraints.requested_inputs
+            )
             
             size = node.size
             # Create a register of the requested size
@@ -97,10 +99,12 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
             # Output the register
             statements.append(leqo_output("out", 0, q_id))
 
-            return [EnrichmentResult(
-                implementation(node, statements),
-                ImplementationMetaData(width=size, depth=1)
-            )]
+            return [
+                EnrichmentResult(
+                    implementation(node, statements),
+                    ImplementationMetaData(width=size, depth=1)
+                )
+            ]
 
         # Fallback to Database lookup for other states (e.g. GHZ, W-State)
         return await super()._enrich_impl(node, constraints)

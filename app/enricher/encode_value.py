@@ -487,7 +487,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             ]
 
         if len(values) != expected_length:
-            msg = f"Array length mismatch: expected {expected_length}, got {len(values)}"
+            msg = (
+                f"Array length mismatch: expected {expected_length}, got {len(values)}"
+            )
             raise RuntimeError(msg)
         return values
 

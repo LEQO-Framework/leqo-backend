@@ -131,16 +131,11 @@ class ArrayType(ClassicalType):
 
     @staticmethod
     def with_size(
-        size: int | None, 
-        length: int, 
-        *, 
-        is_float: bool = False
+        size: int | None, length: int, *, is_float: bool = False
     ) -> "ArrayType":
         # Determine correct element type based on flag
         element_type = (
-            FloatType.with_size(size)
-            if is_float
-            else IntType.with_size(size)
+            FloatType.with_size(size) if is_float else IntType.with_size(size)
         )
         return ArrayType(element_type, length)
 
