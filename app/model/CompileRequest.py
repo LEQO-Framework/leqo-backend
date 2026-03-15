@@ -413,8 +413,9 @@ class ArrayLiteralNode(BaseNode):
         raw_values = normalized.get("values", normalized.get("value"))
 
         # Helper to parse string to int or float
-        def parse_num(s):
-            return float(s) if "." in str(s) else int(s)
+        def parse_num(s: Any) -> int | float:
+            str_s = str(s)
+            return float(str_s) if "." in str_s else int(str_s)
 
         if isinstance(raw_values, str):
             parts = [
@@ -444,7 +445,14 @@ class ArrayLiteralNode(BaseNode):
         # We only care about elementBitSize if it's an integer array
         if self.elementType != "float" and self.elementBitSize is None:
             bit_size = (
-                max((_infer_int_bit_size(value) for value in self.values if isinstance(value, int)), default=1)
+                max(
+                    (
+                        _infer_int_bit_size(value) 
+                        for value in self.values 
+                        if isinstance(value, int)
+                    ), 
+                    default=1
+                )
                 if self.values
                 else 1
             )

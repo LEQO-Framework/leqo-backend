@@ -127,7 +127,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             )
 
         input_type = requested_inputs[0]
-        is_classical = isinstance(input_type, (LeqoSupportedClassicalType, AstArrayType, AstFloatType))
+        is_classical = isinstance(
+            input_type, (LeqoSupportedClassicalType, AstArrayType, AstFloatType)
+        )
 
         if not is_classical:
             raise InputTypeMismatch(
@@ -345,7 +347,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         classical_input: LeqoSupportedClassicalType,
     ) -> int:
         """Determines size using a single result variable to satisfy PLR0911."""
-        if node.encoding == "angle" and not isinstance(classical_input, (ArrayType, AstArrayType)):
+        if node.encoding == "angle" and not isinstance(
+            classical_input, (ArrayType, AstArrayType)
+        ):
             return 1
         if isinstance(classical_input, AstFloatType):
             return 1
@@ -452,7 +456,11 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         val_to_check = raw_value.values if hasattr(raw_value, "values") else raw_value
         data_is_float = False
 
-        if isinstance(val_to_check, (list, Iterable)) and not isinstance(val_to_check, (str, bytes)) and val_to_check:
+        if (
+            isinstance(val_to_check, (list, Iterable)) 
+            and not isinstance(val_to_check, (str, bytes)) 
+            and val_to_check
+        ):
             sample = val_to_check[0]
             sample_val = sample.value if hasattr(sample, "value") else sample
             if isinstance(sample_val, float) or (isinstance(sample_val, str) and "." in str(sample_val)):

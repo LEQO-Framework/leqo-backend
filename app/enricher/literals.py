@@ -135,7 +135,10 @@ class LiteralEnricherStrategy(EnricherStrategy):
                 )
             case ArrayLiteralNode():
                 # Detect floats
-                is_float = any(isinstance(v, float) or (isinstance(v, str) and "." in v) for v in node.values)
+                is_float = any(
+                    isinstance(v, float) or (isinstance(v, str) and "." in v) 
+                    for v in node.values
+                )
                 
                 element_bit_size = (
                     node.elementBitSize if node.elementBitSize is not None else (32 if is_float else 1)
