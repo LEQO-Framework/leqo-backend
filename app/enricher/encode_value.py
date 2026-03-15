@@ -9,21 +9,21 @@ from typing import Any, cast, override
 
 from openqasm3.ast import (
     Annotation,
+    ArrayType as AstArrayType,
     BinaryExpression,
     BinaryOperator,
     BranchingStatement,
     ClassicalDeclaration,
     FloatLiteral,
+    FloatType as AstFloatType,
     Identifier,
     Include,
-    IndexedIdentifier,
     IndexExpression,
+    IndexedIdentifier,
     IntegerLiteral,
     QuantumGate,
     QubitDeclaration,
     Statement,
-    ArrayType as AstArrayType,
-    FloatType as AstFloatType,
 )
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncEngine
