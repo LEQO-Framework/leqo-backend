@@ -12,7 +12,7 @@ from typing import override
 from openqasm3.ast import (
     BooleanLiteral,
     ClassicalDeclaration,
-    FloatLiteral as AstFloatLiteral,
+    FloatLiteral,
     Identifier,
     IntegerLiteral,
     QubitDeclaration,
@@ -31,7 +31,7 @@ from app.model.CompileRequest import (
     BoolLiteralNode,
     FloatLiteralNode,
     IntLiteralNode,
-    Node as FrontendNode,
+    Node,
     QubitNode,
 )
 from app.model.data_types import (
@@ -50,7 +50,7 @@ class LiteralEnricherStrategy(EnricherStrategy):
 
     @override
     def _enrich_impl(  # noqa PLR0911 Too many return statements
-        self, node: FrontendNode, constraints: Constraints | None
+        self, node: Node, constraints: Constraints | None
     ) -> EnrichmentResult | list[EnrichmentResult]:
         if constraints is not None and len(constraints.requested_inputs) != 0:
             return []
@@ -95,7 +95,7 @@ class LiteralEnricherStrategy(EnricherStrategy):
                             ClassicalDeclaration(
                                 FloatType(node.bitSize).to_ast(),
                                 Identifier("literal"),
-                                AstFloatLiteral(node.value),
+                                FloatLiteral(node.value),
                             ),
                             leqo_output("out", 0, Identifier("literal")),
                         ],

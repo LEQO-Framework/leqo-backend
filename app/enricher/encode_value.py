@@ -7,50 +7,20 @@ from dataclasses import dataclass
 from math import pi
 from typing import Any, cast, override
 
-from openqasm3.ast import (
-    Annotation,
-    ArrayType as AstArrayType,
-    BinaryExpression,
-    BinaryOperator,
-    BranchingStatement,
-    ClassicalDeclaration,
-    FloatLiteral,
-    FloatType as AstFloatType,
-    Identifier,
-    Include,
-    IndexedIdentifier,
-    IndexExpression,
-    IntegerLiteral,
-    QuantumGate,
-    QubitDeclaration,
-    Statement,
-)
+from openqasm3 import ast
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.enricher import Constraints, EnrichmentResult, ImplementationMetaData
+from app.enricher import (
+    Constraints,
+    EnrichmentResult,
+    ImplementationMetaData,
+    models,
+)
 from app.enricher.db_enricher import DataBaseEnricherStrategy
 from app.enricher.exceptions import BoundsOutOfRange, EncodingNotSupported
-from app.enricher.models import (
-    BaseNode,
-    EncodingType,
-    EncodeValueNode as EncodeNodeTable,
-    Input,
-    InputType,
-    NodeType,
-)
 from app.enricher.utils import implementation, leqo_output
-from app.model.CompileRequest import EncodeValueNode, Node as FrontendNode
-from app.model.data_types import (
-    ArrayType,
-    BitType,
-    BoolType,
-    FloatType,
-    IntType,
-    LeqoSupportedClassicalType,
-    LeqoSupportedType,
-    QubitType,
-)
+from app.model import CompileRequest, data_types
 from app.model.exceptions import (
     InputCountMismatch,
     InputSizeMismatch,
@@ -60,11 +30,11 @@ from app.model.exceptions import (
 
 @dataclass
 class _AngleEmissionContext:
-    statements: list[Statement]
-    qubit_identifier: Identifier
+    statements: list[ast.Statement]
+    qubit_identifier: ast.Identifier
     register_size: int
     rotation_map: dict[int, float] | None
-    value_identifier: Identifier | None
+    value_identifier: ast.Identifier | None
 
 
 class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
@@ -75,26 +45,26 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     def __init__(self, engine: AsyncEngine):
         super().__init__(engine)
 
-    def _convert_to_input_type(self, node_type: LeqoSupportedType) -> str:
+    def _convert_to_input_type(self, node_type: data_types.LeqoSupportedType) -> str:
         """
         Converts the node type to the enum value of :class:`~app.enricher.models.InputType`
         """
         match node_type:
-            case IntType():
-                input_type = InputType.IntType.value
-            case FloatType():
-                input_type = InputType.FloatType.value
-            case BitType():
-                input_type = InputType.BitType.value
-            case BoolType():
-                input_type = InputType.BoolType.value
-            case QubitType():
-                input_type = InputType.QubitType.value
-            case ArrayType():
+            case data_types.IntType():
+                input_type = models.InputType.IntType.value
+            case data_types.FloatType():
+                input_type = models.InputType.FloatType.value
+            case data_types.BitType():
+                input_type = models.InputType.BitType.value
+            case data_types.BoolType():
+                input_type = models.InputType.BoolType.value
+            case data_types.QubitType():
+                input_type = models.InputType.QubitType.value
+            case data_types.ArrayType():
                 msg = "Unsupported input type: array"
                 raise RuntimeError(msg)
             case _:
-                if isinstance(node_type, AstArrayType):
+                if isinstance(node_type, ast.ArrayType):
                     msg = "Unsupported input type: array"
                     raise RuntimeError(msg)
                 raise RuntimeError(f"Unsupported input type: {node_type}")
@@ -102,7 +72,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         return input_type
 
     def _check_constraints(
-        self, node: EncodeValueNode, requested_inputs: dict[int, LeqoSupportedType]
+        self,
+        node: CompileRequest.EncodeValueNode,
+        requested_inputs: dict[int, data_types.LeqoSupportedType],
     ) -> None:
         """
         Checks the constraints for the node and requested inputs.
@@ -124,7 +96,8 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         input_type = requested_inputs[0]
         is_classical = isinstance(
-            input_type, (LeqoSupportedClassicalType, AstArrayType, AstFloatType)
+            input_type,
+            (data_types.LeqoSupportedClassicalType, ast.ArrayType, ast.FloatType),
         )
 
         if not is_classical:
@@ -138,31 +111,31 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     @override
     def _generate_database_node(
         self,
-        node: FrontendNode,
+        node: CompileRequest.Node,
         implementation_str: str,
-        requested_inputs: dict[int, LeqoSupportedType],
+        requested_inputs: dict[int, data_types.LeqoSupportedType],
         width: int,
         depth: int | None,
-    ) -> BaseNode | None:
-        if not isinstance(node, EncodeValueNode):
+    ) -> models.BaseNode | None:
+        if not isinstance(node, CompileRequest.EncodeValueNode):
             return None
         self._check_constraints(node, requested_inputs)
 
         requested_input = requested_inputs[0]
-        if isinstance(requested_input, (ArrayType, AstArrayType)):
+        if isinstance(requested_input, (data_types.ArrayType, ast.ArrayType)):
             return None
 
         converted_input_type = self._convert_to_input_type(requested_input)
 
-        new_node = EncodeNodeTable(
-            type=NodeType(node.type),
+        new_node = models.EncodeValueNode(
+            type=models.NodeType(node.type),
             depth=depth,
             width=width,
             implementation=implementation_str,
-            encoding=EncodingType(node.encoding),
+            encoding=models.EncodingType(node.encoding),
             bounds=node.bounds,
         )
-        input_node = Input(
+        input_node = models.Input(
             index=0,
             type=converted_input_type,
             size=requested_input.size,
@@ -173,9 +146,12 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     @override
     async def _enrich_impl(
-        self, node: FrontendNode, constraints: Constraints | None
+        self, node: CompileRequest.Node, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
-        if isinstance(node, EncodeValueNode) and node.encoding in {"basis", "angle"}:
+        if isinstance(node, CompileRequest.EncodeValueNode) and node.encoding in {
+            "basis",
+            "angle",
+        }:
             db_results = await super()._enrich_impl(node, constraints)
             if db_results:
                 return db_results
@@ -186,7 +162,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             self._check_constraints(node, constraints.requested_inputs)
 
             classical_input = cast(
-                LeqoSupportedClassicalType, constraints.requested_inputs[0]
+                data_types.LeqoSupportedClassicalType, constraints.requested_inputs[0]
             )
             if node.encoding == "basis":
                 return [
@@ -208,9 +184,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     @override
     def _generate_query(
-        self, node: FrontendNode, constraints: Constraints | None
-    ) -> Select[tuple[BaseNode]] | None:
-        if not isinstance(node, EncodeValueNode):
+        self, node: CompileRequest.Node, constraints: Constraints | None
+    ) -> Select[tuple[models.BaseNode]] | None:
+        if not isinstance(node, CompileRequest.EncodeValueNode):
             return None
 
         if constraints is None:
@@ -224,33 +200,33 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         self._check_constraints(node, constraints.requested_inputs)
 
         requested_input = constraints.requested_inputs[0]
-        if isinstance(requested_input, (ArrayType, AstArrayType)):
+        if isinstance(requested_input, (data_types.ArrayType, ast.ArrayType)):
             return None
 
         converted_input_type = self._convert_to_input_type(requested_input)
 
         where_clauses: list[Any] = [
-            EncodeNodeTable.type == NodeType(node.type),
-            EncodeNodeTable.encoding == EncodingType(node.encoding),
-            EncodeNodeTable.bounds == node.bounds,
-            Input.index == 0,
-            Input.type == converted_input_type,
+            models.EncodeValueNode.type == models.NodeType(node.type),
+            models.EncodeValueNode.encoding == models.EncodingType(node.encoding),
+            models.EncodeValueNode.bounds == node.bounds,
+            models.Input.index == 0,
+            models.Input.type == converted_input_type,
         ]
         if hasattr(requested_input, "size") and requested_input.size is not None:
-            where_clauses.append(Input.size >= requested_input.size)
+            where_clauses.append(models.Input.size >= requested_input.size)
 
         return cast(
-            Select[tuple[BaseNode]],
-            select(EncodeNodeTable)
-            .join(Input, EncodeNodeTable.inputs)
+            Select[tuple[models.BaseNode]],
+            select(models.EncodeValueNode)
+            .join(models.Input, models.EncodeValueNode.inputs)
             .where(*where_clauses),
         )
 
     def _get_array_length(self, array_type: Any) -> int:
         val = 0
-        if isinstance(array_type, ArrayType):
+        if isinstance(array_type, data_types.ArrayType):
             val = array_type.length
-        elif isinstance(array_type, AstArrayType):
+        elif isinstance(array_type, ast.ArrayType):
             val = array_type.dimensions[0]
 
         if isinstance(val, list) and val:
@@ -262,16 +238,16 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         return int(val)
 
     def _get_element_type(self, array_type: Any) -> Any:
-        if isinstance(array_type, ArrayType):
+        if isinstance(array_type, data_types.ArrayType):
             return array_type.element_type
-        if isinstance(array_type, AstArrayType):
+        if isinstance(array_type, ast.ArrayType):
             return array_type.base_type
         return None
 
     def _generate_basis_enrichment(
         self,
-        node: EncodeValueNode,
-        classical_input: LeqoSupportedClassicalType,
+        node: CompileRequest.EncodeValueNode,
+        classical_input: data_types.LeqoSupportedClassicalType,
         input_value: Any | None,
     ) -> EnrichmentResult:
         size = self._determine_register_size(node, classical_input)
@@ -298,12 +274,11 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     def _generate_angle_enrichment(
         self,
-        node: EncodeValueNode,
-        classical_input: LeqoSupportedClassicalType,
+        node: CompileRequest.EncodeValueNode,
+        classical_input: data_types.LeqoSupportedClassicalType,
         input_value: Any | None,
     ) -> EnrichmentResult:
-
-        if isinstance(classical_input, (ArrayType, AstArrayType)):
+        if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             register_size = self._get_array_length(classical_input)
         else:
             register_size = self._determine_register_size(node, classical_input)
@@ -334,30 +309,32 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     def _determine_register_size(
         self,
-        node: EncodeValueNode,
-        classical_input: LeqoSupportedClassicalType,
+        node: CompileRequest.EncodeValueNode,
+        classical_input: data_types.LeqoSupportedClassicalType,
     ) -> int:
         """Determines size while satisfying PLR0911."""
         res: int
         if node.encoding == "angle" and not isinstance(
-            classical_input, (ArrayType, AstArrayType)
+            classical_input, (data_types.ArrayType, ast.ArrayType)
         ):
             res = 1
-        elif isinstance(classical_input, AstArrayType):
+        elif isinstance(classical_input, ast.ArrayType):
             res = self._get_array_length(classical_input)
-        elif isinstance(classical_input, AstFloatType):
+        elif isinstance(classical_input, ast.FloatType):
             res = 1
         else:
             size = 0
             match classical_input:
-                case BoolType() | IntType() | ArrayType():
+                case data_types.BoolType() | data_types.IntType() | data_types.ArrayType():
                     size = classical_input.size
-                case BitType():
+                case data_types.BitType():
                     size = classical_input.size or 1
-                case FloatType():
+                case data_types.FloatType():
                     size = 1
                 case _:
-                    if hasattr(classical_input, "size") and isinstance(classical_input.size, int):
+                    if hasattr(classical_input, "size") and isinstance(
+                        classical_input.size, int
+                    ):
                         size = classical_input.size
                     else:
                         raise InputTypeMismatch(
@@ -370,23 +347,25 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     def _constant_basis_indices(
         self,
-        classical_input: LeqoSupportedClassicalType,
+        classical_input: data_types.LeqoSupportedClassicalType,
         register_size: int,
         raw_value: Any,
     ) -> list[int]:
-        if isinstance(classical_input, FloatType):
+        if isinstance(classical_input, data_types.FloatType):
             raise RuntimeError("FloatType not supported for basis encoding")
 
-        if isinstance(classical_input, (ArrayType, AstArrayType)):
+        if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             values = self._coerce_array_constant_value(classical_input, raw_value)
             element_type = self._get_element_type(classical_input)
 
-            if isinstance(element_type, (FloatType, AstFloatType)):
+            if isinstance(element_type, (data_types.FloatType, ast.FloatType)):
                 raise RuntimeError("Float Array not supported for basis encoding")
 
             if hasattr(element_type, "size"):
                 element_size = element_type.size
-            elif isinstance(element_type, AstArrayType) or hasattr(element_type, "value"):
+            elif isinstance(element_type, ast.ArrayType) or hasattr(
+                element_type, "value"
+            ):
                 element_size = element_type.value
             else:
                 element_size = 32
@@ -418,19 +397,19 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     def _basis_output_requires_signed_flag(
         self,
-        classical_input: LeqoSupportedClassicalType,
+        classical_input: data_types.LeqoSupportedClassicalType,
         raw_value: Any | None,
     ) -> bool:
         if raw_value is None:
             return False
 
-        if isinstance(classical_input, IntType):
+        if isinstance(classical_input, data_types.IntType):
             try:
                 return int(raw_value) < 0
             except (TypeError, ValueError):
                 return False
 
-        if isinstance(classical_input, (ArrayType, AstArrayType)):
+        if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             try:
                 values = self._coerce_array_constant_value(classical_input, raw_value)
                 return any(value < 0 for value in values)
@@ -441,7 +420,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     @staticmethod
     def _coerce_array_constant_value(
-        array_type: ArrayType | AstArrayType,
+        array_type: data_types.ArrayType | ast.ArrayType,
         raw_value: Any,
     ) -> list[float | int]:
         val_to_check = raw_value.values if hasattr(raw_value, "values") else raw_value
@@ -454,16 +433,24 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         ):
             sample = val_to_check[0]
             sample_val = sample.value if hasattr(sample, "value") else sample
-            if isinstance(sample_val, float) or (isinstance(sample_val, str) and "." in str(sample_val)):
+            if isinstance(sample_val, float) or (
+                isinstance(sample_val, str) and "." in str(sample_val)
+            ):
                 data_is_float = True
 
         # 2. Check declared type
-        if isinstance(array_type, ArrayType):
-            type_is_float = isinstance(array_type.element_type, FloatType)
-            len_obj = array_type.length[0] if isinstance(array_type.length, list) and array_type.length else array_type.length
-            expected_length = int(len_obj.value if hasattr(len_obj, "value") else len_obj)
-        elif isinstance(array_type, AstArrayType):
-            type_is_float = isinstance(array_type.base_type, AstFloatType)
+        if isinstance(array_type, data_types.ArrayType):
+            type_is_float = isinstance(array_type.element_type, data_types.FloatType)
+            len_obj = (
+                array_type.length[0]
+                if isinstance(array_type.length, list) and array_type.length
+                else array_type.length
+            )
+            expected_length = int(
+                len_obj.value if hasattr(len_obj, "value") else len_obj
+            )
+        elif isinstance(array_type, ast.ArrayType):
+            type_is_float = isinstance(array_type.base_type, ast.FloatType)
             dim = array_type.dimensions[0]
             expected_length = dim.value if hasattr(dim, "value") else int(dim)
         else:
@@ -476,14 +463,22 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         actual_raw = raw_value.values if hasattr(raw_value, "values") else raw_value
 
         if isinstance(actual_raw, str):
-            parts = [p.strip() for p in actual_raw.replace(";", ",").split(",") if p.strip()]
+            parts = [
+                p.strip() for p in actual_raw.replace(";", ",").split(",") if p.strip()
+            ]
             values = [converter(p) for p in parts]
-        elif isinstance(actual_raw, Iterable) and not isinstance(actual_raw, (bytes, bytearray)):
-            values = [converter(v.value if hasattr(v, "value") else v) for v in actual_raw]
+        elif isinstance(actual_raw, Iterable) and not isinstance(
+            actual_raw, (bytes, bytearray)
+        ):
+            values = [
+                converter(v.value if hasattr(v, "value") else v) for v in actual_raw
+            ]
         elif actual_raw is None:
             raise RuntimeError("Unsupported classical input")
         else:
-            values = [converter(actual_raw.value if hasattr(actual_raw, "value") else actual_raw)]
+            values = [
+                converter(actual_raw.value if hasattr(actual_raw, "value") else actual_raw)
+            ]
 
         if len(values) != expected_length:
             msg = f"Array length mismatch: expected {expected_length}, got {len(values)}"
@@ -492,24 +487,24 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     def _constant_angle_rotations(
         self,
-        classical_input: LeqoSupportedClassicalType,
+        classical_input: data_types.LeqoSupportedClassicalType,
         _register_size: int,
         raw_value: Any,
     ) -> dict[int, float]:
         """Calculates rotations while satisfying PLR0911."""
         final_rotations: dict[int, float]
 
-        if isinstance(classical_input, (FloatType, AstFloatType)):
+        if isinstance(classical_input, (data_types.FloatType, ast.FloatType)):
             try:
                 v = raw_value.value if hasattr(raw_value, "value") else raw_value
                 final_rotations = {0: max(0.0, min(float(v), 2 * pi))}
             except (TypeError, ValueError) as exc:
                 raise RuntimeError("Unsupported input for angle encoding") from exc
 
-        elif isinstance(classical_input, (ArrayType, AstArrayType)):
+        elif isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             values = self._coerce_array_constant_value(classical_input, raw_value)
             element_type = self._get_element_type(classical_input)
-            is_float_type = isinstance(element_type, (FloatType, AstFloatType))
+            is_float_type = isinstance(element_type, (data_types.FloatType, ast.FloatType))
             is_float_data = len(values) > 0 and isinstance(values[0], float)
 
             if is_float_type or is_float_data or values:
@@ -533,14 +528,14 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 length = self._get_array_length(classical_input)
                 final_rotations = dict.fromkeys(range(length), 0.0)
 
-        elif isinstance(classical_input, IntType):
+        elif isinstance(classical_input, data_types.IntType):
             v = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
             bit_size = classical_input.size or 32
             max_val = (1 << bit_size) - 1
             normalized = (v / max_val) * (pi / 2) if max_val > 0 else 0.0
             final_rotations = {0: normalized}
 
-        elif isinstance(classical_input, (BitType, BoolType)):
+        elif isinstance(classical_input, (data_types.BitType, data_types.BoolType)):
             v = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
             final_rotations = {0: v * (pi / 2)}
         else:
@@ -550,24 +545,30 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     def _build_basis_statements(
         self,
-        classical_input: LeqoSupportedClassicalType,
+        classical_input: data_types.LeqoSupportedClassicalType,
         register_size: int,
         constant_indices: list[int] | None,
         signed_output: bool,
-    ) -> list[Statement]:
-        qubit_identifier = Identifier("encoded")
-        statements: list[Statement] = [Include("stdgates.inc")]
+    ) -> list[ast.Statement]:
+        qubit_identifier = ast.Identifier("encoded")
+        statements: list[ast.Statement] = [ast.Include("stdgates.inc")]
 
         if constant_indices is None:
-            value_identifier = Identifier("value")
-            ast_type = classical_input.to_ast() if hasattr(classical_input, "to_ast") else classical_input
-            classical_decl = ClassicalDeclaration(ast_type, value_identifier, None)
-            classical_decl.annotations = [Annotation("leqo.input", "0")]
+            value_identifier = ast.Identifier("value")
+            ast_type = (
+                classical_input.to_ast()
+                if hasattr(classical_input, "to_ast")
+                else classical_input
+            )
+            classical_decl = ast.ClassicalDeclaration(ast_type, value_identifier, None)
+            classical_decl.annotations = [ast.Annotation("leqo.input", "0")]
             statements.append(classical_decl)
         else:
             value_identifier = None
 
-        qubit_decl = QubitDeclaration(qubit_identifier, IntegerLiteral(register_size))
+        qubit_decl = ast.QubitDeclaration(
+            qubit_identifier, ast.IntegerLiteral(register_size)
+        )
         statements.append(qubit_decl)
 
         if constant_indices is None:
@@ -576,21 +577,25 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 condition = self._bit_condition_expression(
                     classical_input, value_identifier, index
                 )
-                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
-                gate = QuantumGate(
+                target = ast.IndexedIdentifier(
+                    qubit_identifier, [[ast.IntegerLiteral(index)]]
+                )
+                gate = ast.QuantumGate(
                     modifiers=[],
-                    name=Identifier("x"),
+                    name=ast.Identifier("x"),
                     arguments=[],
                     qubits=[target],
                     duration=None,
                 )
-                statements.append(BranchingStatement(condition, [gate], []))
+                statements.append(ast.BranchingStatement(condition, [gate], []))
         else:
             for index in constant_indices:
-                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
-                gate = QuantumGate(
+                target = ast.IndexedIdentifier(
+                    qubit_identifier, [[ast.IntegerLiteral(index)]]
+                )
+                gate = ast.QuantumGate(
                     modifiers=[],
-                    name=Identifier("x"),
+                    name=ast.Identifier("x"),
                     arguments=[],
                     qubits=[target],
                     duration=None,
@@ -599,29 +604,33 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         output_alias = leqo_output("out", 0, qubit_identifier)
         if signed_output:
-            output_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
+            output_alias.annotations.append(ast.Annotation("leqo.twos_complement", "true"))
         statements.append(output_alias)
         return statements
 
     def _build_angle_statements(
         self,
-        classical_input: LeqoSupportedClassicalType,
+        classical_input: data_types.LeqoSupportedClassicalType,
         register_size: int,
         rotation_map: dict[int, float] | None,
-    ) -> list[Statement]:
-        qubit_identifier = Identifier("encoded")
+    ) -> list[ast.Statement]:
+        qubit_identifier = ast.Identifier("encoded")
 
-        statements: list[Statement] = [Include("stdgates.inc")]
-        value_identifier: Identifier | None = None
+        statements: list[ast.Statement] = [ast.Include("stdgates.inc")]
+        value_identifier: ast.Identifier | None = None
         if rotation_map is None:
-            value_identifier = Identifier("value")
-            ast_type = classical_input.to_ast() if hasattr(classical_input, "to_ast") else classical_input
-            classical_decl = ClassicalDeclaration(ast_type, value_identifier, None)
-            classical_decl.annotations = [Annotation("leqo.input", "0")]
+            value_identifier = ast.Identifier("value")
+            ast_type = (
+                classical_input.to_ast()
+                if hasattr(classical_input, "to_ast")
+                else classical_input
+            )
+            classical_decl = ast.ClassicalDeclaration(ast_type, value_identifier, None)
+            classical_decl.annotations = [ast.Annotation("leqo.input", "0")]
             statements.append(classical_decl)
 
         statements.append(
-            QubitDeclaration(qubit_identifier, IntegerLiteral(register_size))
+            ast.QubitDeclaration(qubit_identifier, ast.IntegerLiteral(register_size))
         )
 
         context = _AngleEmissionContext(
@@ -638,12 +647,12 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     def _emit_angle_statements(
         self,
-        classical_input: LeqoSupportedClassicalType,
+        classical_input: data_types.LeqoSupportedClassicalType,
         context: _AngleEmissionContext,
     ) -> None:
-        if isinstance(classical_input, (FloatType, AstFloatType)):
+        if isinstance(classical_input, (data_types.FloatType, ast.FloatType)):
             self._emit_float_angle_statements(context)
-        elif isinstance(classical_input, (ArrayType, AstArrayType)):
+        elif isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             self._emit_array_angle_statements(context)
         else:
             self._emit_generic_angle_statements(classical_input, context)
@@ -656,15 +665,15 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if rotation_map is None:
             value_identifier = context.value_identifier
             assert value_identifier is not None
-            rotation_argument = BinaryExpression(
-                BinaryOperator["*"],
-                FloatLiteral(2.0),
+            rotation_argument = ast.BinaryExpression(
+                ast.BinaryOperator["*"],
+                ast.FloatLiteral(2.0),
                 value_identifier,
             )
             statements.append(
-                QuantumGate(
+                ast.QuantumGate(
                     modifiers=[],
-                    name=Identifier("ry"),
+                    name=ast.Identifier("ry"),
                     arguments=[rotation_argument],
                     qubits=[qubit_identifier],
                     duration=None,
@@ -675,10 +684,10 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         angle = rotation_map.get(0)
         if angle:
             statements.append(
-                QuantumGate(
+                ast.QuantumGate(
                     modifiers=[],
-                    name=Identifier("ry"),
-                    arguments=[FloatLiteral(2 * angle)],
+                    name=ast.Identifier("ry"),
+                    arguments=[ast.FloatLiteral(2 * angle)],
                     qubits=[qubit_identifier],
                     duration=None,
                 )
@@ -693,22 +702,24 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if rotation_map is None:
             value_identifier = context.value_identifier
             assert value_identifier is not None
-            multiplier = FloatLiteral(2.0)
+            multiplier = ast.FloatLiteral(2.0)
             for index in range(register_size):
-                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
-                value_expr = IndexExpression(
-                    collection=value_identifier,
-                    index=[IntegerLiteral(index)],
+                target = ast.IndexedIdentifier(
+                    qubit_identifier, [[ast.IntegerLiteral(index)]]
                 )
-                rotation_expr = BinaryExpression(
-                    BinaryOperator["*"],
+                value_expr = ast.IndexExpression(
+                    collection=value_identifier,
+                    index=[ast.IntegerLiteral(index)],
+                )
+                rotation_expr = ast.BinaryExpression(
+                    ast.BinaryOperator["*"],
                     multiplier,
                     value_expr,
                 )
                 statements.append(
-                    QuantumGate(
+                    ast.QuantumGate(
                         modifiers=[],
-                        name=Identifier("ry"),
+                        name=ast.Identifier("ry"),
                         arguments=[rotation_expr],
                         qubits=[target],
                         duration=None,
@@ -720,12 +731,14 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             angle = rotation_map.get(index)
             if angle:
                 rotation_value = 2 * angle
-                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
+                target = ast.IndexedIdentifier(
+                    qubit_identifier, [[ast.IntegerLiteral(index)]]
+                )
                 statements.append(
-                    QuantumGate(
+                    ast.QuantumGate(
                         modifiers=[],
-                        name=Identifier("ry"),
-                        arguments=[FloatLiteral(rotation_value)],
+                        name=ast.Identifier("ry"),
+                        arguments=[ast.FloatLiteral(rotation_value)],
                         qubits=[target],
                         duration=None,
                     )
@@ -733,7 +746,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     def _emit_generic_angle_statements(
         self,
-        classical_input: LeqoSupportedClassicalType,
+        classical_input: data_types.LeqoSupportedClassicalType,
         context: _AngleEmissionContext,
     ) -> None:
         statements = context.statements
@@ -748,27 +761,31 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 condition = self._bit_condition_expression(
                     classical_input, value_identifier, index
                 )
-                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
-                rotation_gate = QuantumGate(
+                target = ast.IndexedIdentifier(
+                    qubit_identifier, [[ast.IntegerLiteral(index)]]
+                )
+                rotation_gate = ast.QuantumGate(
                     modifiers=[],
-                    name=Identifier("ry"),
-                    arguments=[FloatLiteral(pi)],
+                    name=ast.Identifier("ry"),
+                    arguments=[ast.FloatLiteral(pi)],
                     qubits=[target],
                     duration=None,
                 )
-                statements.append(BranchingStatement(condition, [rotation_gate], []))
+                statements.append(ast.BranchingStatement(condition, [rotation_gate], []))
             return
 
         for index in sorted(rotation_map):
             angle = rotation_map[index]
             if angle != 0:
                 rotation_value = 2 * angle
-                target = IndexedIdentifier(qubit_identifier, [[IntegerLiteral(index)]])
+                target = ast.IndexedIdentifier(
+                    qubit_identifier, [[ast.IntegerLiteral(index)]]
+                )
                 statements.append(
-                    QuantumGate(
+                    ast.QuantumGate(
                         modifiers=[],
-                        name=Identifier("ry"),
-                        arguments=[FloatLiteral(rotation_value)],
+                        name=ast.Identifier("ry"),
+                        arguments=[ast.FloatLiteral(rotation_value)],
                         qubits=[target],
                         duration=None,
                     )
@@ -776,16 +793,17 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     def _bit_condition_expression(
         self,
-        classical_input: LeqoSupportedClassicalType,
-        value_identifier: Identifier,
+        classical_input: data_types.LeqoSupportedClassicalType,
+        value_identifier: ast.Identifier,
         index: int,
-    ) -> BinaryExpression | Identifier:
-
-        if isinstance(classical_input, (ArrayType, AstArrayType)):
+    ) -> ast.BinaryExpression | ast.Identifier:
+        if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             element_type = self._get_element_type(classical_input)
             if hasattr(element_type, "size"):
                 element_size = element_type.size
-            elif isinstance(element_type, AstArrayType) or hasattr(element_type, "value"):
+            elif isinstance(element_type, ast.ArrayType) or hasattr(
+                element_type, "value"
+            ):
                 element_size = element_type.value
             else:
                 element_size = 32
@@ -797,58 +815,58 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             element_index = index // element_size
             bit_index = index % element_size
 
-            element_expr = IndexExpression(
+            element_expr = ast.IndexExpression(
                 collection=value_identifier,
-                index=[IntegerLiteral(element_index)],
+                index=[ast.IntegerLiteral(element_index)],
             )
-            shifted = BinaryExpression(
-                BinaryOperator[">>"],
+            shifted = ast.BinaryExpression(
+                ast.BinaryOperator[">>"],
                 element_expr,
-                IntegerLiteral(bit_index),
+                ast.IntegerLiteral(bit_index),
             )
-            masked = BinaryExpression(
-                BinaryOperator["&"],
+            masked = ast.BinaryExpression(
+                ast.BinaryOperator["&"],
                 shifted,
-                IntegerLiteral(1),
+                ast.IntegerLiteral(1),
             )
-            return BinaryExpression(
-                BinaryOperator["=="],
+            return ast.BinaryExpression(
+                ast.BinaryOperator["=="],
                 masked,
-                IntegerLiteral(1),
+                ast.IntegerLiteral(1),
             )
 
         match classical_input:
-            case BoolType():
+            case data_types.BoolType():
                 return value_identifier
-            case BitType(size=None):
+            case data_types.BitType(size=None):
                 return value_identifier
-            case BitType():
-                element = IndexExpression(
+            case data_types.BitType():
+                element = ast.IndexExpression(
                     collection=value_identifier,
-                    index=[IntegerLiteral(index)],
+                    index=[ast.IntegerLiteral(index)],
                 )
-                return BinaryExpression(
-                    BinaryOperator["=="],
+                return ast.BinaryExpression(
+                    ast.BinaryOperator["=="],
                     element,
-                    IntegerLiteral(1),
+                    ast.IntegerLiteral(1),
                 )
-            case IntType():
-                shifted = BinaryExpression(
-                    BinaryOperator[">>"],
+            case data_types.IntType():
+                shifted = ast.BinaryExpression(
+                    ast.BinaryOperator[">>"],
                     value_identifier,
-                    IntegerLiteral(index),
+                    ast.IntegerLiteral(index),
                 )
-                masked = BinaryExpression(
-                    BinaryOperator["&"],
+                masked = ast.BinaryExpression(
+                    ast.BinaryOperator["&"],
                     shifted,
-                    IntegerLiteral(1),
+                    ast.IntegerLiteral(1),
                 )
-                return BinaryExpression(
-                    BinaryOperator["=="],
+                return ast.BinaryExpression(
+                    ast.BinaryOperator["=="],
                     masked,
-                    IntegerLiteral(1),
+                    ast.IntegerLiteral(1),
                 )
-            case FloatType():
+            case data_types.FloatType():
                 raise RuntimeError("FloatType not supported for basis encoding")
             case _:
                 raise RuntimeError("Unsupported classical input for basis encoding")
