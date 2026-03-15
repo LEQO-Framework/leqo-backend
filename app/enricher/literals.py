@@ -12,10 +12,10 @@ from typing import override
 from openqasm3.ast import (
     BooleanLiteral,
     ClassicalDeclaration,
-    FloatLiteral as AstFloatLiteral,
     Identifier,
     IntegerLiteral,
     QubitDeclaration,
+    FloatLiteral as AstFloatLiteral,
 )
 
 from app.enricher import (
@@ -31,8 +31,8 @@ from app.model.CompileRequest import (
     BoolLiteralNode,
     FloatLiteralNode,
     IntLiteralNode,
-    Node as FrontendNode,
     QubitNode,
+    Node as FrontendNode,
 )
 from app.model.data_types import (
     ArrayType,
