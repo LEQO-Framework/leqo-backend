@@ -82,7 +82,7 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
             q_id = Identifier("q")
             statements = [
                 Include("stdgates.inc"),
-                QubitDeclaration(q_id, IntegerLiteral(size))
+                QubitDeclaration(q_id, IntegerLiteral(size)),
             ]
 
             # Apply Hadamard to the entire register (broadcasting)

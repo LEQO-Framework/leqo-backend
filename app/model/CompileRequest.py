@@ -433,10 +433,10 @@ class ArrayLiteralNode(BaseNode):
 
         # Infer elementType from the raw data if not provided
         if "elementType" not in normalized and normalized.get("values"):
-             if any(isinstance(v, float) for v in normalized["values"]):
-                 normalized["elementType"] = "float"
-             else:
-                 normalized["elementType"] = "int"
+            if any(isinstance(v, float) for v in normalized["values"]):
+                normalized["elementType"] = "float"
+            else:
+                normalized["elementType"] = "int"
 
         return normalized
 
