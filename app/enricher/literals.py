@@ -42,7 +42,6 @@ from app.model.data_types import (
     IntType,
 )
 
-
 class LiteralEnricherStrategy(EnricherStrategy):
     """
     Enricher strategy capable of enriching literal nodes (e.g. `int`, `float`, etc).

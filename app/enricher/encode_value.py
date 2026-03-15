@@ -1,7 +1,3 @@
-"""
-Provides enricher strategy for enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
-"""
-
 from collections.abc import Iterable
 from dataclasses import dataclass
 from math import pi
@@ -9,11 +5,13 @@ from typing import Any, cast, override
 
 from openqasm3.ast import (
     Annotation,
+    ArrayType as AstArrayType,
     BinaryExpression,
     BinaryOperator,
     BranchingStatement,
     ClassicalDeclaration,
     FloatLiteral,
+    FloatType as AstFloatType,
     Identifier,
     Include,
     IndexExpression,
@@ -22,8 +20,6 @@ from openqasm3.ast import (
     QuantumGate,
     QubitDeclaration,
     Statement,
-    ArrayType as AstArrayType,
-    FloatType as AstFloatType,
 )
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -33,13 +29,11 @@ from app.enricher.db_enricher import DataBaseEnricherStrategy
 from app.enricher.exceptions import BoundsOutOfRange, EncodingNotSupported
 from app.enricher.models import (
     BaseNode,
+    EncodeValueNode as EncodeNodeTable,
     EncodingType,
     Input,
     InputType,
     NodeType,
-)
-from app.enricher.models import (
-    EncodeValueNode as EncodeNodeTable,
 )
 from app.enricher.utils import implementation, leqo_output
 from app.model.CompileRequest import EncodeValueNode
@@ -350,42 +344,34 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         node: EncodeValueNode,
         classical_input: LeqoSupportedClassicalType,
     ) -> int:
-        """Determines size while satisfying PLR0911 by using a single return."""
+        """Determines size using a single result variable to satisfy PLR0911."""
         if node.encoding == "angle" and not isinstance(classical_input, (ArrayType, AstArrayType)):
             return 1
-
-        if isinstance(classical_input, AstArrayType):
-            return self._get_array_length(classical_input)
         if isinstance(classical_input, AstFloatType):
             return 1
+        if isinstance(classical_input, AstArrayType):
+            return self._get_array_length(classical_input)
 
-        calculated_size = 0
+        size = 0
         match classical_input:
-            case BoolType():
-                calculated_size = classical_input.size
+            case BoolType() | IntType() | ArrayType():
+                size = classical_input.size
             case BitType():
-                calculated_size = classical_input.size or 1
-            case IntType():
-                calculated_size = classical_input.size
+                size = classical_input.size or 1
             case FloatType():
-                calculated_size = 1
-            case ArrayType():
-                calculated_size = classical_input.size
+                size = 1
             case _:
                 if hasattr(classical_input, "size") and isinstance(classical_input.size, int):
-                    calculated_size = classical_input.size
+                    size = classical_input.size
                 else:
                     raise InputTypeMismatch(
-                        node,
-                        0,
-                        actual=classical_input,
-                        expected="bit, int, bool, float or array",
+                        node, 0, actual=classical_input, expected="classical type"
                     )
 
-        if calculated_size <= 0:
-            raise InputSizeMismatch(node, 0, actual=calculated_size, expected=1)
+        if size <= 0:
+            raise InputSizeMismatch(node, 0, actual=size, expected=1)
 
-        return calculated_size
+        return size
 
     def _constant_basis_indices(
         self,
