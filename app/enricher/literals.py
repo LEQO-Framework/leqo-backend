@@ -42,6 +42,7 @@ from app.model.data_types import (
     IntType,
 )
 
+
 class LiteralEnricherStrategy(EnricherStrategy):
     """
     Enricher strategy capable of enriching literal nodes (e.g. `int`, `float`, etc).
@@ -136,10 +137,10 @@ class LiteralEnricherStrategy(EnricherStrategy):
             case ArrayLiteralNode():
                 # Detect floats
                 is_float = any(
-                    isinstance(v, float) or (isinstance(v, str) and "." in v) 
+                    isinstance(v, float) or (isinstance(v, str) and "." in v)
                     for v in node.values
                 )
-                
+
                 element_bit_size = (
                     node.elementBitSize if node.elementBitSize is not None else (32 if is_float else 1)
                 )
@@ -150,7 +151,7 @@ class LiteralEnricherStrategy(EnricherStrategy):
                     length=len(node.values),
                     is_float=is_float
                 )
-                
+
                 array_literal = array_type_wrapper.literal(node.values)
 
                 return EnrichmentResult(

@@ -36,8 +36,7 @@ from app.enricher.models import (
     NodeType,
 )
 from app.enricher.utils import implementation, leqo_output
-from app.model.CompileRequest import EncodeValueNode
-from app.model.CompileRequest import Node as FrontendNode
+from app.model.CompileRequest import EncodeValueNode, Node as FrontendNode
 from app.model.data_types import (
     ArrayType,
     BitType,
@@ -104,13 +103,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         """
         Checks the constraints for the node and requested inputs.
         Raises exceptions if constraints are not met.
-
-        :param node: The node to check constraints for.
-        :param requested_inputs: Dictionary where the key is the input index and value the type of the node.
-        :raises EncodingNotSupported: If the encoding is not supported.
-        :raises BoundsOutOfRange: If the bounds are out of range.
-        :raises InputCountMismatch: If the number of requested inputs does not match the expected count.
-        :raises InputTypeMismatch: If the type of the requested input does not match the expected type.
         """
         if node.encoding == "custom":
             raise EncodingNotSupported(node)
@@ -143,7 +135,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     def _generate_database_node(
         self,
         node: FrontendNode,
-        implementation: str,
+        implementation_str: str,
         requested_inputs: dict[int, LeqoSupportedType],
         width: int,
         depth: int | None,
@@ -162,7 +154,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             type=NodeType(node.type),
             depth=depth,
             width=width,
-            implementation=implementation,
+            implementation=implementation_str,
             encoding=EncodingType(node.encoding),
             bounds=node.bounds,
         )
@@ -180,8 +172,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         self, node: FrontendNode, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
         if isinstance(node, EncodeValueNode) and node.encoding in {"basis", "angle"}:
-            # Prefer database-backed implementations first to keep behaviour consistent
-            # with other encoders and reuse vetted circuits when available.
             db_results = await super()._enrich_impl(node, constraints)
             if db_results:
                 return db_results
@@ -191,7 +181,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
             self._check_constraints(node, constraints.requested_inputs)
 
-            # On cache miss, synthesise the basis encoding implementation on the fly.
             classical_input = cast(
                 LeqoSupportedClassicalType, constraints.requested_inputs[0]
             )
@@ -281,8 +270,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         classical_input: LeqoSupportedClassicalType,
         input_value: Any | None,
     ) -> EnrichmentResult:
-        # The target register width is derived from the classical input type so that
-        # we emit the minimum amount of qubits required for its binary representation.
         size = self._determine_register_size(node, classical_input)
         constant_indices: list[int] | None = None
         if input_value is not None:
@@ -346,36 +333,36 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         node: EncodeValueNode,
         classical_input: LeqoSupportedClassicalType,
     ) -> int:
-        """Determines size using a single result variable to satisfy PLR0911."""
+        """Determines size while satisfying PLR0911."""
+        res: int
         if node.encoding == "angle" and not isinstance(
             classical_input, (ArrayType, AstArrayType)
         ):
-            return 1
-        if isinstance(classical_input, AstFloatType):
-            return 1
-        if isinstance(classical_input, AstArrayType):
-            return self._get_array_length(classical_input)
-
-        size = 0
-        match classical_input:
-            case BoolType() | IntType() | ArrayType():
-                size = classical_input.size
-            case BitType():
-                size = classical_input.size or 1
-            case FloatType():
-                size = 1
-            case _:
-                if hasattr(classical_input, "size") and isinstance(classical_input.size, int):
+            res = 1
+        elif isinstance(classical_input, AstArrayType):
+            res = self._get_array_length(classical_input)
+        elif isinstance(classical_input, AstFloatType):
+            res = 1
+        else:
+            size = 0
+            match classical_input:
+                case BoolType() | IntType() | ArrayType():
                     size = classical_input.size
-                else:
-                    raise InputTypeMismatch(
-                        node, 0, actual=classical_input, expected="classical type"
-                    )
-
-        if size <= 0:
-            raise InputSizeMismatch(node, 0, actual=size, expected=1)
-
-        return size
+                case BitType():
+                    size = classical_input.size or 1
+                case FloatType():
+                    size = 1
+                case _:
+                    if hasattr(classical_input, "size") and isinstance(classical_input.size, int):
+                        size = classical_input.size
+                    else:
+                        raise InputTypeMismatch(
+                            node, 0, actual=classical_input, expected="classical type"
+                        )
+            if size <= 0:
+                raise InputSizeMismatch(node, 0, actual=size, expected=1)
+            res = size
+        return res
 
     def _constant_basis_indices(
         self,
@@ -418,7 +405,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         try:
             value = int(raw_value)
-        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
+        except (TypeError, ValueError) as exc:
             msg = "Unsupported classical input for basis encoding"
             raise RuntimeError(msg) from exc
 
@@ -505,13 +492,13 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         _register_size: int,
         raw_value: Any,
     ) -> dict[int, float]:
-        """Calculates rotations"""
-        result: dict[int, float] = {}
+        """Calculates rotations while satisfying PLR0911."""
+        final_rotations: dict[int, float]
 
         if isinstance(classical_input, (FloatType, AstFloatType)):
             try:
-                val = raw_value.value if hasattr(raw_value, "value") else raw_value
-                result = {0: max(0.0, min(float(val), 2 * pi))}
+                v = raw_value.value if hasattr(raw_value, "value") else raw_value
+                final_rotations = {0: max(0.0, min(float(v), 2 * pi))}
             except (TypeError, ValueError) as exc:
                 raise RuntimeError("Unsupported input for angle encoding") from exc
 
@@ -524,39 +511,38 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             if is_float_type or is_float_data or values:
                 float_vals = [float(v) for v in values]
                 if not float_vals:
-                    result = {}
+                    final_rotations = {}
                 else:
                     min_v = min(float_vals)
                     max_v = max(float_vals)
                     if max_v > min_v:
-                        result = {
+                        final_rotations = {
                             index: ((v - min_v) / (max_v - min_v)) * (pi / 2)
                             for index, v in enumerate(float_vals)
                         }
                     else:
-                        result = {
+                        final_rotations = {
                             index: max(0.0, min(v, pi / 2))
                             for index, v in enumerate(float_vals)
                         }
             else:
                 length = self._get_array_length(classical_input)
-                result = dict.fromkeys(range(length), 0.0)
+                final_rotations = dict.fromkeys(range(length), 0.0)
 
         elif isinstance(classical_input, IntType):
-            val = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
+            v = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
             bit_size = classical_input.size or 32
             max_val = (1 << bit_size) - 1
-            normalized = (val / max_val) * (pi / 2) if max_val > 0 else 0.0
-            result = {0: normalized}
+            normalized = (v / max_val) * (pi / 2) if max_val > 0 else 0.0
+            final_rotations = {0: normalized}
 
         elif isinstance(classical_input, (BitType, BoolType)):
-            val = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
-            result = {0: val * (pi / 2)}
-
+            v = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
+            final_rotations = {0: v * (pi / 2)}
         else:
-            result = {0: 0.0}
+            final_rotations = {0: 0.0}
 
-        return result
+        return final_rotations
 
     def _build_basis_statements(
         self,
@@ -607,7 +593,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 )
                 statements.append(gate)
 
-        # Expose the encoded register as the sole output of the node.
         output_alias = leqo_output("out", 0, qubit_identifier)
         if signed_output:
             output_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
@@ -654,16 +639,10 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     ) -> None:
         if isinstance(classical_input, (FloatType, AstFloatType)):
             self._emit_float_angle_statements(context)
-            return
-
-        if isinstance(classical_input, (ArrayType, AstArrayType)):
+        elif isinstance(classical_input, (ArrayType, AstArrayType)):
             self._emit_array_angle_statements(context)
-            return
-
-        self._emit_generic_angle_statements(
-            classical_input,
-            context,
-        )
+        else:
+            self._emit_generic_angle_statements(classical_input, context)
 
     def _emit_float_angle_statements(self, context: _AngleEmissionContext) -> None:
         rotation_map = context.rotation_map
@@ -866,7 +845,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                     IntegerLiteral(1),
                 )
             case FloatType():
-                # Unsupported but handled earlier.
                 raise RuntimeError("FloatType not supported for basis encoding")
             case _:
                 raise RuntimeError("Unsupported classical input for basis encoding")
