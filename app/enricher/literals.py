@@ -10,7 +10,6 @@ Provides enricher strategy for enriching literal nodes
 from typing import override
 
 from openqasm3.ast import (
-    ArrayLiteral,
     BooleanLiteral,
     ClassicalDeclaration,
     FloatLiteral as AstFloatLiteral,
