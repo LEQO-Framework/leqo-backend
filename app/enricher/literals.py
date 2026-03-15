@@ -142,14 +142,14 @@ class LiteralEnricherStrategy(EnricherStrategy):
                 )
 
                 element_bit_size = (
-                    node.elementBitSize if node.elementBitSize is not None else (32 if is_float else 1)
+                    node.elementBitSize
+                    if node.elementBitSize is not None
+                    else (32 if is_float else 1)
                 )
 
                 # Create ArrayType with correct element type (no cast)
                 array_type_wrapper = ArrayType.with_size(
-                    size=element_bit_size,
-                    length=len(node.values),
-                    is_float=is_float
+                    size=element_bit_size, length=len(node.values), is_float=is_float
                 )
 
                 array_literal = array_type_wrapper.literal(node.values)

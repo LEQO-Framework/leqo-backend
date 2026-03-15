@@ -325,7 +325,11 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         else:
             size = 0
             match classical_input:
-                case data_types.BoolType() | data_types.IntType() | data_types.ArrayType():
+                case (
+                    data_types.BoolType()
+                    | data_types.IntType()
+                    | data_types.ArrayType()
+                ):
                     size = classical_input.size
                 case data_types.BitType():
                     size = classical_input.size or 1
@@ -477,7 +481,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             raise RuntimeError("Unsupported classical input")
         else:
             values = [
-                converter(actual_raw.value if hasattr(actual_raw, "value") else actual_raw)
+                converter(
+                    actual_raw.value if hasattr(actual_raw, "value") else actual_raw
+                )
             ]
 
         if len(values) != expected_length:
@@ -504,7 +510,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         elif isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             values = self._coerce_array_constant_value(classical_input, raw_value)
             element_type = self._get_element_type(classical_input)
-            is_float_type = isinstance(element_type, (data_types.FloatType, ast.FloatType))
+            is_float_type = isinstance(
+                element_type, (data_types.FloatType, ast.FloatType)
+            )
             is_float_data = len(values) > 0 and isinstance(values[0], float)
 
             if is_float_type or is_float_data or values:
@@ -604,7 +612,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         output_alias = leqo_output("out", 0, qubit_identifier)
         if signed_output:
-            output_alias.annotations.append(ast.Annotation("leqo.twos_complement", "true"))
+            output_alias.annotations.append(
+                ast.Annotation("leqo.twos_complement", "true")
+            )
         statements.append(output_alias)
         return statements
 
@@ -771,7 +781,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                     qubits=[target],
                     duration=None,
                 )
-                statements.append(ast.BranchingStatement(condition, [rotation_gate], []))
+                statements.append(
+                    ast.BranchingStatement(condition, [rotation_gate], [])
+                )
             return
 
         for index in sorted(rotation_map):
