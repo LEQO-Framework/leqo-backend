@@ -18,8 +18,8 @@ from openqasm3.ast import (
     FloatType as AstFloatType,
     Identifier,
     Include,
-    IndexExpression,
     IndexedIdentifier,
+    IndexExpression,
     IntegerLiteral,
     QuantumGate,
     QubitDeclaration,
@@ -33,8 +33,8 @@ from app.enricher.db_enricher import DataBaseEnricherStrategy
 from app.enricher.exceptions import BoundsOutOfRange, EncodingNotSupported
 from app.enricher.models import (
     BaseNode,
-    EncodeValueNode as EncodeNodeTable,
     EncodingType,
+    EncodeValueNode as EncodeNodeTable,
     Input,
     InputType,
     NodeType,
