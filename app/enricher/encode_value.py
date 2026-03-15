@@ -350,28 +350,30 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         node: EncodeValueNode,
         classical_input: LeqoSupportedClassicalType,
     ) -> int:
+        """Determines size while satisfying PLR0911 by using a single return."""
         if node.encoding == "angle" and not isinstance(classical_input, (ArrayType, AstArrayType)):
             return 1
+
         if isinstance(classical_input, AstArrayType):
             return self._get_array_length(classical_input)
         if isinstance(classical_input, AstFloatType):
             return 1
 
-        size = 0
+        calculated_size = 0
         match classical_input:
             case BoolType():
-                size = classical_input.size
+                calculated_size = classical_input.size
             case BitType():
-                size = classical_input.size or 1
+                calculated_size = classical_input.size or 1
             case IntType():
-                size = classical_input.size
+                calculated_size = classical_input.size
             case FloatType():
-                size = 1
+                calculated_size = 1
             case ArrayType():
-                size = classical_input.size
+                calculated_size = classical_input.size
             case _:
                 if hasattr(classical_input, "size") and isinstance(classical_input.size, int):
-                    size = classical_input.size
+                    calculated_size = classical_input.size
                 else:
                     raise InputTypeMismatch(
                         node,
@@ -380,9 +382,10 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                         expected="bit, int, bool, float or array",
                     )
 
-        if size <= 0:
-            raise InputSizeMismatch(node, 0, actual=size, expected=1)
-        return size
+        if calculated_size <= 0:
+            raise InputSizeMismatch(node, 0, actual=calculated_size, expected=1)
+
+        return calculated_size
 
     def _constant_basis_indices(
         self,

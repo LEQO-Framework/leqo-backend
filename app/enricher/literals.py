@@ -31,10 +31,8 @@ from app.model.CompileRequest import (
     BoolLiteralNode,
     FloatLiteralNode,
     IntLiteralNode,
-    QubitNode,
-)
-from app.model.CompileRequest import (
     Node as FrontendNode,
+    QubitNode,
 )
 from app.model.data_types import (
     ArrayType,

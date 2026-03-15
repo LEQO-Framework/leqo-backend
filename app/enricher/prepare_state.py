@@ -11,7 +11,7 @@ from openqasm3.ast import (
     QuantumGate,
     QubitDeclaration,
 )
-from sqlalchemy import Select, select
+from sqlalchemy import Select, exists, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.enricher import Constraints, EnrichmentResult, ImplementationMetaData
