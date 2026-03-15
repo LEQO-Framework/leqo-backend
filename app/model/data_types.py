@@ -126,7 +126,7 @@ class ArrayType(ClassicalType):
     def literal(self, values: list[int | float]) -> AstArrayLiteral:
         # Direct AstFloatLiteral creation (no cast)
         if isinstance(self.element_type, FloatType):
-             return AstArrayLiteral([AstFloatLiteral(float(value)) for value in values])
+            return AstArrayLiteral([AstFloatLiteral(float(value)) for value in values])
         return AstArrayLiteral([IntegerLiteral(int(value)) for value in values])
 
     @staticmethod

@@ -66,7 +66,7 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
                 should_be="equal",
                 expected=0,
             )
-        
+
     @override
     async def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
@@ -76,7 +76,7 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
             self._check_constraints(
                 node, {} if constraints is None else constraints.requested_inputs
             )
-            
+
             size = node.size
             # Create a register of the requested size
             q_id = Identifier("q")
@@ -102,7 +102,7 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
             return [
                 EnrichmentResult(
                     implementation(node, statements),
-                    ImplementationMetaData(width=size, depth=1)
+                    ImplementationMetaData(width=size, depth=1),
                 )
             ]
 

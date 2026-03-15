@@ -447,10 +447,10 @@ class ArrayLiteralNode(BaseNode):
             bit_size = (
                 max(
                     (
-                        _infer_int_bit_size(value) 
-                        for value in self.values 
+                        _infer_int_bit_size(value)
+                        for value in self.values
                         if isinstance(value, int)
-                    ), 
+                    ),
                     default=1,
                 )
                 if self.values
