@@ -38,6 +38,7 @@ from app.model.data_types import IntType, LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
 from app.openqasm3.universal_transpiler import UniversalTranspiler
 from app.openqasm3.qiskit_provider import QiskitProvider
+from app.openqasm3.braket_provider import BraketProvider
 from app.services import get_db_engine, get_enricher, get_settings
 from app.transformation_manager.bpmn_builder import BpmnBuilder
 from app.transformation_manager.frontend_graph import FrontendGraph, TBaseNode
@@ -107,7 +108,7 @@ class CommonProcessor:
     enricher: Enricher
     optimize: OptimizeSettings
     frontend_to_processed: dict[str, ProcessedProgramNode]
-    target: Literal["qasm", "workflow"] = "qasm"
+    target: Literal["qasm", "workflow", "qiskit", "braket"] = "qasm"
     original_request: CompileRequest | None = None
     result: str | None = None
     qrms: Any | None = None
@@ -435,6 +436,11 @@ class MergingProcessor(CommonProcessor):
 
             if self.target == "qiskit":
                 provider = QiskitProvider()
+                transpiler = UniversalTranspiler(provider)
+                return transpiler.visit_Program(processed_program)
+
+            if self.target == "braket":
+                provider = BraketProvider()
                 transpiler = UniversalTranspiler(provider)
                 return transpiler.visit_Program(processed_program)
 

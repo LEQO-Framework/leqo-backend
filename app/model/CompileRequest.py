@@ -663,7 +663,7 @@ class CompileRequest(BaseModel):
     metadata: MetaData
     """General information and optimization preferences."""
 
-    compilation_target: Literal["qasm", "workflow", "qiskit"] = "qasm"
+    compilation_target: Literal["qasm", "workflow", "qiskit", "braket"] = "qasm"
     """Compilation target. Either "qasm" (default), "workflow" or "qiskit"."""
 
     nodes: list[Annotated[Node, Field(discriminator="type")]]

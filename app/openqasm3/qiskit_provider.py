@@ -6,7 +6,7 @@ from app.openqasm3.universal_transpiler import BaseSDKProvider
 class QiskitProvider(BaseSDKProvider):
     """
     Qiskit implementation of the BaseSDKProvider.
-    Generates Python AST nodes compatible with Qiskit 1.x and Qiskit Aer.
+    Generates Python AST nodes compatible with Qiskit 2.x and Qiskit Aer.
     """
 
     def __init__(self):
