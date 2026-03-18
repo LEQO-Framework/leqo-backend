@@ -80,26 +80,49 @@ println "Response: ${resp}"
 
 return resp.state"""
 
-SCRIPT_SET_VARS_PLACEHOLDER = """def model= '{"metadata":{"optimizeWidth":null,"optimizeDepth":null,"version":"1.0.0","name":"My Model","description":"This is a model.","author":"","containsPlaceholder":false},"compilation_target":"qasm","nodes":[{"id":"1a1f4fe0-9c18-4956-a394-c6326ab10f80","label":null,"type":"qubit","size":1},{"id":"1d9e5132-79f3-475d-ba91-7e63b89fef85","label":null,"type":"gate","gate":"h"}],"edges":[{"source":["1a1f4fe0-9c18-4956-a394-c6326ab10f80",0],"target":["1d9e5132-79f3-475d-ba91-7e63b89fef85",0],"size":null,"identifier":null}]}'
-execution.setVariable("model", model)
-placeholder = execution.getVariable("placeholder");
-println("placeholder: ${placeholder}")
-def groupId = execution.getVariable("groupId")
-println "groupId: ${groupId}"
+SCRIPT_SET_VARS_PLACEHOLDER = """
+import groovy.json.JsonSlurper
+import groovy.json.JsonBuilder
 
-if (!groupId){
+// get origin model
+def modelStr = '{jsonModel}'
+def placeholder = execution.getVariable("placeholder")
+
+// parse model
+def modelObj = new JsonSlurper().parseText(modelStr)
+
+// set the compilation_target to qasm
+modelObj.compilation_target = "qasm"
+
+// replace the placeholder within the int node with the users input
+modelObj.nodes.each {{ node ->
+    if (node.type == "int" && (node.value instanceof String)) {{
+        node.value = placeholder
+    }}
+}}
+
+// json back to string
+def model = new JsonBuilder(modelObj).toPrettyString()
+execution.setVariable("model", model)
+
+println("placeholder: ${{placeholder}}")
+def groupId = execution.getVariable("groupId")
+println "groupId: ${{groupId}}"
+
+if (!groupId) {{
     execution.setVariable("groupId", 0)
-}else{
+}} else {{
     execution.setVariable("groupId", groupId+1)
-}
+}}
 
 def iterations = execution.getVariable("iterations")
 
-if (!iterations){
+if (!iterations) {{
     execution.setVariable("iterations", 0)
-} else {
+}} else {{
     execution.setVariable("iterations", iterations+1)
-}"""
+}}
+"""
 
 SCRIPT_SET_VARS_COMMON = """def groupId = execution.getVariable("groupId")
 if (groupId == null) {

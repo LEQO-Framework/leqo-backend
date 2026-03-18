@@ -1240,7 +1240,7 @@ class BpmnBuilder:
         self._create_script_task(
             setvars1_id,
             "Set Variables",
-            GroovyScript.SCRIPT_SET_VARS_PLACEHOLDER,
+            GroovyScript.SCRIPT_SET_VARS_PLACEHOLDER.format(jsonModel=self.model_json),
             result_variable="matrix"
         )
 
@@ -1354,7 +1354,10 @@ class BpmnBuilder:
             if node.type == "file":
                 inputs["entityPointsUrl"] = node.value
             elif node.type == "int":
-                inputs["numberOfClusters"] = int(node.value)
+                if not self.containsPlaceholder: # placeholder is currently just available for number of clusters
+                    inputs["numberOfClusters"] = int(node.value)
+                else:
+                    inputs["numberOfClusters"] = "${placeholder}"
 
         # Get needed parts from common parts
         (
