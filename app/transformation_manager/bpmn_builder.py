@@ -101,12 +101,8 @@ class BpmnBuilder:
         ET.register_namespace("dc", DC_NS)
         ET.register_namespace("di", DI_NS)
         ET.register_namespace("xsi", XSI_NS)
-        if self.is_camunda_8:
-            # Use Zeebe for Camunda 8
-            ET.register_namespace("zeebe", ZEEBE_NS)
-        else:
-            # Use Camunda for Camunda 7
-            ET.register_namespace("camunda", CAMUNDA_NS)
+        ET.register_namespace("zeebe", ZEEBE_NS)
+        ET.register_namespace("camunda", CAMUNDA_NS)
 
     def _init_xml(self) -> None:
         """Initializes the base XML structure (definitions and process)."""
@@ -119,14 +115,20 @@ class BpmnBuilder:
                 "exporterVersion": "4.5.0-nightly.20220628",
             }
         )
+        # Base process attributes
+        process_attrs = {
+            "id": f"Process_{self.process_id}",
+            "isExecutable": "true",
+        }
+
+        # Only add historyTimeToLive for camunda 7
+        if not self.is_camunda_8:
+            process_attrs[self.qn(CAMUNDA_NS, "historyTimeToLive")] = "180"
+
         self.process = ET.SubElement(
             self.defs,
             self.qn(BPMN2_NS, "process"),
-            {
-                "id": f"Process_{self.process_id}",
-                "isExecutable": "true",
-                self.qn(CAMUNDA_NS, "historyTimeToLive"): "360000",
-            }
+            process_attrs
         )
 
     def qn(self, ns: str, tag: str) -> str:
@@ -399,8 +401,8 @@ class BpmnBuilder:
             )
 
         # layout
-        positions = self._calculate_standard_layout(start_node)
-        self.task_positions_per_node[start_node] = {positions}
+        positions = self._calculate_editable_layout(start_node)
+        self.task_positions_per_node[start_node] = positions
 
         # flow
         flow_map = []
@@ -460,6 +462,12 @@ class BpmnBuilder:
 
         self.chain_level += 1
     
+    def _calculate_editable_layout(self, node_id: str):
+        """Simple layout for a single service task."""
+        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
+        y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
+        return {self.inserted_chains[node_id]: (x, y)}
+
     def _calculate_agentic_layout(
             self, 
             node_id: str
@@ -1135,55 +1143,62 @@ class BpmnBuilder:
     ) -> None:
         """Creates a Service Task with Camunda connector configuration."""
         attrs = {"id": task_id, "name": name}
-        attrs[self.qn(CAMUNDA_NS, "asyncAfter")] = "true" if async_after else "false"
-        attrs[self.qn(CAMUNDA_NS, "exclusive")] = "true" if exclusive else "false"
+        if not self.is_camunda_8: # only add if camunda 7
+            attrs[self.qn(CAMUNDA_NS, "asyncAfter")] = "true" if async_after else "false"
+            attrs[self.qn(CAMUNDA_NS, "exclusive")] = "true"
+
         task = ET.SubElement(self.process, self.qn(BPMN2_NS, "serviceTask"), attrs)
+        if self.is_camunda_8:
+            # Camunda 8 uses Zeebe Extension Elements, not Connectors
+            ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
+            # TODO
+        else:
+            # Camunda 7 uses Connector logic
+            ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
+            connector = ET.SubElement(ext, self.qn(CAMUNDA_NS, "connector"))
+            io = ET.SubElement(connector, self.qn(CAMUNDA_NS, "inputOutput"))
 
-        ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
-        connector = ET.SubElement(ext, self.qn(CAMUNDA_NS, "connector"))
-        io = ET.SubElement(connector, self.qn(CAMUNDA_NS, "inputOutput"))
+            # method
+            ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = method
 
-        # method
-        ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = method
+            # header
+            headers = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+            header_map = ET.SubElement(headers, self.qn(CAMUNDA_NS, "map"))
+            # standard entry
+            header_entries = {"Accept": "application/json", "Content-Type": "application/json"}
+            if extra_input_maps and "headers" in extra_input_maps:
+                header_entries.update(extra_input_maps["headers"])
+            for k, v in header_entries.items():
+                ET.SubElement(header_map, self.qn(CAMUNDA_NS, "entry"), {"key": k}).text = v
 
-        # header
-        headers = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
-        header_map = ET.SubElement(headers, self.qn(CAMUNDA_NS, "map"))
-        # standard entry
-        header_entries = {"Accept": "application/json", "Content-Type": "application/json"}
-        if extra_input_maps and "headers" in extra_input_maps:
-            header_entries.update(extra_input_maps["headers"])
-        for k, v in header_entries.items():
-            ET.SubElement(header_map, self.qn(CAMUNDA_NS, "entry"), {"key": k}).text = v
+            # url
+            ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = url
 
-        # url
-        ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = url
+            # extra inputs
+            if extra_inputs:
+                for k, v in extra_inputs.items():
+                    ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": k}).text = v
 
-        # extra inputs
-        if extra_inputs:
-            for k, v in extra_inputs.items():
-                ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": k}).text = v
+            # payload param
+            if connector_payload_script:
+                payload_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
+                script = ET.SubElement(payload_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+                script.text = connector_payload_script
 
-        # payload param
-        if connector_payload_script:
-            payload_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
-            script = ET.SubElement(payload_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-            script.text = connector_payload_script
+            # output
+            for param in connector_output_parameters:
+                out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": param["name"]})
+                script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": param.get("scriptFormat", "groovy")})
+                script.text = param["script"]
 
-        # output
-        for param in connector_output_parameters:
-            out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": param["name"]})
-            script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": param.get("scriptFormat", "groovy")})
-            script.text = param["script"]
+            # extra output params
+            if extra_outputs:
+                for k, v in extra_outputs.items():
+                    out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": k})
+                    script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+                    script.text = v
 
-        # extra output params
-        if extra_outputs:
-            for k, v in extra_outputs.items():
-                out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": k})
-                script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-                script.text = v
-
-        ET.SubElement(connector, self.qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+            ET.SubElement(connector, self.qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
 
     def _create_script_task(
         self,
@@ -1640,8 +1655,15 @@ class BpmnBuilder:
             {"id": fid, "sourceRef": src_el_id, "targetRef": tgt_el_id},
         )
 
+        # conditions for agentic loop
+        if "_Satisfied_" in src and "_Entry_" in tgt:
+            cond = ET.SubElement(sf, self.qn(BPMN2_NS, "conditionExpression"), {
+                self.qn(XSI_NS, "type"): "bpmn:tFormalExpression"
+            })
+            # Based on 'userSatisfied' key in the feedback form
+            cond.text = "${userSatisfied == false}"
         # gateway conditions
-        if src.endswith("_gateway_2"):
+        elif src.endswith("_gateway_2"):
             cond = ET.SubElement(
                 sf,
                 self.qn(BPMN2_NS, "conditionExpression"),
