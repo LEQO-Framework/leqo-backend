@@ -161,22 +161,32 @@ class BpmnBuilder:
         incoming, _ = self._analyze_graph()
         start_nodes = [nid for nid in self.nodes.keys() if not incoming[nid]]
 
+        # Check if model contains editableNodes
+        has_editableNodes = any(
+            getattr(self.nodes[nid], 'type', self.nodes[nid].get('type')) == 'editableNode' 
+            for nid in self.nodes
+        )
+
         # Create Chains
         for start_node in start_nodes:
-            node = self.nodes[start_node]
-            self.containsPlugin = getattr(node, 'type', None) == 'plugin'
 
-            if self.containsPlugin:
-                plugin_name = getattr(node, 'pluginName', None)
-                print("plugin is: ", plugin_name)
-                print("creating plugin flow")
-                self._create_plugin_flow(start_node, plugin_name)
-            elif self.containsPlaceholder:
-                print("creating placeholder flow")
-                self._create_placeholder_flow(start_node)
+            if self.is_camunda_8:
+                self._process_node(start_node)
             else:
-                print("creating nonPlaceholder flow")
-                self._create_non_placeholder_flow(start_node)
+                node = self.nodes[start_node]
+                self.containsPlugin = getattr(node, 'type', None) == 'plugin'
+
+                if self.containsPlugin:
+                    plugin_name = getattr(node, 'pluginName', None)
+                    print("plugin is: ", plugin_name)
+                    print("creating plugin flow")
+                    self._create_plugin_flow(start_node, plugin_name)
+                elif self.containsPlaceholder:
+                    print("creating placeholder flow")
+                    self._create_placeholder_flow(start_node)
+                else:
+                    print("creating nonPlaceholder flow")
+                    self._create_non_placeholder_flow(start_node)
 
         # Connect chains if there are multiple
         self.connect_chains()
@@ -202,6 +212,89 @@ class BpmnBuilder:
         self.indent(self.defs)
         return ET.tostring(self.defs, encoding="unicode"), all_activities
     
+    def _process_node(self, node_id: str):
+        """Process node to create specialized flow"""
+        node = self.nodes[node_id]
+        data = node.get('data', {})
+        node_type = node.get('type')
+        
+        is_data_type = data.get('isDataType', False)
+        mappings = data.get('mapping', [])
+
+        # agentic node: editable operator node with more than one mapping
+        if node_type == 'editableNode' and not is_data_type and len(mappings) > 1:
+            self._create_agentic_flow(node_id, mappings)
+        elif node_type == 'editableNode':
+            self._create_editable_flow(node_id)   
+        else:
+            # Fallback
+            self._create_non_placeholder_flow(node_id)
+
+    def _create_agentic_flow(self, node_id: str, mappings: list[list[str]]) -> None:
+        """
+        Agentic AI loop for editable operator nodes:
+        Gateway -> AI Agent -> User Feedback -> Satisfaction Gateway (Loop back or Exit)
+        """
+        entry_gw_id = f"Gateway_Entry_{node_id}"
+        agent_task_id = f"Task_AI_Agent_{node_id}"
+        feedback_task_id = f"User_Feedback_{node_id}"
+        satisfaction_gw_id = f"Gateway_Satisfied_{node_id}"
+        
+        label = self.nodes[node_id].get('data', {}).get('label', 'Agent')
+        mapping_str = ", ".join([m[0] for m in mappings if m])
+
+        # create elements
+        self._create_exclusive_gateway(entry_gw_id)
+        
+        # AI Agent Task (Service Task)
+        self._create_service_task(
+            agent_task_id,
+            f"Run {label} - AI Agent",
+            method="POST",
+            url="http://${ipAdress}:${agentPort}/execute",
+            extra_inputs={
+                "inputText": "${inputText}", # From Initial Request form
+                "availableMappings": mapping_str
+            }
+        )
+        
+        # User Feedback (User Task with Camunda 8 form)
+        self._create_user_task(
+            feedback_task_id, 
+            "User Feedback", 
+            form_id="ai-agent-chat-user-feedback"
+        )
+        
+        self._create_exclusive_gateway(satisfaction_gw_id)
+
+        # Layout
+        positions = self._calculate_agentic_layout(node_id)
+        self.task_positions_per_node[node_id] = positions
+
+        # Flows
+        flow_map = [
+            (self.new_flow(), entry_gw_id, agent_task_id),
+            (self.new_flow(), agent_task_id, feedback_task_id),
+            (self.new_flow(), feedback_task_id, satisfaction_gw_id),
+            # Loop back if userSatisfied == false
+            (self.new_flow(), satisfaction_gw_id, entry_gw_id), 
+        ]
+        
+        if self.chain_level == 0:
+            flow_map.insert(0, (self.new_flow(), self.start_id, entry_gw_id))
+
+        self.flow_map_per_node[node_id] = flow_map
+        self.inserted_chains[node_id] = (entry_gw_id, agent_task_id, feedback_task_id, satisfaction_gw_id)
+        
+        # Define chain head/end for connector
+        self.chain_heads.append(entry_gw_id)
+        self.chain_ends.append(satisfaction_gw_id)
+
+        for fid, src, tgt in flow_map:
+            self._create_sequence_flow(fid, src, tgt)
+
+        self.chain_level += 1
+
     def indent(self, elem, level=0):
         """
         Adds indentations to the ElementTree-XML-Object for a pretty print.
@@ -268,6 +361,60 @@ class BpmnBuilder:
         self.containsPlugin = False
 
         self.chain_level += 1
+    
+    def _create_editable_flow(
+            self, 
+            start_node: str
+            ) -> None:
+        """
+        Handles standard EditableNodes (Data types or single-mapping logic).
+        """
+        node = self.nodes[start_node]
+        data = node.get('data', {})
+        label = data.get('label', 'Process Data')
+        is_data_type = data.get('isDataType', False)
+        mappings = data.get('mapping', [])
+
+        # Task Type and id
+        task_id = f"Task_Editable_{start_node}"
+        
+        if is_data_type:
+            # datatype node: initialize data
+            self._create_service_task(
+                task_id,
+                f"Initialize Data: {label}",
+                method="POST",
+                url="http://${ipAdress}:${backendPort}/data/init",
+                extra_inputs={"dataType": label, "properties": json.dumps(data.get('properties', []))}
+            )
+        else:
+            # For operator nodes with a only one mapping (e.g., mapping: [["Number"]])
+            mapping_name = mappings[0][0] if mappings and mappings[0] else "Default"
+            self._create_service_task(
+                task_id,
+                f"Execute {label} ({mapping_name})",
+                method="POST",
+                url="http://${ipAdress}:${agentPort}/compute",
+                extra_inputs={"mapping": mapping_name}
+            )
+
+        # layout
+        positions = self._calculate_standard_layout(start_node)
+        self.task_positions_per_node[start_node] = {positions}
+
+        # flow
+        flow_map = []
+        if self.chain_level == 0:
+            flow_id = self.new_flow()
+            flow_map.append((flow_id, self.start_id, task_id))
+            self._create_sequence_flow(flow_id, self.start_id, task_id)
+
+        self.inserted_chains[start_node] = task_id
+        self.flow_map_per_node[start_node] = flow_map
+        self.chain_heads.append(task_id)
+        self.chain_ends.append(task_id)
+
+        self.chain_level += 1
 
     def _create_placeholder_flow(
             self,
@@ -313,6 +460,24 @@ class BpmnBuilder:
 
         self.chain_level += 1
     
+    def _calculate_agentic_layout(
+            self, 
+            node_id: str
+            ):
+        """Calculates positions for all elements in the agentic flow."""
+        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
+        y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
+        
+        positions = {}
+        entry_gw, agent, feedback, sat_gw = self.inserted_chains[node_id]
+        
+        positions[entry_gw] = (x, y + 15)
+        positions[agent]    = (x + 100, y)
+        positions[feedback] = (x + 300, y)
+        positions[sat_gw]   = (x + 500, y + 15)
+        
+        return positions
+
     def _calculate_plugin_layout(
             self, 
             start_node,
