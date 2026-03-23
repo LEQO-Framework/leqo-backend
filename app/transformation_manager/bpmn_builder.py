@@ -14,6 +14,7 @@ DC_NS = "http://www.omg.org/spec/DD/20100524/DC"
 DI_NS = "http://www.omg.org/spec/DD/20100524/DI"
 XSI_NS = "http://www.w3.org/2001/XMLSchema-instance"
 CAMUNDA_NS = "http://camunda.org/schema/1.0/bpmn"
+ZEEBE_NS = "http://camunda.org/schema/zeebe/1.0"
 QUANTME_NS = "https://github.com/UST-QuAntiL/QuantME-Quantum4BPMN"
 OpenTOSCA_NS = "https://github.com/UST-QuAntiL/OpenTOSCA"
 
@@ -70,6 +71,11 @@ class BpmnBuilder:
         self.chain_heads = []
         self.chain_ends = []
 
+        self.is_camunda_8 = any(
+            getattr(n, 'type', n.get('type')) == 'editableNode' 
+            for n in nodes.values()
+        )
+
         self._register_namespaces()
         self._init_xml()
 
@@ -94,8 +100,13 @@ class BpmnBuilder:
         ET.register_namespace("bpmndi", BPMNDI_NS)
         ET.register_namespace("dc", DC_NS)
         ET.register_namespace("di", DI_NS)
-        ET.register_namespace("camunda", CAMUNDA_NS)
         ET.register_namespace("xsi", XSI_NS)
+        if self.is_camunda_8:
+            # Use Zeebe for Camunda 8
+            ET.register_namespace("zeebe", ZEEBE_NS)
+        else:
+            # Use Camunda for Camunda 7
+            ET.register_namespace("camunda", CAMUNDA_NS)
 
     def _init_xml(self) -> None:
         """Initializes the base XML structure (definitions and process)."""
@@ -125,6 +136,15 @@ class BpmnBuilder:
     def new_flow(self) -> str:
         """Generates a unique ID for a sequence flow."""
         return f"Flow_{uuid.uuid4().hex[:BPMN_FLOW_ID_LENGTH]}"
+    
+    def _add_form_definition(self, element: ET.Element, form_id: str):
+        """Helper to attach a Camunda 8 form to a BPMN element."""
+        ext = ET.SubElement(element, self.qn(BPMN2_NS, "extensionElements"))
+        ET.SubElement(
+            ext, 
+            self.qn(ZEEBE_NS, "formDefinition"), 
+            {"formId": form_id}
+        )
 
     def build(self) -> tuple[str, list[str]]:
         """
@@ -224,6 +244,7 @@ class BpmnBuilder:
             element.remove(c)
         for c in ext + incomings + outgoings + rest:
             element.append(c)
+
 
     def _create_plugin_flow(
         self, 
@@ -844,59 +865,63 @@ class BpmnBuilder:
         start_event = ET.SubElement(
             self.process, self.qn(BPMN2_NS, "startEvent"), {"id": self.start_id}
         )
-        ext = ET.SubElement(start_event, self.qn(BPMN2_NS, "extensionElements"))
-        form = ET.SubElement(ext, self.qn(CAMUNDA_NS, "formData"))
-        ET.SubElement(
-            form,
-            self.qn(CAMUNDA_NS, "formField"),
-            {
-                "id": "ipAdress",
-                "label": "IP Adresse",
-                "type": "string",
-                "defaultValue": "192.168.178.65",
-            },
-        )
-        ET.SubElement(
-            form,
-            self.qn(CAMUNDA_NS, "formField"),
-            {
-                "id": "qunicornPort",
-                "label": "Qunicorn Endpoint Port",
-                "type": "string",
-                "defaultValue": "8080",
-            },
-        )
-        ET.SubElement(
-            form,
-            self.qn(CAMUNDA_NS, "formField"),
-            {
-                "id": "backendPort",
-                "label": "Leqo-Backend Endpoint Port",
-                "type": "string",
-                "defaultValue": "8000",
-            },
-        )
-        ET.SubElement(
-            form,
-            self.qn(CAMUNDA_NS, "formField"),
-            {
-                "id": "pluginPort",
-                "label": "QHAna Plugin Endpoint Port",
-                "type": "string",
-                "defaultValue": "5005",
-            },
-        )
-
-        if self.containsPlaceholder:
+        if self.is_camunda_8:
+            ext = ET.SubElement(start_event, self.qn(BPMN2_NS, "extensionElements"))
+            ET.SubElement(ext, self.qn(ZEEBE_NS, "formDefinition"), {"formId": "ai-agent-chat-initial-request"})
+        else:
+            ext = ET.SubElement(start_event, self.qn(BPMN2_NS, "extensionElements"))
+            form = ET.SubElement(ext, self.qn(CAMUNDA_NS, "formData"))
             ET.SubElement(
                 form,
                 self.qn(CAMUNDA_NS, "formField"),
                 {
-                    "id": "placeholder",
-                    "label": "Placeholder",
+                    "id": "ipAdress",
+                    "label": "IP Adresse",
                     "type": "string",
+                    "defaultValue": "192.168.178.65",
                 },
             )
+            ET.SubElement(
+                form,
+                self.qn(CAMUNDA_NS, "formField"),
+                {
+                    "id": "qunicornPort",
+                    "label": "Qunicorn Endpoint Port",
+                    "type": "string",
+                    "defaultValue": "8080",
+                },
+            )
+            ET.SubElement(
+                form,
+                self.qn(CAMUNDA_NS, "formField"),
+                {
+                    "id": "backendPort",
+                    "label": "Leqo-Backend Endpoint Port",
+                    "type": "string",
+                    "defaultValue": "8000",
+                },
+            )
+            ET.SubElement(
+                form,
+                self.qn(CAMUNDA_NS, "formField"),
+                {
+                    "id": "pluginPort",
+                    "label": "QHAna Plugin Endpoint Port",
+                    "type": "string",
+                    "defaultValue": "5005",
+                },
+            )
+
+            if self.containsPlaceholder:
+                ET.SubElement(
+                    form,
+                    self.qn(CAMUNDA_NS, "formField"),
+                    {
+                        "id": "placeholder",
+                        "label": "Placeholder",
+                        "type": "string",
+                    },
+                )
 
     def _create_end_event(self) -> None:
         """Creates the End Event."""
