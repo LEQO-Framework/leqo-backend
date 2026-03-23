@@ -4,7 +4,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Encod
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from math import pi
+from math import log2, pi
 from typing import Any, cast, override
 
 from openqasm3.ast import (
@@ -66,6 +66,7 @@ class _AngleEmissionContext:
     register_size: int
     rotation_map: dict[int, float] | None
     value_identifier: Identifier | None
+    bounds: int
 
 
 class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
@@ -135,6 +136,16 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 expected="classical",
             )
 
+        if node.encoding == "amplitude" and not isinstance(
+            requested_inputs[0], ArrayType
+        ):
+            raise InputTypeMismatch(
+                node,
+                input_index=0,
+                actual=requested_inputs[0],
+                expected="array",
+            )
+
     @override
     def _generate_database_node(
         self,
@@ -175,7 +186,11 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     async def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
-        if isinstance(node, EncodeValueNode) and node.encoding in {"basis", "angle"}:
+        if isinstance(node, EncodeValueNode) and node.encoding in {
+            "basis",
+            "angle",
+            "amplitude",
+        }:
             # Prefer database-backed implementations first to keep behaviour consistent
             # with other encoders and reuse vetted circuits when available.
             db_results = await super()._enrich_impl(node, constraints)
@@ -199,8 +214,18 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                         constraints.requested_input_values.get(0),
                     ),
                 ]
+
+            if node.encoding == "angle":
+                return [
+                    self._generate_angle_enrichment(
+                        node,
+                        classical_input,
+                        constraints.requested_input_values.get(0),
+                    ),
+                ]
+            # amplitude
             return [
-                self._generate_angle_enrichment(
+                self.generate_amplitude_enrichment(
                     node,
                     classical_input,
                     constraints.requested_input_values.get(0),
@@ -303,6 +328,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             classical_input,
             register_size,
             rotation_map,
+            node.bounds,
         )
         depth = (
             sum(1 for angle in rotation_map.values() if angle != 0)
@@ -312,6 +338,113 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         return EnrichmentResult(
             implementation(node, statements),
             ImplementationMetaData(width=register_size, depth=depth),
+        )
+    
+
+    def _coerce_amplitude_array_value(
+        self,
+        array_type: ArrayType,
+        raw_value: Any,
+    ) -> list[float]:
+        """the raw input value to a list of floats for amplitude encoding."""
+        if isinstance(raw_value, str):
+            parts = [
+                part.strip()
+                for part in raw_value.replace(";", ",").split(",")
+                if part.strip() != ""
+            ]
+            values = [float(part) for part in parts]
+        elif isinstance(raw_value, Iterable) and not isinstance(
+            raw_value, (bytes, bytearray)
+        ):
+            values = [float(value) for value in raw_value]
+        elif raw_value is None:
+            raise RuntimeError("Unsupported input for amplitude encoding")
+        else:
+            values = [float(raw_value)]
+
+        if len(values) != array_type.length:
+            raise RuntimeError("Input length does not match array length")
+
+        return values
+    
+
+    def generate_amplitude_enrichment(
+        self,
+        node: EncodeValueNode,
+        classical_input: LeqoSupportedClassicalType,
+        input_value: Any | None,
+    ) -> EnrichmentResult:
+        if not isinstance(classical_input, ArrayType):
+            raise InputTypeMismatch(node, 0, actual=classical_input, expected="array")
+
+        if input_value is None:
+            raise EncodingNotSupported(node)
+
+        values = self._coerce_amplitude_array_value(classical_input, input_value)
+
+        try:
+            import numpy as np
+            import openqasm3
+            from qiskit import qasm3
+            from qiskit.circuit import QuantumCircuit, QuantumRegister
+            from qiskit.circuit.library import StatePreparation
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Amplitude encoding needs numpy, qiskit and openqasm3 "
+                "install with `uv add numpy qiskit openqasm3`."
+            ) from exc
+ 
+        vec = np.asarray(values, dtype=float)
+
+        if node.bounds == 1:
+            if np.any(vec < 0.0) or np.any(vec > 1.0):
+                raise RuntimeError(
+                    "Amplitude encoding with bounds=1 expects all values in [0, 1]."
+                )
+
+        if vec.size < 2:
+            raise RuntimeError("Amplitude encoding needs an array with at least 2 values.")
+
+        # Pad to nearest power of 2 #next test
+        target_len = 1 << (int(vec.size) - 1).bit_length()
+        if target_len != vec.size:
+            vec = np.pad(vec, (0, target_len - vec.size), mode="constant")
+
+        # Check norm and normalize
+        norm = np.linalg.norm(vec)
+        if norm == 0:
+            raise RuntimeError("Amplitude encoding input vector has norm 0.")
+
+        # Always normalize to valid quantum state ımportasnt: amplitudes must have norm 1
+        vec = vec / norm
+
+        n_qubits = int(log2(int(vec.size)))
+
+        qreg = QuantumRegister(n_qubits, "encoded")
+        qc = QuantumCircuit(qreg, name="amplitude_encoding")
+
+        qc.append(StatePreparation(vec.astype(complex)), qreg)
+
+        # Decompose a few times so QASM export is easier.
+        for _ in range(4):
+            qc = qc.decompose()
+
+        qasm_text = qasm3.dumps(qc)
+        prog = openqasm3.parse(qasm_text)
+        statements = list(prog.statements)
+
+        if not any(isinstance(st, Include) for st in statements):
+            statements.insert(0, Include("stdgates.inc"))
+
+        statements.append(leqo_output("out", 0, Identifier("encoded")))
+
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(
+                width=n_qubits,
+                depth=qc.depth(),
+            ),
         )
 
     def _determine_register_size(
@@ -521,6 +654,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         classical_input: LeqoSupportedClassicalType,
         register_size: int,
         rotation_map: dict[int, float] | None,
+        bounds: int,
     ) -> list[Statement]:
         qubit_identifier = Identifier("encoded")
 
@@ -544,6 +678,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             register_size=register_size,
             rotation_map=rotation_map,
             value_identifier=value_identifier,
+            bounds=bounds,
         )
         self._emit_angle_statements(classical_input, context)
 
@@ -576,9 +711,12 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if rotation_map is None:
             value_identifier = context.value_identifier
             assert value_identifier is not None
+
+            factor = FloatLiteral(pi) if context.bounds == 1 else FloatLiteral(2.0)
+
             rotation_argument = BinaryExpression(
                 BinaryOperator["*"],
-                FloatLiteral(2.0),
+                factor,
                 value_identifier,
             )
             statements.append(
