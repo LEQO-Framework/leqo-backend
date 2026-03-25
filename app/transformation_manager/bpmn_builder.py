@@ -701,6 +701,11 @@ class BpmnBuilder:
             # connect satisfied gateway with last entry gateway
             if chain[i].endswith("gateway_satisfied") and entry_gateway_id is not "":
                 flow_map.append((self.new_flow(), chain[i], entry_gateway_id))
+                entry_gateway_id = ""
+        
+        if chain[i+1].endswith("gateway_satisfied") and entry_gateway_id is not "":
+            flow_map.append((self.new_flow(), chain[i+1], entry_gateway_id))
+
 
         # Create Sequence Flows
         for fid, src, tgt in flow_map:
@@ -993,6 +998,7 @@ class BpmnBuilder:
 
         print("chains connected")
 
+    # camunda 8: done
     def _create_start_event(self) -> None:
         """Creates the Start Event and configures its form fields."""
         start_event = ET.SubElement(
@@ -1056,6 +1062,7 @@ class BpmnBuilder:
                     },
                 )
 
+    # camunda 8: done
     def _create_end_event(self) -> None:
         """Creates the End Event."""
         ET.SubElement(self.process, self.qn(BPMN2_NS, "endEvent"), {"id": self.end_id})
@@ -1068,9 +1075,9 @@ class BpmnBuilder:
             incoming[tgt].append(src)
         return incoming, outgoing
 
-    def _create_exclusive_gateway(self, gateway_id: str) -> None:
+    def _create_exclusive_gateway(self, gateway_id: str, name: str = "") -> None:
         """Creates an Exclusive Gateway element."""
-        attrs = {"id": gateway_id}
+        attrs = {"id": gateway_id, "name": name}
         ET.SubElement(self.process, self.qn(BPMN2_NS, "exclusiveGateway"), attrs)
 
     def _place_gateway_between(self, left_id: str, right_id: str, gateway_id: str, positions: dict[str, tuple[int, int]]):
@@ -1159,6 +1166,114 @@ class BpmnBuilder:
                     script.text = v
 
             ET.SubElement(connector, self.qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+
+    def _create_agentic_process(
+            self,
+            task_id: str,
+            name: str,
+            mapping: list[list[str]]
+    ) -> None:
+        
+        # main agentic process
+        attrs = {
+            "id": task_id, 
+            "name": name, 
+            "zeebe:modelerTemplate": "io.camunda.connectors.agenticai.aiagent.jobworker.v1",
+            "zeebe:modelerTemplateVersion": "5",
+            "zeebe:modelerTemplateIcon": GroovyScript.AGENTIC_MODELER_TEMPLATE_ICON,
+            }
+        
+        adhocSubProcess = ET.SubElement(
+            self.process,
+            self.qn(BPMN2_NS, "adHocSubProcess"),
+            attrs
+        )
+        ext = ET.SubElement(adhocSubProcess, self.qn(BPMN2_NS, "extensionElements"))
+        ET.SubElement(
+            ext, 
+            self.qn(ZEEBE_NS, "adHoc"), 
+            {"outputCollection": "toolCallResults", 
+             "outputElement": "={&#10;  id: toolCall._meta.id,&#10;  name: toolCall._meta.name,&#10;  content: toolCallResult&#10;}"
+            })
+        ET.SubElement(
+            ext,
+            self.qn(ZEEBE_NS, "taskDefinition"),
+            {"type": "io.camunda.agenticai:aiagent-job-worker:1",
+             "retries": "3"}
+        )
+        ioMapping = ET.SubElement(
+            ext,
+            self.qn(ZEEBE_NS, "ioMapping")
+        )
+        input_sources = [
+            "openaiCompatible",
+            "http://host.docker.internal:11434/v1",
+            "gpt-oss:20b",
+            "You are a helpful, generic chat agent which can answer a wide amount of questions based on your knowledge and an optional set of available tools.\nIf tools are provided, you should prefer them instead of guessing an answer. You can call the same tool multiple times by providing different input values. Don't guess any tools which were not explicitely configured. If no tool matches the request, try to generate an answer. If you're not able to find a good answer, return with a message stating why you're not able to.\nIf you are prompted to interact with a person, never guess contact details, but use available user/person lookup tools instead and return with an error if you're not able to look up appropriate data.\nThinking, step by step, before you execute your tools, you think using the template `<thinking><context></context><reflection></reflection></thinking>`",
+            "=if (is defined(followUpInput)) then followUpInput else inputText",
+            "=if (is defined(followUpInput) or is defined(followUpDocuments)) then followUpDocuments else inputDocuments",
+            "=agent.context",
+            "in-process",
+            "=20",
+            "=20",
+            "WAIT_FOR_TOOL_CALL_RESULTS",
+            "text",
+            "=false",
+            "=false",
+            "=true",
+        ]
+        input_targets = [
+            "provider.type",
+            "provider.openaiCompatible.endpoint",
+            "provider.openaiCompatible.model.model",
+            "data.systemPrompt.prompt",
+            "data.userPrompt.prompt",
+            "data.userPrompt.documents",
+            "agentContext",
+            "data.memory.storage.type",
+            "data.memory.contextWindowSize",
+            "data.limits.maxModelCalls",
+            "data.events.behavior",
+            "data.response.format.type",
+            "data.response.format.parseJson",
+            "data.response.includeAssistantMessage",
+            "data.response.includeAgentContext",
+        ]
+        assert len(input_sources) == len(input_targets)
+        for (src, tgt) in zip(input_sources, input_targets): # TODO zip
+            ET.SubElement(
+                ioMapping,
+                self.qn(ZEEBE_NS, "input"),
+                {"source": src, "target": tgt}
+            )
+        ET.SubElement(
+            ioMapping,
+            self.qn(ZEEBE_NS, "output"),
+            {"source": "=agent", "target": "agent"}
+        )
+
+        task_headers = ET.SubElement(
+            ext,
+            self.qn(ZEEBE_NS, "taskHeaders"))
+        task_header_key_values = {
+            "elementTemplateVersion": "5",
+            "elementTemplateId": "io.camunda.connectors.agenticai.aiagent.jobworker.v1",
+            "retryBackoff": "PT0S"
+        }
+        for k, v in task_header_key_values.items():
+            ET.SubElement(
+                task_headers,
+                self.qn(ZEEBE_NS, "header"),
+                {"key": k, "value": v}
+            )
+        
+        # subprocesses: choices of agent, 
+        # e.g. if mapping = [[QAOA], [VQE]] then two subprocesses, 
+        # one for each QAOA and VQE
+        # for mapping_block in mapping:   
+        #     self._create_mapping_subprocess(adhocSubProcess, mapping_block) # TODO
+
+
 
     def _create_script_task(
         self,
@@ -1394,22 +1509,31 @@ class BpmnBuilder:
             feedback_task_id = f"Task_{mm_node_id}_user_feedback"
             satisfaction_gw_id = f"Task_{mm_node_id}_gateway_satisfied"
             
-            mapping_str = ", ".join([m[0] for m in mm_mappings if m])
+            #mapping_str = ", ".join([m[0] for m in mm_mappings if m])
 
             # create elements
             self._create_exclusive_gateway(entry_gw_id)
+            inserted_nodes.append(entry_gw_id)
+
+            # check if any inner mapping block is shared by all mappings
+            shared_mapping_blocks, filtered_mm_mappings = self._find_and_remove_common_mapping_blocks(mm_mappings)
+            for s in shared_mapping_blocks:
+                s_id = f"Task_{mm_node_id}_{s}" # reicht das als ID?
+                ET.SubElement(
+                   self.process,
+                   self.qn(BPMN2_NS, "task"),
+                   {"id": s_id, "name": s} # bei QUBO eigentlich "Transform into QUBO" als name
+                )
+                inserted_nodes.append(s_id)
+
+
             
-            # AI Agent Task (Service Task)
+            # AI Agent process
             # eigene funktion
-            self._create_service_task(
+            self._create_agentic_process(
                 agent_task_id,
                 f"Run {mm_label} - AI Agent",
-                method="POST",
-                url="http://${ipAdress}:${agentPort}/execute", # TODO: agentPort definieren?
-                extra_inputs={
-                    "inputText": "${inputText}",
-                    "availableMappings": mapping_str
-                }
+                filtered_mm_mappings
             )
             
             # User Feedback (User Task with Camunda 8 form)
@@ -1421,14 +1545,45 @@ class BpmnBuilder:
             ext_elements = ET.SubElement(user_task, self.qn(BPMN2_NS, "extensionElements"))
             ET.SubElement(
                 ext_elements, 
+                self.qn(ZEEBE_NS, "userTask"), 
+                {}
+            )
+            ET.SubElement(
+                ext_elements, 
                 self.qn(ZEEBE_NS, "formDefinition"), 
                 {"formId": "ai-agent-chat-user-feedback"}
             )
-            
-            
-            self._create_exclusive_gateway(satisfaction_gw_id) 
+            user_io_mapping = ET.SubElement(
+                ext_elements, 
+                self.qn(ZEEBE_NS, "ioMapping"), 
+                {}
+            )
+            ET.SubElement(
+                user_io_mapping,
+                self.qn(ZEEBE_NS, "input"),
+                {"source": "=agent.responseText", "target": "responseText"} # evtl = bei source weglassen?
+            )
 
-            inserted_nodes.extend([entry_gw_id,
+            # Message
+            msg = ET.SubElement(
+                self.process,
+                self.qn(BPMN2_NS, "message"),
+                {"id": f"Message_{mm_node_id}", "name": "ai-agent-message"}
+            )
+            ext_msg = ET.SubElement(
+                msg, 
+                self.qn(BPMN2_NS, "extensionElements")
+            )
+            ET.SubElement(
+                ext_msg,
+                self.qn(ZEEBE_NS, "subscription"),
+                {"correlationKey": "=ai-agent-message"}
+            )
+            
+            
+            self._create_exclusive_gateway(satisfaction_gw_id, "User satisfied?") 
+
+            inserted_nodes.extend([
                 agent_task_id,
                 feedback_task_id,
                 satisfaction_gw_id])
@@ -1677,12 +1832,12 @@ class BpmnBuilder:
         )
 
         # conditions for agentic loop
-        if "_Satisfied_" in src and "_Entry_" in tgt:
+        if "_satisfied" in src and "_entry" in tgt:
             cond = ET.SubElement(sf, self.qn(BPMN2_NS, "conditionExpression"), {
                 self.qn(XSI_NS, "type"): "bpmn:tFormalExpression"
             })
             # Based on 'userSatisfied' key in the feedback form
-            cond.text = "${userSatisfied == false}"
+            cond.text = "=userSatisfied = null or userSatisfied = false"
         # gateway conditions
         elif src.endswith("_gateway_2"):
             cond = ET.SubElement(
@@ -1717,3 +1872,47 @@ class BpmnBuilder:
         }
         readable = name_map.get(plugin_name, plugin_name.replace("-", " ").title())
         return f"Call {readable} Clustering"
+    
+
+    def _add_zeeb_header(self, body: str):
+        
+        prefix = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n <bpmn:definitions 
+        xmlns:bpmn=\"http://www.omg.org/spec/BPMN/20100524/MODEL\" xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\" 
+        xmlns:dc=\"http://www.omg.org/spec/DD/20100524/DC\" xmlns:zeebe=\"http://camunda.org/schema/zeebe/1.0\" 
+        xmlns:di=\"http://www.omg.org/spec/DD/20100524/DI\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" 
+        xmlns:modeler=\"http://camunda.org/schema/modeler/1.0\" id=\"Definitions_18jxukq\" targetNamespace=\"http://bpmn.io/schema/bpmn\" 
+        exporter=\"Camunda Web Modeler\" exporterVersion=\"f52a7a7\" modeler:executionPlatform=\"Camunda Cloud\" modeler:executionPlatformVersion=\"8.8.0\">\n"""
+
+        suffix = """</bpmn:definitions>"""
+
+        return prefix + body + "\n" + suffix
+    
+    def _create_zeeb_process(self, start_node: str):
+        print("")
+
+    def _find_and_remove_common_mapping_blocks(self, mappings: str):
+        """
+        Find blocks in mappings of a node that are shared by all mappings, 
+        i.e. mapping = [[QAOA, QUBO], [QUBO, VQE]] --> QUBO is common block
+        """
+        # find common elements among all mappings
+        common_set = set(mappings[0]).intersection(*mappings[1:])
+        common_mapping_blocks = list(common_set)
+
+        # remove common element
+        filtered_mappings = [
+            [item for item in sub_list if item not in common_set]
+            for sub_list in mappings
+        ]
+
+        return common_mapping_blocks, filtered_mappings
+    
+    def _create_mapping_subprocess(self, parent_process,  mapping_blocks: list[str], inputs: dict[str, Any]):
+        """
+        Create subprocess of mapping block(s) inside agentic block
+        """
+        print("")
+
+
+
+        
