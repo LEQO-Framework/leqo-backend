@@ -593,6 +593,23 @@ class FileLiteralNode(BaseNode):
     value: str
     """The url"""
 
+class EditableNode(BaseNode):
+    """
+    Node representing an editable node for domain profiles.
+    """
+    type: Literal["editableNode"] = "editableNode"
+    
+    label: str
+    """label of node"""
+
+    propertyValues: dict[str,Any] = {}
+    """Possible properties"""
+
+    mapping: list[list[Any]] = [[]] # is actually a nested list of lists of string
+    """Possible mappings to valid other nodes"""
+
+    
+
 NestableNode = (
     ImplementationNode
     | BoundaryNode
@@ -603,6 +620,7 @@ NestableNode = (
     | OperatorNode
     | PluginNode
     | FileLiteralNode
+    | EditableNode
 )
 Node = NestableNode | QubitNode | ControlFlowNode
 
@@ -767,3 +785,4 @@ class InsertRequest(BaseModel):
     """
 
     inserts: list[SingleInsert]
+

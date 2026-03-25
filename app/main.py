@@ -106,7 +106,7 @@ async def post_compile(
     """
     Enqueue a :class:`~fastapi.background.BackgroundTasks` to process the :class:`~app.model.CompileRequest`.
     """
-
+    print("post_compile")
     uuid: UUID = uuid4()
     target = _get_processor_target(processor)
     status_response = CreatedStatus.init_status(uuid)
@@ -120,6 +120,7 @@ async def post_compile(
         await store_compile_request_payload(
             engine, uuid, original_request.model_dump_json()
         )
+    print("post_compile")
     await add_status_response_to_db(
         engine,
         status_response,
@@ -127,7 +128,7 @@ async def post_compile(
         name=request_name,
         description=request_description,
     )
-
+    print("post_compile")
     background_tasks.add_task(
         process_compile_request,
         uuid,
@@ -496,6 +497,7 @@ async def process_compile_request(
     try:
         result: str | list[ImplementationNode]
         if target == "workflow":
+            print("process_compile_request workflow")
             original_request = getattr(processor, "original_request", None)
             contains_plugin = False
             if original_request is not None and hasattr(original_request, "nodes"):
@@ -634,12 +636,12 @@ async def post_debug_compile(
             print(original_request)
             metadata = getattr(processor, "containsPlaceholder", None)
             print(metadata)
-            qasm = await processor.process()
+            #qasm = await processor.process()
             workflow_processor = WorkflowProcessor(
                 processor.enricher,
                 processor.frontend_graph,
                 processor.optimize,
-                result=qasm,
+                #result=qasm,
                 original_request=processor.original_request,
             )
             workflow_processor.target = target

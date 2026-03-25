@@ -66,15 +66,21 @@ class BpmnBuilder:
         self.start_event_classical_nodes = start_event_classical_nodes or []
         self.containsPlaceholder = containsPlaceholder
         self.containsPlugin = False
+        print("NODES", self.nodes)
+        print("EDGES", self.edges)
+        print("META", self.metadata)
+        print("original", self.original_request)
+        print("model json", self.model_json)
 
         self.chain_level = 0
         self.chain_heads = []
         self.chain_ends = []
-
+        print("pre camunda")
         self.is_camunda_8 = any(
-            getattr(n, 'type', n.get('type')) == 'editableNode' 
+            getattr(n, 'type', None) == 'editableNode' 
             for n in nodes.values()
         )
+        print("post camunda")
 
         self._register_namespaces()
         self._init_xml()
@@ -155,20 +161,15 @@ class BpmnBuilder:
         Returns:
             A tuple containing the XML string and a list of all activity IDs.
         """
-
+        print("159 build")
         self._create_start_event()
         self._create_end_event()
 
         # Analyze Structure
         incoming, _ = self._analyze_graph()
         start_nodes = [nid for nid in self.nodes.keys() if not incoming[nid]]
-
-        # Check if model contains editableNodes
-        has_editableNodes = any(
-            getattr(self.nodes[nid], 'type', self.nodes[nid].get('type')) == 'editableNode' 
-            for nid in self.nodes
-        )
-
+        
+        print("167 camunda 8", self.is_camunda_8)
         # Create Chains
         for start_node in start_nodes:
 
@@ -214,88 +215,53 @@ class BpmnBuilder:
         self.indent(self.defs)
         return ET.tostring(self.defs, encoding="unicode"), all_activities
     
+    def get_multi_mapping_nodes(self, target_group: str):
+        """Get all nodes of the quantum group of the given start node that 1) is editable and 2) has more than one mapping."""
+        group_nodes = []
+
+        # Iterate through the all nodes in the original request
+        for node in self.original_request.nodes:
+            node_id = node.id
+            
+            # node belongs to target quantum group
+            node_meta = self.metadata.get(node_id, {})
+            belongs_to_group = node_meta.get("quantum_group") == target_group
+                
+            # node is editableNode
+            is_editable = node.type == "editableNode"
+            
+            # node has more than 1 mapping
+            mappings = node.mapping
+            has_multiple_mappings = isinstance(mappings, list) and len(mappings) > 1
+                
+            if belongs_to_group and is_editable and has_multiple_mappings:
+                group_nodes.append(node)
+            
+        return group_nodes
+
     def _process_node(self, node_id: str):
         """Process node to create specialized flow"""
-        node = self.nodes[node_id]
-        data = node.get('data', {})
-        node_type = node.get('type')
+        node = self.nodes[node_id] # todo gesamte quantum group durchgehen, nicht nur startnode
         
-        is_data_type = data.get('isDataType', False)
-        mappings = data.get('mapping', [])
+        print("nodes", self.nodes)
+        print("_process_node", node)
+        #data = node.getattr('data', {})
+        node_type = getattr(node, 'type', None)
+        
+        #is_data_type = data.getattr('isDataType', False)
+        mappings = getattr(node, 'mapping', [])
 
         # agentic node: editable operator node with more than one mapping
-        if node_type == 'editableNode' and not is_data_type and len(mappings) > 1:
-            self._create_agentic_flow(node_id, mappings)
-        elif node_type == 'editableNode':
-            self._create_editable_flow(node_id)   
-        else:
-            # Fallback
-            self._create_non_placeholder_flow(node_id)
+        # if node_type == 'editableNode' and len(mappings) > 1:
+        print("agentic flow....")
+        self._create_agentic_flow(node_id, mappings)
+        # elif node_type == 'editableNode':
+        #     self._create_editable_flow(node_id)   
+        # else:
+        #     # Fallback
+        #     self._create_non_placeholder_flow(node_id)
 
-    def _create_agentic_flow(self, node_id: str, mappings: list[list[str]]) -> None:
-        """
-        Agentic AI loop for editable operator nodes:
-        Gateway -> AI Agent -> User Feedback -> Satisfaction Gateway (Loop back or Exit)
-        """
-        entry_gw_id = f"Gateway_Entry_{node_id}"
-        agent_task_id = f"Task_AI_Agent_{node_id}"
-        feedback_task_id = f"User_Feedback_{node_id}"
-        satisfaction_gw_id = f"Gateway_Satisfied_{node_id}"
-        
-        label = self.nodes[node_id].get('data', {}).get('label', 'Agent')
-        mapping_str = ", ".join([m[0] for m in mappings if m])
 
-        # create elements
-        self._create_exclusive_gateway(entry_gw_id)
-        
-        # AI Agent Task (Service Task)
-        self._create_service_task(
-            agent_task_id,
-            f"Run {label} - AI Agent",
-            method="POST",
-            url="http://${ipAdress}:${agentPort}/execute",
-            extra_inputs={
-                "inputText": "${inputText}", # From Initial Request form
-                "availableMappings": mapping_str
-            }
-        )
-        
-        # User Feedback (User Task with Camunda 8 form)
-        self._create_user_task(
-            feedback_task_id, 
-            "User Feedback", 
-            form_id="ai-agent-chat-user-feedback"
-        )
-        
-        self._create_exclusive_gateway(satisfaction_gw_id)
-
-        # Layout
-        positions = self._calculate_agentic_layout(node_id)
-        self.task_positions_per_node[node_id] = positions
-
-        # Flows
-        flow_map = [
-            (self.new_flow(), entry_gw_id, agent_task_id),
-            (self.new_flow(), agent_task_id, feedback_task_id),
-            (self.new_flow(), feedback_task_id, satisfaction_gw_id),
-            # Loop back if userSatisfied == false
-            (self.new_flow(), satisfaction_gw_id, entry_gw_id), 
-        ]
-        
-        if self.chain_level == 0:
-            flow_map.insert(0, (self.new_flow(), self.start_id, entry_gw_id))
-
-        self.flow_map_per_node[node_id] = flow_map
-        self.inserted_chains[node_id] = (entry_gw_id, agent_task_id, feedback_task_id, satisfaction_gw_id)
-        
-        # Define chain head/end for connector
-        self.chain_heads.append(entry_gw_id)
-        self.chain_ends.append(satisfaction_gw_id)
-
-        for fid, src, tgt in flow_map:
-            self._create_sequence_flow(fid, src, tgt)
-
-        self.chain_level += 1
 
     def indent(self, elem, level=0):
         """
@@ -364,60 +330,24 @@ class BpmnBuilder:
 
         self.chain_level += 1
     
-    def _create_editable_flow(
-            self, 
-            start_node: str
-            ) -> None:
+    def _create_agentic_flow(self, start_node: str, mappings: list[list[str]]) -> None:
         """
-        Handles standard EditableNodes (Data types or single-mapping logic).
+        Creates agentic flow for editable nodes with multiple mappings.
         """
-        node = self.nodes[start_node]
-        data = node.get('data', {})
-        label = data.get('label', 'Process Data')
-        is_data_type = data.get('isDataType', False)
-        mappings = data.get('mapping', [])
+        print("agentic for", start_node)
+        # generate chain
+        self._create_chain_agentic(start_node)
 
-        # Task Type and id
-        task_id = f"Task_Editable_{start_node}"
-        
-        if is_data_type:
-            # datatype node: initialize data
-            self._create_service_task(
-                task_id,
-                f"Initialize Data: {label}",
-                method="POST",
-                url="http://${ipAdress}:${backendPort}/data/init",
-                extra_inputs={"dataType": label, "properties": json.dumps(data.get('properties', []))}
-            )
-        else:
-            # For operator nodes with a only one mapping (e.g., mapping: [["Number"]])
-            mapping_name = mappings[0][0] if mappings and mappings[0] else "Default"
-            self._create_service_task(
-                task_id,
-                f"Execute {label} ({mapping_name})",
-                method="POST",
-                url="http://${ipAdress}:${agentPort}/compute",
-                extra_inputs={"mapping": mapping_name}
-            )
-
-        # layout
-        positions = self._calculate_editable_layout(start_node)
+        # Layout
+        positions = self._calculate_agentic_layout(start_node)
         self.task_positions_per_node[start_node] = positions
 
-        # flow
-        flow_map = []
-        if self.chain_level == 0:
-            flow_id = self.new_flow()
-            flow_map.append((flow_id, self.start_id, task_id))
-            self._create_sequence_flow(flow_id, self.start_id, task_id)
-
-        self.inserted_chains[start_node] = task_id
+        # connect Flows
+        flow_map = self._connect_agentic_flows(start_node)
         self.flow_map_per_node[start_node] = flow_map
-        self.chain_heads.append(task_id)
-        self.chain_ends.append(task_id)
 
         self.chain_level += 1
-
+    
     def _create_placeholder_flow(
             self,
             start_node: str,
@@ -462,11 +392,6 @@ class BpmnBuilder:
 
         self.chain_level += 1
     
-    def _calculate_editable_layout(self, node_id: str):
-        """Simple layout for a single service task."""
-        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
-        y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
-        return {self.inserted_chains[node_id]: (x, y)}
 
     def _calculate_agentic_layout(
             self, 
@@ -476,13 +401,13 @@ class BpmnBuilder:
         x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
         y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
         
-        positions = {}
-        entry_gw, agent, feedback, sat_gw = self.inserted_chains[node_id]
-        
-        positions[entry_gw] = (x, y + 15)
-        positions[agent]    = (x + 100, y)
-        positions[feedback] = (x + 300, y)
-        positions[sat_gw]   = (x + 500, y + 15)
+        positions = {} 
+        number_of_agentic_sub_flows = sum(s.endswith("_AI_Agent") for s in self.inserted_chains[node_id])
+        #for i in range(number_of_agentic_sub_flows):
+        #entry_gw, agent, feedback, sat_gw = self.inserted_chains[node_id]
+        i = 0
+        for task in self.inserted_chains[node_id]:
+            positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y) # evtl. dynamisch, damit es passt (wie groß könnten agentic Knoten werden?)
         
         return positions
 
@@ -747,6 +672,41 @@ class BpmnBuilder:
             self._create_sequence_flow(fid, src, tgt)
 
         print("plugin flow: main edges connected")
+
+        return flow_map
+    
+    def _connect_agentic_flows(
+            self,
+            start_node: str
+        ):
+        """Creates a sequence flow for agentic chains. Connecting the chains will be separately."""
+        chain = self.inserted_chains[start_node]
+
+        self.chain_heads.append(chain[0])  
+        self.chain_ends.append(chain[-1]) #???    
+
+        flow_map = []
+
+        if self.chain_level == 0:
+            flow_map.append((self.new_flow(), self.start_id, chain[0]))
+        
+        entry_gateway_id = ""
+        for i in range(len(chain)-1):
+            flow_map.append((self.new_flow(), chain[i], chain[i+1]))
+
+            # get current entry gateway
+            if chain[i].endswith("gateway_entry"):
+                entry_gateway_id = chain[i]
+            
+            # connect satisfied gateway with last entry gateway
+            if chain[i].endswith("gateway_satisfied") and entry_gateway_id is not "":
+                flow_map.append((self.new_flow(), chain[i], entry_gateway_id))
+
+        # Create Sequence Flows
+        for fid, src, tgt in flow_map:
+            self._create_sequence_flow(fid, src, tgt)
+
+        print("agentic flow: main edges connected")
 
         return flow_map
     
@@ -1413,6 +1373,67 @@ class BpmnBuilder:
             gateway4_id,
             setvars2_id,
         )
+
+    def _create_chain_agentic(self, start_node: str) -> None:
+        """
+        Creates the agentic execution chain for every node in quantum group with multiple mappings
+        (Gateway -> AI Agent -> User Feedback -> Satisfaction Gateway (Loop back or Exit)).
+        """
+        multi_mapping_nodes = self.get_multi_mapping_nodes(start_node)
+
+        inserted_nodes = []
+
+        for mm_node in multi_mapping_nodes:
+            print("mm node", mm_node)
+            mm_node_id = mm_node.id
+            mm_mappings = mm_node.mapping
+            mm_label = mm_node.label
+
+            entry_gw_id = f"Task_{mm_node_id}_gateway_entry"
+            agent_task_id = f"Task_{mm_node_id}_AI_Agent"
+            feedback_task_id = f"Task_{mm_node_id}_user_feedback"
+            satisfaction_gw_id = f"Task_{mm_node_id}_gateway_satisfied"
+            
+            mapping_str = ", ".join([m[0] for m in mm_mappings if m])
+
+            # create elements
+            self._create_exclusive_gateway(entry_gw_id)
+            
+            # AI Agent Task (Service Task)
+            # eigene funktion
+            self._create_service_task(
+                agent_task_id,
+                f"Run {mm_label} - AI Agent",
+                method="POST",
+                url="http://${ipAdress}:${agentPort}/execute", # TODO: agentPort definieren?
+                extra_inputs={
+                    "inputText": "${inputText}",
+                    "availableMappings": mapping_str
+                }
+            )
+            
+            # User Feedback (User Task with Camunda 8 form)
+            user_task = ET.SubElement(
+                self.process,
+                self.qn(BPMN2_NS, "userTask"),
+                {"id": feedback_task_id, "name": "User Feedback"},
+            )
+            ext_elements = ET.SubElement(user_task, self.qn(BPMN2_NS, "extensionElements"))
+            ET.SubElement(
+                ext_elements, 
+                self.qn(ZEEBE_NS, "formDefinition"), 
+                {"formId": "ai-agent-chat-user-feedback"}
+            )
+            
+            
+            self._create_exclusive_gateway(satisfaction_gw_id) 
+
+            inserted_nodes.extend([entry_gw_id,
+                agent_task_id,
+                feedback_task_id,
+                satisfaction_gw_id])
+
+        self.inserted_chains[start_node] = tuple(inserted_nodes)
 
     def _create_chain_placeholder(self, start_node: str) -> None:
         """Creates the placeholder execution chain (BackendReq -> Poll -> Retrieve -> Common)."""

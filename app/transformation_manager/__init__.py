@@ -30,6 +30,7 @@ from app.model.CompileRequest import (
     OptimizeSettings,
     RepeatNode,
     SingleInsert,
+    EditableNode
 )
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import IntType, LeqoSupportedType
@@ -598,7 +599,7 @@ class WorkflowProcessor(CommonProcessor):
                 original_request=self.original_request,
             )
         except Exception as e:
-            print("!!! BPMN GENERATION FAILED !!!", repr(e))
+            print("!!! BPMN GENERATION FAILED !!!", repr(e), traceback.format_exc())
             return "", b""
 
         print("Service Task Generation")
@@ -949,7 +950,7 @@ def _implementation_nodes_to_bpmn_xml(
         f"metadata={metadata}\n" \
         f"start_event_classical_nodes={start_event_classical_nodes}\n" \
         f"containsPlaceholder={containsPlaceholder}\n")
-
+    print("builder")
     builder = BpmnBuilder(
         process_id=process_id,
         nodes=nodes,
@@ -959,7 +960,7 @@ def _implementation_nodes_to_bpmn_xml(
         containsPlaceholder=containsPlaceholder,
         original_request=original_request,
     )
-
+    print("build")
     return builder.build()
 
 
