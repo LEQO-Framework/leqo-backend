@@ -32,6 +32,9 @@ BPMN_EVENT_HEIGHT = 36
 BPMN_GW_WIDTH = 50
 BPMN_GW_HEIGHT = 50
 BPMN_FLOW_ID_LENGTH = 7
+BPMN_AGENT_HEIGHT = 170
+BPMN_AGENT_WIDTH_BASE = 100
+BPMN_AGENT_WIDHT_GAP = 50
 
 
 class BpmnBuilder:
@@ -99,6 +102,11 @@ class BpmnBuilder:
         self.task_positions_per_node = {}
         self.flow_map_per_node = {}
         self.diagram_info_per_node = {}
+
+        self.sub_processes = {} # for agentic nodes
+        self.flow_map_per_subprocess = {} # for agentic nodes
+        self.task_positions_per_node_per_subprocess = {}
+
 
     def _register_namespaces(self) -> None:
         """Registers XML namespaces used in BPMN generation."""
@@ -195,6 +203,8 @@ class BpmnBuilder:
         self.connect_chains()
 
         self._create_diagram()
+        if len(self.sub_processes.keys()) >0:
+            self._create_subprocess_diagrams()
 
         all_activities = list(self.nodes.keys())
         for start_node, chain in self.inserted_chains.items():
@@ -402,13 +412,37 @@ class BpmnBuilder:
         y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
         
         positions = {} 
-        number_of_agentic_sub_flows = sum(s.endswith("_AI_Agent") for s in self.inserted_chains[node_id])
+        # number_of_agentic_sub_flows = sum(s.endswith("_AI_Agent") for s in self.inserted_chains[node_id])
         #for i in range(number_of_agentic_sub_flows):
         #entry_gw, agent, feedback, sat_gw = self.inserted_chains[node_id]
         i = 0
         for task in self.inserted_chains[node_id]:
             positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y) # evtl. dynamisch, damit es passt (wie groß könnten agentic Knoten werden?)
+            i += 1
+        return positions
+    
+    def _calculate_subprocess_layout(
+            self, 
+            node_id: str
+            ):
+        """Calculates positions for all elements in the agentic flow."""
+        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
+        y = BPMN_CHAIN_Y_BASE + (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
         
+        positions = {} 
+        # number_of_agentic_sub_flows = sum(s.endswith("_AI_Agent") for s in self.inserted_chains[node_id])
+        #for i in range(number_of_agentic_sub_flows):
+        #entry_gw, agent, feedback, sat_gw = self.inserted_chains[node_id]
+        i = 0
+        last_task = ""
+        for task in self.sub_processes[node_id]:
+            if "AI_Agent" in last_task:
+                number_of_sub_processes = len(self.sub_processes.keys())
+                width = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
+                positions[task] = (x + (i-1) * (BPMN_TASK_WIDTH + BPMN_GAP_X) + width, y)
+            positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y) # evtl. dynamisch, damit es passt (wie groß könnten agentic Knoten werden?)
+            i += 1
+            last_task = task
         return positions
 
     def _calculate_plugin_layout(
@@ -681,9 +715,13 @@ class BpmnBuilder:
         ):
         """Creates a sequence flow for agentic chains. Connecting the chains will be separately."""
         chain = self.inserted_chains[start_node]
+        print(chain)
 
         self.chain_heads.append(chain[0])  
         self.chain_ends.append(chain[-1]) #???    
+        print(self.chain_heads)
+        print(self.chain_ends)
+
 
         flow_map = []
 
@@ -708,6 +746,7 @@ class BpmnBuilder:
 
 
         # Create Sequence Flows
+        print("Flow Map", flow_map)
         for fid, src, tgt in flow_map:
             self._create_sequence_flow(fid, src, tgt)
 
@@ -829,15 +868,18 @@ class BpmnBuilder:
     def _create_diagram(self):
         """Generates the BPMNDI Diagram section with shapes and edges."""
 
-        def add_shape(eid: str, x: int, y: int, w: int, h: int):
+        def add_shape(eid: str, x: int, y: int, w: int, h: int, further_attr: dict[str, str] = None):
+            attr = {
+                    "id": f"{eid}_di", 
+                    "bpmnElement": eid,
+                    "isMarkerVisible": "true"
+                }
+            if further_attr is not None:
+                attr.update(further_attr)
             shape = ET.SubElement(
                 plane,
                 self.qn(BPMNDI_NS, "BPMNShape"),
-                {
-                    "id": f"{eid}_di", 
-                    "bpmnElement": eid,
-                    "isMarkerVisible": "true",
-                },
+                attr,
             )
             ET.SubElement(
                 shape,
@@ -886,6 +928,14 @@ class BpmnBuilder:
                 add_shape(eid, x, y, BPMN_GW_WIDTH, BPMN_GW_HEIGHT)
             elif eid in self.alt_end_event_ids:
                 add_shape(eid, x, y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
+            elif "AI_Agent" in eid:
+                number_of_sub_processes = len(self.sub_processes.keys())
+                width = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
+                add_shape(eid, x, y, width, BPMN_AGENT_HEIGHT, {"isExpanded": "true"}) # AI Agent Shape
+                for i, sub_process in enumerate(self.sub_processes.keys()):
+                    x_sub = x + BPMN_AGENT_WIDTH_BASE/2 + i * (BPMN_TASK_WIDTH + BPMN_AGENT_WIDHT_GAP)
+                    y_sub = y + 50
+                    add_shape(sub_process, x_sub, y_sub, BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT)
             else:
                 add_shape(eid, x, y, BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT)
 
@@ -911,6 +961,10 @@ class BpmnBuilder:
                 x, y, w, h = end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
             elif eid in self.alt_end_event_ids:
                 w, h = BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
+            elif "AI_Agent" in eid:
+                h = BPMN_AGENT_HEIGHT
+                number_of_sub_processes = len(self.sub_processes.keys())
+                w = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
 
             if mode == "bottom":
                 return x + w // 2, y + h
@@ -982,6 +1036,169 @@ class BpmnBuilder:
             )
 
         print("global diagram created (all flows, incl. cross-chain)")
+
+    def _create_subprocess_diagrams(self):
+        """Generates the BPMNDI Diagram section with shapes and edges."""
+
+        def add_shape(eid: str, x: int, y: int, w: int, h: int, plane):
+            shape = ET.SubElement(
+                plane,
+                self.qn(BPMNDI_NS, "BPMNShape"),
+                {
+                    "id": f"{eid}_di", 
+                    "bpmnElement": eid,
+                    "isMarkerVisible": "true",
+                },
+            )
+            ET.SubElement(
+                shape,
+                self.qn(DC_NS, "Bounds"),
+                x=str(x),
+                y=str(y),
+                width=str(w),
+                height=str(h),
+            )
+
+        for node_id in self.sub_processes.keys():
+            diagram = ET.SubElement(
+                self.defs, self.qn(BPMNDI_NS, "BPMNDiagram"), {"id": f"BPMNDiagram_1_{node_id}"}
+            )
+            plane = ET.SubElement(
+                diagram,
+                self.qn(BPMNDI_NS, "BPMNPlane"),
+                {"id": f"BPMNPlane_1_{node_id}", "bpmnElement": node_id},
+            )
+
+            # Put together all positions
+            merged_positions = self.task_positions_per_node_per_subprocess[node_id]
+            # for positions in self.task_positions_per_node_per_subprocess[node_id]:
+            #     merged_positions.update(positions)
+
+            # Collect all real BPMN element ids (Tasks, Gateways, Events)
+            valid_bpmn_ids = {el.attrib["id"] for el in self.process.findall(".//*[@id]")}
+
+            # End Event X/Y - calculated based on last task
+            # Find max X task
+            last_x, last_y = BPMN_START_X, BPMN_START_Y
+            if merged_positions:
+                last_task_id = max(merged_positions.items(), key=lambda kv: kv[1][0])[0]
+                last_x, last_y = merged_positions[last_task_id]
+            end_x = last_x + BPMN_TASK_WIDTH + BPMN_GAP_X
+            end_y = last_y + (BPMN_TASK_HEIGHT // 2) - 18
+
+            # Start/End Shape
+            # add_shape(self.start_id, BPMN_START_X, BPMN_START_Y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
+            # add_shape(self.end_id, end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
+
+            # Shapes for all BPMN-elements
+            for eid, (x, y) in merged_positions.items():
+                print("eid", eid)
+                if eid not in valid_bpmn_ids:
+                    continue
+                if "_gateway_" in eid:
+                    add_shape(eid, x, y, BPMN_GW_WIDTH, BPMN_GW_HEIGHT, plane)
+                elif eid in self.alt_end_event_ids:
+                    add_shape(eid, x, y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT, plane)
+                elif "Start_" in eid:
+                    add_shape(eid, BPMN_START_X, BPMN_START_Y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT, plane)
+                elif "End_" in eid:
+                    add_shape(eid, end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT, plane)
+                else:
+                    add_shape(eid, x, y, BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT, plane)
+
+            # Gather all flows of the whole diagram
+            all_flows = self.flow_map_per_subprocess[node_id]
+            # for flow_map in self.flow_map_per_subprocess[node_id]:
+            #     all_flows.extend(flow_map)
+            # Cross-Chain-Flows too
+            # cross_chain_flows = getattr(self, "cross_chain_flows", [])
+            # all_flows.extend(cross_chain_flows)
+
+            # if hasattr(self, "flow_map"):
+            #     all_flows.extend(self.flow_map)
+
+            def get_center(eid: str, mode: str) -> tuple[int, int]:
+                x, y = merged_positions.get(eid, (0, 0))
+                w, h = BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT
+                if "_gateway_" in eid:
+                    w, h = BPMN_GW_WIDTH, BPMN_GW_HEIGHT
+                if eid == self.start_id:
+                    x, y, w, h = BPMN_START_X, BPMN_START_Y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
+                elif eid == self.end_id:
+                    x, y, w, h = end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
+                elif eid in self.alt_end_event_ids:
+                    w, h = BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
+
+                if mode == "bottom":
+                    return x + w // 2, y + h
+                if mode == "top":
+                    return x + w // 2, y
+                if mode == "left":
+                    return x, y + h // 2
+                if mode == "right":
+                    return x + w, y + h // 2
+                return x + w // 2, y + h // 2
+
+            # Optional: Might reuse it later
+            top_dock_sources = set()
+            bottom_dock_sources = set()
+            top_dock_targets = set()
+            left_dock_sources = set()
+            right_dock_targets = set()
+
+            for fid, src, tgt in all_flows:
+                edge = ET.SubElement(
+                    plane,
+                    self.qn(BPMNDI_NS, "BPMNEdge"),
+                    {"id": f"{fid}_di", "bpmnElement": fid},
+                )
+
+                # Custom-Docking
+                if src.endswith("_human") and tgt.endswith("_set_circuit"):
+                    mode_src = "bottom"
+                    mode_tgt = "top"
+                elif src.endswith("_human") and tgt.endswith("_set_vars_1"):
+                    mode_src = "bottom"
+                    mode_tgt = "top"
+                elif src.endswith("_gateway_4") and tgt.endswith("_analyze_failed_job"):
+                    mode_src = "bottom"
+                    mode_tgt = "left"
+                elif "_gateway_" in src and "_gateway_" in tgt:
+                    mode_src = "top"
+                    mode_tgt = "top"
+                elif src.endswith("_gateway_2") and tgt.endswith("_update_vars"):
+                    mode_src = "top"
+                    mode_tgt = "right"
+                elif src.endswith("_update_vars") and tgt.endswith("_gateway_1"):
+                    mode_src = "left"
+                    mode_tgt = "top"
+                elif src.endswith("_gateway_2") and tgt.endswith("_analyze_failed_transf"):
+                    mode_src = "bottom"
+                    mode_tgt = "top"
+                else:
+                    # Normal BPMN-order
+                    mode_src = "right"
+                    mode_tgt = "left"
+
+                sx, sy = get_center(src, mode_src)
+                tx, ty = get_center(tgt, mode_tgt)
+
+                ET.SubElement(
+                    edge, self.qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy))
+                )
+
+                if "_gateway_" in src and "_gateway_" in tgt:
+                    ET.SubElement(
+                        edge, self.qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy) - 35)
+                    )
+                    ET.SubElement(
+                        edge, self.qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty) - 35)
+                    )
+                ET.SubElement(
+                    edge, self.qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty))
+                )
+
+        print("subprocess diagrams created (all flows, incl. cross-chain)")
 
     def connect_chains(self):
         """Connects multiple chains."""
@@ -1115,63 +1332,59 @@ class BpmnBuilder:
             attrs[self.qn(CAMUNDA_NS, "exclusive")] = "true"
 
         task = ET.SubElement(self.process, self.qn(BPMN2_NS, "serviceTask"), attrs)
-        if self.is_camunda_8:
-            # Camunda 8 uses Zeebe Extension Elements, not Connectors
-            ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
-            # TODO
-        else:
             # Camunda 7 uses Connector logic
-            ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
-            connector = ET.SubElement(ext, self.qn(CAMUNDA_NS, "connector"))
-            io = ET.SubElement(connector, self.qn(CAMUNDA_NS, "inputOutput"))
+        ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
+        connector = ET.SubElement(ext, self.qn(CAMUNDA_NS, "connector"))
+        io = ET.SubElement(connector, self.qn(CAMUNDA_NS, "inputOutput"))
 
-            # method
-            ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = method
+        # method
+        ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = method
 
-            # header
-            headers = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
-            header_map = ET.SubElement(headers, self.qn(CAMUNDA_NS, "map"))
-            # standard entry
-            header_entries = {"Accept": "application/json", "Content-Type": "application/json"}
-            if extra_input_maps and "headers" in extra_input_maps:
-                header_entries.update(extra_input_maps["headers"])
-            for k, v in header_entries.items():
-                ET.SubElement(header_map, self.qn(CAMUNDA_NS, "entry"), {"key": k}).text = v
+        # header
+        headers = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+        header_map = ET.SubElement(headers, self.qn(CAMUNDA_NS, "map"))
+        # standard entry
+        header_entries = {"Accept": "application/json", "Content-Type": "application/json"}
+        if extra_input_maps and "headers" in extra_input_maps:
+            header_entries.update(extra_input_maps["headers"])
+        for k, v in header_entries.items():
+            ET.SubElement(header_map, self.qn(CAMUNDA_NS, "entry"), {"key": k}).text = v
 
-            # url
-            ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = url
+        # url
+        ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = url
 
-            # extra inputs
-            if extra_inputs:
-                for k, v in extra_inputs.items():
-                    ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": k}).text = v
+        # extra inputs
+        if extra_inputs:
+            for k, v in extra_inputs.items():
+                ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": k}).text = v
 
-            # payload param
-            if connector_payload_script:
-                payload_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
-                script = ET.SubElement(payload_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-                script.text = connector_payload_script
+        # payload param
+        if connector_payload_script:
+            payload_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
+            script = ET.SubElement(payload_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+            script.text = connector_payload_script
 
-            # output
-            for param in connector_output_parameters:
-                out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": param["name"]})
-                script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": param.get("scriptFormat", "groovy")})
-                script.text = param["script"]
+        # output
+        for param in connector_output_parameters:
+            out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": param["name"]})
+            script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": param.get("scriptFormat", "groovy")})
+            script.text = param["script"]
 
-            # extra output params
-            if extra_outputs:
-                for k, v in extra_outputs.items():
-                    out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": k})
-                    script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
-                    script.text = v
+        # extra output params
+        if extra_outputs:
+            for k, v in extra_outputs.items():
+                out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": k})
+                script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+                script.text = v
 
-            ET.SubElement(connector, self.qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+        ET.SubElement(connector, self.qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
 
     def _create_agentic_process(
             self,
             task_id: str,
             name: str,
-            mapping: list[list[str]]
+            mapping: list[list[str]],
+            node_id: str
     ) -> None:
         
         # main agentic process
@@ -1209,7 +1422,7 @@ class BpmnBuilder:
             "openaiCompatible",
             "http://host.docker.internal:11434/v1",
             "gpt-oss:20b",
-            "You are a helpful, generic chat agent which can answer a wide amount of questions based on your knowledge and an optional set of available tools.\nIf tools are provided, you should prefer them instead of guessing an answer. You can call the same tool multiple times by providing different input values. Don't guess any tools which were not explicitely configured. If no tool matches the request, try to generate an answer. If you're not able to find a good answer, return with a message stating why you're not able to.\nIf you are prompted to interact with a person, never guess contact details, but use available user/person lookup tools instead and return with an error if you're not able to look up appropriate data.\nThinking, step by step, before you execute your tools, you think using the template `<thinking><context></context><reflection></reflection></thinking>`",
+            "\"You are a helpful, generic chat agent which can answer a wide amount of questions based on your knowledge and an optional set of available tools.\nIf tools are provided, you should prefer them instead of guessing an answer. You can call the same tool multiple times by providing different input values. Don't guess any tools which were not explicitely configured. If no tool matches the request, try to generate an answer. If you're not able to find a good answer, return with a message stating why you're not able to.\nIf you are prompted to interact with a person, never guess contact details, but use available user/person lookup tools instead and return with an error if you're not able to look up appropriate data.\nThinking, step by step, before you execute your tools, you think using the template `<thinking><context></context><reflection></reflection></thinking>`\"",
             "=if (is defined(followUpInput)) then followUpInput else inputText",
             "=if (is defined(followUpInput) or is defined(followUpDocuments)) then followUpDocuments else inputDocuments",
             "=agent.context",
@@ -1270,8 +1483,11 @@ class BpmnBuilder:
         # subprocesses: choices of agent, 
         # e.g. if mapping = [[QAOA], [VQE]] then two subprocesses, 
         # one for each QAOA and VQE
-        # for mapping_block in mapping:   
-        #     self._create_mapping_subprocess(adhocSubProcess, mapping_block) # TODO
+
+        # get inputs?? TODO
+        inputs = {}
+        for mapping_block in mapping:   
+            self._create_mapping_subprocess(adhocSubProcess, node_id, mapping_block, inputs) # TODO: inputs
 
 
 
@@ -1533,7 +1749,8 @@ class BpmnBuilder:
             self._create_agentic_process(
                 agent_task_id,
                 f"Run {mm_label} - AI Agent",
-                filtered_mm_mappings
+                filtered_mm_mappings,
+                mm_node_id
             )
             
             # User Feedback (User Task with Camunda 8 form)
@@ -1806,15 +2023,20 @@ class BpmnBuilder:
             setvars2_id,
         )
 
-    def _create_sequence_flow(self, fid: str, src: str, tgt: str) -> None:
+    def _create_sequence_flow(self, fid: str, src: str, tgt: str, process_id: str = None) -> None:
         """Helper to create a single Sequence Flow element."""
         # Resolve IDs
         # src/tgt are bare IDs (e.g. StartEvent_1) or task keys (Task_X)
+        if process_id is None:
+            parent_process = self.process
+        else:
+            parent_process = self.process.find(f".//*[@id='{process_id}']")
         src_el_id = src
         tgt_el_id = tgt
 
         src_el = self.process.find(f".//*[@id='{src_el_id}']")
         tgt_el = self.process.find(f".//*[@id='{tgt_el_id}']")
+        
 
         if tgt_el is not None:
             if tgt_el.tag != self.qn(BPMN2_NS, "startEvent"):
@@ -1824,12 +2046,24 @@ class BpmnBuilder:
             if src_el.tag != self.qn(BPMN2_NS, "endEvent"):
                 ET.SubElement(src_el, self.qn(BPMN2_NS, "outgoing")).text = fid
                 self._fix_incoming_outgoing_order(src_el)
-
-        sf = ET.SubElement(
-            self.process,
-            self.qn(BPMN2_NS, "sequenceFlow"),
-            {"id": fid, "sourceRef": src_el_id, "targetRef": tgt_el_id},
-        )
+        if "_satisfied" in src and "_entry" in tgt:
+            sf = ET.SubElement(
+                parent_process,
+                self.qn(BPMN2_NS, "sequenceFlow"),
+                {"id": fid, "sourceRef": src_el_id, "targetRef": tgt_el_id, "name": "no"},
+            )
+        elif "_satisfied" in src and "End" in tgt:
+            sf = ET.SubElement(
+                parent_process,
+                self.qn(BPMN2_NS, "sequenceFlow"),
+                {"id": fid, "sourceRef": src_el_id, "targetRef": tgt_el_id, "name": "yes"},
+            )
+        else:
+            sf = ET.SubElement(
+                parent_process,
+                self.qn(BPMN2_NS, "sequenceFlow"),
+                {"id": fid, "sourceRef": src_el_id, "targetRef": tgt_el_id},
+            )
 
         # conditions for agentic loop
         if "_satisfied" in src and "_entry" in tgt:
@@ -1907,11 +2141,131 @@ class BpmnBuilder:
 
         return common_mapping_blocks, filtered_mappings
     
-    def _create_mapping_subprocess(self, parent_process,  mapping_blocks: list[str], inputs: dict[str, Any]):
+    def _create_mapping_subprocess(self, parent_process, node_id: str, mapping_blocks: list[str], inputs: dict[str, Any]):
         """
         Create subprocess of mapping block(s) inside agentic block
         """
-        print("")
+        label = "_".join(mapping_blocks)
+        mapping_task_id = f"Task_{node_id}_{label}"
+        mapping_start_id = f"Start_{node_id}_{label}"
+        mapping_end_id = f"End_{node_id}_{label}"
+        ######## chain of elements #########
+        sub_process = ET.SubElement(
+            parent_process,
+            self.qn(BPMN2_NS, "subProcess"),
+            {"id": mapping_task_id, "name": "+".join(mapping_blocks)}
+        )
+        
+        # start event
+        ET.SubElement(
+            sub_process,
+            self.qn(BPMN2_NS, "startEvent"),
+            {"id": mapping_start_id}
+        )
+        # end event
+        ET.SubElement(
+            sub_process,
+            self.qn(BPMN2_NS, "endEvent"),
+            {"id": mapping_end_id}
+        )
+        chain = [mapping_start_id]
+        for block in mapping_blocks:
+            service_task = ET.SubElement(
+                sub_process,
+                self.qn(BPMN2_NS, "serviceTask"),
+                {"id": f"Service_Task_{node_id}_{block}", "name": block}
+            )
+            chain.append(f"Service_Task_{node_id}_{block}")
+            # extesion elmenets
+            ext = ET.SubElement(
+                service_task,
+                self.qn(BPMN2_NS, "extensionElements")
+            )
+            ET.SubElement(
+                ext,
+                self.qn(ZEEBE_NS, "taskDefinition"),
+                {"type": "io.camunda:http-json:1",
+                "retries": "3"}
+            )
+            ioMapping = ET.SubElement(
+                ext,
+                self.qn(ZEEBE_NS, "ioMapping")
+            )
+            input_sources = [
+                "POST",
+                f"=http://host.docker.internal:5000/{block.lower()}",
+                "noAuth",
+                str(inputs),
+                "20",
+                "20"
+            ]
+            input_targets = [
+                "method",
+                "url",
+                "authentication.type",
+                "body",
+                "connectionTimeoutInSeconds",
+                "readTimeoutInSeconds"
+            ]
+            assert len(input_sources) == len(input_targets)
+            for (src, tgt) in zip(input_sources, input_targets): 
+                ET.SubElement(
+                    ioMapping,
+                    self.qn(ZEEBE_NS, "input"),
+                    {"source": src, "target": tgt}
+                )
+
+            task_headers = ET.SubElement(
+                ext,
+                self.qn(ZEEBE_NS, "taskHeaders"))
+            task_header_key_values = {
+                "resultVariable": "quantumResponse",
+                "resultExpression": "={ output: { result: response.body } }",
+            }
+            for k, v in task_header_key_values.items():
+                ET.SubElement(
+                    task_headers,
+                    self.qn(ZEEBE_NS, "header"),
+                    {"key": k, "value": v}
+                )
+        chain.append(mapping_end_id)
+        self.sub_processes[f"Task_{node_id}_{label}"] = tuple(chain)
+
+        # layout
+        positions = self._calculate_subprocess_layout(f"Task_{node_id}_{label}")
+        self.task_positions_per_node_per_subprocess[f"Task_{node_id}_{label}"] = positions
+
+        # connect 
+        flow_map = self._connect_mapping_subprocess_flow(f"Task_{node_id}_{label}")
+        self.flow_map_per_subprocess[f"Task_{node_id}_{label}"] = flow_map
+
+    def _connect_mapping_subprocess_flow(
+            self,
+            start_node: str
+        ):
+        """Creates a sequence flow for agentic chains. Connecting the chains will be separately."""
+        chain = self.sub_processes[start_node]
+        print(start_node)
+        # self.chain_heads.append(chain[0])  
+        # self.chain_ends.append(chain[-1]) #???    
+
+        flow_map = []
+        
+        for i in range(len(chain)-1):
+            flow_map.append((self.new_flow(), chain[i], chain[i+1]))
+
+        # Create Sequence Flows
+        for fid, src, tgt in flow_map:
+            self._create_sequence_flow(fid, src, tgt, start_node)
+
+        print("agentic flow: main edges connected")
+
+        return flow_map   
+
+    #def _calculate_mapping_subprocess_layout(self, start_node: str):
+
+        
+
 
 
 
