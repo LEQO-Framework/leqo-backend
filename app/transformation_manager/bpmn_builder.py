@@ -351,6 +351,7 @@ class BpmnBuilder:
         # Layout
         positions = self._calculate_agentic_layout(start_node)
         self.task_positions_per_node[start_node] = positions
+        print("agentic positions", positions)
 
         # connect Flows
         flow_map = self._connect_agentic_flows(start_node)
@@ -416,8 +417,22 @@ class BpmnBuilder:
         #for i in range(number_of_agentic_sub_flows):
         #entry_gw, agent, feedback, sat_gw = self.inserted_chains[node_id]
         i = 0
+        agentic_node_has_happened = False
         for task in self.inserted_chains[node_id]:
-            positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y) # evtl. dynamisch, damit es passt (wie groß könnten agentic Knoten werden?)
+            if "_gateway_" in task:
+                y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y) + (BPMN_TASK_HEIGHT - BPMN_GW_HEIGHT)//2
+            else:
+                y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y) 
+            
+            if "AI_Agent" in task:
+                positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y-(BPMN_AGENT_HEIGHT-BPMN_TASK_HEIGHT)/2)
+                agentic_node_has_happened = True
+            elif agentic_node_has_happened:
+                number_of_sub_processes = len(self.sub_processes.keys())
+                AGENT_WIDTH = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
+                positions[task] = (x + (i-1) * (BPMN_TASK_WIDTH + BPMN_GAP_X) + AGENT_WIDTH + BPMN_GAP_X, y)
+            else:
+                positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y) # evtl. dynamisch, damit es passt (wie groß könnten agentic Knoten werden?)
             i += 1
         return positions
     
@@ -436,11 +451,14 @@ class BpmnBuilder:
         i = 0
         last_task = ""
         for task in self.sub_processes[node_id]:
-            if "AI_Agent" in last_task:
-                number_of_sub_processes = len(self.sub_processes.keys())
-                width = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
-                positions[task] = (x + (i-1) * (BPMN_TASK_WIDTH + BPMN_GAP_X) + width, y)
-            positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y) # evtl. dynamisch, damit es passt (wie groß könnten agentic Knoten werden?)
+            # if "AI_Agent" in last_task:
+            #     number_of_sub_processes = len(self.sub_processes.keys())
+            #     width = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
+            #     positions[task] = (x + (i-1) * (BPMN_TASK_WIDTH + BPMN_GAP_X) + width, y)
+            if "Start" in task or "End" in task:
+                positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y + (BPMN_TASK_HEIGHT-BPMN_EVENT_HEIGHT)/2)
+            else:
+                positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y) # evtl. dynamisch, damit es passt (wie groß könnten agentic Knoten werden?)
             i += 1
             last_task = task
         return positions
@@ -965,7 +983,7 @@ class BpmnBuilder:
                 h = BPMN_AGENT_HEIGHT
                 number_of_sub_processes = len(self.sub_processes.keys())
                 w = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
-
+            print("center", eid, mode, x, y, w, h)
             if mode == "bottom":
                 return x + w // 2, y + h
             if mode == "top":
@@ -1018,7 +1036,10 @@ class BpmnBuilder:
                 mode_tgt = "left"
 
             sx, sy = get_center(src, mode_src)
+            print(sx, sy)
             tx, ty = get_center(tgt, mode_tgt)
+            print(tx, ty)
+
 
             ET.SubElement(
                 edge, self.qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy))
@@ -1026,10 +1047,10 @@ class BpmnBuilder:
 
             if "_gateway_" in src and "_gateway_" in tgt:
                 ET.SubElement(
-                    edge, self.qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy) - 35)
+                    edge, self.qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy) - 90)
                 )
                 ET.SubElement(
-                    edge, self.qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty) - 35)
+                    edge, self.qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty) - 90)
                 )
             ET.SubElement(
                 edge, self.qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty))
@@ -1091,8 +1112,9 @@ class BpmnBuilder:
             # add_shape(self.end_id, end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
 
             # Shapes for all BPMN-elements
+            print("################")
             for eid, (x, y) in merged_positions.items():
-                print("eid", eid)
+                print("eid", eid, x, y)
                 if eid not in valid_bpmn_ids:
                     continue
                 if "_gateway_" in eid:
@@ -1100,12 +1122,12 @@ class BpmnBuilder:
                 elif eid in self.alt_end_event_ids:
                     add_shape(eid, x, y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT, plane)
                 elif "Start_" in eid:
-                    add_shape(eid, BPMN_START_X, BPMN_START_Y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT, plane)
+                    add_shape(eid, x, y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT, plane)
                 elif "End_" in eid:
-                    add_shape(eid, end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT, plane)
+                    add_shape(eid, x, y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT, plane)
                 else:
                     add_shape(eid, x, y, BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT, plane)
-
+            print("################")
             # Gather all flows of the whole diagram
             all_flows = self.flow_map_per_subprocess[node_id]
             # for flow_map in self.flow_map_per_subprocess[node_id]:
@@ -1122,13 +1144,13 @@ class BpmnBuilder:
                 w, h = BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT
                 if "_gateway_" in eid:
                     w, h = BPMN_GW_WIDTH, BPMN_GW_HEIGHT
-                if eid == self.start_id:
-                    x, y, w, h = BPMN_START_X, BPMN_START_Y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
-                elif eid == self.end_id:
-                    x, y, w, h = end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
+                if "Start_" in eid:
+                    w, h = BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
+                elif "End_" in eid:
+                    w, h = BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
                 elif eid in self.alt_end_event_ids:
                     w, h = BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
-
+                print("center", eid, x, y, w, h)
                 if mode == "bottom":
                     return x + w // 2, y + h
                 if mode == "top":
@@ -1182,6 +1204,10 @@ class BpmnBuilder:
 
                 sx, sy = get_center(src, mode_src)
                 tx, ty = get_center(tgt, mode_tgt)
+                print("####################")
+                print(src, sx, sy)
+                print(tgt, tx, ty)
+                print("####################")
 
                 ET.SubElement(
                     edge, self.qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy))
@@ -2234,6 +2260,7 @@ class BpmnBuilder:
         # layout
         positions = self._calculate_subprocess_layout(f"Task_{node_id}_{label}")
         self.task_positions_per_node_per_subprocess[f"Task_{node_id}_{label}"] = positions
+        print("sub process positions", positions)
 
         # connect 
         flow_map = self._connect_mapping_subprocess_flow(f"Task_{node_id}_{label}")
