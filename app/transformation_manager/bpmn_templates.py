@@ -174,31 +174,7 @@ OUTPUT_CIRCUIT_PLACEHOLDER = """return connector.getVariable("response")"""
 SCRIPT_UPDATE_VARS_PLACEHOLDER = """def iterations= execution.getVariable("iterations")
 execution.setVariable("iterations", iterations+1)"""
 
-SCRIPT_SET_CIRCUIT = '''execution.setVariable("circuit", """OPENQASM 3.1;
-include "stdgates.inc";
-qubit[1] leqo_reg;
-/* Start node e1239b18-6fa4-465e-86ef-dfd16700149a */
-let leqo_8573d7eea9f659f79ebf928b67848931_literal = leqo_reg[{0}];
-@leqo.output 0
-let leqo_8573d7eea9f659f79ebf928b67848931_out = leqo_8573d7eea9f659f79ebf928b67848931_literal;
-/* End node e1239b18-6fa4-465e-86ef-dfd16700149a */
-/* Start node 71c72e1a-079c-4909-8a60-66080da29177 */
-@leqo.input 0
-let leqo_239a05e84bdc5dde96f076fcd88cbadf_q0 = leqo_reg[{0}];
-h leqo_239a05e84bdc5dde96f076fcd88cbadf_q0;
-@leqo.output 0
-let leqo_239a05e84bdc5dde96f076fcd88cbadf_q0_out = leqo_239a05e84bdc5dde96f076fcd88cbadf_q0;
-/* End node 71c72e1a-079c-4909-8a60-66080da29177 */
-/* Start node 9c2ea4d5-60c4-4353-9ac7-2a5e66760bd7 */
-@leqo.input 0
-let leqo_d8d0d6144e55565e92223d41f2bd2f7c_q = leqo_reg[{0}];
-bit[1] leqo_d8d0d6144e55565e92223d41f2bd2f7c_result = measure leqo_d8d0d6144e55565e92223d41f2bd2f7c_q[{0}];
-@leqo.output 0
-let leqo_d8d0d6144e55565e92223d41f2bd2f7c_out = leqo_d8d0d6144e55565e92223d41f2bd2f7c_result;
-@leqo.output 1
-let leqo_d8d0d6144e55565e92223d41f2bd2f7c_qubit_out = leqo_d8d0d6144e55565e92223d41f2bd2f7c_q;
-/* End node 9c2ea4d5-60c4-4353-9ac7-2a5e66760bd7 */
-""")'''
+SCRIPT_SET_CIRCUIT = '''execution.setVariable("circuit", """{qasmString}""")'''
 
 OUTPUT_PARAM_LOAD_FILE_CLUSTERING = """def resp = connector.getVariable("response");
 println("Response")

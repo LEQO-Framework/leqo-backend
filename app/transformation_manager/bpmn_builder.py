@@ -43,6 +43,7 @@ class BpmnBuilder:
         start_event_classical_nodes: list[Any] | None = None,
         containsPlaceholder: bool = False,
         original_request: CompileRequest | None = None,
+        qasm: str | None = None,
     ):
         """
         Initializes the BpmnBuilder.
@@ -65,6 +66,7 @@ class BpmnBuilder:
         self.start_event_classical_nodes = start_event_classical_nodes or []
         self.containsPlaceholder = containsPlaceholder
         self.containsPlugin = False
+        self.qasm_str = qasm
 
         self.chain_level = 0
         self.chain_heads = []
@@ -1193,7 +1195,7 @@ class BpmnBuilder:
         self._create_script_task(
             setcirc_id,
             "Set Circuit",
-            GroovyScript.SCRIPT_SET_CIRCUIT,
+            GroovyScript.SCRIPT_SET_CIRCUIT.format(qasmString=self.qasm_str),
             async_after=True,
             exclusive=True,
             result_variable="circuit"
