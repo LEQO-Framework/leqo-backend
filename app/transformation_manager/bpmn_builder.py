@@ -939,6 +939,8 @@ class BpmnBuilder:
             last_x, last_y = merged_positions[last_task_id]
         end_x = last_x + BPMN_TASK_WIDTH + BPMN_GAP_X
         end_y = last_y + (BPMN_TASK_HEIGHT // 2) - 18
+        if self.is_agentic_flow:
+            end_y = BPMN_START_Y
 
         # Start/End Shape
         add_shape(self.start_id, BPMN_START_X, BPMN_START_Y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
