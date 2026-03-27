@@ -1493,11 +1493,65 @@ class BpmnBuilder:
         # e.g. if mapping = [[QAOA], [VQE]] then two subprocesses, 
         # one for each QAOA and VQE
 
-        # get inputs?? TODO
-        inputs = {}
+        inputs = self.get_inputs_from_model(node_id)
         for mapping_block in mapping:   
             self._create_mapping_subprocess(adhocSubProcess, node_id, mapping_block, inputs) 
 
+    def get_inputs_from_model(self, node_id: str):
+        """Get inputs for node with specified node_id from edges with special logic for Finance domain profile."""
+        model = json.loads(self.model_json)
+        nodes = {node['id']: node for node in model['nodes']}
+    
+        # find all incoming edges with target node_id
+        incoming_edges = []
+        for edge in model['edges']:
+            source_id, _ = edge['source']
+            target_id, dest_index = edge['target']
+            if target_id == node_id:
+                incoming_edges.append((dest_index, source_id))
+        
+        # sort by the connection order (target: [..., index])
+        incoming_edges.sort(key=lambda x: x[0])
+        
+        inputs = {}
+        
+        # process connected source nodes
+        for _, source_id in incoming_edges:
+            source_node = nodes.get(source_id)
+            if not source_node:
+                continue
+                
+            props = source_node.get('propertyValues', {})
+            label = source_node.get('label', '').lower()
+            
+            # rename risk factor
+            if label == "risk factor":
+                label = "reps"
+            
+            # if source has only one property, use the node label as the key
+            if len(props) == 1:
+                val = list(props.values())[0]
+                # Convert numeric strings to actual numbers
+                inputs[label] = int(val) if val.isdigit() else val
+            else:
+                # source has multiple properties (like Market Data)
+                for k, v in props.items():
+                    # ignore date properties
+                    if "_date" in k:
+                        continue
+                    
+                    # count number of stocks
+                    if k == 'stocks':
+                        stock_list = [s.strip().upper() for s in v.split(',')]
+                        inputs['num_assets'] = len(stock_list)
+                        inputs['stocks'] = stock_list
+                    else:
+                        inputs[k] = v
+
+        # add static key-value pair with key "q"
+        inputs["q"] = 0.5
+        
+        return inputs
 
     def _create_script_task(
         self,
