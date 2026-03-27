@@ -76,7 +76,7 @@ class BpmnBuilder:
         self.chain_heads = []
         self.chain_ends = []
 
-        self.is_camunda_8 = any(
+        self.is_agentic_flow = any(
             getattr(n, 'type', None) == 'editableNode' 
             for n in nodes.values()
         )
@@ -133,7 +133,7 @@ class BpmnBuilder:
         }
 
         # Only add historyTimeToLive for camunda 7
-        if not self.is_camunda_8:
+        if not self.is_agentic_flow:
             process_attrs[self.qn(CAMUNDA_NS, "historyTimeToLive")] = "180"
 
         self.process = ET.SubElement(
@@ -177,7 +177,7 @@ class BpmnBuilder:
         # Create Chains
         for start_node in start_nodes:
 
-            if self.is_camunda_8:
+            if self.is_agentic_flow:
                 self._process_node(start_node)
             else:
                 node = self.nodes[start_node]
@@ -197,6 +197,23 @@ class BpmnBuilder:
 
         # Connect chains if there are multiple
         self.connect_chains()
+
+        if self.is_agentic_flow:
+            # Message
+            msg = ET.SubElement(
+                self.defs,
+                self.qn(BPMN2_NS, "message"),
+                {"id": f"Message_1", "name": "ai-agent-message"}
+            )
+            ext_msg = ET.SubElement(
+                msg, 
+                self.qn(BPMN2_NS, "extensionElements")
+            )
+            ET.SubElement(
+                ext_msg,
+                self.qn(ZEEBE_NS, "subscription"),
+                {"correlationKey": "=ai-agent-message"}
+            )
 
         self._create_diagram()
         if len(self.sub_processes.keys()) >0:
@@ -1230,7 +1247,7 @@ class BpmnBuilder:
         start_event = ET.SubElement(
             self.process, self.qn(BPMN2_NS, "startEvent"), {"id": self.start_id}
         )
-        if self.is_camunda_8:
+        if self.is_agentic_flow:
             ext = ET.SubElement(start_event, self.qn(BPMN2_NS, "extensionElements"))
             ET.SubElement(ext, self.qn(ZEEBE_NS, "formDefinition"), {"formId": "ai-agent-chat-initial-request"})
         else:
@@ -1336,7 +1353,7 @@ class BpmnBuilder:
     ) -> None:
         """Creates a Service Task with Camunda connector configuration."""
         attrs = {"id": task_id, "name": name}
-        if not self.is_camunda_8: # only add if camunda 7
+        if not self.is_agentic_flow: # only add if camunda 7
             attrs[self.qn(CAMUNDA_NS, "asyncAfter")] = "true" if async_after else "false"
             attrs[self.qn(CAMUNDA_NS, "exclusive")] = "true"
 
@@ -1842,22 +1859,6 @@ class BpmnBuilder:
                 {"source": "=agent.responseText", "target": "responseText"} # evtl = bei source weglassen?
             )
 
-            # Message
-            msg = ET.SubElement(
-                self.process,
-                self.qn(BPMN2_NS, "message"),
-                {"id": f"Message_{mm_node_id}", "name": "ai-agent-message"}
-            )
-            ext_msg = ET.SubElement(
-                msg, 
-                self.qn(BPMN2_NS, "extensionElements")
-            )
-            ET.SubElement(
-                ext_msg,
-                self.qn(ZEEBE_NS, "subscription"),
-                {"correlationKey": "=ai-agent-message"}
-            )
-            
             
             self._create_exclusive_gateway(satisfaction_gw_id, "User satisfied?") 
 
