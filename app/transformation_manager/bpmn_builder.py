@@ -69,21 +69,18 @@ class BpmnBuilder:
         self.start_event_classical_nodes = start_event_classical_nodes or []
         self.containsPlaceholder = containsPlaceholder
         self.containsPlugin = False
-        print("NODES", self.nodes)
-        print("EDGES", self.edges)
-        print("META", self.metadata)
         print("original", self.original_request)
         print("model json", self.model_json)
 
         self.chain_level = 0
         self.chain_heads = []
         self.chain_ends = []
-        print("pre camunda")
+
         self.is_camunda_8 = any(
             getattr(n, 'type', None) == 'editableNode' 
             for n in nodes.values()
         )
-        print("post camunda")
+
 
         self._register_namespaces()
         self._init_xml()
@@ -169,15 +166,14 @@ class BpmnBuilder:
         Returns:
             A tuple containing the XML string and a list of all activity IDs.
         """
-        print("159 build")
+
         self._create_start_event()
         self._create_end_event()
 
         # Analyze Structure
         incoming, _ = self._analyze_graph()
         start_nodes = [nid for nid in self.nodes.keys() if not incoming[nid]]
-        
-        print("167 camunda 8", self.is_camunda_8)
+
         # Create Chains
         for start_node in start_nodes:
 
@@ -252,9 +248,7 @@ class BpmnBuilder:
     def _process_node(self, node_id: str):
         """Process node to create specialized flow"""
         node = self.nodes[node_id] # todo gesamte quantum group durchgehen, nicht nur startnode
-        
-        print("nodes", self.nodes)
-        print("_process_node", node)
+
         #data = node.getattr('data', {})
         node_type = getattr(node, 'type', None)
         
@@ -351,7 +345,6 @@ class BpmnBuilder:
         # Layout
         positions = self._calculate_agentic_layout(start_node)
         self.task_positions_per_node[start_node] = positions
-        print("agentic positions", positions)
 
         # connect Flows
         flow_map = self._connect_agentic_flows(start_node)
@@ -733,12 +726,9 @@ class BpmnBuilder:
         ):
         """Creates a sequence flow for agentic chains. Connecting the chains will be separately."""
         chain = self.inserted_chains[start_node]
-        print(chain)
 
         self.chain_heads.append(chain[0])  
         self.chain_ends.append(chain[-1]) #???    
-        print(self.chain_heads)
-        print(self.chain_ends)
 
 
         flow_map = []
@@ -764,7 +754,6 @@ class BpmnBuilder:
 
 
         # Create Sequence Flows
-        print("Flow Map", flow_map)
         for fid, src, tgt in flow_map:
             self._create_sequence_flow(fid, src, tgt)
 
@@ -983,7 +972,7 @@ class BpmnBuilder:
                 h = BPMN_AGENT_HEIGHT
                 number_of_sub_processes = len(self.sub_processes.keys())
                 w = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
-            print("center", eid, mode, x, y, w, h)
+
             if mode == "bottom":
                 return x + w // 2, y + h
             if mode == "top":
@@ -1036,9 +1025,8 @@ class BpmnBuilder:
                 mode_tgt = "left"
 
             sx, sy = get_center(src, mode_src)
-            print(sx, sy)
             tx, ty = get_center(tgt, mode_tgt)
-            print(tx, ty)
+
 
 
             ET.SubElement(
@@ -1112,9 +1100,9 @@ class BpmnBuilder:
             # add_shape(self.end_id, end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
 
             # Shapes for all BPMN-elements
-            print("################")
+
             for eid, (x, y) in merged_positions.items():
-                print("eid", eid, x, y)
+
                 if eid not in valid_bpmn_ids:
                     continue
                 if "_gateway_" in eid:
@@ -1127,7 +1115,7 @@ class BpmnBuilder:
                     add_shape(eid, x, y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT, plane)
                 else:
                     add_shape(eid, x, y, BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT, plane)
-            print("################")
+
             # Gather all flows of the whole diagram
             all_flows = self.flow_map_per_subprocess[node_id]
             # for flow_map in self.flow_map_per_subprocess[node_id]:
@@ -1150,7 +1138,6 @@ class BpmnBuilder:
                     w, h = BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
                 elif eid in self.alt_end_event_ids:
                     w, h = BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
-                print("center", eid, x, y, w, h)
                 if mode == "bottom":
                     return x + w // 2, y + h
                 if mode == "top":
@@ -1204,10 +1191,6 @@ class BpmnBuilder:
 
                 sx, sy = get_center(src, mode_src)
                 tx, ty = get_center(tgt, mode_tgt)
-                print("####################")
-                print(src, sx, sy)
-                print(tgt, tx, ty)
-                print("####################")
 
                 ET.SubElement(
                     edge, self.qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy))
@@ -1513,8 +1496,7 @@ class BpmnBuilder:
         # get inputs?? TODO
         inputs = {}
         for mapping_block in mapping:   
-            self._create_mapping_subprocess(adhocSubProcess, node_id, mapping_block, inputs) # TODO: inputs
-
+            self._create_mapping_subprocess(adhocSubProcess, node_id, mapping_block, inputs) 
 
 
     def _create_script_task(
@@ -1741,7 +1723,6 @@ class BpmnBuilder:
         inserted_nodes = []
 
         for mm_node in multi_mapping_nodes:
-            print("mm node", mm_node)
             mm_node_id = mm_node.id
             mm_mappings = mm_node.mapping
             mm_label = mm_node.label
@@ -2146,9 +2127,6 @@ class BpmnBuilder:
         suffix = """</bpmn:definitions>"""
 
         return prefix + body + "\n" + suffix
-    
-    def _create_zeeb_process(self, start_node: str):
-        print("")
 
     def _find_and_remove_common_mapping_blocks(self, mappings: str):
         """
@@ -2221,7 +2199,7 @@ class BpmnBuilder:
                 "POST",
                 f"=http://host.docker.internal:5000/{block.lower()}",
                 "noAuth",
-                str(inputs),
+                inputs,
                 "20",
                 "20"
             ]
@@ -2260,7 +2238,6 @@ class BpmnBuilder:
         # layout
         positions = self._calculate_subprocess_layout(f"Task_{node_id}_{label}")
         self.task_positions_per_node_per_subprocess[f"Task_{node_id}_{label}"] = positions
-        print("sub process positions", positions)
 
         # connect 
         flow_map = self._connect_mapping_subprocess_flow(f"Task_{node_id}_{label}")
@@ -2272,9 +2249,7 @@ class BpmnBuilder:
         ):
         """Creates a sequence flow for agentic chains. Connecting the chains will be separately."""
         chain = self.sub_processes[start_node]
-        print(start_node)
-        # self.chain_heads.append(chain[0])  
-        # self.chain_ends.append(chain[-1]) #???    
+ 
 
         flow_map = []
         
@@ -2289,7 +2264,6 @@ class BpmnBuilder:
 
         return flow_map   
 
-    #def _calculate_mapping_subprocess_layout(self, start_node: str):
 
         
 
