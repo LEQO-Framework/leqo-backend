@@ -22,7 +22,7 @@ BPMN_START_X = 252
 BPMN_START_Y = 222
 BPMN_TASK_WIDTH = 120
 BPMN_TASK_HEIGHT = 80
-BPMN_GAP_X = 220
+BPMN_GAP_X = 100
 BPMN_GAP_Y = 150
 BPMN_CHAIN_X_OFFSET = 170
 BPMN_CHAIN_Y_BASE = 200
@@ -388,7 +388,7 @@ class BpmnBuilder:
 
         # Place tasks
         positions[setvars1_id]         = (x, y)
-        positions[backendreq_id]       = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[backendreq_id]       = (x +     (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
         positions[pollstat_id]         = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
         positions[retrievecirc_id]     = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
         positions[createdeploym_id]    = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
@@ -442,7 +442,7 @@ class BpmnBuilder:
                 )
             else:
                 positions[altend_id] = (
-                    x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X) + 30,
+                    x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
                     afj_y + 22,
                 )
 
@@ -476,7 +476,7 @@ class BpmnBuilder:
 
         # Place tasks
         positions[setcirc_id]          = (x, y)
-        positions[createdeploym_id]    = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[createdeploym_id]    = (x +     (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
         positions[exejob_id]           = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
         positions[getjobres_id]        = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
         positions[setvars2_id]         = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
@@ -1077,74 +1077,73 @@ class BpmnBuilder:
         self.alt_end_event_ids.add(altend2_id)
 
         # Elements
-        self._create_service_task(
-            createdeploym_id,
-            "Create Deployment",
-            async_after=True,
-            exclusive=False,
-            method="POST",
-            url="http://${ipAdress}:${qunicornPort}/deployments/",
-            extra_input_maps={
-                "headers": {
-                    "Accept": "application/json",
-                    "Content-Type": "application/json"
-                }
-            },
-            connector_payload_script=GroovyScript.PAYLOAD_CREATE_DEPLOYMENT_COMMON,
-            connector_output_parameters=[
-                {"name": "deploymentId", "script": GroovyScript.OUTPUT_DEPLOYMENT_ID_COMMON},
-            ],
-        )
+        if not self.containsPlugin:
+            self._create_service_task(
+                createdeploym_id,
+                "Create Deployment",
+                async_after=True,
+                exclusive=False,
+                method="POST",
+                url="http://${ipAdress}:${qunicornPort}/deployments/",
+                extra_input_maps={
+                    "headers": {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    }
+                },
+                connector_payload_script=GroovyScript.PAYLOAD_CREATE_DEPLOYMENT_COMMON,
+                connector_output_parameters=[
+                    {"name": "deploymentId", "script": GroovyScript.OUTPUT_DEPLOYMENT_ID_COMMON},
+                ],
+            )
 
-        self._create_service_task(
-            exejob_id,
-            "Execute Job",
-            async_after=True,
-            exclusive=False,
-            method="POST",
-            url="http://${ipAdress}:${qunicornPort}/jobs/",
-            extra_input_maps={
-                "headers": {
-                    "Accept": "application/json",
-                    "Content-Type": "application/json"
-                }
-            },
-            connector_payload_script=GroovyScript.PAYLOAD_EXECUTE_JOB_COMMON,
-            connector_output_parameters=[
-                {"name": "jobId", "script": GroovyScript.OUTPUT_JOB_ID_COMMON},
-            ],
-        )
+            self._create_service_task(
+                exejob_id,
+                "Execute Job",
+                async_after=True,
+                exclusive=False,
+                method="POST",
+                url="http://${ipAdress}:${qunicornPort}/jobs/",
+                extra_input_maps={
+                    "headers": {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    }
+                },
+                connector_payload_script=GroovyScript.PAYLOAD_EXECUTE_JOB_COMMON,
+                connector_output_parameters=[
+                    {"name": "jobId", "script": GroovyScript.OUTPUT_JOB_ID_COMMON},
+                ],
+            )
 
-        self._create_service_task(
-            getjobres_id,
-            "Get Job Results",
-            async_after=True,
-            exclusive=False,
-            method="GET",
-            url="http://${ipAdress}:${qunicornPort}/${jobId}",
-            extra_input_maps={
-                "headers": {
-                    "Accept": "application/json",
-                    "Content-Type": "application/json"
-                }
-            },
-            connector_output_parameters=[
-                {"name": "resultExecution", "script": GroovyScript.OUTPUT_RESULT_EXECUTION_COMMON},
-                {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_JOB_COMMON}
-            ],
-        )
-
-        if self.containsPlugin:
+            self._create_service_task(
+                getjobres_id,
+                "Get Job Results",
+                async_after=True,
+                exclusive=False,
+                method="GET",
+                url="http://${ipAdress}:${qunicornPort}/${jobId}",
+                extra_input_maps={
+                    "headers": {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    }
+                },
+                connector_output_parameters=[
+                    {"name": "resultExecution", "script": GroovyScript.OUTPUT_RESULT_EXECUTION_COMMON},
+                    {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_JOB_COMMON}
+                ],
+            )
             self._create_script_task(
             setvars2_id,
             "Set Variables",
-            GroovyScript.SCRIPT_SET_VARS_CLUSTERING
+            GroovyScript.SCRIPT_SET_VARS_COMMON
             )
         else:
             self._create_script_task(
             setvars2_id,
             "Set Variables",
-            GroovyScript.SCRIPT_SET_VARS_COMMON
+            GroovyScript.SCRIPT_SET_VARS_CLUSTERING
             )
 
         ET.SubElement(
