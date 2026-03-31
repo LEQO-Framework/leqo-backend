@@ -443,7 +443,19 @@ class ArrayLiteralNode(BaseNode):
             )
             self.elementBitSize = bit_size
         return self
-    
+
+
+class FileLiteralNode(BaseNode):
+    """
+    Node representing a file as a url.
+    """
+
+    type: Literal["file"] = "file"
+
+    value: str
+    """The url"""
+
+
 class StringLiteralNode(BaseNode):
     """
     Node representing a string literal.
@@ -467,6 +479,7 @@ LiteralNode = (
     | FloatLiteralNode
     | ArrayLiteralNode
     | StringLiteralNode
+    | FileLiteralNode
 )
 # endregion
 
@@ -583,16 +596,6 @@ class PluginNode(BaseNode):
     outputs: list[Any] = []
     """Possible outputs"""
 
-class FileLiteralNode(BaseNode):
-    """
-    Node representing a file as a url.
-    """
-
-    type: Literal["file"] = "file"
-
-    value: str
-    """The url"""
-
 NestableNode = (
     ImplementationNode
     | BoundaryNode
@@ -602,7 +605,6 @@ NestableNode = (
     | AncillaNode
     | OperatorNode
     | PluginNode
-    | FileLiteralNode
 )
 Node = NestableNode | QubitNode | ControlFlowNode
 

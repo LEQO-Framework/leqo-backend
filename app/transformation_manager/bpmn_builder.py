@@ -417,7 +417,7 @@ class BpmnBuilder:
         # Gateway 4
         self._place_gateway_between(getjobres_id, setvars2_id, gateway4_id, positions)
 
-        gx2, _ = positions[gateway2_id]
+        gx2, _ = positions[retrievecirc_id]
         positions[analyzefailedtransf_id] = (
             gx2,
             y + BPMN_TASK_HEIGHT + 30,
@@ -691,6 +691,55 @@ class BpmnBuilder:
                 height=str(h),
             )
 
+        def add_waypoint(edge, x: int, y: int):
+            ET.SubElement(edge, self.qn(DI_NS, "waypoint"), x=str(int(x)), y=str(int(y)))
+
+        def add_orthogonal_waypoints(
+            edge,
+            sx: int,
+            sy: int,
+            tx: int,
+            ty: int,
+            route: str = "hv",
+            up_offset: int = 40,
+            pre_target_drop: int = 12,
+        ):
+            """
+            Adds orthogonal waypoints if needed for pretty edges
+            "hv": horizontal then vertical
+            "vh": vertical then horizontal
+            "up-left-down": start -> up -> left/right -> down -> target
+            """
+
+            # check first if up-left-down is required
+            if route == "up-left-down":
+                bend_y = min(sy, ty) - up_offset
+                pre_target_y = ty - pre_target_drop
+
+                add_waypoint(edge, sx, sy)
+                add_waypoint(edge, sx, bend_y)
+                add_waypoint(edge, tx, bend_y)
+                add_waypoint(edge, tx, pre_target_y)
+                add_waypoint(edge, tx, ty)
+                return
+
+            # already straight
+            if sx == tx or sy == ty:
+                add_waypoint(edge, sx, sy)
+                add_waypoint(edge, tx, ty)
+                return
+
+            if route == "vh":
+                add_waypoint(edge, sx, sy)
+                add_waypoint(edge, sx, ty)
+                add_waypoint(edge, tx, ty)
+                return
+
+            # default "hv"
+            add_waypoint(edge, sx, sy)
+            add_waypoint(edge, tx, sy)
+            add_waypoint(edge, tx, ty)
+
         diagram = ET.SubElement(
             self.defs, self.qn(BPMNDI_NS, "BPMNDiagram"), {"id": "BPMNDiagram_1"}
         )
@@ -765,13 +814,6 @@ class BpmnBuilder:
                 return x + w, y + h // 2
             return x + w // 2, y + h // 2
 
-        # Optional: Might reuse it later
-        top_dock_sources = set()
-        bottom_dock_sources = set()
-        top_dock_targets = set()
-        left_dock_sources = set()
-        right_dock_targets = set()
-
         for fid, src, tgt in all_flows:
             edge = ET.SubElement(
                 plane,
@@ -800,7 +842,7 @@ class BpmnBuilder:
                 mode_tgt = "top"
             elif src.endswith("_gateway_2") and tgt.endswith("_analyze_failed_transf"):
                 mode_src = "bottom"
-                mode_tgt = "top"
+                mode_tgt = "left"
             else:
                 # Normal BPMN-order
                 mode_src = "right"
@@ -809,20 +851,18 @@ class BpmnBuilder:
             sx, sy = get_center(src, mode_src)
             tx, ty = get_center(tgt, mode_tgt)
 
-            ET.SubElement(
-                edge, self.qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy))
-            )
+            route = "hv"
+            # Custom-Edges
+            if src.endswith("_gateway_4") and tgt.endswith("_gateway_3"):
+                route = "up-left-down"
+            elif src.endswith("_gateway_4") and tgt.endswith("_analyze_failed_job"):
+                route = "vh"
+            elif src.endswith("_gateway_2") and tgt.endswith("_update_vars"):
+                route = "vh"
+            elif src.endswith("_gateway_2") and tgt.endswith("_analyze_failed_transf"):
+                route = "vh"
 
-            if "_gateway_" in src and "_gateway_" in tgt:
-                ET.SubElement(
-                    edge, self.qn(DI_NS, "waypoint"), x=str(int(sx)), y=str(int(sy) - 35)
-                )
-                ET.SubElement(
-                    edge, self.qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty) - 35)
-                )
-            ET.SubElement(
-                edge, self.qn(DI_NS, "waypoint"), x=str(int(tx)), y=str(int(ty))
-            )
+            add_orthogonal_waypoints(edge, sx, sy, tx, ty, route=route)
 
         print("global diagram created (all flows, incl. cross-chain)")
 
@@ -855,7 +895,7 @@ class BpmnBuilder:
                 "id": "ipAdress",
                 "label": "IP Adresse",
                 "type": "string",
-                "defaultValue": "192.168.178.65",
+                "defaultValue": "",
             },
         )
         ET.SubElement(
