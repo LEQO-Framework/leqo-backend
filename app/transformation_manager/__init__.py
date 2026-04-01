@@ -65,7 +65,9 @@ from pathlib import Path
 import os
 import io
 import json
-import traceback; traceback.print_exc()
+import traceback
+
+traceback.print_exc()
 
 # BPMN Layout Configuration
 BPMN_START_X = 252  # X position of start event
@@ -622,8 +624,10 @@ class WorkflowProcessor(CommonProcessor):
             for node_id in self.frontend_graph.nodes
             if (
                 node_id in self.frontend_graph.node_data
-                and getattr(self.frontend_graph.node_data[node_id], "type", None) not in CLASSICAL_TYPES
-                and getattr(self.frontend_graph.node_data[node_id], "type", None) != "plugin"
+                and getattr(self.frontend_graph.node_data[node_id], "type", None)
+                not in CLASSICAL_TYPES
+                and getattr(self.frontend_graph.node_data[node_id], "type", None)
+                != "plugin"
             )
         ]
 
@@ -944,13 +948,15 @@ def _implementation_nodes_to_bpmn_xml(
     chain task (Set Variables) is linked into that node so the chain appears
     before the node in the diagram.
     """
-    print(f"_implementation_nodes_to_bpmn_xml called with:\n" \
-        f"process_id={process_id}\n" \
-        f"nodes={nodes}\n" \
-        f"edges={edges}\n" \
-        f"metadata={metadata}\n" \
-        f"start_event_classical_nodes={start_event_classical_nodes}\n" \
-        f"containsPlaceholder={containsPlaceholder}\n")
+    print(
+        f"_implementation_nodes_to_bpmn_xml called with:\n"
+        f"process_id={process_id}\n"
+        f"nodes={nodes}\n"
+        f"edges={edges}\n"
+        f"metadata={metadata}\n"
+        f"start_event_classical_nodes={start_event_classical_nodes}\n"
+        f"containsPlaceholder={containsPlaceholder}\n"
+    )
 
     builder = BpmnBuilder(
         process_id=process_id,

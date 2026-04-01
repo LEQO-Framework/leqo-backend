@@ -373,7 +373,6 @@ class IntLiteralNode(BaseNode):
 
         return self
 
-
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
@@ -580,6 +579,7 @@ class OperatorNode(BaseNode):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+
 class PluginNode(BaseNode):
     """
     Node representing a plugin.
@@ -595,6 +595,7 @@ class PluginNode(BaseNode):
 
     outputs: list[Any] = []
     """Possible outputs"""
+
 
 NestableNode = (
     ImplementationNode

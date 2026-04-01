@@ -58,7 +58,7 @@ class BpmnBuilder:
         """
         self.original_request = original_request
         self.model_json = json.dumps(self.original_request.model_dump())
-        
+
         self.process_id = process_id
         self.nodes = nodes
         self.edges = edges
@@ -108,7 +108,7 @@ class BpmnBuilder:
                 "targetNamespace": "http://bpmn.io/schema/bpmn",
                 "exporter": "QuantME Modeler",
                 "exporterVersion": "4.5.0-nightly.20220628",
-            }
+            },
         )
         self.process = ET.SubElement(
             self.defs,
@@ -117,7 +117,7 @@ class BpmnBuilder:
                 "id": f"Process_{self.process_id}",
                 "isExecutable": "true",
                 self.qn(CAMUNDA_NS, "historyTimeToLive"): "360000",
-            }
+            },
         )
 
     def qn(self, ns: str, tag: str) -> str:
@@ -146,10 +146,10 @@ class BpmnBuilder:
         # Create Chains
         for start_node in start_nodes:
             node = self.nodes[start_node]
-            self.containsPlugin = getattr(node, 'type', None) == 'plugin'
+            self.containsPlugin = getattr(node, "type", None) == "plugin"
 
             if self.containsPlugin:
-                plugin_name = getattr(node, 'pluginName', None)
+                plugin_name = getattr(node, "pluginName", None)
                 print("plugin is: ", plugin_name)
                 print("creating plugin flow")
                 self._create_plugin_flow(start_node, plugin_name)
@@ -168,7 +168,12 @@ class BpmnBuilder:
         all_activities = list(self.nodes.keys())
         for start_node, chain in self.inserted_chains.items():
             all_activities.extend(chain)
-            for task_map in [self.human_tasks, self.fail_job_tasks, self.update_tasks, self.fail_transf_tasks]:
+            for task_map in [
+                self.human_tasks,
+                self.fail_job_tasks,
+                self.update_tasks,
+                self.fail_transf_tasks,
+            ]:
                 task_id = task_map.get(start_node)
                 if task_id:
                     all_activities.append(task_id)
@@ -183,17 +188,17 @@ class BpmnBuilder:
 
         self.indent(self.defs)
         return ET.tostring(self.defs, encoding="unicode"), all_activities
-    
+
     def indent(self, elem, level=0):
         """
         Adds indentations to the ElementTree-XML-Object for a pretty print.
         """
-        i = "\n" + level*"  "
+        i = "\n" + level * "  "
         if len(elem):
             if not elem.text or not elem.text.strip():
                 elem.text = i + "  "
             for child in elem:
-                self.indent(child, level+1)
+                self.indent(child, level + 1)
                 if not child.tail or not child.tail.strip():
                     child.tail = i + "  "
             if not elem.tail or not elem.tail.strip():
@@ -228,8 +233,8 @@ class BpmnBuilder:
             element.append(c)
 
     def _create_plugin_flow(
-        self, 
-        start_node: str, 
+        self,
+        start_node: str,
         plugin_name: str,
     ) -> None:
         """Creates a flow for plugins."""
@@ -251,14 +256,14 @@ class BpmnBuilder:
         self.chain_level += 1
 
     def _create_placeholder_flow(
-            self,
-            start_node: str,
+        self,
+        start_node: str,
     ) -> None:
         """
-        Creates a flow for flows with placeholder. Momentarily the containsPlaceholder 
+        Creates a flow for flows with placeholder. Momentarily the containsPlaceholder
         variable is globally for the whole diagram instead of per start_node.
         """
-        
+
         # Generate the placeholder chain
         self._create_chain_placeholder(start_node)
 
@@ -273,11 +278,11 @@ class BpmnBuilder:
         self.chain_level += 1
 
     def _create_non_placeholder_flow(
-            self,
-            start_node: str,
+        self,
+        start_node: str,
     ) -> None:
         """
-        Creates a flow for flows without a placeholder. Momentarily the containsPlaceholder 
+        Creates a flow for flows without a placeholder. Momentarily the containsPlaceholder
         variable is globally for the whole diagram instead of per start_node.
         """
 
@@ -293,11 +298,11 @@ class BpmnBuilder:
         self.flow_map_per_node[start_node] = flow_map
 
         self.chain_level += 1
-    
+
     def _calculate_plugin_layout(
-            self, 
-            start_node,
-            ):
+        self,
+        start_node,
+    ):
         """Calculates positions for all elements in the plugin flow."""
         positions = {}
         chain = self.inserted_chains[start_node]
@@ -317,11 +322,11 @@ class BpmnBuilder:
         y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
 
         # Place tasks
-        positions[call_plugin_id]       = (x, y)
-        positions[poll_job_id]          = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[setvars2_id]          = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[human_id]             = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[analyzefailedjob_id]  = (
+        positions[call_plugin_id] = (x, y)
+        positions[poll_job_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[setvars2_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[human_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[analyzefailedjob_id] = (
             x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
             y + BPMN_TASK_HEIGHT + 30,
         )
@@ -354,11 +359,8 @@ class BpmnBuilder:
         print("plugin layout calculated")
 
         return positions
-    
-    def _calculate_placeholder_layout(
-            self, 
-            start_node: str
-            ):
+
+    def _calculate_placeholder_layout(self, start_node: str):
         """Calculates positions for all elements in the placeholder flow."""
         positions = {}
         chain = self.inserted_chains[start_node]
@@ -387,16 +389,16 @@ class BpmnBuilder:
         y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
 
         # Place tasks
-        positions[setvars1_id]         = (x, y)
-        positions[backendreq_id]       = (x +     (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[pollstat_id]         = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[retrievecirc_id]     = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[createdeploym_id]    = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[exejob_id]           = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[getjobres_id]        = (x + 6 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[setvars2_id]         = (x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[human_id]            = (x + 8 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[updatevars_id]       = (
+        positions[setvars1_id] = (x, y)
+        positions[backendreq_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[pollstat_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[retrievecirc_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[createdeploym_id] = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[exejob_id] = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[getjobres_id] = (x + 6 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[setvars2_id] = (x + 7 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[human_id] = (x + 8 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[updatevars_id] = (
             x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
             y - BPMN_TASK_HEIGHT - 30,
         )
@@ -409,7 +411,9 @@ class BpmnBuilder:
         self._place_gateway_between(backendreq_id, pollstat_id, gateway1_id, positions)
 
         # Gateway 2
-        self._place_gateway_between(pollstat_id, retrievecirc_id, gateway2_id, positions)
+        self._place_gateway_between(
+            pollstat_id, retrievecirc_id, gateway2_id, positions
+        )
 
         # Gateway 3
         self._place_gateway_between(exejob_id, getjobres_id, gateway3_id, positions)
@@ -421,7 +425,7 @@ class BpmnBuilder:
         positions[analyzefailedtransf_id] = (
             gx2,
             y + BPMN_TASK_HEIGHT + 30,
-            )
+        )
 
         if hasattr(self, "task_positions") and gateway1_id in self.task_positions:
             positions[gateway1_id] = self.task_positions[gateway1_id]
@@ -431,7 +435,7 @@ class BpmnBuilder:
             positions[gateway3_id] = self.task_positions[gateway3_id]
         if hasattr(self, "task_positions") and gateway4_id in self.task_positions:
             positions[gateway4_id] = self.task_positions[gateway4_id]
-        
+
         # Alternative End-Events
         afj_x, afj_y = positions[analyzefailedjob_id]
         for altend_id in self.alt_ends.get(start_node, []):
@@ -450,10 +454,7 @@ class BpmnBuilder:
 
         return positions
 
-    def _calculate_standard_layout(
-            self, 
-            start_node: str
-            ):
+    def _calculate_standard_layout(self, start_node: str):
         """Calculates positions for all elements in the standard flow."""
         positions = {}
         chain = self.inserted_chains[start_node]
@@ -475,12 +476,12 @@ class BpmnBuilder:
         y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
 
         # Place tasks
-        positions[setcirc_id]          = (x, y)
-        positions[createdeploym_id]    = (x +     (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[exejob_id]           = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[getjobres_id]        = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[setvars2_id]         = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        positions[human_id]            = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[setcirc_id] = (x, y)
+        positions[createdeploym_id] = (x + (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[exejob_id] = (x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[getjobres_id] = (x + 3 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[setvars2_id] = (x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        positions[human_id] = (x + 5 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
         positions[analyzefailedjob_id] = (
             x + 4 * (BPMN_TASK_WIDTH + BPMN_GAP_X),
             y + BPMN_TASK_HEIGHT + 30,
@@ -515,10 +516,7 @@ class BpmnBuilder:
 
         return positions
 
-    def _connect_plugin_flows(
-            self, 
-            start_node
-            ):
+    def _connect_plugin_flows(self, start_node):
         """Creates a sequence flow for plugin chains. Connecting the chains will be separately."""
         chain = self.inserted_chains[start_node]
         human_id = self.human_tasks[start_node]
@@ -534,7 +532,7 @@ class BpmnBuilder:
         ) = chain
 
         self.chain_heads.append(chain[0])
-        self.chain_ends.append(self.human_tasks[start_node])        
+        self.chain_ends.append(self.human_tasks[start_node])
 
         flow_map = []
 
@@ -557,11 +555,8 @@ class BpmnBuilder:
         print("plugin flow: main edges connected")
 
         return flow_map
-    
-    def _connect_placeholder_flows(
-            self,
-            start_node
-            ): 
+
+    def _connect_placeholder_flows(self, start_node):
         """Creates a sequence flow for plugin chains. Connecting the chains will be separately."""
         chain = self.inserted_chains[start_node]
         human_id = self.human_tasks[start_node]
@@ -617,15 +612,12 @@ class BpmnBuilder:
         # Create Sequence Flows
         for fid, src, tgt in flow_map:
             self._create_sequence_flow(fid, src, tgt)
-        
+
         print("placeholder flow: main edges connected")
 
         return flow_map
-    
-    def _connect_standard_flows(
-            self,
-            start_node
-            ):
+
+    def _connect_standard_flows(self, start_node):
         """Creates a sequence flow for standard chains. Connecting the chains will be separately."""
         chain = self.inserted_chains[start_node]
         human_id = self.human_tasks[start_node]
@@ -677,7 +669,7 @@ class BpmnBuilder:
                 plane,
                 self.qn(BPMNDI_NS, "BPMNShape"),
                 {
-                    "id": f"{eid}_di", 
+                    "id": f"{eid}_di",
                     "bpmnElement": eid,
                     "isMarkerVisible": "true",
                 },
@@ -692,7 +684,9 @@ class BpmnBuilder:
             )
 
         def add_waypoint(edge, x: int, y: int):
-            ET.SubElement(edge, self.qn(DI_NS, "waypoint"), x=str(int(x)), y=str(int(y)))
+            ET.SubElement(
+                edge, self.qn(DI_NS, "waypoint"), x=str(int(x)), y=str(int(y))
+            )
 
         def add_orthogonal_waypoints(
             edge,
@@ -767,7 +761,13 @@ class BpmnBuilder:
         end_y = last_y + (BPMN_TASK_HEIGHT // 2) - 18
 
         # Start/End Shape
-        add_shape(self.start_id, BPMN_START_X, BPMN_START_Y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
+        add_shape(
+            self.start_id,
+            BPMN_START_X,
+            BPMN_START_Y,
+            BPMN_EVENT_WIDTH,
+            BPMN_EVENT_HEIGHT,
+        )
         add_shape(self.end_id, end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
 
         # Shapes for all BPMN-elements
@@ -798,7 +798,12 @@ class BpmnBuilder:
             if "_gateway_" in eid:
                 w, h = BPMN_GW_WIDTH, BPMN_GW_HEIGHT
             if eid == self.start_id:
-                x, y, w, h = BPMN_START_X, BPMN_START_Y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
+                x, y, w, h = (
+                    BPMN_START_X,
+                    BPMN_START_Y,
+                    BPMN_EVENT_WIDTH,
+                    BPMN_EVENT_HEIGHT,
+                )
             elif eid == self.end_id:
                 x, y, w, h = end_x, end_y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
             elif eid in self.alt_end_event_ids:
@@ -872,8 +877,12 @@ class BpmnBuilder:
         for i in range(len(self.chain_ends)):
             if i + 1 < len(self.chain_heads):
                 fid = self.new_flow()
-                self._create_sequence_flow(fid, self.chain_ends[i], self.chain_heads[i+1])
-                self.cross_chain_flows.append((fid, self.chain_ends[i], self.chain_heads[i+1]))
+                self._create_sequence_flow(
+                    fid, self.chain_ends[i], self.chain_heads[i + 1]
+                )
+                self.cross_chain_flows.append(
+                    (fid, self.chain_ends[i], self.chain_heads[i + 1])
+                )
             else:
                 fid = self.new_flow()
                 self._create_sequence_flow(fid, self.chain_ends[i], self.end_id)
@@ -957,7 +966,13 @@ class BpmnBuilder:
         attrs = {"id": gateway_id}
         ET.SubElement(self.process, self.qn(BPMN2_NS, "exclusiveGateway"), attrs)
 
-    def _place_gateway_between(self, left_id: str, right_id: str, gateway_id: str, positions: dict[str, tuple[int, int]]):
+    def _place_gateway_between(
+        self,
+        left_id: str,
+        right_id: str,
+        gateway_id: str,
+        positions: dict[str, tuple[int, int]],
+    ):
         lx, ly = positions[left_id]
         rx, _ = positions[right_id]
 
@@ -996,46 +1011,73 @@ class BpmnBuilder:
         io = ET.SubElement(connector, self.qn(CAMUNDA_NS, "inputOutput"))
 
         # method
-        ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}).text = method
+        ET.SubElement(
+            io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "method"}
+        ).text = method
 
         # header
-        headers = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"})
+        headers = ET.SubElement(
+            io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "headers"}
+        )
         header_map = ET.SubElement(headers, self.qn(CAMUNDA_NS, "map"))
         # standard entry
-        header_entries = {"Accept": "application/json", "Content-Type": "application/json"}
+        header_entries = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
         if extra_input_maps and "headers" in extra_input_maps:
             header_entries.update(extra_input_maps["headers"])
         for k, v in header_entries.items():
             ET.SubElement(header_map, self.qn(CAMUNDA_NS, "entry"), {"key": k}).text = v
 
         # url
-        ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}).text = url
+        ET.SubElement(
+            io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "url"}
+        ).text = url
 
         # extra inputs
         if extra_inputs:
             for k, v in extra_inputs.items():
-                ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": k}).text = v
+                ET.SubElement(
+                    io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": k}
+                ).text = v
 
         # payload param
         if connector_payload_script:
-            payload_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"})
-            script = ET.SubElement(payload_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+            payload_param = ET.SubElement(
+                io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": "payload"}
+            )
+            script = ET.SubElement(
+                payload_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"}
+            )
             script.text = connector_payload_script
 
         # output
         for param in connector_output_parameters:
-            out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": param["name"]})
-            script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": param.get("scriptFormat", "groovy")})
+            out_param = ET.SubElement(
+                io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": param["name"]}
+            )
+            script = ET.SubElement(
+                out_param,
+                self.qn(CAMUNDA_NS, "script"),
+                {"scriptFormat": param.get("scriptFormat", "groovy")},
+            )
             script.text = param["script"]
 
         # extra output params
         if extra_outputs:
             for k, v in extra_outputs.items():
-                out_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": k})
-                script = ET.SubElement(out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"})
+                out_param = ET.SubElement(
+                    io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": k}
+                )
+                script = ET.SubElement(
+                    out_param, self.qn(CAMUNDA_NS, "script"), {"scriptFormat": "groovy"}
+                )
                 script.text = v
 
-        ET.SubElement(connector, self.qn(CAMUNDA_NS, "connectorId")).text = "http-connector"
+        ET.SubElement(
+            connector, self.qn(CAMUNDA_NS, "connectorId")
+        ).text = "http-connector"
 
     def _create_script_task(
         self,
@@ -1070,27 +1112,43 @@ class BpmnBuilder:
             # input parameter
             if connector_input_parameters:
                 for param in connector_input_parameters:
-                    input_param = ET.SubElement(io, self.qn(CAMUNDA_NS, "inputParameter"), {"name": param["name"]})
+                    input_param = ET.SubElement(
+                        io,
+                        self.qn(CAMUNDA_NS, "inputParameter"),
+                        {"name": param["name"]},
+                    )
                     if "value" in param:
                         input_param.text = param["value"]
                     if "map" in param:
-                        header_map = ET.SubElement(input_param, self.qn(CAMUNDA_NS, "map"))
+                        header_map = ET.SubElement(
+                            input_param, self.qn(CAMUNDA_NS, "map")
+                        )
                         for k, v in param["map"].items():
-                            ET.SubElement(header_map, self.qn(CAMUNDA_NS, "entry"), {"key": k}).text = v
+                            ET.SubElement(
+                                header_map, self.qn(CAMUNDA_NS, "entry"), {"key": k}
+                            ).text = v
 
             # output parameter
             if connector_output_parameters:
                 for param in connector_output_parameters:
-                    op = ET.SubElement(io, self.qn(CAMUNDA_NS, "outputParameter"), {"name": param["name"]})
+                    op = ET.SubElement(
+                        io,
+                        self.qn(CAMUNDA_NS, "outputParameter"),
+                        {"name": param["name"]},
+                    )
                     if "script" in param:
-                        script = ET.SubElement(op, self.qn(CAMUNDA_NS, "script"), {
-                            "scriptFormat": param.get("scriptFormat", "groovy")
-                        })
+                        script = ET.SubElement(
+                            op,
+                            self.qn(CAMUNDA_NS, "script"),
+                            {"scriptFormat": param.get("scriptFormat", "groovy")},
+                        )
                         script.text = param["script"]
                     elif "value" in param:
                         op.text = param["value"]
 
-            ET.SubElement(connector_el, self.qn(CAMUNDA_NS, "connectorId")).text = connector_id
+            ET.SubElement(
+                connector_el, self.qn(CAMUNDA_NS, "connectorId")
+            ).text = connector_id
 
         # normal script
         ET.SubElement(task, self.qn(BPMN2_NS, "script")).text = script_content
@@ -1128,12 +1186,15 @@ class BpmnBuilder:
                 extra_input_maps={
                     "headers": {
                         "Accept": "application/json",
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
                     }
                 },
                 connector_payload_script=GroovyScript.PAYLOAD_CREATE_DEPLOYMENT_COMMON,
                 connector_output_parameters=[
-                    {"name": "deploymentId", "script": GroovyScript.OUTPUT_DEPLOYMENT_ID_COMMON},
+                    {
+                        "name": "deploymentId",
+                        "script": GroovyScript.OUTPUT_DEPLOYMENT_ID_COMMON,
+                    },
                 ],
             )
 
@@ -1147,7 +1208,7 @@ class BpmnBuilder:
                 extra_input_maps={
                     "headers": {
                         "Accept": "application/json",
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
                     }
                 },
                 connector_payload_script=GroovyScript.PAYLOAD_EXECUTE_JOB_COMMON,
@@ -1166,24 +1227,26 @@ class BpmnBuilder:
                 extra_input_maps={
                     "headers": {
                         "Accept": "application/json",
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
                     }
                 },
                 connector_output_parameters=[
-                    {"name": "resultExecution", "script": GroovyScript.OUTPUT_RESULT_EXECUTION_COMMON},
-                    {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_JOB_COMMON}
+                    {
+                        "name": "resultExecution",
+                        "script": GroovyScript.OUTPUT_RESULT_EXECUTION_COMMON,
+                    },
+                    {
+                        "name": "statusJob",
+                        "script": GroovyScript.OUTPUT_STATUS_JOB_COMMON,
+                    },
                 ],
             )
             self._create_script_task(
-            setvars2_id,
-            "Set Variables",
-            GroovyScript.SCRIPT_SET_VARS_COMMON
+                setvars2_id, "Set Variables", GroovyScript.SCRIPT_SET_VARS_COMMON
             )
         else:
             self._create_script_task(
-            setvars2_id,
-            "Set Variables",
-            GroovyScript.SCRIPT_SET_VARS_CLUSTERING
+                setvars2_id, "Set Variables", GroovyScript.SCRIPT_SET_VARS_CLUSTERING
             )
 
         ET.SubElement(
@@ -1237,7 +1300,7 @@ class BpmnBuilder:
             GroovyScript.SCRIPT_SET_CIRCUIT.format(qasmString=self.qasm_str),
             async_after=True,
             exclusive=True,
-            result_variable="circuit"
+            result_variable="circuit",
         )
 
         self.inserted_chains[start_node] = (
@@ -1282,7 +1345,7 @@ class BpmnBuilder:
             setvars1_id,
             "Set Variables",
             GroovyScript.SCRIPT_SET_VARS_PLACEHOLDER.format(jsonModel=self.model_json),
-            result_variable="matrix"
+            result_variable="matrix",
         )
 
         self._create_service_task(
@@ -1295,7 +1358,7 @@ class BpmnBuilder:
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 }
             },
             connector_payload_script=GroovyScript.PAYLOAD_BACKEND_REQ_PLACEHOLDER,
@@ -1314,12 +1377,15 @@ class BpmnBuilder:
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 }
             },
             connector_output_parameters=[
-                {"name": "status", "script": GroovyScript.OUTPUT_POLL_STATUS_PLACEHOLDER}
-            ]
+                {
+                    "name": "status",
+                    "script": GroovyScript.OUTPUT_POLL_STATUS_PLACEHOLDER,
+                }
+            ],
         )
 
         self._create_service_task(
@@ -1332,7 +1398,7 @@ class BpmnBuilder:
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
                 }
             },
             connector_output_parameters=[
@@ -1361,9 +1427,7 @@ class BpmnBuilder:
         )
 
         ET.SubElement(
-            self.process,
-            self.qn(BPMN2_NS, "endEvent"),
-            {"id": altend1_id, "name": ""}
+            self.process, self.qn(BPMN2_NS, "endEvent"), {"id": altend1_id, "name": ""}
         )
 
         self.inserted_chains[start_node] = (
@@ -1395,7 +1459,9 @@ class BpmnBuilder:
             if node.type == "file":
                 inputs["entityPointsUrl"] = node.value
             elif node.type == "int":
-                if not self.containsPlaceholder: # placeholder is currently just available for number of clusters
+                if (
+                    not self.containsPlaceholder
+                ):  # placeholder is currently just available for number of clusters
                     inputs["numberOfClusters"] = int(node.value)
                 else:
                     inputs["numberOfClusters"] = "${placeholder}"
@@ -1415,7 +1481,7 @@ class BpmnBuilder:
 
         file_url = inputs["entityPointsUrl"]
         num_clusters = inputs["numberOfClusters"]
-        
+
         self._create_service_task(
             call_plugin_id,
             task_name,
@@ -1426,14 +1492,16 @@ class BpmnBuilder:
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/x-www-form-urlencoded",
                 }
             },
             connector_payload_script=GroovyScript.PAYLOAD_CALL_CLUSTERING.format(
-                entityPointsUrl=file_url, 
+                entityPointsUrl=file_url,
                 numberOfClusters=num_clusters,
-                maxIterations=inputs["maxIterations"] if "maxIterations" in inputs else "200", # default value of maxIterations is 200
-                ),
+                maxIterations=inputs["maxIterations"]
+                if "maxIterations" in inputs
+                else "200",  # default value of maxIterations is 200
+            ),
             connector_output_parameters=[
                 {"name": "deploymentId", "script": GroovyScript.OUTPUT_CALL_CLUSTERING},
             ],
@@ -1449,13 +1517,16 @@ class BpmnBuilder:
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded"
+                    "Content-Type": "application/x-www-form-urlencoded",
                 }
             },
             connector_output_parameters=[
-                {"name": "resultExecution", "script": GroovyScript.OUTPUT_RESULT_CLUSTERING},
-                {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_CLUSTERING}
-            ]
+                {
+                    "name": "resultExecution",
+                    "script": GroovyScript.OUTPUT_RESULT_CLUSTERING,
+                },
+                {"name": "statusJob", "script": GroovyScript.OUTPUT_STATUS_CLUSTERING},
+            ],
         )
 
         self.inserted_chains[start_node] = (
@@ -1503,7 +1574,7 @@ class BpmnBuilder:
             elif tgt.endswith("_update_vars"):
                 cond.text = '${status != "completed" && iterations < 10}'
             elif tgt.endswith("_analyze_failed_transf"):
-                cond.text = '${iterations >= 10}'
+                cond.text = "${iterations >= 10}"
         elif src.endswith("_gateway_4"):
             cond = ET.SubElement(
                 sf,
