@@ -86,7 +86,6 @@ import groovy.json.JsonBuilder
 
 // get origin model
 def modelStr = '{jsonModel}'
-def placeholder = execution.getVariable("placeholder")
 
 // parse model
 def modelObj = new JsonSlurper().parseText(modelStr)
@@ -94,10 +93,17 @@ def modelObj = new JsonSlurper().parseText(modelStr)
 // set the compilation_target to qasm
 modelObj.compilation_target = "qasm"
 
-// replace the placeholder within the int node with the users input
+// replace int node values with the placeholder values dynamically
 modelObj.nodes.each {{ node ->
     if (node.type == "int" && (node.value instanceof String)) {{
-        node.value = placeholder
+        def placeholderName = node.value
+        def placeholderValue = execution.getVariable(placeholderName)
+
+        if (placeholderValue != null && placeholderValue.toString().trim() != "") {{
+            node.value = placeholderValue
+        }} else {{
+            throw new RuntimeException("Missing value for placeholder: " + placeholderName)
+        }}
     }}
 }}
 
@@ -105,7 +111,6 @@ modelObj.nodes.each {{ node ->
 def model = new JsonBuilder(modelObj).toPrettyString()
 execution.setVariable("model", model)
 
-println("placeholder: ${{placeholder}}")
 def groupId = execution.getVariable("groupId")
 println "groupId: ${{groupId}}"
 

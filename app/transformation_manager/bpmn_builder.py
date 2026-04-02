@@ -55,6 +55,8 @@ class BpmnBuilder:
             metadata: Process metadata.
             start_event_classical_nodes: List of classical nodes to be inputs on Start Event.
             containsPlaceholder: Whether to generate the placeholder workflow structure.
+            original_request: Original compile request of the model.
+            qasm: The finished qasm string, if it already exists.
         """
         self.original_request = original_request
         self.model_json = json.dumps(self.original_request.model_dump())
@@ -85,6 +87,7 @@ class BpmnBuilder:
         self.update_tasks = {}
         self.alt_ends = defaultdict(list)
         self.alt_end_event_ids = set()
+        self.placeholder_values = {}
 
         self.task_positions_per_node = {}
         self.flow_map_per_node = {}
@@ -135,6 +138,8 @@ class BpmnBuilder:
         Returns:
             A tuple containing the XML string and a list of all activity IDs.
         """
+        print(self.model_json)
+        self.placeholder_values = self.extract_placeholder_values(self.model_json)
 
         self._create_start_event()
         self._create_end_event()
@@ -938,16 +943,18 @@ class BpmnBuilder:
             },
         )
 
-        if self.containsPlaceholder:
-            ET.SubElement(
-                form,
-                self.qn(CAMUNDA_NS, "formField"),
-                {
-                    "id": "placeholder",
-                    "label": "Placeholder",
-                    "type": "string",
-                },
-            )
+        if self.placeholder_values:
+            for placeholder in self.placeholder_values:
+                ET.SubElement(
+                    form,
+                    self.qn(CAMUNDA_NS, "formField"),
+                    {
+                        "id": placeholder,
+                        "label": placeholder,
+                        "type": "string",
+                        "defaultValue": "",
+                    },
+                )
 
     def _create_end_event(self) -> None:
         """Creates the End Event."""
@@ -1596,3 +1603,29 @@ class BpmnBuilder:
         }
         readable = name_map.get(plugin_name, plugin_name.replace("-", " ").title())
         return f"Call {readable} Clustering"
+
+    def extract_placeholder_values(self, model_json):
+        """Extracts all the values of the int nodes if they are not an int"""
+        model_obj = (
+            json.loads(model_json) if isinstance(model_json, str) else model_json
+        )
+        if not isinstance(model_obj, dict):
+            raise TypeError(f"model must be dict, got {type(model_obj).__name__}")
+
+        nodes = model_obj.get("nodes", [])
+        if not isinstance(nodes, list):
+            raise TypeError(f"nodes must be list, got {type(nodes).__name__}")
+
+        placeholders = []
+        seen = set()
+
+        for i, node in enumerate(nodes):
+            if not isinstance(node, dict):
+                raise TypeError(f"nodes[{i}] must be dict, got {type(node).__name__}")
+            if node.get("type") == "int" and isinstance(node.get("value"), str):
+                key = node["value"].strip()
+                if key and key not in seen:
+                    seen.add(key)
+                    placeholders.append(key)
+
+        return placeholders
