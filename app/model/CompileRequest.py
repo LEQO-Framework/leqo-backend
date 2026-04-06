@@ -100,6 +100,8 @@ class ImplementationNode(BaseNode):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+    uncomputeImplementation: str | None = None
+
 
 # region Boundary Nodes
 class EncodeValueNode(BaseNode):
@@ -747,6 +749,7 @@ class SingleInsert(BaseModel):
 
     node: Annotated[EnrichableNode, Field(discriminator="type")]
     implementation: str
+    uncomputeImplementation: str | None = None
     metadata: SingleInsertMetaData
 
 

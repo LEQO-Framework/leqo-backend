@@ -298,11 +298,23 @@ class MergingProcessor(CommonProcessor):
                             requested_input_values=requested_values,
                         ),
                     )
+                ###############test
+
+                implementation_code = enriched_node.implementation
+
+                if isinstance(enriched_node, ImplementationNode):
+                    implementation_code = _attach_uncompute_block(
+                        implementation_code,
+                        enriched_node.uncomputeImplementation,
+                    )
+
                 processed_node = preprocess(
                     ProgramNode(node),
-                    enriched_node.implementation,
+                    implementation_code,
                     requested_inputs,
-                )
+)
+
+
                 if isinstance(frontend_node, EncodeValueNode) and requested_values:
                     missing_constant_inputs = {
                         index
@@ -437,11 +449,20 @@ class EnrichingProcessor(CommonProcessor):
         enriched_node: ImplementationNode,
         requested_inputs: dict[int, LeqoSupportedType],
     ) -> None:
+      
+       #############test
+        implementation_code = _attach_uncompute_block(
+            enriched_node.implementation,
+            enriched_node.uncomputeImplementation,
+        )
+
         self.frontend_to_processed[enriched_node.id] = preprocess(
             ProgramNode(enriched_node.id),
-            enriched_node.implementation,
+            implementation_code,
             requested_inputs,
         )
+
+        
 
     async def _enrich_inner_block(
         self, node: FrontendNode, block: NestedBlock
@@ -868,7 +889,14 @@ class EnrichmentInserter:
         """
         async with AsyncSession(self.engine) as session:
             for insert in self.inserts:
-                processed = preprocess(ProgramNode(name="dummy"), insert.implementation)
+               ## processed = preprocess(ProgramNode(name="dummy"), insert.implementation)
+
+                implementation_code = _attach_uncompute_block(
+                    insert.implementation,
+                    insert.uncomputeImplementation,
+                )
+
+                processed = preprocess(ProgramNode(name="dummy"), implementation_code)
                 requested_inputs = {k: v.type for k, v in processed.io.inputs.items()}
                 actual_width = processed.qubit.get_width()
 
@@ -1050,3 +1078,22 @@ async def generate_qrms(quantum_groups: dict[str, list[ImplementationNode]]) -> 
 
     print("[INFO] Combined QRM ZIP generated successfully")
     return combined_zip_buffer.getvalue()
+
+def _attach_uncompute_block(
+    implementation: str,
+    uncompute_implementation: str | None,
+) -> str:
+    """
+    Attach an optional uncompute implementation as an inline @leqo.uncompute block.
+
+    The optimizer already knows how to activate/deactivate such blocks.
+    """
+    if not uncompute_implementation:
+        return implementation
+
+    return (
+        implementation.rstrip()
+        + "\n\n@leqo.uncompute\nif(false) {\n"
+        + uncompute_implementation.strip()
+        + "\n}\n"
+    )    
