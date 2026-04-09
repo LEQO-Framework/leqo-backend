@@ -753,6 +753,38 @@ class SingleInsert(BaseModel):
     metadata: SingleInsertMetaData
 
 
+    #@model_validator(mode="after")
+    #def _validate_uncompute(self) -> "SingleInsert":
+     #   if (
+      #      self.uncomputeImplementation is not None
+       #     and self.node.type == "measure"
+        #):
+         #   raise ValueError(
+          #      "Measurement nodes must not define uncomputeImplementation."
+           # )
+        # #return self
+
+    @model_validator(mode="after")
+    def _validate_uncompute(self) -> "SingleInsert":
+        if (
+            self.uncomputeImplementation is not None
+            and self.node.type == "measure"
+        ):
+            raise ValueError(
+                "Measurement nodes must not define uncomputeImplementation."
+            )
+
+        if (
+            self.uncomputeImplementation is not None
+            and not self.uncomputeImplementation.strip()
+        ):
+            raise ValueError(
+                "uncomputeImplementation must not be empty."
+            )
+
+        return self   
+
+
 class InsertRequest(BaseModel):
     """
     Models a request for an implementation insert into the enricher.
