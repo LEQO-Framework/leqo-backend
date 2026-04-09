@@ -1,6 +1,13 @@
 from openqasm3.parser import parse
 from openqasm3.printer import dumps
 
+
+from app.openqasm3.printer import leqo_dumps
+from app.transformation_manager.optimize import ApplyUncomputeTransformer
+
+
+
+
 from app.transformation_manager.graph import (
     IOConnection,
     IOInfo,
@@ -335,3 +342,50 @@ def test_simple_avoid_uncompute() -> None:
     let c3_q1 = leqo_reg[{1}];
     """
     assert_optimize(before, expected, io_connections)
+
+
+
+
+
+def test_apply_uncompute_transformer_removes_uncompute_block_when_disabled() -> None:
+    code = """
+    OPENQASM 3.1;
+    qubit q;
+
+    @leqo.uncompute
+    if(false) {
+        x q;
+    }
+    """
+
+    program = parse(code)
+    transformed = ApplyUncomputeTransformer(enable=False).visit(program)
+    dumped = leqo_dumps(transformed)
+
+    assert "@leqo.uncompute" not in dumped
+    assert "if(false)" not in dumped
+    assert "x q;" not in dumped
+
+
+def test_apply_uncompute_transformer_enables_uncompute_block_when_enabled() -> None:
+    code = """
+    OPENQASM 3.1;
+    qubit q;
+
+    @leqo.uncompute
+    if(false) {
+        x q;
+    }
+    """
+
+    program = parse(code)
+    transformed = ApplyUncomputeTransformer(enable=True).visit(program)
+    dumped = leqo_dumps(transformed)
+
+    assert "@leqo.uncompute" not in dumped
+    assert "if(false)" not in dumped
+    assert "x q;" in dumped    
+
+
+
+
