@@ -10,6 +10,12 @@ from app.transformation_manager import _attach_uncompute_block
 from app.transformation_manager.graph import ProgramNode
 from app.transformation_manager.pre import preprocess
 
+from openqasm3.parser import parse
+
+from app.openqasm3.printer import leqo_dumps
+#from app.transformation_manager import _attach_uncompute_block
+from app.transformation_manager.optimize import ApplyUncomputeTransformer
+
 
 def test_attach_uncompute_block_adds_inline_block() -> None:
     implementation = """
@@ -115,4 +121,67 @@ def test_attach_uncompute_block_rejects_empty_uncompute() -> None:
     """
 
     with pytest.raises(ValueError):
-        _attach_uncompute_block(implementation, "   ")            
+        _attach_uncompute_block(implementation, "   ")      
+
+#def test_model_level_uncompute_reaches_optimizer_format() -> None:
+  #  implementation = """
+    #OPENQASM 3.1;          
+    #   qubit q;
+    #  """
+    #   
+    #   
+    #   
+    #  uncompute = """
+    #   @leqo.reusable
+    #   
+    #  let _reuse = q;
+    #  """
+    #   
+    #  code = _attach_uncompute_block(implementation, uncompute)
+    #  enabled_program = parse(code)
+    #  enabled = ApplyUncomputeTransformer(enable=True).visit(enabled_program)
+    # enabled_dump = leqo_dumps(enabled)
+    #   
+    #  disabled_program = parse(code)
+    #   
+    # disabled = ApplyUncomputeTransformer(enable=False).visit(disabled_program)
+    # disabled_dump = leqo_dumps(disabled)
+    #   
+    #   assert "@leqo.reusable" in enabled_dump
+    #  assert "@leqo.uncompute" not in enabled_dump
+    #  assert "if(false)" not in enabled_dump
+    #  assert "@leqo.reusable" not in disabled_dump
+    # assert "@leqo.uncompute" not in disabled_dump
+    # assert "if(false)" not in disabled_dump
+    #            
+
+
+
+def test_model_level_uncompute_reaches_optimizer_format() -> None:
+    implementation = """
+    OPENQASM 3.1;
+    qubit q;
+    """
+
+    uncompute = """
+    @leqo.reusable
+    let _reuse = q;
+    """
+
+    code = _attach_uncompute_block(implementation, uncompute)
+
+    enabled_program = parse(code)
+    enabled = ApplyUncomputeTransformer(enable=True).visit(enabled_program)
+    enabled_dump = leqo_dumps(enabled)
+
+    disabled_program = parse(code)
+    disabled = ApplyUncomputeTransformer(enable=False).visit(disabled_program)
+    disabled_dump = leqo_dumps(disabled)
+
+    assert "@leqo.reusable" in enabled_dump
+    assert "@leqo.uncompute" not in enabled_dump
+    assert "if(false)" not in enabled_dump
+
+    assert "@leqo.reusable" not in disabled_dump
+    assert "@leqo.uncompute" not in disabled_dump
+    assert "if(false)" not in disabled_dump   
