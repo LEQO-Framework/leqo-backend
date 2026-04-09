@@ -51,6 +51,7 @@ from app.transformation_manager.nested.utils import generate_pass_node_implement
 from app.transformation_manager.optimize import optimize
 from app.transformation_manager.post import postprocess
 from app.transformation_manager.pre import preprocess
+#from app.transformation_manager import _attach_uncompute_block
 from app.transformation_manager.pre.utils import PreprocessingException
 from app.utils import not_none
 import xml.etree.ElementTree as ET
@@ -1090,6 +1091,11 @@ def _attach_uncompute_block(
     """
     if not uncompute_implementation:
         return implementation
+    
+
+    ####
+    if not uncompute_implementation.strip():
+        raise ValueError("uncomputeImplementation must not be empty.")
 
     return (
         implementation.rstrip()

@@ -95,3 +95,24 @@ def test_single_insert_rejects_empty_uncompute_implementation() -> None:
             uncomputeImplementation="   ",
             metadata=SingleInsertMetaData(width=1, depth=1),
         )      
+
+def test_attach_uncompute_block_returns_original_if_uncompute_is_none() -> None:
+    implementation = """
+    OPENQASM 3.1;
+    qubit[2] q;
+    """
+
+    result = _attach_uncompute_block(implementation, None)
+
+    assert result == implementation
+
+
+
+def test_attach_uncompute_block_rejects_empty_uncompute() -> None:
+    implementation = """
+    OPENQASM 3.1;
+    qubit[2] q;
+    """
+
+    with pytest.raises(ValueError):
+        _attach_uncompute_block(implementation, "   ")            
