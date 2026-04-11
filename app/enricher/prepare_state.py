@@ -4,10 +4,17 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Prepa
 
 from typing import cast, override
 
+from openqasm3.ast import (
+    Identifier,
+    Include,
+    IntegerLiteral,
+    QuantumGate,
+    QubitDeclaration,
+)
 from sqlalchemy import Select, exists, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.enricher import Constraints
+from app.enricher import Constraints, EnrichmentResult, ImplementationMetaData
 from app.enricher.db_enricher import DataBaseEnricherStrategy
 from app.enricher.exceptions import (
     PrepareStateSizeOutOfRange,
@@ -15,6 +22,7 @@ from app.enricher.exceptions import (
 )
 from app.enricher.models import BaseNode, Input, NodeType, QuantumStateType
 from app.enricher.models import PrepareStateNode as PrepareStateTable
+from app.enricher.utils import implementation, leqo_output
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
@@ -58,6 +66,48 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
                 should_be="equal",
                 expected=0,
             )
+
+    @override
+    async def _enrich_impl(
+        self, node: FrontendNode, constraints: Constraints | None
+    ) -> list[EnrichmentResult]:
+        # Handle Uniform Superposition explicitly without DB lookup
+        if isinstance(node, PrepareStateNode) and node.quantumState == "uniform":
+            self._check_constraints(
+                node, {} if constraints is None else constraints.requested_inputs
+            )
+
+            size = node.size
+            # Create a register of the requested size
+            q_id = Identifier("q")
+            statements = [
+                Include("stdgates.inc"),
+                QubitDeclaration(q_id, IntegerLiteral(size)),
+            ]
+
+            # Apply Hadamard to the entire register (broadcasting)
+            statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("h"),
+                    arguments=[],
+                    qubits=[q_id],
+                    duration=None,
+                )
+            )
+
+            # Output the register
+            statements.append(leqo_output("out", 0, q_id))
+
+            return [
+                EnrichmentResult(
+                    implementation(node, statements),
+                    ImplementationMetaData(width=size, depth=1),
+                )
+            ]
+
+        # Fallback to Database lookup for other states (e.g. GHZ, W-State)
+        return await super()._enrich_impl(node, constraints)
 
     @override
     def _generate_database_node(
