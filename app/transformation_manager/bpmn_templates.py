@@ -189,7 +189,12 @@ return response;"""
 
 PAYLOAD_CALL_CLUSTERING = """import java.net.URLEncoder
 
-def uri = "{entityPointsUrl}"
+def uri = {entityPointsUrlExpr}
+def numClusters = {numberOfClustersExpr}
+def maxIter = {maxIterationsExpr}
+if (maxIter == null || maxIter.toString().trim().isEmpty()) {{
+    maxIter = 200
+}}
 
 def data = [
     "entityPointsUrl=${{URLEncoder.encode(uri, 'UTF-8')}}",

@@ -138,8 +138,7 @@ class BpmnBuilder:
         Returns:
             A tuple containing the XML string and a list of all activity IDs.
         """
-        print(self.model_json)
-        self.placeholder_values = self.extract_placeholder_values(self.model_json)
+        self.placeholder_values = self.extract_placeholder_values()
 
         self._create_start_event()
         self._create_end_event()
@@ -1461,17 +1460,19 @@ class BpmnBuilder:
         poll_job_id = f"Task_{start_node}_poll_job_res"
 
         # Get inputs
-        inputs = {}
-        for node in self.start_event_classical_nodes:
-            if node.type == "file":
-                inputs["entityPointsUrl"] = node.value
-            elif node.type == "int":
-                if (
-                    not self.containsPlaceholder
-                ):  # placeholder is currently just available for number of clusters
-                    inputs["numberOfClusters"] = int(node.value)
-                else:
-                    inputs["numberOfClusters"] = "${placeholder}"
+        num_clusters_value = self.get_plugin_param_value(start_node, "numberOfClusters")
+        entity_points_url_value = self.get_plugin_param_value(
+            start_node, "entityPointsUrl"
+        )
+        max_iterations_value = self.get_plugin_param_value(start_node, "maxIterations")
+
+        num_clusters_expr = self.to_groovy_runtime_or_literal(num_clusters_value)
+        entity_points_url_expr = self.to_groovy_runtime_or_literal(
+            entity_points_url_value
+        )
+        max_iterations_expr = self.to_groovy_runtime_or_literal(
+            max_iterations_value, default=200
+        )
 
         # Get needed parts from common parts
         (
@@ -1484,18 +1485,14 @@ class BpmnBuilder:
         ) = self._create_chain_common(start_node)
 
         # Specific parts
-        task_name = self.get_plugin_task_name(plugin_name)
-
-        file_url = inputs["entityPointsUrl"]
-        num_clusters = inputs["numberOfClusters"]
 
         self._create_service_task(
             call_plugin_id,
-            task_name,
+            name=f"Call {plugin_name} Plugin",
             async_after=True,
             exclusive=False,
             method="POST",
-            url="http://${ipAdress}:${pluginPort}/plugins/classical-k-means@v0-1-1/process/",
+            url="http://${ipAdress}:${pluginPort}/plugins/classical-k-means@v0-1-1/process/",  # TODO: resolve dynamically
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
@@ -1503,11 +1500,9 @@ class BpmnBuilder:
                 }
             },
             connector_payload_script=GroovyScript.PAYLOAD_CALL_CLUSTERING.format(
-                entityPointsUrl=file_url,
-                numberOfClusters=num_clusters,
-                maxIterations=inputs["maxIterations"]
-                if "maxIterations" in inputs
-                else "200",  # default value of maxIterations is 200
+                numberOfClustersExpr=num_clusters_expr,
+                entityPointsUrlExpr=entity_points_url_expr,
+                maxIterationsExpr=max_iterations_expr,
             ),
             connector_output_parameters=[
                 {"name": "deploymentId", "script": GroovyScript.OUTPUT_CALL_CLUSTERING},
@@ -1595,19 +1590,21 @@ class BpmnBuilder:
             elif tgt.endswith("_set_vars_2"):
                 cond.text = '${statusJob == "FINISHED" || statusJob == "SUCCESS"}'
 
-    def get_plugin_task_name(self, plugin_name: str) -> str:
-        name_map = {
-            "classical-k-means": "Classical-K-Means",
-            "classical-k-medoids": "Classical-K-Medoids",
-            "quantum-k-means": "Quantum-K-Means",
-        }
-        readable = name_map.get(plugin_name, plugin_name.replace("-", " ").title())
-        return f"Call {readable} Clustering"
+    #    def get_plugin_task_name(self, plugin_name: str) -> str:
+    #        name_map = {
+    #            "classical-k-means": "Classical-K-Means",
+    #            "classical-k-medoids": "Classical-K-Medoids",
+    #            "quantum-k-means": "Quantum-K-Means",
+    #        }
+    #        readable = name_map.get(plugin_name, plugin_name.replace("-", " ").title())
+    #        return f"Call {readable} Clustering"
 
-    def extract_placeholder_values(self, model_json):
+    def extract_placeholder_values(self):
         """Extracts all the values of the int nodes if they are not an int"""
         model_obj = (
-            json.loads(model_json) if isinstance(model_json, str) else model_json
+            json.loads(self.model_json)
+            if isinstance(self.model_json, str)
+            else self.model_json
         )
         if not isinstance(model_obj, dict):
             raise TypeError(f"model must be dict, got {type(model_obj).__name__}")
@@ -1629,3 +1626,60 @@ class BpmnBuilder:
                     placeholders.append(key)
 
         return placeholders
+
+    def get_plugin_param_value(self, plugin_id: str, param_name: str):
+        """Gets the value of a plugin input parameter via edge mapping"""
+        model_obj = (
+            json.loads(self.model_json)
+            if isinstance(self.model_json, str)
+            else self.model_json
+        )
+        nodes = model_obj.get("nodes", [])
+        edges = model_obj.get("edges", [])
+
+        plugin_node = next(
+            (
+                node
+                for node in nodes
+                if node.get("id") == plugin_id and node.get("type") == "plugin"
+            ),
+            None,
+        )
+        if not plugin_node:
+            return None
+
+        idx = next(
+            (
+                idx
+                for idx, input in enumerate(plugin_node.get("inputs", []))
+                if input.get("parameter") == param_name
+            ),
+            None,
+        )
+        if idx is None:
+            return None
+
+        edge = next(
+            (edge for edge in edges if edge.get("target") == [plugin_id, idx]), None
+        )
+        if not edge:
+            return None
+
+        source_id = edge["source"][0]
+        src = next((node for node in nodes if node.get("id") == source_id), None)
+        return None if src is None else src.get("value")
+
+    def to_groovy_runtime_or_literal(self, value, default=None):
+        # optional: if there is no value
+        if value is None:
+            value = default
+
+        # if it is a string (placeholder) -> process variable
+        if isinstance(value, str):
+            # if string is a digit -> treat as constant value
+            if value.strip().isdigit():
+                return value.strip()
+            return f'execution.getVariable("{value.strip()}")'
+
+        # constant value
+        return str(value)
