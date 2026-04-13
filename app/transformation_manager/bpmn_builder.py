@@ -1467,9 +1467,6 @@ class BpmnBuilder:
         max_iterations_value = self.get_plugin_param_value(start_node, "maxIterations")
 
         num_clusters_expr = self.to_groovy_runtime_or_literal(num_clusters_value)
-        entity_points_url_expr = self.to_groovy_runtime_or_literal(
-            entity_points_url_value
-        )
         max_iterations_expr = self.to_groovy_runtime_or_literal(
             max_iterations_value, default=200
         )
@@ -1501,7 +1498,7 @@ class BpmnBuilder:
             },
             connector_payload_script=GroovyScript.PAYLOAD_CALL_CLUSTERING.format(
                 numberOfClustersExpr=num_clusters_expr,
-                entityPointsUrlExpr=entity_points_url_expr,
+                entityPointsUrl=entity_points_url_value,
                 maxIterationsExpr=max_iterations_expr,
             ),
             connector_output_parameters=[
