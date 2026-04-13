@@ -197,9 +197,9 @@ if (maxIter == null || maxIter.toString().trim().isEmpty()) {{
 }}
 
 def data = [
-    "entityPointsUrl=${{URLEncoder.encode(uri, 'UTF-8')}}",
-    "numClusters={numberOfClusters}",
-    "maxiter={maxIterations}",
+    "entityPointsUrl=${{URLEncoder.encode(uri.toString(), 'UTF-8')}}",
+    "numClusters=${{numClusters}}",
+    "maxiter=${{maxIter}}",
     "relativeResidual=5",
     "visualize=true",
 ]
