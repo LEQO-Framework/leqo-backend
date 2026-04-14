@@ -195,13 +195,13 @@ def maxIter = {maxIterationsExpr}
 if (maxIter == null || maxIter.toString().trim().isEmpty()) {{
     maxIter = 200
 }}
+def tolerance = {toleranceExpr}
+if (tolerance == null || tolerance.toString().trim().isEmpty()) {{
+    tolerance = 0.0
+}}
 
 def data = [
-    "entityPointsUrl=${{URLEncoder.encode(uri, 'UTF-8')}}",
-    "numClusters=${{numClusters}}",
-    "maxiter=${{maxIter}}",
-    "relativeResidual=5",
-    "visualize=true",
+{dataBlock}
 ]
 
 def formData = data.join('&')

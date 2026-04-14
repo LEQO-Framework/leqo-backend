@@ -516,7 +516,7 @@ class EnrichingProcessor(CommonProcessor):
         return [x async for x in self.enrich()]
 
 
-CLASSICAL_TYPES = {"int", "float", "angle", "boolean", "bit", "file"}
+CLASSICAL_TYPES = {"int", "float", "angle", "boolean", "bit", "file", "string"}
 
 
 class WorkflowProcessor(CommonProcessor):

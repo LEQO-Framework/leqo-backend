@@ -104,6 +104,11 @@ class BpmnBuilder:
 
     def _init_xml(self) -> None:
         """Initializes the base XML structure (definitions and process)."""
+        if self.containsPlaceholder:
+            suffix = "contains_placeholder"
+        else:
+            suffix = "no_placeholder"
+
         self.defs = ET.Element(
             self.qn(BPMN2_NS, "definitions"),
             {
@@ -117,7 +122,7 @@ class BpmnBuilder:
             self.defs,
             self.qn(BPMN2_NS, "process"),
             {
-                "id": f"Process_{self.process_id}",
+                "id": f"Process_{self.process_id}_{suffix}",
                 "isExecutable": "true",
                 self.qn(CAMUNDA_NS, "historyTimeToLive"): "360000",
             },
@@ -153,10 +158,8 @@ class BpmnBuilder:
             self.containsPlugin = getattr(node, "type", None) == "plugin"
 
             if self.containsPlugin:
-                plugin_name = getattr(node, "pluginName", None)
-                print("plugin is: ", plugin_name)
                 print("creating plugin flow")
-                self._create_plugin_flow(start_node, plugin_name)
+                self._create_plugin_flow(start_node)
             elif self.containsPlaceholder:
                 print("creating placeholder flow")
                 self._create_placeholder_flow(start_node)
@@ -239,12 +242,11 @@ class BpmnBuilder:
     def _create_plugin_flow(
         self,
         start_node: str,
-        plugin_name: str,
     ) -> None:
         """Creates a flow for plugins."""
 
         # generate the plugin chain
-        self._create_chain_clustering(start_node, plugin_name)
+        self._create_chain_clustering(start_node)
 
         # Layout
         positions = self._calculate_plugin_layout(start_node)
@@ -1451,25 +1453,68 @@ class BpmnBuilder:
             setvars2_id,
         )
 
-    def _create_chain_clustering(self, start_node: str, plugin_name: str) -> None:
+    def _create_chain_clustering(self, start_node: str) -> None:
         """
         Creates a clustering plugin execution chain.
         StartEvent -> Set Variables -> Call Clustering Plugin -> Poll Job Results -> Set Variables -> Analyze Results -> EndEvent
         """
-        call_plugin_id = f"Task_{start_node}_call_plugin"
-        poll_job_id = f"Task_{start_node}_poll_job_res"
-
         # Get inputs
         num_clusters_value = self.get_plugin_param_value(start_node, "numberOfClusters")
         entity_points_url_value = self.get_plugin_param_value(
             start_node, "entityPointsUrl"
         )
+        variant_value = self.get_plugin_param_value(start_node, "variant")
         max_iterations_value = self.get_plugin_param_value(start_node, "maxIterations")
+        tol_value = self.get_plugin_param_value(start_node, "tolerance")
 
         num_clusters_expr = self.to_groovy_runtime_or_literal(num_clusters_value)
         max_iterations_expr = self.to_groovy_runtime_or_literal(
             max_iterations_value, default=200
         )
+        tol_expr = self.to_groovy_runtime_or_literal(tol_value, default=0.0)
+
+        clustering_alg = self.get_clustering_alg_type(start_node)
+        print(clustering_alg)
+        if clustering_alg == "Classical K-Means":
+            plugin_url = "http://${ipAdress}:${pluginPort}/plugins/classical-k-means@v0-1-1/process/"
+            data_block = (
+                "    \"entityPointsUrl=${URLEncoder.encode(uri, 'UTF-8')}\",\n"
+                '    "numClusters=${numClusters}",\n'
+                '    "maxiter=${maxIter}",\n'
+                '    "relativeResidual=5",\n'
+                '    "visualize=true",\n'
+            )
+        elif clustering_alg == "Classical K-Medoids":
+            plugin_url = "http://${ipAdress}:${pluginPort}/plugins/classical-k-medoids@v0-1-1/process/"
+            data_block = (
+                "    \"entityPointsUrl=${URLEncoder.encode(uri, 'UTF-8')}\",\n"
+                '    "numClusters=${numClusters}",\n'
+                '    "maxiter=${maxIter}",\n'
+                '    "initEnum=random",\n'
+                '    "methodEnum=alternate",\n'
+                '    "visualize=true",\n'
+            )
+        elif clustering_alg == "Quantum K-Means":
+            plugin_url = "http://${ipAdress}:${pluginPort}/plugins/quantum-k-means@v0-2-1/process/"
+            data_block = (
+                "    \"entityPointsUrl=${URLEncoder.encode(uri, 'UTF-8')}\",\n"
+                '    "clustersCnt=${numClusters}",\n'
+                f'    "variant={variant_value}",\n'
+                '    "tol=${tolerance}",\n'
+                '    "maxRuns=${maxIter}",\n'
+                '    "backend=aer_statevector_simulator",\n'
+                '    "shots=1024",\n'
+                '    "ibmqToken=***",\n'
+                '    "customBackend=",\n'
+                '    "visualize=true",\n'
+            )
+        else:
+            return "this plugin is not supported yet"
+
+        print(plugin_url)
+
+        call_plugin_id = f"Task_{start_node}_call_plugin"
+        poll_job_id = f"Task_{start_node}_poll_job_res"
 
         # Get needed parts from common parts
         (
@@ -1485,11 +1530,11 @@ class BpmnBuilder:
 
         self._create_service_task(
             call_plugin_id,
-            name=f"Call {plugin_name} Plugin",
+            name=f"Call {clustering_alg} Plugin",
             async_after=True,
             exclusive=False,
             method="POST",
-            url="http://${ipAdress}:${pluginPort}/plugins/classical-k-means@v0-1-1/process/",  # TODO: resolve dynamically
+            url=plugin_url,
             extra_input_maps={
                 "headers": {
                     "Accept": "application/json",
@@ -1500,6 +1545,8 @@ class BpmnBuilder:
                 numberOfClustersExpr=num_clusters_expr,
                 entityPointsUrl=entity_points_url_value,
                 maxIterationsExpr=max_iterations_expr,
+                toleranceExpr=tol_expr,
+                dataBlock=data_block,
             ),
             connector_output_parameters=[
                 {"name": "deploymentId", "script": GroovyScript.OUTPUT_CALL_CLUSTERING},
@@ -1595,6 +1642,39 @@ class BpmnBuilder:
     #        }
     #        readable = name_map.get(plugin_name, plugin_name.replace("-", " ").title())
     #        return f"Call {readable} Clustering"
+
+    def plugin_has_input(self, plugin_id, param_name):
+        """
+        Prüft, ob im Plugin-Knoten mit der gegebenen ID ein Input-Parameter mit dem gegebenen Namen vorhanden ist.
+        """
+        model = (
+            json.loads(self.model_json)
+            if isinstance(self.model_json, str)
+            else self.model_json
+        )
+        nodes = model.get("nodes", [])
+        for node in nodes:
+            if node.get("id") == plugin_id and node.get("type") == "plugin":
+                inputs = node.get("inputs", [])
+                return any(
+                    isinstance(inp, dict) and inp.get("parameter") == param_name
+                    for inp in inputs
+                )
+        return False
+
+    def get_clustering_alg_type(self, plugin_id) -> str:
+        is_kmeans = self.plugin_has_input(plugin_id, "variant")
+        node = self.nodes[plugin_id]
+        plugin_name = getattr(node, "pluginName", None)
+
+        if plugin_name.startswith("Classical") and is_kmeans:
+            return "Classical K-Means"
+        elif plugin_name.startswith("Quantum") and is_kmeans:
+            return "Quantum K-Means"
+        elif plugin_name.startswith("Classical") and not is_kmeans:
+            return "Classical K-Medoids"
+        else:
+            return None
 
     def extract_placeholder_values(self):
         """Extracts all the values of the int nodes if they are not an int"""
