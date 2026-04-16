@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Deutsch-Jozsa Balanced Test",
+    "description": "Testing the DJ algorithm with a balanced oracle (mask=5).",
+    "author": "Mihails-Kica"
+  },
+  "compilation_target": "qasm",
+  "nodes": [
+    {
+      "id": "dj-node-1",
+      "type": "deutsch-jozsa",
+      "label": "Deutsch-Jozsa Algorithm",
+      "numQubits": 3,
+      "oracleType": "balanced",
+      "balancedMask": 13
+    }
+  ],
+  "edges": []
+}

@@ -482,6 +482,32 @@ class AncillaNode(BaseNode):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+    
+class DeutschJozsaNode(BaseNode):
+    """
+    Node representing the Deutsch-Jozsa algorithm with a parameterized oracle.
+    """
+    type: Literal["deutsch-jozsa"] = "deutsch-jozsa"
+
+    oracleType: Literal["constant", "balanced"]
+    """The type of hidden oracle to generate."""
+
+    constantValue: Literal[0, 1] | None = None
+    """The value to return if the oracle is constant."""
+
+    balancedMask: Annotated[int, Field(ge=1)] | None = None
+    """Integer mask dictating CNOT controls for a balanced oracle."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="after")
+    def _validate_oracle_params(self) -> DeutschJozsaNode:
+        if self.oracleType == "constant" and self.constantValue is None:
+            raise ValueError("constantValue must be 0 or 1 for constant oracles.")
+        if self.oracleType == "balanced" and self.balancedMask is None:
+            raise ValueError("balancedMask must be provided for balanced oracles.")
+        # Note: We removed the max_mask check because n is dynamically calculated now!
+        return self
 
 # region ControlFlow
 class NestedBlock(BaseModel):
@@ -575,6 +601,7 @@ NestableNode = (
     | LiteralNode
     | AncillaNode
     | OperatorNode
+    | DeutschJozsaNode
 )
 Node = NestableNode | QubitNode | ControlFlowNode
 
@@ -711,6 +738,7 @@ EnrichableNode = (
     | AncillaNode
     | OperatorNode
     | QubitNode
+    | DeutschJozsaNode
 )
 
 

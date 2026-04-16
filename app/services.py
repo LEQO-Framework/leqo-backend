@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import (
 from app.config import Settings
 from app.db_migrations import apply_migrations
 from app.enricher import Enricher
+from app.enricher.deutsch_jozsa import DeutschJozsaEnricherStrategy
 from app.enricher.encode_value import EncodeValueEnricherStrategy
 from app.enricher.gates import GateEnricherStrategy
 from app.enricher.literals import LiteralEnricherStrategy
@@ -96,6 +97,7 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         MergerEnricherStrategy(),
         EncodeValueEnricherStrategy(engine),
         PrepareStateEnricherStrategy(engine),
+        DeutschJozsaEnricherStrategy(),
     ]
     if HAS_QISKIT:
         strategies.append(QiskitPrepareStateEnricherStrategy())
