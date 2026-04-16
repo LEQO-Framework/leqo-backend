@@ -12,7 +12,6 @@ The steps are:
 - upcast inputs if they are too small for the required spec
 """
 
-
 from copy import copy
 from openqasm3.ast import AliasStatement, Concatenation, Identifier, Statement, Program
 
@@ -41,32 +40,34 @@ def flatten_concat(expr):
         return flatten_concat(expr.lhs) + flatten_concat(expr.rhs)
     return []
 
+
 # expand
 def expand_unary_concat_broadcast(program: Program) -> Program:
     # handle the case of unary gates applied to concatenations, e.g. h q; where let q = a ++ b;
     cmap = {}
-    for st in program.statements: # find statements with concatenations on the rhs of an alias, e.g. let q = a ++ b;
+    for st in program.statements:  # find statements with concatenations on the rhs of an alias, e.g. let q = a ++ b;
         if (
             isinstance(st, AliasStatement)
             and isinstance(st.target, Identifier)
             and isinstance(st.value, Concatenation)
         ):
-            elems = flatten_concat(st.value) # flatten the concatenation to get the individual identifiers, e.g. a ++ b -> [a, b]
+            elems = flatten_concat(
+                st.value
+            )  # flatten the concatenation to get the individual identifiers, e.g. a ++ b -> [a, b]
             if len(elems) >= 2:
                 cmap[st.target.name] = elems
-   
+
     if not cmap:
         return program
 
-    new_statements: list[Statement] = []   
-      # replace statements with unary gates applied to concatenations with multiple statements, e.g. h q; -> h a; h b;
+    new_statements: list[Statement] = []
+    # replace statements with unary gates applied to concatenations with multiple statements, e.g. h q; -> h a; h b;
     for st in program.statements:
         qubits = getattr(st, "qubits", None)
 
         # unary gate like: h q;
         if qubits and len(qubits) == 1 and isinstance(qubits[0], Identifier):
             name = qubits[0].name
-
 
             if name in cmap:
                 for elem in cmap[name]:
@@ -103,11 +104,11 @@ def preprocess(
             ast = parse_to_openqasm3(implementation)
 
         # handle the case of unary gates applied to concatenations, e.g. h q; where let q = a ++ b;
-        ast = expand_unary_concat_broadcast(ast)   # 
+        ast = expand_unary_concat_broadcast(ast)  #
 
         ast = RenameRegisterTransformer().visit(ast, node.id)
         ast = cast_to_program(InliningTransformer().visit(ast))
-     
+
         io = IOInfo()
         qubit = QubitInfo()
         _ = ParseAnnotationsVisitor(io, qubit).visit(ast)

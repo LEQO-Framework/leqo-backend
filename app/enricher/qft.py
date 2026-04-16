@@ -23,10 +23,10 @@ from app.enricher import (
 )
 from app.enricher.exceptions import EnricherException
 from app.enricher.utils import implementation, leqo_input, leqo_output
-from app.model.CompileRequest import QFTNode
 from app.model.CompileRequest import (
     Node as FrontendNode,
 )
+from app.model.CompileRequest import QFTNode
 from app.model.data_types import QubitType as LeqoQubitType
 from app.model.exceptions import (
     InputCountMismatch,
@@ -35,9 +35,7 @@ from app.model.exceptions import (
 )
 
 
-def _validate_qft_constraints(
-    constraints: Constraints | None, node: QFTNode
-) -> int:
+def _validate_qft_constraints(constraints: Constraints | None, node: QFTNode) -> int:
     """
     Validate constraints for QFT implementations.
 
@@ -47,16 +45,6 @@ def _validate_qft_constraints(
     :param node: QFT node the constraints are for.
     :return: Size of the input register.
     """
-
-
-
-    #Check for exactly one input
-    # if constraints is None or len(constraints.requested_inputs) != 1:
-     #   raise InputCountMismatch(
-       #     node,
-      #      actual=len(constraints.requested_inputs) if constraints else 0,
-        #    expected=1,
-        
 
     if constraints is None or len(constraints.requested_inputs) != 1:
         raise InputCountMismatch(
@@ -84,15 +72,6 @@ def _validate_qft_constraints(
 
     return size
 
-
-
-
- #Check for exactly one input
-    # if constraints is None or len(constraints.requested_inputs) != 1:
-     #   r
-       #     node,
-      #      actual=len(constraints.requested_inputs) if constraints else 0,
-        #    ındex hınzugefügt,
 
 def _q(index: int) -> IndexedIdentifier:
     """
@@ -123,19 +102,6 @@ def _build_qft_statements(size: int) -> list[Statement]:
                 duration=None,
             )
         )
-
-
-        #for control in range(target + 1, size):
-           # angle = pi / (2 ** (control - target))
-            #statements.append(
-             #   QuantumGate(
-               #     modifiers=[],
-              #3      name=Identifier("cp"),
-               #     arguments=[FloatLiteral(angle)],
-               
-          
-        #    )
-        #
 
         for control in range(target + 1, size):
             angle = pi / (2 ** (control - target))
@@ -189,11 +155,6 @@ class QFTEnricherStrategy(EnricherStrategy):
             *_build_qft_statements(size),
             leqo_output("q_out", 0, Identifier("q")),
         ]
-
-
-        # return EnrichmentResult(
-           # implementation(node,s),
-            
 
         return EnrichmentResult(
             implementation(node, statements),
