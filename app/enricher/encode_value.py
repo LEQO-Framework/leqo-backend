@@ -4,7 +4,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Encod
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from math import pi
+from math import pi, sqrt
 from typing import Any, cast, override
 
 from openqasm3 import ast
@@ -511,32 +511,19 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         elif isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             values = self._coerce_array_constant_value(classical_input, raw_value)
-            element_type = self._get_element_type(classical_input)
-            is_float_type = isinstance(
-                element_type, (data_types.FloatType, ast.FloatType)
-            )
-            is_float_data = len(values) > 0 and isinstance(values[0], float)
-
-            if is_float_type or is_float_data or values:
-                float_vals = [float(v) for v in values]
-                if not float_vals:
-                    final_rotations = {}
-                else:
-                    min_v = min(float_vals)
-                    max_v = max(float_vals)
-                    if max_v > min_v:
-                        final_rotations = {
-                            index: ((v - min_v) / (max_v - min_v)) * (pi / 2)
-                            for index, v in enumerate(float_vals)
-                        }
-                    else:
-                        final_rotations = {
-                            index: max(0.0, min(v, pi / 2))
-                            for index, v in enumerate(float_vals)
-                        }
-            else:
+            float_vals = [float(v) for v in values]
+            if not float_vals:
                 length = self._get_array_length(classical_input)
                 final_rotations = dict.fromkeys(range(length), 0.0)
+            else:
+                norm = sqrt(sum(v**2 for v in float_vals))
+                if norm > 0:
+                    final_rotations = {
+                        index: (v / norm)
+                        for index, v in enumerate(float_vals)
+                    }
+                else:
+                    final_rotations = {index: 0.0 for index in range(len(float_vals))}
 
         elif isinstance(classical_input, data_types.IntType):
             v = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
@@ -741,7 +728,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         for index in range(register_size):
             angle = rotation_map.get(index)
-            if angle:
+            if angle is not None and angle != 0.0:
                 rotation_value = 2 * angle
                 target = ast.IndexedIdentifier(
                     qubit_identifier, [[ast.IntegerLiteral(index)]]
@@ -790,7 +777,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         for index in sorted(rotation_map):
             angle = rotation_map[index]
-            if angle != 0:
+            if angle is not None and angle != 0.0:
                 rotation_value = 2 * angle
                 target = ast.IndexedIdentifier(
                     qubit_identifier, [[ast.IntegerLiteral(index)]]
