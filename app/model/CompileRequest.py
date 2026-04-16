@@ -316,6 +316,19 @@ class ParameterizedGateNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
+class QFTNode(BaseNode):
+    """
+    Node representing the Quantum Fourier Transform on a qubit register.
+    """
+
+    type: Literal["qft"] = "qft"
+
+    size: int = Field(gt=0)
+    """Number of qubits the QFT acts on."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
 # region Literals
 class BitLiteralNode(BaseNode):
     """
@@ -571,11 +584,14 @@ NestableNode = (
     ImplementationNode
     | BoundaryNode
     | GateNode
+    | QFTNode
     | ParameterizedGateNode
     | LiteralNode
     | AncillaNode
     | OperatorNode
 )
+
+
 Node = NestableNode | QubitNode | ControlFlowNode
 
 
@@ -707,6 +723,7 @@ EnrichableNode = (
     BoundaryNode
     | GateNode
     | ParameterizedGateNode
+    | QFTNode
     | LiteralNode
     | AncillaNode
     | OperatorNode
