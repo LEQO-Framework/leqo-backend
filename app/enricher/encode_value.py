@@ -523,7 +523,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                         for index, v in enumerate(float_vals)
                     }
                 else:
-                    final_rotations = {index: 0.0 for index in range(len(float_vals))}
+                    final_rotations = dict.fromkeys(range(len(float_vals)), 0.0)
 
         elif isinstance(classical_input, data_types.IntType):
             v = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
