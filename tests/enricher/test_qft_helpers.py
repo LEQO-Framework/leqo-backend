@@ -59,10 +59,6 @@ def test_qft_and_iqft_have_same_gate_count_size_3():
 
     # For size 3:
     # 3 H gates + 3 CP gates + 1 SWAP = 7 total
-   # assert len(forward) == 7  # noqa: ERA001
-
-   # For size 3:
-# 3 H gates + 3 CP gates + 1 SWAP = 7 total
     expected_gate_count = 7
     assert len(forward) == expected_gate_count
 
@@ -82,7 +78,6 @@ def test_inverse_qft_negates_cp_angles_size_3():
 
     for fwd, inv in zip(forward_cp_angles, reversed(inverse_cp_angles), strict=True):
         assert inv == pytest.approx(-fwd)
-
 
 
 def _stmt_to_qasm(stmt: QuantumGate) -> str:
