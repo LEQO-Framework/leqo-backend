@@ -80,52 +80,94 @@ def _q(index: int) -> IndexedIdentifier:
     return IndexedIdentifier(Identifier("q"), [[IntegerLiteral(index)]])
 
 
-def _build_qft_statements(size: int) -> list[Statement]:
+def _build_qft_statements(size: int, inverse: bool = False) -> list[Statement]:
     """
-    Build the QFT gate sequence for a register q[size].
+    Build the QFT or IQFT gate sequence for a register q[size].
 
-    The implementation follows the standard forward QFT pattern:
+    Forward QFT:
     - Hadamard on each qubit
     - Controlled phase rotations with decreasing angles
     - Final swaps to reverse qubit order
+
+    Inverse QFT:
+    - Initial swaps
+    - Reverse controlled phase rotations with negated angles
+    - Hadamard in reverse order
     """
 
     statements: list[Statement] = []
 
-    for target in range(size):
-        statements.append(
-            QuantumGate(
-                modifiers=[],
-                name=Identifier("h"),
-                arguments=[],
-                qubits=[_q(target)],
-                duration=None,
-            )
-        )
-
-        for control in range(target + 1, size):
-            angle = pi / (2 ** (control - target))
+    if not inverse:
+        for target in range(size):
             statements.append(
                 QuantumGate(
                     modifiers=[],
-                    name=Identifier("cp"),
-                    arguments=[FloatLiteral(angle)],
-                    qubits=[_q(control), _q(target)],
+                    name=Identifier("h"),
+                    arguments=[],
+                    qubits=[_q(target)],
                     duration=None,
                 )
             )
 
-    for left in range(size // 2):
-        right = size - left - 1
-        statements.append(
-            QuantumGate(
-                modifiers=[],
-                name=Identifier("swap"),
-                arguments=[],
-                qubits=[_q(left), _q(right)],
-                duration=None,
+            for control in range(target + 1, size):
+                angle = pi / (2 ** (control - target))
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("cp"),
+                        arguments=[FloatLiteral(angle)],
+                        qubits=[_q(control), _q(target)],
+                        duration=None,
+                    )
+                )
+
+        for left in range(size // 2):
+            right = size - left - 1
+            statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("swap"),
+                    arguments=[],
+                    qubits=[_q(left), _q(right)],
+                    duration=None,
+                )
             )
-        )
+
+    else:
+        for left in range(size // 2):
+            right = size - left - 1
+            statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("swap"),
+                    arguments=[],
+                    qubits=[_q(left), _q(right)],
+                    duration=None,
+                )
+            )
+
+        for target in reversed(range(size)):
+            for control in reversed(range(target + 1, size)):
+                angle = -pi / (2 ** (control - target))
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("cp"),
+                        arguments=[FloatLiteral(angle)],
+                        qubits=[_q(control), _q(target)],
+                        duration=None,
+                    )
+                )
+
+            statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("h"),
+                    arguments=[],
+                    qubits=[_q(target)],
+                    duration=None,
+                )
+            )
 
     return statements
 
@@ -152,7 +194,7 @@ class QFTEnricherStrategy(EnricherStrategy):
         statements = [
             Include("stdgates.inc"),
             leqo_input("q", 0, size),
-            *_build_qft_statements(size),
+            *_build_qft_statements(size, inverse=False),
             leqo_output("q_out", 0, Identifier("q")),
         ]
 
