@@ -13,7 +13,7 @@
       "label": "Deutsch-Jozsa Algorithm",
       "numQubits": 3,
       "oracleType": "balanced",
-      "balancedMask": 13
+      "balancedMask": 7
     }
   ],
   "edges": []

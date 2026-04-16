@@ -30,14 +30,10 @@ class DeutschJozsaEnricherStrategy(EnricherStrategy):
         if not isinstance(node, DeutschJozsaNode):
             return []
 
-        if node.oracleType == "balanced":
-            mask = node.balancedMask or 1
-            n = mask.bit_length()  # e.g., 13 (1101) --> 4 qubits
-        else:
-            n = 1  # For a constant oracle, 1 query qubit is enough
+        n = node.numQubits
         statements: list[Statement] = [Include("stdgates.inc")]
 
-        # 1. Register Declarations (Removed Classical Result Array)
+        # 1. Register Declarations
         q_reg = Identifier("query")
         t_reg = Identifier("target")
 
@@ -61,6 +57,7 @@ class DeutschJozsaEnricherStrategy(EnricherStrategy):
         else:
             mask = node.balancedMask or 1
             for i in range(n):
+                # Apply CNOT if the i-th bit of the mask is 1
                 if (mask >> i) & 1:
                     control_target = [
                         IndexedIdentifier(q_reg, [[IntegerLiteral(i)]]),

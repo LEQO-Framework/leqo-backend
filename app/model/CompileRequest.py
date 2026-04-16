@@ -489,6 +489,9 @@ class DeutschJozsaNode(BaseNode):
     """
     type: Literal["deutsch-jozsa"] = "deutsch-jozsa"
 
+    numQubits: Annotated[int, Field(gt=0)]
+    """The number of query qubits (n) for the oracle."""
+
     oracleType: Literal["constant", "balanced"]
     """The type of hidden oracle to generate."""
 
@@ -504,9 +507,14 @@ class DeutschJozsaNode(BaseNode):
     def _validate_oracle_params(self) -> DeutschJozsaNode:
         if self.oracleType == "constant" and self.constantValue is None:
             raise ValueError("constantValue must be 0 or 1 for constant oracles.")
-        if self.oracleType == "balanced" and self.balancedMask is None:
-            raise ValueError("balancedMask must be provided for balanced oracles.")
-        # Note: We removed the max_mask check because n is dynamically calculated now!
+        
+        if self.oracleType == "balanced":
+            if self.balancedMask is None:
+                raise ValueError("balancedMask must be provided for balanced oracles.")
+            # Ensure the mask isn't larger than the available qubits can handle
+            if self.balancedMask >= (1 << self.numQubits):
+                raise ValueError(f"balancedMask {self.balancedMask} is too large for {self.numQubits} query qubits.")
+        
         return self
 
 # region ControlFlow
