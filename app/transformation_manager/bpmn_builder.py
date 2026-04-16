@@ -58,8 +58,8 @@ class BpmnBuilder:
             original_request: Original compile request of the model.
             qasm: The finished qasm string, if it already exists.
         """
-        self.original_request = original_request
-        self.model_json = json.dumps(self.original_request.model_dump())
+        self.original_request = original_request.model_dump()
+        self.model_json = json.dumps(self.original_request)
 
         self.process_id = process_id
         self.nodes = nodes
@@ -69,6 +69,7 @@ class BpmnBuilder:
         self.containsPlaceholder = containsPlaceholder
         self.containsPlugin = False
         self.qasm_str = qasm
+        self.placeholder_values = []
 
         self.chain_level = 0
         self.chain_heads = []
@@ -87,7 +88,6 @@ class BpmnBuilder:
         self.update_tasks = {}
         self.alt_ends = defaultdict(list)
         self.alt_end_event_ids = set()
-        self.placeholder_values = {}
 
         self.task_positions_per_node = {}
         self.flow_map_per_node = {}
@@ -104,6 +104,11 @@ class BpmnBuilder:
 
     def _init_xml(self) -> None:
         """Initializes the base XML structure (definitions and process)."""
+        self.placeholder_values = self.extract_placeholder_values()
+        # the containsPlaceholder flag from the frontend is sometimes wrong, this tries to correct it
+        if not self.placeholder_values:
+            self.containsPlaceholder = False
+
         if self.containsPlaceholder:
             suffix = "contains_placeholder"
         else:
@@ -143,8 +148,6 @@ class BpmnBuilder:
         Returns:
             A tuple containing the XML string and a list of all activity IDs.
         """
-        self.placeholder_values = self.extract_placeholder_values()
-
         self._create_start_event()
         self._create_end_event()
 
@@ -1464,6 +1467,7 @@ class BpmnBuilder:
             start_node, "entityPointsUrl"
         )
         variant_value = self.get_plugin_param_value(start_node, "variant")
+        print("variant_value: ", variant_value)
         max_iterations_value = self.get_plugin_param_value(start_node, "maxIterations")
         tol_value = self.get_plugin_param_value(start_node, "tolerance")
 
@@ -1645,14 +1649,9 @@ class BpmnBuilder:
 
     def plugin_has_input(self, plugin_id, param_name):
         """
-        Prüft, ob im Plugin-Knoten mit der gegebenen ID ein Input-Parameter mit dem gegebenen Namen vorhanden ist.
+        Checks, if the plugin node contains the specified input parameter
         """
-        model = (
-            json.loads(self.model_json)
-            if isinstance(self.model_json, str)
-            else self.model_json
-        )
-        nodes = model.get("nodes", [])
+        nodes = self.original_request.get("nodes", [])
         for node in nodes:
             if node.get("id") == plugin_id and node.get("type") == "plugin":
                 inputs = node.get("inputs", [])
@@ -1663,6 +1662,10 @@ class BpmnBuilder:
         return False
 
     def get_clustering_alg_type(self, plugin_id) -> str:
+        """
+        A workaround method to get the algorithm type, since the compile request does not contain this data
+        -> only works for classical k-means, classical k-medoids and quantum k-means
+        """
         is_kmeans = self.plugin_has_input(plugin_id, "variant")
         node = self.nodes[plugin_id]
         plugin_name = getattr(node, "pluginName", None)
@@ -1678,15 +1681,10 @@ class BpmnBuilder:
 
     def extract_placeholder_values(self):
         """Extracts all the values of the int nodes if they are not an int"""
-        model_obj = (
-            json.loads(self.model_json)
-            if isinstance(self.model_json, str)
-            else self.model_json
-        )
-        if not isinstance(model_obj, dict):
-            raise TypeError(f"model must be dict, got {type(model_obj).__name__}")
+        if not isinstance(self.original_request, dict):
+            raise TypeError(f"model must be dict, got {type(self.original_request).__name__}")
 
-        nodes = model_obj.get("nodes", [])
+        nodes = self.original_request.get("nodes", [])
         if not isinstance(nodes, list):
             raise TypeError(f"nodes must be list, got {type(nodes).__name__}")
 
@@ -1706,20 +1704,11 @@ class BpmnBuilder:
 
     def get_plugin_param_value(self, plugin_id: str, param_name: str):
         """Gets the value of a plugin input parameter via edge mapping"""
-        model_obj = (
-            json.loads(self.model_json)
-            if isinstance(self.model_json, str)
-            else self.model_json
-        )
-        nodes = model_obj.get("nodes", [])
-        edges = model_obj.get("edges", [])
+        nodes = self.original_request.get("nodes", [])
+        edges = self.original_request.get("edges", [])
 
         plugin_node = next(
-            (
-                node
-                for node in nodes
-                if node.get("id") == plugin_id and node.get("type") == "plugin"
-            ),
+            (node for node in nodes if node.get("id") == plugin_id and node.get("type") == "plugin"),
             None,
         )
         if not plugin_node:
@@ -1737,21 +1726,26 @@ class BpmnBuilder:
             return None
 
         edge = next(
-            (edge for edge in edges if edge.get("target") == [plugin_id, idx]), None
+            (
+                edge for edge in edges
+                if tuple(edge.get("target", (None, None))) == (plugin_id, idx)
+            ),
+            None,
         )
         if not edge:
             return None
 
-        source_id = edge["source"][0]
-        src = next((node for node in nodes if node.get("id") == source_id), None)
-        return None if src is None else src.get("value")
+        source_node_id = tuple(edge.get("source", (None, None)))[0]
+        source_node = next((node for node in nodes if node.get("id") == source_node_id), None)
+
+        return None if source_node is None else source_node.get("value")
 
     def to_groovy_runtime_or_literal(self, value, default=None):
         # optional: if there is no value
         if value is None:
             value = default
 
-        # if it is a string (placeholder) -> process variable
+        # if it is a string (placeholder) -> create process variable
         if isinstance(value, str):
             # if string is a digit -> treat as constant value
             if value.strip().isdigit():
