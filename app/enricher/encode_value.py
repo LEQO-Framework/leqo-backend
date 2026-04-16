@@ -519,8 +519,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 norm = sqrt(sum(v**2 for v in float_vals))
                 if norm > 0:
                     final_rotations = {
-                        index: (v / norm)
-                        for index, v in enumerate(float_vals)
+                        index: (v / norm) for index, v in enumerate(float_vals)
                     }
                 else:
                     final_rotations = dict.fromkeys(range(len(float_vals)), 0.0)
