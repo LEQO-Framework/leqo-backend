@@ -1682,7 +1682,9 @@ class BpmnBuilder:
     def extract_placeholder_values(self):
         """Extracts all the values of the int nodes if they are not an int"""
         if not isinstance(self.original_request, dict):
-            raise TypeError(f"model must be dict, got {type(self.original_request).__name__}")
+            raise TypeError(
+                f"model must be dict, got {type(self.original_request).__name__}"
+            )
 
         nodes = self.original_request.get("nodes", [])
         if not isinstance(nodes, list):
@@ -1708,7 +1710,11 @@ class BpmnBuilder:
         edges = self.original_request.get("edges", [])
 
         plugin_node = next(
-            (node for node in nodes if node.get("id") == plugin_id and node.get("type") == "plugin"),
+            (
+                node
+                for node in nodes
+                if node.get("id") == plugin_id and node.get("type") == "plugin"
+            ),
             None,
         )
         if not plugin_node:
@@ -1727,7 +1733,8 @@ class BpmnBuilder:
 
         edge = next(
             (
-                edge for edge in edges
+                edge
+                for edge in edges
                 if tuple(edge.get("target", (None, None))) == (plugin_id, idx)
             ),
             None,
@@ -1736,7 +1743,9 @@ class BpmnBuilder:
             return None
 
         source_node_id = tuple(edge.get("source", (None, None)))[0]
-        source_node = next((node for node in nodes if node.get("id") == source_node_id), None)
+        source_node = next(
+            (node for node in nodes if node.get("id") == source_node_id), None
+        )
 
         return None if source_node is None else source_node.get("value")
 
