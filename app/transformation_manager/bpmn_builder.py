@@ -1490,7 +1490,9 @@ class BpmnBuilder:
         min_samples_expr = self.to_groovy_runtime_or_literal(min_samples_value)
 
         max_epsilon_value = self.get_plugin_param_value(start_node, "maxEps")
-        max_epsilon_expr = self.to_groovy_runtime_or_literal(max_epsilon_value, default=-1)
+        max_epsilon_expr = self.to_groovy_runtime_or_literal(
+            max_epsilon_value, default=-1
+        )
 
         clustering_alg = self.get_clustering_alg(start_node)
         print(clustering_alg)
@@ -1688,9 +1690,7 @@ class BpmnBuilder:
         suffix = getattr(node, "clusteringAlgorithm", None)
         clustering_alg = prefix + " " + suffix
 
-        return name_map.get(
-            clustering_alg, clustering_alg.replace("-", " ").title()
-        )
+        return name_map.get(clustering_alg, clustering_alg.replace("-", " ").title())
 
     def plugin_has_input(self, plugin_id, param_name):
         """
