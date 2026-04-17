@@ -192,12 +192,24 @@ PAYLOAD_CALL_CLUSTERING = """import java.net.URLEncoder
 def uri = "{entityPointsUrl}"
 def numClusters = {numberOfClustersExpr}
 def maxIter = {maxIterationsExpr}
+def relativeResidual = {relativeResidualExpr}
+def minSamples = {minSamplesExpr}
+if (numClusters == null || numClusters.toString().trim().isEmpty()) {{
+    numClusters = 3
+}}
+if (relativeResidual == null || relativeResidual.toString().trim().isEmpty()) {{
+    relativeResidual = 5
+}}
 if (maxIter == null || maxIter.toString().trim().isEmpty()) {{
     maxIter = 200
 }}
 def tolerance = {toleranceExpr}
 if (tolerance == null || tolerance.toString().trim().isEmpty()) {{
     tolerance = 0.0
+}}
+def maxEps = {maxEpsilonExpr}
+if (maxEps == null || maxEps.toString().trim().isEmpty()) {{
+    maxEps = -1
 }}
 
 def data = [

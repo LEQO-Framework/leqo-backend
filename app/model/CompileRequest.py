@@ -614,6 +614,9 @@ class PluginNode(BaseNode):
     pluginName: str
     """Name of the plugin"""
 
+    clusteringAlgorithm: str
+    """Selected clustering algorithm of the ML Node"""
+
     inputs: list[Any] = []
     """Possible inputs"""
 

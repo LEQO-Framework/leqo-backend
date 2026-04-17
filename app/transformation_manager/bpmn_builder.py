@@ -1463,29 +1463,63 @@ class BpmnBuilder:
         """
         # Get inputs
         num_clusters_value = self.get_plugin_param_value(start_node, "numberOfClusters")
+        num_clusters_expr = self.to_groovy_runtime_or_literal(num_clusters_value)
+
         entity_points_url_value = self.get_plugin_param_value(
             start_node, "entityPointsUrl"
         )
-        variant_value = self.get_plugin_param_value(start_node, "variant")
-        print("variant_value: ", variant_value)
-        max_iterations_value = self.get_plugin_param_value(start_node, "maxIterations")
-        tol_value = self.get_plugin_param_value(start_node, "tolerance")
 
-        num_clusters_expr = self.to_groovy_runtime_or_literal(num_clusters_value)
+        variant_value = self.get_plugin_param_value(start_node, "variant")
+
+        relative_residual_value = self.get_plugin_param_value(
+            start_node, "relativeResidual"
+        )
+        relative_residual_expr = self.to_groovy_runtime_or_literal(
+            relative_residual_value
+        )
+
+        max_iterations_value = self.get_plugin_param_value(start_node, "maxIterations")
         max_iterations_expr = self.to_groovy_runtime_or_literal(
             max_iterations_value, default=200
         )
+
+        tol_value = self.get_plugin_param_value(start_node, "tolerance")
         tol_expr = self.to_groovy_runtime_or_literal(tol_value, default=0.0)
 
-        clustering_alg = self.get_clustering_alg_type(start_node)
+        min_samples_value = self.get_plugin_param_value(start_node, "minSamples")
+        min_samples_expr = self.to_groovy_runtime_or_literal(min_samples_value)
+
+        max_epsilon_value = self.get_plugin_param_value(start_node, "maxEps")
+        max_epsilon_expr = self.to_groovy_runtime_or_literal(max_epsilon_value, default=-1)
+
+        clustering_alg = self.get_clustering_alg(start_node)
         print(clustering_alg)
+
         if clustering_alg == "Classical K-Means":
             plugin_url = "http://${ipAdress}:${pluginPort}/plugins/classical-k-means@v0-1-1/process/"
             data_block = (
                 "    \"entityPointsUrl=${URLEncoder.encode(uri, 'UTF-8')}\",\n"
                 '    "numClusters=${numClusters}",\n'
                 '    "maxiter=${maxIter}",\n'
-                '    "relativeResidual=5",\n'
+                '    "relativeResidual=${relativeResidual}",\n'
+                '    "visualize=true",\n'
+            )
+        elif clustering_alg == "Classical OPTICS":
+            plugin_url = (
+                "http://${ipAdress}:${pluginPort}/plugins/optics@v0-1-1/process/"
+            )
+            data_block = (
+                "    \"entityPointsUrl=${URLEncoder.encode(uri, 'UTF-8')}\",\n"
+                '    "methodEnum=xi",\n'
+                '    "minSamples=${minSamples}",\n'
+                '    "maxEpsilon=${maxEps}",\n'
+                '    "epsilon=-1",\n'
+                '    "xi=0.05",\n'
+                '    "minClusterSize=-1",\n'
+                '    "algorithmEnum=auto",\n'
+                '    "leafSize=30",\n'
+                '    "metricEnum=braycurtis",\n'
+                '    "minkowskiP=2",\n'
                 '    "visualize=true",\n'
             )
         elif clustering_alg == "Classical K-Medoids":
@@ -1503,7 +1537,7 @@ class BpmnBuilder:
             data_block = (
                 "    \"entityPointsUrl=${URLEncoder.encode(uri, 'UTF-8')}\",\n"
                 '    "clustersCnt=${numClusters}",\n'
-                f'    "variant={variant_value}",\n'
+                f'   "variant={variant_value}",\n'
                 '    "tol=${tolerance}",\n'
                 '    "maxRuns=${maxIter}",\n'
                 '    "backend=aer_statevector_simulator",\n'
@@ -1514,8 +1548,6 @@ class BpmnBuilder:
             )
         else:
             return "this plugin is not supported yet"
-
-        print(plugin_url)
 
         call_plugin_id = f"Task_{start_node}_call_plugin"
         poll_job_id = f"Task_{start_node}_poll_job_res"
@@ -1534,7 +1566,7 @@ class BpmnBuilder:
 
         self._create_service_task(
             call_plugin_id,
-            name=f"Call {clustering_alg} Plugin",
+            name=f"Call {clustering_alg}",
             async_after=True,
             exclusive=False,
             method="POST",
@@ -1550,6 +1582,9 @@ class BpmnBuilder:
                 entityPointsUrl=entity_points_url_value,
                 maxIterationsExpr=max_iterations_expr,
                 toleranceExpr=tol_expr,
+                relativeResidualExpr=relative_residual_expr,
+                minSamplesExpr=min_samples_expr,
+                maxEpsilonExpr=max_epsilon_expr,
                 dataBlock=data_block,
             ),
             connector_output_parameters=[
@@ -1638,14 +1673,24 @@ class BpmnBuilder:
             elif tgt.endswith("_set_vars_2"):
                 cond.text = '${statusJob == "FINISHED" || statusJob == "SUCCESS"}'
 
-    #    def get_plugin_task_name(self, plugin_name: str) -> str:
-    #        name_map = {
-    #            "classical-k-means": "Classical-K-Means",
-    #            "classical-k-medoids": "Classical-K-Medoids",
-    #            "quantum-k-means": "Quantum-K-Means",
-    #        }
-    #        readable = name_map.get(plugin_name, plugin_name.replace("-", " ").title())
-    #        return f"Call {readable} Clustering"
+    def get_clustering_alg(self, plugin_id: str) -> str:
+        """Gets the clustering algorithm type and puts it together into a pretty string"""
+        name_map = {
+            "Classical k-means": "Classical K-Means",
+            "Classical k-medoids": "Classical K-Medoids",
+            "Classical optics": "Classical OPTICS",
+            "Quantum k-means": "Quantum K-Means",
+        }
+
+        node = self.nodes[plugin_id]
+        plugin_name = getattr(node, "pluginName", None)
+        prefix = plugin_name.split(maxsplit=1)[0]
+        suffix = getattr(node, "clusteringAlgorithm", None)
+        clustering_alg = prefix + " " + suffix
+
+        return name_map.get(
+            clustering_alg, clustering_alg.replace("-", " ").title()
+        )
 
     def plugin_has_input(self, plugin_id, param_name):
         """
@@ -1660,24 +1705,6 @@ class BpmnBuilder:
                     for inp in inputs
                 )
         return False
-
-    def get_clustering_alg_type(self, plugin_id) -> str:
-        """
-        A workaround method to get the algorithm type, since the compile request does not contain this data
-        -> only works for classical k-means, classical k-medoids and quantum k-means
-        """
-        is_kmeans = self.plugin_has_input(plugin_id, "variant")
-        node = self.nodes[plugin_id]
-        plugin_name = getattr(node, "pluginName", None)
-
-        if plugin_name.startswith("Classical") and is_kmeans:
-            return "Classical K-Means"
-        elif plugin_name.startswith("Quantum") and is_kmeans:
-            return "Quantum K-Means"
-        elif plugin_name.startswith("Classical") and not is_kmeans:
-            return "Classical K-Medoids"
-        else:
-            return None
 
     def extract_placeholder_values(self):
         """Extracts all the values of the int nodes if they are not an int"""
@@ -1753,6 +1780,10 @@ class BpmnBuilder:
         # optional: if there is no value
         if value is None:
             value = default
+
+        # still None -> Groovy null
+        if value is None:
+            return "null"
 
         # if it is a string (placeholder) -> create process variable
         if isinstance(value, str):
