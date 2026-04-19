@@ -1469,8 +1469,6 @@ class BpmnBuilder:
             start_node, "entityPointsUrl"
         )
 
-        variant_value = self.get_plugin_param_value(start_node, "variant")
-
         relative_residual_value = self.get_plugin_param_value(
             start_node, "relativeResidual"
         )
@@ -1489,10 +1487,28 @@ class BpmnBuilder:
         min_samples_value = self.get_plugin_param_value(start_node, "minSamples")
         min_samples_expr = self.to_groovy_runtime_or_literal(min_samples_value)
 
-        max_epsilon_value = self.get_plugin_param_value(start_node, "maxEps")
+        max_epsilon_value = self.get_plugin_param_value(start_node, "maxDistance")
         max_epsilon_expr = self.to_groovy_runtime_or_literal(
             max_epsilon_value, default=-1
         )
+
+        min_cluster_size_value = self.get_plugin_param_value(
+            start_node, "minClusterSize"
+        )
+        min_cluster_size_expr = self.to_groovy_runtime_or_literal(
+            min_cluster_size_value
+        )
+
+        leaf_size_value = self.get_plugin_param_value(start_node, "leafSize")
+        leaf_size_expr = self.to_groovy_runtime_or_literal(leaf_size_value)
+
+        epsilon_value = self.get_plugin_param_value(start_node, "epsilon")
+        epsilon_expr = self.to_groovy_runtime_or_literal(epsilon_value)
+
+        min_steepness_value = self.get_plugin_param_value(start_node, "minSteepness")
+        min_steepness_expr = self.to_groovy_runtime_or_literal(min_steepness_value)
+
+        node = self.nodes[start_node]
 
         clustering_alg = self.get_clustering_alg(start_node)
         print(clustering_alg)
@@ -1510,36 +1526,42 @@ class BpmnBuilder:
             plugin_url = (
                 "http://${ipAdress}:${pluginPort}/plugins/optics@v0-1-1/process/"
             )
+            algorithm = getattr(node, "algorithmEnum", None)
+            method = getattr(node, "methodEnum", None)
+            metric = getattr(node, "metricEnum", None)
             data_block = (
                 "    \"entityPointsUrl=${URLEncoder.encode(uri, 'UTF-8')}\",\n"
-                '    "methodEnum=xi",\n'
+                f'    "methodEnum={method}",\n'
                 '    "minSamples=${minSamples}",\n'
                 '    "maxEpsilon=${maxEps}",\n'
-                '    "epsilon=-1",\n'
-                '    "xi=0.05",\n'
-                '    "minClusterSize=-1",\n'
-                '    "algorithmEnum=auto",\n'
-                '    "leafSize=30",\n'
-                '    "metricEnum=braycurtis",\n'
+                '    "epsilon=${epsilon}",\n'
+                '    "xi=${minSteepness}",\n'
+                '    "minClusterSize=${minClusterSize}",\n'
+                f'    "algorithmEnum={algorithm}",\n'
+                '    "leafSize=${leafSize}",\n'
+                f'    "metricEnum={metric}",\n'
                 '    "minkowskiP=2",\n'
                 '    "visualize=true",\n'
             )
         elif clustering_alg == "Classical K-Medoids":
             plugin_url = "http://${ipAdress}:${pluginPort}/plugins/classical-k-medoids@v0-1-1/process/"
+            initEnum = getattr(node, "initEnum", None)
+            algorithm = getattr(node, "algorithmEnum", None)
             data_block = (
                 "    \"entityPointsUrl=${URLEncoder.encode(uri, 'UTF-8')}\",\n"
                 '    "numClusters=${numClusters}",\n'
                 '    "maxiter=${maxIter}",\n'
-                '    "initEnum=random",\n'
-                '    "methodEnum=alternate",\n'
+                f'    "initEnum={initEnum}",\n'
+                f'    "methodEnum={algorithm}",\n'
                 '    "visualize=true",\n'
             )
         elif clustering_alg == "Quantum K-Means":
             plugin_url = "http://${ipAdress}:${pluginPort}/plugins/quantum-k-means@v0-2-1/process/"
+            variant_value = getattr(node, "variant", None)
             data_block = (
                 "    \"entityPointsUrl=${URLEncoder.encode(uri, 'UTF-8')}\",\n"
                 '    "clustersCnt=${numClusters}",\n'
-                f'   "variant={variant_value}",\n'
+                f'    "variant={variant_value}",\n'
                 '    "tol=${tolerance}",\n'
                 '    "maxRuns=${maxIter}",\n'
                 '    "backend=aer_statevector_simulator",\n'
@@ -1587,6 +1609,10 @@ class BpmnBuilder:
                 relativeResidualExpr=relative_residual_expr,
                 minSamplesExpr=min_samples_expr,
                 maxEpsilonExpr=max_epsilon_expr,
+                minClusterSizeExpr=min_cluster_size_expr,
+                leafSizeExpr=leaf_size_expr,
+                epsilonExpr=epsilon_expr,
+                minSteepnessExpr=min_steepness_expr,
                 dataBlock=data_block,
             ),
             connector_output_parameters=[
@@ -1787,10 +1813,13 @@ class BpmnBuilder:
 
         # if it is a string (placeholder) -> create process variable
         if isinstance(value, str):
-            # if string is a digit -> treat as constant value
-            if value.strip().isdigit():
-                return value.strip()
-            return f'execution.getVariable("{value.strip()}")'
+            s = value.strip()
+            # treat numeric strings (int/float/scientific) as literals
+            try:
+                float(s)
+                return s
+            except ValueError:
+                return f'execution.getVariable("{s}")'
 
         # constant value
         return str(value)

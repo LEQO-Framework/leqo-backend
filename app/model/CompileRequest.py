@@ -476,7 +476,7 @@ class FileLiteralNode(BaseNode):
     type: Literal["file"] = "file"
 
     value: str
-    """The url"""
+    """The url navigating to the file."""
 
 
 class StringLiteralNode(BaseNode):
@@ -614,14 +614,24 @@ class PluginNode(BaseNode):
     pluginName: str
     """Name of the plugin"""
 
-    clusteringAlgorithm: str
-    """Selected clustering algorithm of the ML Node"""
+    clusteringAlgorithm: str | None = None
+    """Selected clustering algorithm of the ML Node."""
+
+    variant: str | None = None
+
+    initEnum: str | None = None
+
+    algorithmEnum: str | None = None
+
+    methodEnum: str | None = None
+
+    metricEnum: str | None = None
 
     inputs: list[Any] = []
-    """Possible inputs"""
+    """Possible inputs."""
 
     outputs: list[Any] = []
-    """Possible outputs"""
+    """Possible outputs."""
 
 
 NestableNode = (

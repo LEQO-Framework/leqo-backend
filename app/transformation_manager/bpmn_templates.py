@@ -194,6 +194,10 @@ def numClusters = {numberOfClustersExpr}
 def maxIter = {maxIterationsExpr}
 def relativeResidual = {relativeResidualExpr}
 def minSamples = {minSamplesExpr}
+def minClusterSize = {minClusterSizeExpr}
+def leafSize = {leafSizeExpr}
+def epsilon = {epsilonExpr}
+def minSteepness = {minSteepnessExpr}
 if (numClusters == null || numClusters.toString().trim().isEmpty()) {{
     numClusters = 3
 }}
