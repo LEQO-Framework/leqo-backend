@@ -1751,6 +1751,9 @@ class BpmnBuilder:
                 raise TypeError(f"nodes[{i}] must be dict, got {type(node).__name__}")
             if node.get("type") == "int" and isinstance(node.get("value"), str):
                 key = node["value"].strip()
+                # quick fix to determine float
+                if "." in key:
+                    continue
                 if key and key not in seen:
                     seen.add(key)
                     placeholders.append(key)
