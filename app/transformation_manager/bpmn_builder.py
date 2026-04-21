@@ -41,7 +41,6 @@ class BpmnBuilder:
         edges: list[tuple[str, str]],
         metadata: dict[str, Any] | None = None,
         start_event_classical_nodes: list[Any] | None = None,
-        containsPlaceholder: bool = False,
         original_request: CompileRequest | None = None,
         qasm: str | None = None,
     ):
@@ -66,7 +65,7 @@ class BpmnBuilder:
         self.edges = edges
         self.metadata = metadata or {}
         self.start_event_classical_nodes = start_event_classical_nodes or []
-        self.containsPlaceholder = containsPlaceholder
+        self.containsPlaceholder = False
         self.containsPlugin = False
         self.qasm_str = qasm
         self.placeholder_values = []
@@ -105,9 +104,10 @@ class BpmnBuilder:
     def _init_xml(self) -> None:
         """Initializes the base XML structure (definitions and process)."""
         self.placeholder_values = self.extract_placeholder_values()
-        # the containsPlaceholder flag from the frontend is sometimes wrong, this tries to correct it
-        if not self.placeholder_values:
-            self.containsPlaceholder = False
+        # containsPlaceholder flag is determined in the backend
+        if self.placeholder_values:
+            self.containsPlaceholder = True
+        print("containsPlaceholder: ", self.containsPlaceholder)
 
         if self.containsPlaceholder:
             suffix = "contains_placeholder"

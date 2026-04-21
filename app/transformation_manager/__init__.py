@@ -596,7 +596,6 @@ class WorkflowProcessor(CommonProcessor):
                     for node in nodes_dict.values()
                     if getattr(node, "type", None) in CLASSICAL_TYPES
                 ],
-                containsPlaceholder=self.original_request.metadata.containsPlaceholder,
                 original_request=self.original_request,
                 qasm=self.result,
             )
@@ -936,7 +935,6 @@ def _implementation_nodes_to_bpmn_xml(
     edges: list[tuple[str, str]],
     metadata: dict[str, dict[str, Any]] | None = None,
     start_event_classical_nodes: list[Any] | None = None,
-    containsPlaceholder: bool = False,
     original_request: CompileRequest | None = None,
     qasm: str | None = None,
 ) -> tuple[str, list[str]]:
@@ -955,7 +953,6 @@ def _implementation_nodes_to_bpmn_xml(
         f"edges={edges}\n"
         f"metadata={metadata}\n"
         f"start_event_classical_nodes={start_event_classical_nodes}\n"
-        f"containsPlaceholder={containsPlaceholder}\n"
     )
 
     builder = BpmnBuilder(
@@ -964,7 +961,6 @@ def _implementation_nodes_to_bpmn_xml(
         edges=edges,
         metadata=metadata,
         start_event_classical_nodes=start_event_classical_nodes,
-        containsPlaceholder=containsPlaceholder,
         original_request=original_request,
         qasm=qasm,
     )
