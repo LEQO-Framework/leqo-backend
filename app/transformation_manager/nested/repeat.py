@@ -39,7 +39,8 @@ def unroll_repeat(
 
         result = FrontendGraph()
         entry_node = ParsedImplementationNode(
-            id=f"leqo_{parent_id.hex}_repeat_entry", implementation=deepcopy(pass_node_impl)
+            id=f"leqo_{parent_id.hex}_repeat_entry",
+            implementation=deepcopy(pass_node_impl)
         )
         result.append_node(entry_node)
         prev_id = entry_node.id
@@ -78,7 +79,7 @@ def unroll_repeat(
 
         result.rename_nodes({exit_node.id: node.id})
         return (entry_node.id, exit_node.id, result)
-        
+
     except Exception as exc:
         msg = f"Failed to unroll Repeat block. Please check the internal wiring of the nodes inside the loop. Details: {exc}"
         raise RepeatException(msg, node) from exc

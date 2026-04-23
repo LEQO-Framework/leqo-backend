@@ -49,11 +49,11 @@ def parse_condition(value: str, node: IfThenElseNode) -> Expression:
         parsed_program = parse(f"if({value}) {{}}")
         if not parsed_program.statements:
             raise ValueError("Condition parsed to an empty statement.")
-        
+
         if_then_else_ast = parsed_program.statements[0]
         if not isinstance(if_then_else_ast, BranchingStatement):
             raise ValueError("Parsed statement is not a valid branching condition.")
-            
+
         return if_then_else_ast.condition
     except Exception as exc:
         msg = f"Failed to parse If-condition '{value}'. Ensure it is a valid OpenQASM 3 boolean expression. Details: {exc}"
