@@ -26,21 +26,38 @@ from app.transformation_manager.graph import ProgramGraph, ProgramNode
 from app.transformation_manager.merge import merge_if_nodes
 from app.transformation_manager.nested.utils import generate_pass_node_implementation
 from app.transformation_manager.post import postprocess
+from app.transformation_manager.utils import ProcessingException
 
 
-def parse_condition(value: str) -> Expression:
+class IfThenElseException(ProcessingException):
+    """
+    Exception raised during if-then-else node processing.
+    """
+
+
+def parse_condition(value: str, node: IfThenElseNode) -> Expression:
     """
     Parse condition used in if-then-else.
 
     It uses a simple wrapper to leverage the parser provided by openqasm3.
 
     :param value: condition string from the frontend
+    :param node: The node being processed, used to attach error context
     :return: parsed expression in AST
     """
-    if_then_else_ast = parse(f"if({value}) {{}}").statements[0]
-    if not isinstance(if_then_else_ast, BranchingStatement):
-        raise RuntimeError()
-    return if_then_else_ast.condition
+    try:
+        parsed_program = parse(f"if({value}) {{}}")
+        if not parsed_program.statements:
+            raise ValueError("Condition parsed to an empty statement.")
+
+        if_then_else_ast = parsed_program.statements[0]
+        if not isinstance(if_then_else_ast, BranchingStatement):
+            raise ValueError("Parsed statement is not a valid branching condition.")
+
+        return if_then_else_ast.condition
+    except Exception as exc:
+        msg = f"Failed to parse If-condition '{value}'. Ensure it is a valid OpenQASM 3 boolean expression. Details: {exc}"
+        raise IfThenElseException(msg, node) from exc
 
 
 async def enrich_if_then_else(
@@ -99,7 +116,7 @@ async def enrich_if_then_else(
         )
     )
 
-    condition = parse_condition(node.condition)
+    condition = parse_condition(node.condition, node)
     renames = {}
     for identifier, index in frontend_name_to_index.items():
         renames[identifier] = then_graph.node_data[if_node].io.inputs[index].name
