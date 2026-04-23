@@ -356,7 +356,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 raise InputSizeMismatch(node, 0, actual=size, expected=1)
             res = size
         return res
-    
+
     def _float_to_fixed_point_indices(
         self, value: float, element_size: int
     ) -> list[int]:
