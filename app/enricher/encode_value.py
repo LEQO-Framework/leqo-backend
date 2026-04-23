@@ -321,7 +321,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         elif isinstance(classical_input, ast.ArrayType):
             res = self._get_array_length(classical_input)
         elif isinstance(classical_input, ast.FloatType):
-            res = 1
+            res = int(classical_input.size.value if hasattr(classical_input, "size") and classical_input.size else 32)
         else:
             size = 0
             match classical_input:
@@ -334,7 +334,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 case data_types.BitType():
                     size = classical_input.size or 1
                 case data_types.FloatType():
-                    size = 1
+                    size = classical_input.size if hasattr(classical_input, "size") and classical_input.size else 32
                 case _:
                     if hasattr(classical_input, "size") and isinstance(
                         classical_input.size, int
@@ -348,6 +348,16 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 raise InputSizeMismatch(node, 0, actual=size, expected=1)
             res = size
         return res
+    
+    def _float_to_fixed_point_indices(self, value: float, element_size: int) -> list[int]:
+        """
+        Approximates a floating point number into a fixed-point binary representation
+        and returns the indices of the '1' bits. Dynamically scales fractional precision.
+        """
+        fractional_bits = element_size // 2
+        scaled_value = int(round(value * (1 << fractional_bits)))
+        mask = scaled_value & ((1 << element_size) - 1)
+        return [index for index in range(element_size) if (mask >> index) & 1]
 
     def _constant_basis_indices(
         self,
@@ -356,14 +366,34 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         raw_value: Any,
     ) -> list[int]:
         if isinstance(classical_input, data_types.FloatType):
-            raise RuntimeError("FloatType not supported for basis encoding")
+            try:
+                v = float(raw_value.value if hasattr(raw_value, "value") else raw_value)
+                return self._float_to_fixed_point_indices(v, register_size)
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError("Unsupported float input for basis encoding") from exc
 
         if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             values = self._coerce_array_constant_value(classical_input, raw_value)
             element_type = self._get_element_type(classical_input)
 
             if isinstance(element_type, (data_types.FloatType, ast.FloatType)):
-                raise RuntimeError("Float Array not supported for basis encoding")
+                if hasattr(element_type, "size") and element_type.size:
+                    element_size = int(element_type.size.value if hasattr(element_type.size, "value") else element_type.size)
+                else:
+                    element_size = 32
+                mask_limit = (1 << element_size) - 1
+                fractional_bits = element_size // 2
+                indices: list[int] = []
+                for element_index, element_value in enumerate(values):
+                    scaled_val = int(round(float(element_value) * (1 << fractional_bits)))
+                    mask = scaled_val & mask_limit
+                    base_offset = element_index * element_size
+                    indices.extend(
+                        base_offset + bit
+                        for bit in range(element_size)
+                        if (mask >> bit) & 1
+                    )
+                return indices
 
             if hasattr(element_type, "size"):
                 element_size = element_type.size
@@ -833,9 +863,13 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 collection=value_identifier,
                 index=[ast.IntegerLiteral(element_index)],
             )
+            is_float = isinstance(element_type, (data_types.FloatType, ast.FloatType))
+            shift_target = element_expr
+            if is_float:
+                shift_target = ast.Cast(ast.IntegerType(), element_expr)
             shifted = ast.BinaryExpression(
                 ast.BinaryOperator[">>"],
-                element_expr,
+                shift_target,
                 ast.IntegerLiteral(bit_index),
             )
             masked = ast.BinaryExpression(
@@ -881,6 +915,21 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                     ast.IntegerLiteral(1),
                 )
             case data_types.FloatType():
-                raise RuntimeError("FloatType not supported for basis encoding")
+                int_cast = ast.Cast(ast.IntegerType(), value_identifier)
+                shifted = ast.BinaryExpression(
+                    ast.BinaryOperator[">>"],
+                    int_cast,
+                    ast.IntegerLiteral(index),
+                )
+                masked = ast.BinaryExpression(
+                    ast.BinaryOperator["&"],
+                    shifted,
+                    ast.IntegerLiteral(1),
+                )
+                return ast.BinaryExpression(
+                    ast.BinaryOperator["=="],
+                    masked,
+                    ast.IntegerLiteral(1),
+                )
             case _:
                 raise RuntimeError("Unsupported classical input for basis encoding")
