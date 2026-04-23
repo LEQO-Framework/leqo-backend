@@ -365,7 +365,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         and returns the indices of the '1' bits. Dynamically scales fractional precision.
         """
         fractional_bits = element_size // 2
-        scaled_value = int(round(value * (1 << fractional_bits)))
+        scaled_value = round(value * (1 << fractional_bits))
         mask = scaled_value & ((1 << element_size) - 1)
         return [index for index in range(element_size) if (mask >> index) & 1]
 
@@ -392,7 +392,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             fractional_bits = element_size // 2
             indices: list[int] = []
             for element_index, element_value in enumerate(values):
-                scaled_val = int(round(float(element_value) * (1 << fractional_bits)))
+                scaled_val = round(float(element_value) * (1 << fractional_bits))
                 mask = scaled_val & mask_limit
                 base_offset = element_index * element_size
                 indices.extend(
@@ -404,9 +404,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
         if hasattr(element_type, "size"):
             element_size = element_type.size
-        elif isinstance(element_type, ast.ArrayType) or hasattr(
-            element_type, "value"
-        ):
+        elif isinstance(element_type, ast.ArrayType) or hasattr(element_type, "value"):
             element_size = element_type.value
         else:
             element_size = 32
@@ -421,9 +419,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             mask = int(element_value) & mask_limit
             base_offset = element_index * element_size
             indices.extend(
-                base_offset + bit
-                for bit in range(element_size)
-                if (mask >> bit) & 1
+                base_offset + bit for bit in range(element_size) if (mask >> bit) & 1
             )
         return indices
 
