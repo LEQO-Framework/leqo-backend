@@ -369,6 +369,64 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         mask = scaled_value & ((1 << element_size) - 1)
         return [index for index in range(element_size) if (mask >> index) & 1]
 
+    def _array_basis_indices(
+        self,
+        classical_input: data_types.LeqoSupportedClassicalType,
+        raw_value: Any,
+    ) -> list[int]:
+        """Helper method to handle array logic, reducing branch complexity."""
+        values = self._coerce_array_constant_value(classical_input, raw_value)
+        element_type = self._get_element_type(classical_input)
+
+        if isinstance(element_type, (data_types.FloatType, ast.FloatType)):
+            if hasattr(element_type, "size") and element_type.size:
+                element_size = int(
+                    element_type.size.value
+                    if hasattr(element_type.size, "value")
+                    else element_type.size
+                )
+            else:
+                element_size = 32
+
+            mask_limit = (1 << element_size) - 1
+            fractional_bits = element_size // 2
+            indices: list[int] = []
+            for element_index, element_value in enumerate(values):
+                scaled_val = int(round(float(element_value) * (1 << fractional_bits)))
+                mask = scaled_val & mask_limit
+                base_offset = element_index * element_size
+                indices.extend(
+                    base_offset + bit
+                    for bit in range(element_size)
+                    if (mask >> bit) & 1
+                )
+            return indices
+
+        if hasattr(element_type, "size"):
+            element_size = element_type.size
+        elif isinstance(element_type, ast.ArrayType) or hasattr(
+            element_type, "value"
+        ):
+            element_size = element_type.value
+        else:
+            element_size = 32
+
+        if hasattr(element_size, "value"):
+            element_size = element_size.value
+        element_size = int(element_size)
+
+        mask_limit = (1 << element_size) - 1
+        indices = []
+        for element_index, element_value in enumerate(values):
+            mask = int(element_value) & mask_limit
+            base_offset = element_index * element_size
+            indices.extend(
+                base_offset + bit
+                for bit in range(element_size)
+                if (mask >> bit) & 1
+            )
+        return indices
+
     def _constant_basis_indices(
         self,
         classical_input: data_types.LeqoSupportedClassicalType,
@@ -377,11 +435,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     ) -> list[int]:
         if isinstance(classical_input, data_types.FloatType):
             try:
-                v = float(
-                    raw_value.value
-                    if hasattr(raw_value, "value")
-                    else raw_value
-                )
+                v = float(raw_value.value if hasattr(raw_value, "value") else raw_value)
                 return self._float_to_fixed_point_indices(v, register_size)
             except (TypeError, ValueError) as exc:
                 raise RuntimeError(
@@ -389,59 +443,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 ) from exc
 
         if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
-            values = self._coerce_array_constant_value(classical_input, raw_value)
-            element_type = self._get_element_type(classical_input)
-
-            if isinstance(element_type, (data_types.FloatType, ast.FloatType)):
-                if hasattr(element_type, "size") and element_type.size:
-                    element_size = int(
-                        element_type.size.value
-                        if hasattr(element_type.size, "value")
-                        else element_type.size
-                    )
-                else:
-                    element_size = 32
-
-                mask_limit = (1 << element_size) - 1
-                fractional_bits = element_size // 2
-                indices: list[int] = []
-                for element_index, element_value in enumerate(values):
-                    scaled_val = int(
-                        round(float(element_value) * (1 << fractional_bits))
-                    )
-                    mask = scaled_val & mask_limit
-                    base_offset = element_index * element_size
-                    indices.extend(
-                        base_offset + bit
-                        for bit in range(element_size)
-                        if (mask >> bit) & 1
-                    )
-                return indices
-
-            if hasattr(element_type, "size"):
-                element_size = element_type.size
-            elif isinstance(element_type, ast.ArrayType) or hasattr(
-                element_type, "value"
-            ):
-                element_size = element_type.value
-            else:
-                element_size = 32
-
-            if hasattr(element_size, "value"):
-                element_size = element_size.value
-            element_size = int(element_size)
-
-            mask_limit = (1 << element_size) - 1
-            indices: list[int] = []
-            for element_index, element_value in enumerate(values):
-                mask = int(element_value) & mask_limit
-                base_offset = element_index * element_size
-                indices.extend(
-                    base_offset + bit
-                    for bit in range(element_size)
-                    if (mask >> bit) & 1
-                )
-            return indices
+            return self._array_basis_indices(classical_input, raw_value)
 
         try:
             value = int(raw_value)
