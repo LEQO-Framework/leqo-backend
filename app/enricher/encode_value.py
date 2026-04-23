@@ -324,7 +324,8 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             res = int(
                 classical_input.size.value
                 if hasattr(classical_input, "size") and classical_input.size
-                else 32)
+                else 32
+            )
         else:
             size = 0
             match classical_input:
@@ -356,14 +357,15 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             res = size
         return res
     
-    def _float_to_fixed_point_indices(self, value: float, element_size: int) -> list[int]:
+    def _float_to_fixed_point_indices(
+        self, value: float, element_size: int
+    ) -> list[int]:
         """
         Approximates a floating point number into a fixed-point binary representation
         and returns the indices of the '1' bits. Dynamically scales fractional precision.
         """
         fractional_bits = element_size // 2
         scaled_value = int(round(value * (1 << fractional_bits)))
-
         mask = scaled_value & ((1 << element_size) - 1)
         return [index for index in range(element_size) if (mask >> index) & 1]
 
