@@ -40,7 +40,7 @@ def unroll_repeat(
         result = FrontendGraph()
         entry_node = ParsedImplementationNode(
             id=f"leqo_{parent_id.hex}_repeat_entry",
-            implementation=deepcopy(pass_node_impl)
+            implementation=deepcopy(pass_node_impl),
         )
         result.append_node(entry_node)
         prev_id = entry_node.id
