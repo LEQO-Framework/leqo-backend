@@ -46,6 +46,14 @@ class BraketProvider(BaseSDKProvider):
             )
         ]
 
+    def declare_classical_var(self, name: str, ast_type: Any, init_expr: Optional[ast.expr] = None) -> List[ast.stmt]:
+        return [
+            ast.Assign(
+                targets=[ast.Name(id=name, ctx=ast.Store())],
+                value=init_expr if init_expr is not None else ast.Constant(value=None),
+            )
+        ]
+
     def gate(self, name: str, qubits: List[ast.expr], args: List[ast.expr]) -> ast.stmt:
         # Resolve qubits to their integer indices if possible
         resolved_qubits = []
@@ -152,5 +160,15 @@ class BraketProvider(BaseSDKProvider):
         op_map = {"!": ast.Not(), "~": ast.Invert(), "-": ast.USub()}
         return ast.UnaryOp(op=op_map.get(op, ast.Not()), operand=expression)
 
+    def cast_expression(self, expression: ast.expr, ast_type: Any) -> ast.expr:
+        if isinstance(ast_type, qast.BoolType):
+            builtin = "bool"
+        elif isinstance(ast_type, (qast.FloatType, qast.AngleType)):
+            builtin = "float"
+        else:
+            builtin = "int"
+        return ast.Call(func=ast.Name(id=builtin, ctx=ast.Load()), args=[expression], keywords=[])
+
     def get_imports(self) -> List[ast.stmt]:
         return [ast.parse(imp).body[0] for imp in sorted(self.used_imports)]
+

@@ -26,6 +26,16 @@ class BaseSDKProvider(ABC):
         pass
 
     @abstractmethod
+    def declare_classical_var(
+        self,
+        name: str,
+        ast_type: Any,
+        init_expr: Optional[ast.expr] = None,
+    ) -> List[ast.stmt]:
+        """Declare internal classical state."""
+        pass
+
+    @abstractmethod
     def gate(self, name: str, qubits: List[ast.expr], args: List[ast.expr]) -> ast.stmt:
         """Apply a quantum gate."""
         pass
@@ -80,6 +90,11 @@ class BaseSDKProvider(ABC):
         """Map a unary operator to the SDK's classical logic."""
         pass
 
+    @abstractmethod
+    def cast_expression(self, expression: ast.expr, ast_type: Any) -> ast.expr:
+        """Cast an expression into the SDK's supported type representation."""
+        pass
+
 
 class UniversalTranspiler:
     """
@@ -89,6 +104,7 @@ class UniversalTranspiler:
 
     def __init__(self, provider: BaseSDKProvider):
         self.provider = provider
+        self.annotated_outputs: dict[int, ast.expr] = {}
 
     def visit(self, node: Any) -> Union[ast.expr, ast.stmt, List[ast.stmt], None]:
         if node is None:
@@ -108,7 +124,7 @@ class UniversalTranspiler:
         return visitor(node)
 
     def generic_visit(self, node: Any):
-        return ast.Expr(value=ast.Constant(value=f"TODO: Implement {type(node).__name__}"))
+        raise NotImplementedError(f"Unsupported OpenQASM node: {type(node).__name__}")
 
     def visit_Program(self, node: qast.Program) -> str:
         body = self.provider.start_program()
@@ -122,6 +138,7 @@ class UniversalTranspiler:
                 body.append(res)
 
         body.extend(self.provider.end_program())
+        body.extend(self._build_program_outputs_mapping())
         
         # Prepend imports collected during traversal
         final_body = self.provider.get_imports() + body
@@ -140,24 +157,42 @@ class UniversalTranspiler:
         size = 1
         if hasattr(node.type, "size") and node.type.size:
             size = int(self.resolve_literal(node.type.size))
-        
-        stmts = self.provider.declare_bit(name, size)
-        
-        if hasattr(node, "init_expression") and node.init_expression:
-            if isinstance(node.init_expression, qast.QuantumMeasurement):
-                qubit_expr = self.visit(node.init_expression.qubit)
-                stmts.append(self.provider.measure(qubit_expr, ast.Subscript(
-                    value=ast.Name(id=name, ctx=ast.Load()),
-                    slice=ast.Constant(value=0),
-                    ctx=ast.Store()
-                )))
-            else:
-                # Basic initialization handling
-                val_expr = self.visit(node.init_expression)
-                if val_expr:
-                    stmts.append(ast.Expr(value=ast.Constant(value=f"Note: Register initialized to {ast.unparse(val_expr)}")))
-        
-        return stmts
+
+        init_expression = getattr(node, "init_expression", None)
+
+        if isinstance(node.type, qast.ArrayType):
+            init_expr = self.visit(init_expression) if init_expression is not None else self._build_default_array_value(node.type.dimensions)
+            return [
+                ast.Assign(
+                    targets=[ast.Name(id=name, ctx=ast.Store())],
+                    value=init_expr,
+                )
+            ]
+
+        if isinstance(node.type, qast.BitType):
+            stmts = self.provider.declare_bit(name, size)
+
+            if isinstance(init_expression, qast.QuantumMeasurement):
+                qubit_expr = self.visit(init_expression.qubit)
+                stmts.append(self.provider.measure(qubit_expr, ast.Name(id=name, ctx=ast.Load())))
+                return stmts
+
+            if init_expression is not None:
+                init_expr = self.visit(init_expression)
+                stmts.append(
+                    self.provider.classical_assignment(
+                        ast.Name(id=name, ctx=ast.Load()),
+                        init_expr,
+                        "=",
+                    )
+                )
+            return stmts
+
+        if isinstance(init_expression, qast.QuantumMeasurement):
+            raise NotImplementedError("Measurement initializers are only supported for bit declarations.")
+
+        init_expr = self.visit(init_expression) if init_expression else None
+        return self.provider.declare_classical_var(name, node.type, init_expr)
 
     def visit_QuantumGate(self, node: qast.QuantumGate) -> ast.stmt:
         gate_name = node.name.name
@@ -208,7 +243,7 @@ class UniversalTranspiler:
             elements = [ast.Constant(value=int(self.resolve_literal(v))) for v in node.set_declaration.values]
             range_obj = ast.List(elts=elements, ctx=ast.Load())
         else:
-            range_obj = ast.List(elts=[], ctx=ast.Load())
+            raise NotImplementedError("For-in loops are only supported over ranges and discrete sets.")
 
         body = self.visit(node.block)
         if not isinstance(body, list): body = [body]
@@ -217,6 +252,7 @@ class UniversalTranspiler:
     def visit_AliasStatement(self, node: qast.AliasStatement) -> ast.stmt:
         name = node.target.name
         value = self.visit(node.value)
+        self._register_annotation_outputs(node, ast.Name(id=name, ctx=ast.Load()))
         return self.provider.alias(name, value)
 
     def visit_IndexExpression(self, node: qast.IndexExpression) -> ast.expr:
@@ -257,6 +293,10 @@ class UniversalTranspiler:
         op_str = str(node.op).split('.')[-1]
         return self.provider.unary_expression(inner, op_str)
 
+    def visit_Cast(self, node: qast.Cast) -> ast.expr:
+        expression = self.visit(node.argument)
+        return self.provider.cast_expression(expression, node.type)
+
     def visit_ClassicalAssignment(self, node: qast.ClassicalAssignment) -> ast.stmt:
         lvalue = self.visit(node.lvalue)
         rvalue = self.visit(node.rvalue)
@@ -266,12 +306,17 @@ class UniversalTranspiler:
     def visit_IODeclaration(self, node: qast.IODeclaration) -> List[ast.stmt]:
         name = node.identifier.name
         io_type = node.io_identifier.name
+        if isinstance(node.type, qast.ArrayType):
+            raise NotImplementedError("Array inputs and outputs are not part of the supported executable subset.")
         return self.provider.io_declaration(name, io_type, node.type)
 
     def visit_Concatenation(self, node: qast.Concatenation) -> ast.BinOp:
         lhs = self.visit(node.lhs)
         rhs = self.visit(node.rhs)
         return ast.BinOp(left=lhs, op=ast.Add(), right=rhs)
+
+    def visit_ArrayLiteral(self, node: qast.ArrayLiteral) -> ast.List:
+        return ast.List(elts=[self.visit(value) for value in node.values], ctx=ast.Load())
 
     def visit_Identifier(self, node: qast.Identifier) -> ast.expr:
         return ast.Name(id=node.name, ctx=ast.Load())
@@ -289,9 +334,7 @@ class UniversalTranspiler:
         return ast.Subscript(value=name_node, slice=index_val, ctx=ast.Load())
 
     def visit_QuantumMeasurement(self, node: qast.QuantumMeasurement) -> ast.expr:
-        qubit_expr = self.visit(node.qubit)
-        # QuantumMeasurement in expressions typically returns the result
-        return self.provider.measure(qubit_expr)
+        raise NotImplementedError("General measurement expressions are not part of the supported executable subset.")
 
     def visit_IntegerLiteral(self, node: qast.IntegerLiteral) -> ast.Constant:
         return ast.Constant(value=int(node.value))
@@ -327,6 +370,13 @@ class UniversalTranspiler:
     def resolve_literal(self, node: Any) -> str:
         if isinstance(node, int): return str(node)
         if isinstance(node, str): return node
+        if isinstance(node, qast.UnaryExpression):
+            inner = self.resolve_literal(node.expression)
+            op_str = str(node.op).split('.')[-1]
+            if op_str == '-':
+                return str(-int(inner))
+            if op_str == '+':
+                return str(int(inner))
         if isinstance(node, qast.BitstringLiteral):
             val = node.value
             try:
@@ -340,3 +390,44 @@ class UniversalTranspiler:
         if hasattr(node, 'value'):
             return str(node.value)
         return str(node)
+
+    def _build_default_array_value(self, dimensions: List[Any]) -> ast.expr:
+        resolved_dimensions = [int(self.resolve_literal(dimension)) for dimension in dimensions]
+
+        def build(level: int) -> ast.expr:
+            if level >= len(resolved_dimensions):
+                return ast.Constant(value=None)
+            return ast.List(
+                elts=[build(level + 1) for _ in range(resolved_dimensions[level])],
+                ctx=ast.Load(),
+            )
+
+        return build(0)
+
+    def _register_annotation_outputs(self, node: Any, expression: ast.expr) -> None:
+        for annotation in getattr(node, "annotations", []) or []:
+            if getattr(annotation, "keyword", None) != "leqo.output":
+                continue
+            command = getattr(annotation, "command", None)
+            if command is None:
+                continue
+            self.annotated_outputs[int(command.strip())] = expression
+
+    def _build_program_outputs_mapping(self) -> List[ast.stmt]:
+        if not self.annotated_outputs:
+            return []
+
+        keys = []
+        values = []
+        for index, expression in sorted(self.annotated_outputs.items()):
+            keys.append(ast.Constant(value=index))
+            values.append(expression)
+
+        return [
+            ast.Assign(
+                targets=[ast.Name(id='program_outputs', ctx=ast.Store())],
+                value=ast.Dict(keys=keys, values=values),
+            )
+        ]
+
+
