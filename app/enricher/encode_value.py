@@ -291,7 +291,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         classical_input: LeqoSupportedClassicalType,
         input_value: Any | None,
     ) -> EnrichmentResult:
-       
         size = self._determine_register_size(node, classical_input)
         constant_indices: list[int] | None = None
         if input_value is not None:
