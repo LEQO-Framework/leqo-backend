@@ -359,10 +359,18 @@ class IntLiteralNode(BaseNode):
 
     @model_validator(mode="after")
     def _default_bit_size(self) -> IntLiteralNode:
-        int_v = int(self.value)
-        self.value = int_v
-        if self.bitSize is None:
-            self.bitSize = _infer_int_bit_size(int_v)
+        try:
+            int_v = int(self.value)
+            self.value = int_v
+
+            if self.bitSize is None:
+                self.bitSize = _infer_int_bit_size(int_v)
+
+        except (ValueError, TypeError):
+            # Not an integer literal (e.g. "a")
+            # Leave value as-is and don't infer bitSize
+            pass
+
         return self
 
     model_config = ConfigDict(use_attribute_docstrings=True)
@@ -460,12 +468,41 @@ class ArrayLiteralNode(BaseNode):
         return self
 
 
+class FileLiteralNode(BaseNode):
+    """
+    Node representing a file as a url.
+    """
+
+    type: Literal["file"] = "file"
+
+    value: str
+    """The url navigating to the file."""
+
+
+class StringLiteralNode(BaseNode):
+    """
+    Node representing a string literal.
+    """
+
+    type: Literal["string"] = "string"
+
+    bitSize: int = Field(default=32, ge=1)
+    """"Bit size of the string (optional)."""
+
+    value: str
+    """String value."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
 LiteralNode = (
     BitLiteralNode
     | BoolLiteralNode
     | IntLiteralNode
     | FloatLiteralNode
     | ArrayLiteralNode
+    | StringLiteralNode
+    | FileLiteralNode
 )
 # endregion
 
@@ -567,6 +604,36 @@ class OperatorNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
+class PluginNode(BaseNode):
+    """
+    Node representing a plugin.
+    """
+
+    type: Literal["plugin"] = "plugin"
+
+    pluginName: str
+    """Name of the plugin"""
+
+    clusteringAlgorithm: str | None = None
+    """Selected clustering algorithm of the ML Node."""
+
+    variant: str | None = None
+
+    initEnum: str | None = None
+
+    algorithmEnum: str | None = None
+
+    methodEnum: str | None = None
+
+    metricEnum: str | None = None
+
+    inputs: list[Any] = []
+    """Possible inputs."""
+
+    outputs: list[Any] = []
+    """Possible outputs."""
+
+
 NestableNode = (
     ImplementationNode
     | BoundaryNode
@@ -575,6 +642,7 @@ NestableNode = (
     | LiteralNode
     | AncillaNode
     | OperatorNode
+    | PluginNode
 )
 Node = NestableNode | QubitNode | ControlFlowNode
 
