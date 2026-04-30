@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Simple Broadcast Test",
+    "description": "Test unary gate broadcasting on a single qubit register.",
+    "author": "CLI Tester"
+  },
+  "compilation_target": "qasm",
+  "nodes": [
+    {
+      "id": "n2",
+      "type": "implementation",
+      "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\nqubit[2] q;\nh q;\n"
+    }
+  ],
+  "edges": []
+}

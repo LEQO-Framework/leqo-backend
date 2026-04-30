@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Example Circuit",
+    "description": "Minimal compile request for local testing.",
+      "tags": [
+        "test",
+        "example"
+      ]
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "type": "qubit"
+    },
+    {
+      "id": "n1",
+      "type": "qubit"
+    },
+    {
+      "id": "n2",
+      "type": "implementation",
+      "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[2] q;\nry(0.7) q;\nbit[2] c;\nc[0] = measure q[0];\nc[1] = measure q[1];\n@leqo.output 0\nlet out = c;\n"
+    }
+  ],
+  "edges": [
+    {
+      "source": [
+        "n0",
+        0
+      ],
+      "target": [
+        "n2",
+        0
+      ]
+    },
+    {
+      "source": [
+        "n1",
+        0
+      ],
+      "target": [
+        "n2",
+        0
+      ]
+    }
+  ]
+}
