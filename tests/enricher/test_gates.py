@@ -2,7 +2,7 @@ import pytest
 
 from app.enricher import Constraints
 from app.enricher.gates import GateEnricherStrategy, enrich_gate
-from app.model.CompileRequest import GateNode, ParameterizedGateNode
+from app.model.CompileRequest import GateNode
 from app.model.data_types import IntType, QubitType
 from app.model.exceptions import (
     InputCountMismatch,
@@ -132,9 +132,7 @@ def test_supported_single_qubit_lcm_gates_are_mapped_to_qasm(
         optimizeDepth=False,
     )
 
-    result = GateEnricherStrategy()._enrich_simple_gate(
-        node, constraints
-    ).enriched_node
+    result = GateEnricherStrategy()._enrich_simple_gate(node, constraints).enriched_node
 
     assert_enrichment(
         result,
@@ -165,9 +163,7 @@ def test_supported_two_qubit_lcm_gates_are_mapped_to_qasm(
         optimizeDepth=False,
     )
 
-    result = GateEnricherStrategy()._enrich_simple_gate(
-        node, constraints
-    ).enriched_node
+    result = GateEnricherStrategy()._enrich_simple_gate(node, constraints).enriched_node
 
     assert_enrichment(
         result,
