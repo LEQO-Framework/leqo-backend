@@ -1,8 +1,8 @@
 import pytest
 
 from app.enricher import Constraints
-from app.enricher.gates import enrich_gate
-from app.model.CompileRequest import GateNode
+from app.enricher.gates import GateEnricherStrategy, enrich_gate
+from app.model.CompileRequest import GateNode, ParameterizedGateNode
 from app.model.data_types import IntType, QubitType
 from app.model.exceptions import (
     InputCountMismatch,
@@ -116,3 +116,73 @@ def test_gate_impl_type_mismatch() -> None:
         match=r"^Expected type 'qubit' for input 0\. Got 'IntType\(size=32\)'\.$",
     ):
         enrich_gate(node, constraints, gate_name="abc", input_count=2)
+
+
+@pytest.mark.parametrize(
+    "gate_name",
+    ["s", "sdg", "sx", "tdg"],
+)
+def test_supported_single_qubit_lcm_gates_are_mapped_to_qasm(
+    gate_name: str,
+) -> None:
+    node = GateNode(id="nodeId", gate=gate_name)
+    constraints = Constraints(
+        requested_inputs={0: QubitType(3)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    result = GateEnricherStrategy()._enrich_simple_gate(
+        node, constraints
+    ).enriched_node
+
+    assert_enrichment(
+        result,
+        "nodeId",
+        f"""\
+        OPENQASM 3.1;
+        include "stdgates.inc";
+        @leqo.input 0
+        qubit[3] q0;
+        {gate_name} q0;
+        @leqo.output 0
+        let q0_out = q0;
+        """,
+    )
+
+
+@pytest.mark.parametrize(
+    "gate_name",
+    ["swap", "cy", "cz", "ch"],
+)
+def test_supported_two_qubit_lcm_gates_are_mapped_to_qasm(
+    gate_name: str,
+) -> None:
+    node = GateNode(id="nodeId", gate=gate_name)
+    constraints = Constraints(
+        requested_inputs={0: QubitType(3), 1: QubitType(3)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    result = GateEnricherStrategy()._enrich_simple_gate(
+        node, constraints
+    ).enriched_node
+
+    assert_enrichment(
+        result,
+        "nodeId",
+        f"""\
+        OPENQASM 3.1;
+        include "stdgates.inc";
+        @leqo.input 0
+        qubit[3] q0;
+        @leqo.input 1
+        qubit[3] q1;
+        {gate_name} q0, q1;
+        @leqo.output 0
+        let q0_out = q0;
+        @leqo.output 1
+        let q1_out = q1;
+        """,
+    )
