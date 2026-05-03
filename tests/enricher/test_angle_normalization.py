@@ -1,5 +1,7 @@
-import pytest
 import math
+
+import pytest
+
 from app.enricher import Constraints
 from app.enricher.encode_value import EncodeValueEnricherStrategy
 from app.model.CompileRequest import EncodeValueNode as FrontendEncodeValueNode
@@ -27,21 +29,21 @@ ANGLE_SCENARIOS = [
     ("Magnitude Inv (10,20,30)", ArrayType(IntType(32), 3), [10, 20, 30]),
     ("Numerical Precision", ArrayType(FloatType(64), 2), [1.0, 1.0 + 1e-15]),
     ("Length 1", ArrayType(FloatType(32), 1), [5.0]),
-    ("Boundary [0, pi/2]", ArrayType(FloatType(32), 3), [math.pi/2, 0.0, 0.0]),
-    
+    ("Boundary [0, pi/2]", ArrayType(FloatType(32), 3), [math.pi / 2, 0.0, 0.0]),
     # Critical Scalars
     ("Scalar Float 0.0", FloatType(32), 0.0),
     ("Scalar Float -1.0", FloatType(32), -1.0),
-    ("Scalar Float pi/2", FloatType(32), math.pi/2),
-    ("Scalar Float 2pi", FloatType(32), 2*math.pi),
+    ("Scalar Float pi/2", FloatType(32), math.pi / 2),
+    ("Scalar Float 2pi", FloatType(32), 2 * math.pi),
     ("Scalar Int8 255", IntType(8), 255),
     ("Scalar Int32 Max", IntType(32), 2**31 - 1),
     ("Scalar Bit 1", BitType(size=1), 1),
     ("Scalar Bool True", BoolType(), True),
 ]
 
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("label, data_type, value", ANGLE_SCENARIOS)
+@pytest.mark.parametrize(("label", "data_type", "value"), ANGLE_SCENARIOS)
 async def test_angle_encoding_report(engine, label, data_type, value):
     """Generates the QASM for the supervisor's normalization evaluation."""
     node = FrontendEncodeValueNode(id="1", type="encode", encoding="angle", bounds=0)
@@ -55,11 +57,11 @@ async def test_angle_encoding_report(engine, label, data_type, value):
     strategy = EncodeValueEnricherStrategy(engine)
     results = list(await strategy.enrich(node, constraints))
 
-    print(f"\n{'#'*30}")
+    print(f"\n{'#' * 30}")
     print(f"SCENARIO: {label}")
     print(f"TYPE: {data_type}")
     print(f"INPUT: {value}")
-    
+
     if not results:
         print("RESULT: No enrichment generated.")
     else:
@@ -69,4 +71,4 @@ async def test_angle_encoding_report(engine, label, data_type, value):
         qasm = impl if isinstance(impl, str) else leqo_dumps(impl)
         print("GENERATED OPENQASM:")
         print(qasm.strip())
-    print(f"{'#'*30}\n")
+    print(f"{'#' * 30}\n")
