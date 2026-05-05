@@ -372,10 +372,18 @@ class IntLiteralNode(BaseNode):
 
     @model_validator(mode="after")
     def _default_bit_size(self) -> IntLiteralNode:
-        int_v = int(self.value)
-        self.value = int_v
-        if self.bitSize is None:
-            self.bitSize = _infer_int_bit_size(int_v)
+        try:
+            int_v = int(self.value)
+            self.value = int_v
+
+            if self.bitSize is None:
+                self.bitSize = _infer_int_bit_size(int_v)
+
+        except (ValueError, TypeError):
+            # Not an integer literal (e.g. "a")
+            # Leave value as-is and don't infer bitSize
+            pass
+ 
         return self
 
     model_config = ConfigDict(use_attribute_docstrings=True)
@@ -400,16 +408,19 @@ class FloatLiteralNode(BaseNode):
 
 class ArrayLiteralNode(BaseNode):
     """
-    Node representing an array of integers.
+    Node representing an array of values (integers or floats).
     """
 
     type: Literal["array"] = "array"
 
-    values: list[int]
-    """Ordered list of integer values in the array."""
+    values: list[float | int]
+    """Ordered list of values in the array."""
 
     elementBitSize: int | None = Field(default=None, ge=1)
-    """Bit width of each element in the array (optional)."""
+    """Bit width of each element in the array (only used for integers)."""
+
+    elementType: Literal["int", "float"] | None = None
+    """Explicitly declare the type of the array elements."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -421,32 +432,80 @@ class ArrayLiteralNode(BaseNode):
 
         normalized = data.copy()
         raw_values = normalized.get("values", normalized.get("value"))
+
+        # Helper to parse string to int or float
+        def parse_num(s: Any) -> int | float:
+            str_s = str(s)
+            return float(str_s) if "." in str_s else int(str_s)
+
         if isinstance(raw_values, str):
             parts = [
                 part.strip()
                 for part in raw_values.replace(";", ",").split(",")
                 if part.strip() != ""
             ]
-            normalized["values"] = [int(part) for part in parts]
+            normalized["values"] = [parse_num(part) for part in parts]
         elif isinstance(raw_values, Iterable):
-            normalized["values"] = [int(value) for value in raw_values]
+            normalized["values"] = [parse_num(value) for value in raw_values]
         elif raw_values is not None:
-            normalized["values"] = [int(raw_values)]
+            normalized["values"] = [parse_num(raw_values)]
         else:
             normalized.setdefault("values", [])
+
+        # Infer elementType from the raw data if not provided
+        if "elementType" not in normalized and normalized.get("values"):
+            if any(isinstance(v, float) for v in normalized["values"]):
+                normalized["elementType"] = "float"
+            else:
+                normalized["elementType"] = "int"
 
         return normalized
 
     @model_validator(mode="after")
     def _default_bit_size(self) -> ArrayLiteralNode:
-        if self.elementBitSize is None:
+        # We only care about elementBitSize if it's an integer array
+        if self.elementType != "float" and self.elementBitSize is None:
             bit_size = (
-                max((_infer_int_bit_size(value) for value in self.values), default=1)
+                max(
+                    (
+                        _infer_int_bit_size(value)
+                        for value in self.values
+                        if isinstance(value, int)
+                    ),
+                    default=1,
+                )
                 if self.values
                 else 1
             )
             self.elementBitSize = bit_size
         return self
+
+
+class FileLiteralNode(BaseNode):
+    """
+    Node representing a file as a url.
+    """
+
+    type: Literal["file"] = "file"
+
+    value: str
+    """The url navigating to the file."""
+
+
+class StringLiteralNode(BaseNode):
+    """
+    Node representing a string literal.
+    """
+
+    type: Literal["string"] = "string"
+
+    bitSize: int = Field(default=32, ge=1)
+    """"Bit size of the string (optional)."""
+
+    value: str
+    """String value."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 LiteralNode = (
@@ -455,6 +514,8 @@ LiteralNode = (
     | IntLiteralNode
     | FloatLiteralNode
     | ArrayLiteralNode
+    | StringLiteralNode
+    | FileLiteralNode
 )
 # endregion
 
@@ -556,6 +617,36 @@ class OperatorNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
+class PluginNode(BaseNode):
+    """
+    Node representing a plugin.
+    """
+
+    type: Literal["plugin"] = "plugin"
+
+    pluginName: str
+    """Name of the plugin"""
+
+    clusteringAlgorithm: str | None = None
+    """Selected clustering algorithm of the ML Node."""
+
+    variant: str | None = None
+
+    initEnum: str | None = None
+
+    algorithmEnum: str | None = None
+
+    methodEnum: str | None = None
+
+    metricEnum: str | None = None
+
+    inputs: list[Any] = []
+    """Possible inputs."""
+
+    outputs: list[Any] = []
+    """Possible outputs."""
+
+
 NestableNode = (
     ImplementationNode
     | BoundaryNode
@@ -565,6 +656,7 @@ NestableNode = (
     | LiteralNode
     | AncillaNode
     | OperatorNode
+    | PluginNode
 )
 
 
