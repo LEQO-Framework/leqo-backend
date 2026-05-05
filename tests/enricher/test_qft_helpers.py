@@ -3,8 +3,11 @@ import math
 import pytest
 from openqasm3.ast import FloatLiteral, QuantumGate
 
-# Adjust this import path to your real module location if needed.
 from app.enricher.qft import _build_qft_statements
+
+
+def _only_gates(statements):
+    return [stmt for stmt in statements if isinstance(stmt, QuantumGate)]
 
 
 def _gate_name(stmt: QuantumGate) -> str:
@@ -23,11 +26,21 @@ def _angle(stmt: QuantumGate) -> float | None:
     return arg.value
 
 
-def _only_gates(statements):
-    return [stmt for stmt in statements if isinstance(stmt, QuantumGate)]
+def test_build_qft_statements_size_1_forward() -> None:
+    statements = _only_gates(_build_qft_statements(1, inverse=False))
+
+    assert [_gate_name(stmt) for stmt in statements] == ["h"]
+    assert _qubit_indices(statements[0]) == [0]
 
 
-def test_build_qft_statements_size_2_forward_sequence():
+def test_build_qft_statements_size_1_inverse() -> None:
+    statements = _only_gates(_build_qft_statements(1, inverse=True))
+
+    assert [_gate_name(stmt) for stmt in statements] == ["h"]
+    assert _qubit_indices(statements[0]) == [0]
+
+
+def test_build_qft_statements_size_2_forward_sequence() -> None:
     statements = _only_gates(_build_qft_statements(2, inverse=False))
 
     assert [_gate_name(stmt) for stmt in statements] == ["h", "cp", "h", "swap"]
@@ -39,7 +52,7 @@ def test_build_qft_statements_size_2_forward_sequence():
     assert _qubit_indices(statements[3]) == [0, 1]
 
 
-def test_build_qft_statements_size_2_inverse_sequence():
+def test_build_qft_statements_size_2_inverse_sequence() -> None:
     statements = _only_gates(_build_qft_statements(2, inverse=True))
 
     assert [_gate_name(stmt) for stmt in statements] == ["swap", "h", "cp", "h"]
@@ -51,19 +64,30 @@ def test_build_qft_statements_size_2_inverse_sequence():
     assert _qubit_indices(statements[3]) == [0]
 
 
-def test_qft_and_iqft_have_same_gate_count_size_3():
-    forward = _only_gates(_build_qft_statements(3, inverse=False))
-    inverse = _only_gates(_build_qft_statements(3, inverse=True))
+def test_qft_size_3_has_expected_gate_count() -> None:
+    statements = _only_gates(_build_qft_statements(3, inverse=False))
 
-    assert len(forward) == len(inverse)
-
-    # For size 3:
-    # 3 H gates + 3 CP gates + 1 SWAP = 7 total
-    expected_gate_count = 7
-    assert len(forward) == expected_gate_count
+    assert len(statements) == 7
+    assert sum(1 for stmt in statements if _gate_name(stmt) == "h") == 3
+    assert sum(1 for stmt in statements if _gate_name(stmt) == "cp") == 3
+    assert sum(1 for stmt in statements if _gate_name(stmt) == "swap") == 1
 
 
-def test_inverse_qft_negates_cp_angles_size_3():
+def test_qft_size_3_has_expected_cp_angles() -> None:
+    statements = _only_gates(_build_qft_statements(3, inverse=False))
+
+    cp_angles = [_angle(stmt) for stmt in statements if _gate_name(stmt) == "cp"]
+
+    assert cp_angles == pytest.approx(
+        [
+            math.pi / 2,
+            math.pi / 4,
+            math.pi / 2,
+        ]
+    )
+
+
+def test_inverse_qft_size_3_has_negated_cp_angles() -> None:
     forward = _only_gates(_build_qft_statements(3, inverse=False))
     inverse = _only_gates(_build_qft_statements(3, inverse=True))
 
@@ -80,28 +104,13 @@ def test_inverse_qft_negates_cp_angles_size_3():
         assert inv == pytest.approx(-fwd)
 
 
-def _stmt_to_qasm(stmt: QuantumGate) -> str:
-    gate = _gate_name(stmt)
-    qubits = ", ".join(f"q[{idx}]" for idx in _qubit_indices(stmt))
-
-    if stmt.arguments:
-        args = ", ".join(str(arg.value) for arg in stmt.arguments)
-        return f"{gate}({args}) {qubits};"
-
-    return f"{gate} {qubits};"
-
-
-def test_print_qft_statements_size_3():
+def test_qft_puts_swaps_at_end() -> None:
     statements = _only_gates(_build_qft_statements(3, inverse=False))
 
-    print("\nForward QFT:")
-    for stmt in statements:
-        print(_stmt_to_qasm(stmt))
+    assert _gate_name(statements[-1]) == "swap"
 
 
-def test_print_iqft_statements_size_3():
+def test_inverse_qft_puts_swaps_at_beginning() -> None:
     statements = _only_gates(_build_qft_statements(3, inverse=True))
 
-    print("\nInverse QFT:")
-    for stmt in statements:
-        print(_stmt_to_qasm(stmt))
+    assert _gate_name(statements[0]) == "swap"
