@@ -663,6 +663,135 @@ def test_bitwise_or_assignment_uses_expr_bit_or() -> None:
     assert "qc.store(value, expr.bit_or(value, 2))" in code
 
 
+def test_nested_if_inside_for_loop_translates_to_qiskit_constructs() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    qubit q;
+    bit[1] c;
+    for uint i in [0:2] {
+        if (i == 1) {
+            x q;
+        }
+    }
+    measure q -> c;
+    '''
+
+    code = _transpile_qiskit(source)
+
+    assert "with qc.for_loop(range(0, 3)) as i:" in code
+    for_idx = code.index("with qc.for_loop")
+    if_idx = code.index("with qc.if_test", for_idx)
+    assert if_idx > for_idx
+    assert "qc.x(q)" in code
+
+
+def test_nested_while_inside_if_translates_to_qiskit_constructs() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    qubit q;
+    uint[8] n = 0;
+    if (n == 0) {
+        while (n < 3) {
+            x q;
+            n += 1;
+        }
+    }
+    '''
+
+    code = _transpile_qiskit(source)
+
+    if_idx = code.index("with qc.if_test")
+    while_idx = code.index("with qc.while_loop", if_idx)
+    assert while_idx > if_idx
+    assert "qc.store(n, expr.add(n, 1))" in code
+
+
+def test_for_loop_with_output_store_combines_loop_and_classical_assignment() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    qubit q;
+    uint[8] count = 0;
+    for uint i in [0:2] {
+        x q;
+        count += 1;
+    }
+    @leqo.output 0
+    let result = count;
+    '''
+
+    code = _transpile_qiskit(source)
+
+    assert "with qc.for_loop(range(0, 3)) as i:" in code
+    assert "qc.store(count, expr.add(count, 1))" in code
+    assert "result = count" in code
+    assert "program_outputs = {0: result}" in code
+
+
+def test_empty_if_block_emits_pass_to_preserve_indentation() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    qubit q;
+    bit[1] c;
+    measure q -> c;
+    if (c == 0) {
+    } else {
+        x q;
+    }
+    '''
+
+    code = _transpile_qiskit(source)
+
+    assert "with qc.if_test(" in code
+    assert "    pass" in code
+    assert "with _else:" in code
+    assert "qc.x(q)" in code
+
+
+def test_measurement_driven_while_loop_uses_qc_while_loop() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    qubit[1] q;
+    bit[1] c;
+    measure q -> c;
+    while (c == 0) {
+        x q;
+        measure q -> c;
+    }
+    '''
+
+    code = _transpile_qiskit(source)
+
+    assert "with qc.while_loop(" in code
+    assert "expr.equal(" in code
+    assert "expr.cast(c, types.Uint(32))" in code
+    assert code.count("qc.measure(q, c)") == 2
+
+
+def test_bit_non_measurement_initializer_uses_qiskit_store() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    qubit q;
+    bit c = 1;
+    if (c == 1) {
+        x q;
+    }
+    measure q -> c;
+    '''
+
+    code, namespace = _execute_qiskit(source)
+
+    assert "c = ClassicalRegister(1, 'c')" in code
+    assert "qc.store(c, 1)" in code
+    assert "with qc.if_test(" in code
+    assert namespace["counts"] == {"1": 500}
+
+
 def test_unsupported_switch_statement_fails_loudly() -> None:
     source = '''
     OPENQASM 3.0;

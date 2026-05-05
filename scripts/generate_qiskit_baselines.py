@@ -1,22 +1,26 @@
 """
 Helper script to generate expected Qiskit output for baseline tests.
-Uses the transpiler directly to bypass the need for a database.
+
+Uses the production AST-based transpiler (UniversalTranspiler + QiskitProvider)
+directly, so the generated text matches what the backend pipeline produces for
+``compilation_target == "qiskit"``.
 
 Run with: uv run python scripts/generate_qiskit_baselines.py
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import openqasm3
-from app.openqasm3.qiskit_generator import QasmToQiskitTranspiler
+from openqasm3.parser import parse
+
+from app.openqasm3.qiskit_provider import QiskitProvider
+from app.openqasm3.universal_transpiler import UniversalTranspiler
 
 
-# These are representative QASM outputs that the pipeline produces for each test scenario.
-# We feed them directly into the transpiler to get the Qiskit output.
-
+# Representative QASM outputs that the pipeline produces for each test scenario.
+# Fed directly into the transpiler to obtain the Qiskit output.
 QASM_SOURCES = {
     "basic_gates": """\
 OPENQASM 3.1;
@@ -59,7 +63,7 @@ OPENQASM 3.1;
 include "stdgates.inc";
 qubit[1] leqo_reg;
 let q0 = leqo_reg[{0}];
-for int i in [0:3] {
+for uint i in [0:3] {
   h q0;
 }
 """,
@@ -68,35 +72,37 @@ for int i in [0:3] {
 OPENQASM 3.1;
 include "stdgates.inc";
 qubit[1] leqo_reg;
-int[32] counter = 0;
+uint[32] counter = 0;
 let q0 = leqo_reg[{0}];
 while (counter < 5) {
   x q0;
+  counter += 1;
 }
 """,
 }
 
 
-def main():
+def _transpile(qasm_source: str) -> str:
+    program = parse(qasm_source)
+    transpiler = UniversalTranspiler(QiskitProvider())
+    return transpiler.visit_Program(program)
+
+
+def main() -> None:
     for name, qasm_source in QASM_SOURCES.items():
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Test: {name}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         try:
-            ast_node = openqasm3.parse(qasm_source)
-            transpiler = QasmToQiskitTranspiler()
-            result = transpiler.visit(ast_node)
-            print(result)
-        except Exception as e:
-            print(f"ERROR: {e}")
+            print(_transpile(qasm_source))
+        except Exception as exc:
+            print(f"ERROR: {exc}")
             import traceback
             traceback.print_exc()
 
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
 
 if __name__ == "__main__":
     main()
-
-

@@ -411,7 +411,13 @@ class UniversalTranspiler:
             command = getattr(annotation, "command", None)
             if command is None:
                 continue
-            self.annotated_outputs[int(command.strip())] = expression
+            try:
+                index = int(command.strip())
+            except (ValueError, AttributeError) as exc:
+                raise NotImplementedError(
+                    f"@leqo.output annotation requires an integer index, got: {command!r}"
+                ) from exc
+            self.annotated_outputs[index] = expression
 
     def _build_program_outputs_mapping(self) -> List[ast.stmt]:
         if not self.annotated_outputs:
@@ -429,5 +435,4 @@ class UniversalTranspiler:
                 value=ast.Dict(keys=keys, values=values),
             )
         ]
-
 

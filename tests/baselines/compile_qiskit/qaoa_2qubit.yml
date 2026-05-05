@@ -54,7 +54,7 @@ request: |
   }
 expected_status: 200
 expected_result: |-
-  from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile
+  from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, transpile
   from qiskit_aer import AerSimulator
   qc = QuantumCircuit()
   inputs_list = []
@@ -113,7 +113,7 @@ expected_result: |-
   leqo_5f9029b590825673813bc86fde8c5635_q = [leqo_reg[0]]
   leqo_5f9029b590825673813bc86fde8c5635_result = ClassicalRegister(1, 'leqo_5f9029b590825673813bc86fde8c5635_result')
   qc.add_register(leqo_5f9029b590825673813bc86fde8c5635_result)
-  qc.measure(leqo_5f9029b590825673813bc86fde8c5635_q[0], leqo_5f9029b590825673813bc86fde8c5635_result[0])
+  qc.measure(leqo_5f9029b590825673813bc86fde8c5635_q[0], leqo_5f9029b590825673813bc86fde8c5635_result)
   leqo_5f9029b590825673813bc86fde8c5635_out = leqo_5f9029b590825673813bc86fde8c5635_result
   leqo_5f9029b590825673813bc86fde8c5635_qubit_out = leqo_5f9029b590825673813bc86fde8c5635_q
   '# End node m0'
@@ -121,7 +121,7 @@ expected_result: |-
   leqo_7b3bc777dca35b37aa766558530831c3_q = [leqo_reg[1]]
   leqo_7b3bc777dca35b37aa766558530831c3_result = ClassicalRegister(1, 'leqo_7b3bc777dca35b37aa766558530831c3_result')
   qc.add_register(leqo_7b3bc777dca35b37aa766558530831c3_result)
-  qc.measure(leqo_7b3bc777dca35b37aa766558530831c3_q[0], leqo_7b3bc777dca35b37aa766558530831c3_result[0])
+  qc.measure(leqo_7b3bc777dca35b37aa766558530831c3_q[0], leqo_7b3bc777dca35b37aa766558530831c3_result)
   leqo_7b3bc777dca35b37aa766558530831c3_out = leqo_7b3bc777dca35b37aa766558530831c3_result
   leqo_7b3bc777dca35b37aa766558530831c3_qubit_out = leqo_7b3bc777dca35b37aa766558530831c3_q
   '# End node m1'
@@ -133,3 +133,4 @@ expected_result: |-
   result_data = job.result()
   counts = result_data.get_counts(qc)
   print('Simulation Results (500 shots):', counts)
+  program_outputs = {0: leqo_7b3bc777dca35b37aa766558530831c3_out, 1: leqo_7b3bc777dca35b37aa766558530831c3_qubit_out}

@@ -1,7 +1,9 @@
 import json
 import os
 from collections.abc import Iterator
+from contextlib import redirect_stdout
 from json import JSONDecodeError, dumps
+from io import StringIO
 from pathlib import Path
 from time import sleep
 from typing import Any, TypeVar
@@ -97,6 +99,26 @@ def json_assert(expected: str, actual: str) -> None:
         assert expected == actual
 
 
+def problem_details_assert_stable_prefix(expected: str, actual: str) -> None:
+    expected_json = json.loads(expected)
+    actual_json = json.loads(actual)
+    expected_detail = expected_json.pop("detail")
+    actual_detail = actual_json.pop("detail")
+
+    assert expected_json == actual_json
+    assert actual_detail.startswith(expected_detail)
+
+
+def assert_valid_python_source(source: str) -> None:
+    compile(source, "<generated-qiskit>", "exec")
+
+
+def assert_executable_python_source(source: str) -> None:
+    namespace: dict[str, Any] = {}
+    with redirect_stdout(StringIO()):
+        exec(source, namespace, namespace)
+
+
 def _assert_link_header(response: Response, uuid: str) -> None:
     link_header = response.headers.get("Link")
     assert link_header is not None
@@ -181,6 +203,36 @@ def test_enrich_errors(test: tuple[str, Baseline], client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "test",
+    find_files(Baseline, TEST_DIR / "compile_qiskit"),
+    ids=lambda test: test[0],
+)
+def test_compile_qiskit(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = handle_endpoints(client, base.request, "/compile")
+
+    assert base.expected_status == response.status_code
+    assert base.expected_result == response.text
+    assert_valid_python_source(response.text)
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(Baseline, TEST_DIR / "compile_qiskit_errors"),
+    ids=lambda test: test[0],
+)
+def test_compile_qiskit_errors(
+    test: tuple[str, Baseline], client: TestClient
+) -> None:
+    _file, base = test
+    response = handle_endpoints(client, base.request, "/compile")
+
+    result = response.json()["result"]
+    problem_details_assert_stable_prefix(base.expected_result, dumps(result))
+    assert base.expected_status == result["status"]
+
+
+@pytest.mark.parametrize(
+    "test",
     find_files(Baseline, TEST_DIR / "compile"),
     ids=lambda test: test[0],
 )
@@ -213,6 +265,26 @@ def test_debug_compile_qiskit(test: tuple[str, Baseline], client: TestClient) ->
     print(response.text)
     assert base.expected_status == response.status_code
     assert base.expected_result == response.text
+    assert_executable_python_source(response.text)
+
+
+@pytest.mark.parametrize(
+    "test",
+    find_files(Baseline, TEST_DIR / "compile_qiskit_errors"),
+    ids=lambda test: test[0],
+)
+def test_debug_compile_qiskit_errors(
+    test: tuple[str, Baseline], client: TestClient
+) -> None:
+    _file, base = test
+    response = client.post(
+        "/debug/compile",
+        headers={"Content-Type": "application/json"},
+        content=base.request,
+    )
+
+    json_assert(base.expected_result, response.text)
+    assert base.expected_status == response.status_code
 
 
 @pytest.mark.parametrize(

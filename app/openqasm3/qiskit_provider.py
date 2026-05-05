@@ -428,7 +428,7 @@ class QiskitProvider(BaseSDKProvider):
     def _map_classical_type(self, ast_type: Any) -> ast.expr:
         size = 32
         if hasattr(ast_type, "size") and ast_type.size is not None:
-            size = int(ast_type.size.value if hasattr(ast_type.size, 'value') else ast_type.size)
+            size = self._resolve_size(ast_type.size)
 
         if isinstance(ast_type, qast.IntType):
             raise NotImplementedError("Signed OpenQASM int is not supported by the Qiskit classical type system target.")
@@ -455,6 +455,35 @@ class QiskitProvider(BaseSDKProvider):
             func=ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()), attr='Uint', ctx=ast.Load()),
             args=[ast.Constant(value=size)],
             keywords=[]
+        )
+
+    def _resolve_size(self, node: Any) -> int:
+        if isinstance(node, int):
+            return node
+        if isinstance(node, qast.UnaryExpression):
+            inner = self._resolve_size(node.expression)
+            op_str = str(node.op).split('.')[-1]
+            if op_str == '-':
+                return -inner
+            return inner
+        if isinstance(node, qast.BitstringLiteral):
+            val = node.value
+            if isinstance(val, str):
+                try:
+                    return int(val, 0)
+                except ValueError:
+                    return int(val, 2)
+            return int(val)
+        if hasattr(node, 'value'):
+            val = node.value
+            if isinstance(val, str):
+                try:
+                    return int(val, 0)
+                except ValueError:
+                    return int(val)
+            return int(val)
+        raise NotImplementedError(
+            f"Unsupported size expression: {type(node).__name__}"
         )
 
     def get_imports(self) -> List[ast.stmt]:

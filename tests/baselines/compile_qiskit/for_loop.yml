@@ -33,7 +33,7 @@ request: |
   }
 expected_status: 200
 expected_result: |-
-  from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister, transpile
+  from qiskit import QuantumCircuit, QuantumRegister, transpile
   qc = QuantumCircuit()
   inputs_list = []
   leqo_reg = QuantumRegister(1, 'leqo_reg')
@@ -53,3 +53,4 @@ expected_result: |-
   leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_2d6a7c7b4c5f551d9b9c076836ce983f_pass_node_declaration_0 = [leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_f3086812910754abb0fe024e99f4a5b0_loop_reg[0]]
   leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_2d6a7c7b4c5f551d9b9c076836ce983f_pass_node_alias_0 = leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_2d6a7c7b4c5f551d9b9c076836ce983f_pass_node_declaration_0
   '# End node for_node'
+  program_outputs = {0: leqo_f26f2ccf4ab559499a4b2f352a89852a_leqo_2d6a7c7b4c5f551d9b9c076836ce983f_pass_node_alias_0}

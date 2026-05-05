@@ -1,0 +1,99 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "VQE Hardware-Efficient 2-Qubit Ansatz",
+      "description": "Two-qubit hardware-efficient VQE ansatz with bound angles theta0..theta3 (0.3, 0.5, 0.7, 0.9). Mirrors the structure of test_vqe_hwe_2q_ansatz_preserves_parameterized_structure.",
+      "author": ""
+    },
+    "compilation_target": "qiskit",
+    "nodes": [
+      { "id": "q0", "type": "qubit" },
+      { "id": "q1", "type": "qubit" },
+      { "id": "ry_0", "type": "gate-with-param", "gate": "ry", "parameter": 0.3 },
+      { "id": "ry_1", "type": "gate-with-param", "gate": "ry", "parameter": 0.5 },
+      { "id": "ent_cx", "type": "gate", "gate": "cnot" },
+      { "id": "rz_0", "type": "gate-with-param", "gate": "rz", "parameter": 0.7 },
+      { "id": "rz_1", "type": "gate-with-param", "gate": "rz", "parameter": 0.9 },
+      { "id": "m0", "type": "measure", "indices": [0] },
+      { "id": "m1", "type": "measure", "indices": [0] }
+    ],
+    "edges": [
+      { "source": ["q0", 0], "target": ["ry_0", 0] },
+      { "source": ["q1", 0], "target": ["ry_1", 0] },
+      { "source": ["ry_0", 0], "target": ["ent_cx", 0] },
+      { "source": ["ry_1", 0], "target": ["ent_cx", 1] },
+      { "source": ["ent_cx", 0], "target": ["rz_0", 0] },
+      { "source": ["ent_cx", 1], "target": ["rz_1", 0] },
+      { "source": ["rz_0", 0], "target": ["m0", 0] },
+      { "source": ["rz_1", 0], "target": ["m1", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |-
+  from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, transpile
+  from qiskit_aer import AerSimulator
+  qc = QuantumCircuit()
+  inputs_list = []
+  leqo_reg = QuantumRegister(2, 'leqo_reg')
+  qc.add_register(leqo_reg)
+  '# Start node q0'
+  leqo_677c62829b2f503e829851dd8911e48a_literal = [leqo_reg[0]]
+  leqo_677c62829b2f503e829851dd8911e48a_out = leqo_677c62829b2f503e829851dd8911e48a_literal
+  '# End node q0'
+  '# Start node q1'
+  leqo_64bc2e5f2880544d8c66cf84e4146b48_literal = [leqo_reg[1]]
+  leqo_64bc2e5f2880544d8c66cf84e4146b48_out = leqo_64bc2e5f2880544d8c66cf84e4146b48_literal
+  '# End node q1'
+  '# Start node ry_0'
+  leqo_19951a317e155abb9dd24bac8f1c0048_q0 = [leqo_reg[0]]
+  qc.ry(0.3, leqo_19951a317e155abb9dd24bac8f1c0048_q0)
+  leqo_19951a317e155abb9dd24bac8f1c0048_q0_out = leqo_19951a317e155abb9dd24bac8f1c0048_q0
+  '# End node ry_0'
+  '# Start node ry_1'
+  leqo_213714cda87a53119627c69dcb6acf22_q0 = [leqo_reg[1]]
+  qc.ry(0.5, leqo_213714cda87a53119627c69dcb6acf22_q0)
+  leqo_213714cda87a53119627c69dcb6acf22_q0_out = leqo_213714cda87a53119627c69dcb6acf22_q0
+  '# End node ry_1'
+  '# Start node ent_cx'
+  leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q0 = [leqo_reg[0]]
+  leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q1 = [leqo_reg[1]]
+  qc.cx(leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q0, leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q1)
+  leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q0_out = leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q0
+  leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q1_out = leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q1
+  '# End node ent_cx'
+  '# Start node rz_0'
+  leqo_3d32e5354357530ca30a0cdee9a2a61d_q0 = [leqo_reg[0]]
+  qc.rz(0.7, leqo_3d32e5354357530ca30a0cdee9a2a61d_q0)
+  leqo_3d32e5354357530ca30a0cdee9a2a61d_q0_out = leqo_3d32e5354357530ca30a0cdee9a2a61d_q0
+  '# End node rz_0'
+  '# Start node rz_1'
+  leqo_49af039690d857d08ac162f14af0ee62_q0 = [leqo_reg[1]]
+  qc.rz(0.9, leqo_49af039690d857d08ac162f14af0ee62_q0)
+  leqo_49af039690d857d08ac162f14af0ee62_q0_out = leqo_49af039690d857d08ac162f14af0ee62_q0
+  '# End node rz_1'
+  '# Start node m0'
+  leqo_5f9029b590825673813bc86fde8c5635_q = [leqo_reg[0]]
+  leqo_5f9029b590825673813bc86fde8c5635_result = ClassicalRegister(1, 'leqo_5f9029b590825673813bc86fde8c5635_result')
+  qc.add_register(leqo_5f9029b590825673813bc86fde8c5635_result)
+  qc.measure(leqo_5f9029b590825673813bc86fde8c5635_q[0], leqo_5f9029b590825673813bc86fde8c5635_result)
+  leqo_5f9029b590825673813bc86fde8c5635_out = leqo_5f9029b590825673813bc86fde8c5635_result
+  leqo_5f9029b590825673813bc86fde8c5635_qubit_out = leqo_5f9029b590825673813bc86fde8c5635_q
+  '# End node m0'
+  '# Start node m1'
+  leqo_7b3bc777dca35b37aa766558530831c3_q = [leqo_reg[1]]
+  leqo_7b3bc777dca35b37aa766558530831c3_result = ClassicalRegister(1, 'leqo_7b3bc777dca35b37aa766558530831c3_result')
+  qc.add_register(leqo_7b3bc777dca35b37aa766558530831c3_result)
+  qc.measure(leqo_7b3bc777dca35b37aa766558530831c3_q[0], leqo_7b3bc777dca35b37aa766558530831c3_result)
+  leqo_7b3bc777dca35b37aa766558530831c3_out = leqo_7b3bc777dca35b37aa766558530831c3_result
+  leqo_7b3bc777dca35b37aa766558530831c3_qubit_out = leqo_7b3bc777dca35b37aa766558530831c3_q
+  '# End node m1'
+  ' --- EXECUTION ---'
+  simulator = AerSimulator()
+  compiled_circuit = transpile(qc, simulator)
+  print(compiled_circuit)
+  job = simulator.run(compiled_circuit, shots=500)
+  result_data = job.result()
+  counts = result_data.get_counts(qc)
+  print('Simulation Results (500 shots):', counts)
+  program_outputs = {0: leqo_7b3bc777dca35b37aa766558530831c3_out, 1: leqo_7b3bc777dca35b37aa766558530831c3_qubit_out}

@@ -59,7 +59,7 @@ async def test_int_literal() -> None:
         "nodeId",
         """\
         OPENQASM 3.1;
-        int[32] literal = 123;
+        int[7] literal = 123;
         @leqo.output 0
         let out = literal;
         """,
@@ -75,7 +75,7 @@ async def test_int_literal() -> None:
         "nodeId",
         """\
         OPENQASM 3.1;
-        int[32] literal = -123;
+        int[8] literal = -123;
         @leqo.output 0
         let out = literal;
         """,

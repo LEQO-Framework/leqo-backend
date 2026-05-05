@@ -1,0 +1,176 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "QAOA MaxCut 3-Node Path Graph (p=1)",
+      "description": "QAOA p=1 kernel for MaxCut on a three-node path graph, with bound cost (gamma=0.7) and mixer (beta=0.4) angles. Matches the host-side proof-of-concept kernel.",
+      "author": ""
+    },
+    "compilation_target": "qiskit",
+    "nodes": [
+      { "id": "q0", "type": "qubit" },
+      { "id": "q1", "type": "qubit" },
+      { "id": "q2", "type": "qubit" },
+      { "id": "h_init_0", "type": "gate", "gate": "h" },
+      { "id": "h_init_1", "type": "gate", "gate": "h" },
+      { "id": "h_init_2", "type": "gate", "gate": "h" },
+      { "id": "cost_cx_01a", "type": "gate", "gate": "cnot" },
+      { "id": "cost_rz_01",  "type": "gate-with-param", "gate": "rz", "parameter": 0.7 },
+      { "id": "cost_cx_01b", "type": "gate", "gate": "cnot" },
+      { "id": "cost_cx_12a", "type": "gate", "gate": "cnot" },
+      { "id": "cost_rz_12",  "type": "gate-with-param", "gate": "rz", "parameter": 0.7 },
+      { "id": "cost_cx_12b", "type": "gate", "gate": "cnot" },
+      { "id": "mix_rx_0", "type": "gate-with-param", "gate": "rx", "parameter": 0.4 },
+      { "id": "mix_rx_1", "type": "gate-with-param", "gate": "rx", "parameter": 0.4 },
+      { "id": "mix_rx_2", "type": "gate-with-param", "gate": "rx", "parameter": 0.4 },
+      { "id": "m0", "type": "measure", "indices": [0] },
+      { "id": "m1", "type": "measure", "indices": [0] },
+      { "id": "m2", "type": "measure", "indices": [0] }
+    ],
+    "edges": [
+      { "source": ["q0", 0], "target": ["h_init_0", 0] },
+      { "source": ["q1", 0], "target": ["h_init_1", 0] },
+      { "source": ["q2", 0], "target": ["h_init_2", 0] },
+
+      { "source": ["h_init_0", 0], "target": ["cost_cx_01a", 0] },
+      { "source": ["h_init_1", 0], "target": ["cost_cx_01a", 1] },
+      { "source": ["cost_cx_01a", 1], "target": ["cost_rz_01", 0] },
+      { "source": ["cost_cx_01a", 0], "target": ["cost_cx_01b", 0] },
+      { "source": ["cost_rz_01",  0], "target": ["cost_cx_01b", 1] },
+
+      { "source": ["cost_cx_01b", 1], "target": ["cost_cx_12a", 0] },
+      { "source": ["h_init_2",     0], "target": ["cost_cx_12a", 1] },
+      { "source": ["cost_cx_12a", 1], "target": ["cost_rz_12", 0] },
+      { "source": ["cost_cx_12a", 0], "target": ["cost_cx_12b", 0] },
+      { "source": ["cost_rz_12",  0], "target": ["cost_cx_12b", 1] },
+
+      { "source": ["cost_cx_01b", 0], "target": ["mix_rx_0", 0] },
+      { "source": ["cost_cx_12b", 0], "target": ["mix_rx_1", 0] },
+      { "source": ["cost_cx_12b", 1], "target": ["mix_rx_2", 0] },
+
+      { "source": ["mix_rx_0", 0], "target": ["m0", 0] },
+      { "source": ["mix_rx_1", 0], "target": ["m1", 0] },
+      { "source": ["mix_rx_2", 0], "target": ["m2", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |-
+  from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, transpile
+  from qiskit_aer import AerSimulator
+  qc = QuantumCircuit()
+  inputs_list = []
+  leqo_reg = QuantumRegister(3, 'leqo_reg')
+  qc.add_register(leqo_reg)
+  '# Start node q0'
+  leqo_677c62829b2f503e829851dd8911e48a_literal = [leqo_reg[0]]
+  leqo_677c62829b2f503e829851dd8911e48a_out = leqo_677c62829b2f503e829851dd8911e48a_literal
+  '# End node q0'
+  '# Start node q1'
+  leqo_64bc2e5f2880544d8c66cf84e4146b48_literal = [leqo_reg[1]]
+  leqo_64bc2e5f2880544d8c66cf84e4146b48_out = leqo_64bc2e5f2880544d8c66cf84e4146b48_literal
+  '# End node q1'
+  '# Start node q2'
+  leqo_d27ae4e9247b51b7a31ef707aa4284d1_literal = [leqo_reg[2]]
+  leqo_d27ae4e9247b51b7a31ef707aa4284d1_out = leqo_d27ae4e9247b51b7a31ef707aa4284d1_literal
+  '# End node q2'
+  '# Start node h_init_0'
+  leqo_44accc199a45537aaec74d299be762a1_q0 = [leqo_reg[0]]
+  qc.h(leqo_44accc199a45537aaec74d299be762a1_q0)
+  leqo_44accc199a45537aaec74d299be762a1_q0_out = leqo_44accc199a45537aaec74d299be762a1_q0
+  '# End node h_init_0'
+  '# Start node h_init_1'
+  leqo_8c239eb75b6151ada2d4495e34a5a3c8_q0 = [leqo_reg[1]]
+  qc.h(leqo_8c239eb75b6151ada2d4495e34a5a3c8_q0)
+  leqo_8c239eb75b6151ada2d4495e34a5a3c8_q0_out = leqo_8c239eb75b6151ada2d4495e34a5a3c8_q0
+  '# End node h_init_1'
+  '# Start node h_init_2'
+  leqo_9abf5c90dfc851f8804e8cbf9ec1f990_q0 = [leqo_reg[2]]
+  qc.h(leqo_9abf5c90dfc851f8804e8cbf9ec1f990_q0)
+  leqo_9abf5c90dfc851f8804e8cbf9ec1f990_q0_out = leqo_9abf5c90dfc851f8804e8cbf9ec1f990_q0
+  '# End node h_init_2'
+  '# Start node cost_cx_01a'
+  leqo_246fbee61caa5a6baafef4dbe69346d0_q0 = [leqo_reg[0]]
+  leqo_246fbee61caa5a6baafef4dbe69346d0_q1 = [leqo_reg[1]]
+  qc.cx(leqo_246fbee61caa5a6baafef4dbe69346d0_q0, leqo_246fbee61caa5a6baafef4dbe69346d0_q1)
+  leqo_246fbee61caa5a6baafef4dbe69346d0_q0_out = leqo_246fbee61caa5a6baafef4dbe69346d0_q0
+  leqo_246fbee61caa5a6baafef4dbe69346d0_q1_out = leqo_246fbee61caa5a6baafef4dbe69346d0_q1
+  '# End node cost_cx_01a'
+  '# Start node cost_rz_01'
+  leqo_24be1b0d3af353708141027a13e6ba77_q0 = [leqo_reg[1]]
+  qc.rz(0.7, leqo_24be1b0d3af353708141027a13e6ba77_q0)
+  leqo_24be1b0d3af353708141027a13e6ba77_q0_out = leqo_24be1b0d3af353708141027a13e6ba77_q0
+  '# End node cost_rz_01'
+  '# Start node cost_cx_01b'
+  leqo_c81fd61369b458988d774eaab72c3a9f_q0 = [leqo_reg[0]]
+  leqo_c81fd61369b458988d774eaab72c3a9f_q1 = [leqo_reg[1]]
+  qc.cx(leqo_c81fd61369b458988d774eaab72c3a9f_q0, leqo_c81fd61369b458988d774eaab72c3a9f_q1)
+  leqo_c81fd61369b458988d774eaab72c3a9f_q0_out = leqo_c81fd61369b458988d774eaab72c3a9f_q0
+  leqo_c81fd61369b458988d774eaab72c3a9f_q1_out = leqo_c81fd61369b458988d774eaab72c3a9f_q1
+  '# End node cost_cx_01b'
+  '# Start node cost_cx_12a'
+  leqo_c038f899d825547f98021ab8623f21eb_q0 = [leqo_reg[1]]
+  leqo_c038f899d825547f98021ab8623f21eb_q1 = [leqo_reg[2]]
+  qc.cx(leqo_c038f899d825547f98021ab8623f21eb_q0, leqo_c038f899d825547f98021ab8623f21eb_q1)
+  leqo_c038f899d825547f98021ab8623f21eb_q0_out = leqo_c038f899d825547f98021ab8623f21eb_q0
+  leqo_c038f899d825547f98021ab8623f21eb_q1_out = leqo_c038f899d825547f98021ab8623f21eb_q1
+  '# End node cost_cx_12a'
+  '# Start node mix_rx_0'
+  leqo_15d290b8ecaa5bb1b993fb3352b2a7c5_q0 = [leqo_reg[0]]
+  qc.rx(0.4, leqo_15d290b8ecaa5bb1b993fb3352b2a7c5_q0)
+  leqo_15d290b8ecaa5bb1b993fb3352b2a7c5_q0_out = leqo_15d290b8ecaa5bb1b993fb3352b2a7c5_q0
+  '# End node mix_rx_0'
+  '# Start node cost_rz_12'
+  leqo_57b6691c61e8580b9034e33b40e1feca_q0 = [leqo_reg[2]]
+  qc.rz(0.7, leqo_57b6691c61e8580b9034e33b40e1feca_q0)
+  leqo_57b6691c61e8580b9034e33b40e1feca_q0_out = leqo_57b6691c61e8580b9034e33b40e1feca_q0
+  '# End node cost_rz_12'
+  '# Start node m0'
+  leqo_5f9029b590825673813bc86fde8c5635_q = [leqo_reg[0]]
+  leqo_5f9029b590825673813bc86fde8c5635_result = ClassicalRegister(1, 'leqo_5f9029b590825673813bc86fde8c5635_result')
+  qc.add_register(leqo_5f9029b590825673813bc86fde8c5635_result)
+  qc.measure(leqo_5f9029b590825673813bc86fde8c5635_q[0], leqo_5f9029b590825673813bc86fde8c5635_result)
+  leqo_5f9029b590825673813bc86fde8c5635_out = leqo_5f9029b590825673813bc86fde8c5635_result
+  leqo_5f9029b590825673813bc86fde8c5635_qubit_out = leqo_5f9029b590825673813bc86fde8c5635_q
+  '# End node m0'
+  '# Start node cost_cx_12b'
+  leqo_18f3fd4555825e8bad858778d22cae31_q0 = [leqo_reg[1]]
+  leqo_18f3fd4555825e8bad858778d22cae31_q1 = [leqo_reg[2]]
+  qc.cx(leqo_18f3fd4555825e8bad858778d22cae31_q0, leqo_18f3fd4555825e8bad858778d22cae31_q1)
+  leqo_18f3fd4555825e8bad858778d22cae31_q0_out = leqo_18f3fd4555825e8bad858778d22cae31_q0
+  leqo_18f3fd4555825e8bad858778d22cae31_q1_out = leqo_18f3fd4555825e8bad858778d22cae31_q1
+  '# End node cost_cx_12b'
+  '# Start node mix_rx_1'
+  leqo_bcacd0945fc256efb8626ba0bf0f998f_q0 = [leqo_reg[1]]
+  qc.rx(0.4, leqo_bcacd0945fc256efb8626ba0bf0f998f_q0)
+  leqo_bcacd0945fc256efb8626ba0bf0f998f_q0_out = leqo_bcacd0945fc256efb8626ba0bf0f998f_q0
+  '# End node mix_rx_1'
+  '# Start node mix_rx_2'
+  leqo_de19e5f605535fa593c7b5482d5a9aa7_q0 = [leqo_reg[2]]
+  qc.rx(0.4, leqo_de19e5f605535fa593c7b5482d5a9aa7_q0)
+  leqo_de19e5f605535fa593c7b5482d5a9aa7_q0_out = leqo_de19e5f605535fa593c7b5482d5a9aa7_q0
+  '# End node mix_rx_2'
+  '# Start node m1'
+  leqo_7b3bc777dca35b37aa766558530831c3_q = [leqo_reg[1]]
+  leqo_7b3bc777dca35b37aa766558530831c3_result = ClassicalRegister(1, 'leqo_7b3bc777dca35b37aa766558530831c3_result')
+  qc.add_register(leqo_7b3bc777dca35b37aa766558530831c3_result)
+  qc.measure(leqo_7b3bc777dca35b37aa766558530831c3_q[0], leqo_7b3bc777dca35b37aa766558530831c3_result)
+  leqo_7b3bc777dca35b37aa766558530831c3_out = leqo_7b3bc777dca35b37aa766558530831c3_result
+  leqo_7b3bc777dca35b37aa766558530831c3_qubit_out = leqo_7b3bc777dca35b37aa766558530831c3_q
+  '# End node m1'
+  '# Start node m2'
+  leqo_12c60e8404e85e4885a8553548547782_q = [leqo_reg[2]]
+  leqo_12c60e8404e85e4885a8553548547782_result = ClassicalRegister(1, 'leqo_12c60e8404e85e4885a8553548547782_result')
+  qc.add_register(leqo_12c60e8404e85e4885a8553548547782_result)
+  qc.measure(leqo_12c60e8404e85e4885a8553548547782_q[0], leqo_12c60e8404e85e4885a8553548547782_result)
+  leqo_12c60e8404e85e4885a8553548547782_out = leqo_12c60e8404e85e4885a8553548547782_result
+  leqo_12c60e8404e85e4885a8553548547782_qubit_out = leqo_12c60e8404e85e4885a8553548547782_q
+  '# End node m2'
+  ' --- EXECUTION ---'
+  simulator = AerSimulator()
+  compiled_circuit = transpile(qc, simulator)
+  print(compiled_circuit)
+  job = simulator.run(compiled_circuit, shots=500)
+  result_data = job.result()
+  counts = result_data.get_counts(qc)
+  print('Simulation Results (500 shots):', counts)
+  program_outputs = {0: leqo_12c60e8404e85e4885a8553548547782_out, 1: leqo_12c60e8404e85e4885a8553548547782_qubit_out}

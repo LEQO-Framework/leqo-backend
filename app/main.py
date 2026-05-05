@@ -556,8 +556,7 @@ async def process_compile_request(
                 ex, is_debug=True, include_traceback=True
             ),
         )
-
-    # await update_status_response_in_db(engine, status, target)
+        await update_status_response_in_db(engine, status, target)
 
 
 async def process_enrich_request(

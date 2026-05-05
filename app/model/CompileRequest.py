@@ -382,6 +382,12 @@ class FloatLiteralNode(BaseNode):
     value: int | str | float
     """Float value."""
 
+    @model_validator(mode="after")
+    def _default_bit_size(self) -> FloatLiteralNode:
+        if self.bitSize is None:
+            self.bitSize = 32
+        return self
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 

@@ -53,7 +53,7 @@ expected_result: |
   let leqo_64bc2e5f2880544d8c66cf84e4146b48_out = leqo_64bc2e5f2880544d8c66cf84e4146b48_literal;
   /* End node q1 */
   /* Start node int */
-  int[32] leqo_f9e2bbd06c2b52b389e1d30e44a77f00_literal = 42;
+  int[6] leqo_f9e2bbd06c2b52b389e1d30e44a77f00_literal = 42;
   @leqo.output 0
   let leqo_f9e2bbd06c2b52b389e1d30e44a77f00_out = leqo_f9e2bbd06c2b52b389e1d30e44a77f00_literal;
   /* End node int */
