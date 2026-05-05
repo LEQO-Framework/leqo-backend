@@ -383,7 +383,7 @@ class IntLiteralNode(BaseNode):
             # Not an integer literal (e.g. "a")
             # Leave value as-is and don't infer bitSize
             pass
- 
+
         return self
 
     model_config = ConfigDict(use_attribute_docstrings=True)
