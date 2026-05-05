@@ -67,10 +67,20 @@ def test_build_qft_statements_size_2_inverse_sequence() -> None:
 def test_qft_size_3_has_expected_gate_count() -> None:
     statements = _only_gates(_build_qft_statements(3, inverse=False))
 
-    assert len(statements) == 7
-    assert sum(1 for stmt in statements if _gate_name(stmt) == "h") == 3
-    assert sum(1 for stmt in statements if _gate_name(stmt) == "cp") == 3
-    assert sum(1 for stmt in statements if _gate_name(stmt) == "swap") == 1
+    expected_gate_count = 7
+    expected_h_count = 3
+    expected_cp_count = 3
+    expected_swap_count = 1
+
+    assert len(statements) == expected_gate_count
+    assert sum(1 for stmt in statements if _gate_name(stmt) == "h") == expected_h_count
+    assert (
+        sum(1 for stmt in statements if _gate_name(stmt) == "cp") == expected_cp_count
+    )
+    assert (
+        sum(1 for stmt in statements if _gate_name(stmt) == "swap")
+        == expected_swap_count
+    )
 
 
 def test_qft_size_3_has_expected_cp_angles() -> None:
