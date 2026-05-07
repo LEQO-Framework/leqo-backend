@@ -24,6 +24,7 @@ from app.enricher import Enricher
 from app.enricher.deutsch_jozsa import DeutschJozsaEnricherStrategy
 from app.enricher.encode_value import EncodeValueEnricherStrategy
 from app.enricher.gates import GateEnricherStrategy
+from app.enricher.grover_algorithm import GroverAlgorithmEnricherStrategy
 from app.enricher.literals import LiteralEnricherStrategy
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.enricher.merger import MergerEnricherStrategy
@@ -101,6 +102,7 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         DeutschJozsaEnricherStrategy(),
         UniversalOracleEnricherStrategy(),
         GroverDiffuserEnricherStrategy(),
+        GroverAlgorithmEnricherStrategy(),
     ]
     if HAS_QISKIT:
         strategies.append(QiskitPrepareStateEnricherStrategy())

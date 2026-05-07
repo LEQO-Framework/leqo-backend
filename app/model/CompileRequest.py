@@ -558,6 +558,34 @@ class GroverDiffuserNode(BaseNode):
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+
+class GroverNode(BaseNode):
+    """
+    Complete Grover's Algorithm node (State Prep + Oracle + Diffuser).
+    """
+    type: Literal["grover"] = "grover"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """Number of query qubits (n)."""
+
+    truthTable: str
+    """Truth table representing the target states to search for."""
+
+    numIterations: Annotated[int, Field(gt=0)]
+    """Number of times to repeat the Oracle and Diffuser."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="after")
+    def _validate_grover_params(self) -> "GroverNode":
+        expected_length = 1 << self.numQubits
+        if len(self.truthTable) != expected_length:
+            raise ValueError(f"Truth table for {self.numQubits} qubits must be exactly {expected_length} bits long.")
+        if not all(c in "01" for c in self.truthTable):
+            raise ValueError("Truth table must contain only 0s and 1s.")
+        return self
+
+
 # region ControlFlow
 class NestedBlock(BaseModel):
     """
@@ -653,6 +681,7 @@ NestableNode = (
     | DeutschJozsaNode
     | UniversalOracleNode
     | GroverDiffuserNode
+    | GroverNode
 )
 Node = NestableNode | QubitNode | ControlFlowNode
 
@@ -792,6 +821,7 @@ EnrichableNode = (
     | DeutschJozsaNode
     | UniversalOracleNode
     | GroverDiffuserNode
+    | GroverNode
 )
 
 

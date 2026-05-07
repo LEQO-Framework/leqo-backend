@@ -1,0 +1,85 @@
+from typing import override
+from openqasm3.ast import (
+    Identifier,
+    Include,
+    IndexedIdentifier,
+    IntegerLiteral,
+    QuantumGate,
+    QubitDeclaration,
+    Statement,
+)
+from app.enricher import Constraints, EnricherStrategy, EnrichmentResult, ImplementationMetaData
+from app.enricher.utils import implementation, leqo_output
+from app.model.CompileRequest import Node as FrontendNode
+from app.model.CompileRequest import GroverNode
+
+class GroverAlgorithmEnricherStrategy(EnricherStrategy):
+    @override
+    def _enrich_impl(self, node: FrontendNode, constraints: Constraints | None) -> list[EnrichmentResult]:
+        if not isinstance(node, GroverNode):
+            return []
+
+        n = node.numQubits
+        iterations = node.numIterations
+        statements: list[Statement] = [Include("stdgates.inc")]
+        
+        # Declare the register
+        q_reg = Identifier("query")
+        statements.append(QubitDeclaration(q_reg, IntegerLiteral(n)))
+
+        all_qubits = [IndexedIdentifier(q_reg, [[IntegerLiteral(i)]]) for i in range(n)]
+        target_idx = [all_qubits[-1]]  # Last qubit acts as the MCZ target
+        controls = all_qubits[:-1]
+
+        # STEP 1: Initialization (Uniform Superposition)
+        for q in all_qubits:
+            statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=[q], duration=None))
+
+        # STEP 2: The Grover Loop (Oracle + Diffuser)
+        for _ in range(iterations):
+            
+            # --- 2A. The Universal Oracle (Phase Mode) ---
+            for i, bit in enumerate(node.truthTable):
+                if bit == '1':
+                    bin_str = format(i, f'0{n}b')
+                    
+                    # Apply X to '0' bits
+                    for q, val in enumerate(bin_str):
+                        if val == '0':
+                            statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[all_qubits[q]], duration=None))
+                    
+                    # Apply MCZ (H -> MCX -> H on the target)
+                    statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
+                    statements.append(QuantumGate(modifiers=[], name=Identifier("mcx"), arguments=[], qubits=[*controls, *target_idx], duration=None))
+                    statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
+
+                    # Undo X on '0' bits
+                    for q, val in enumerate(bin_str):
+                        if val == '0':
+                            statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[all_qubits[q]], duration=None))
+
+            # --- 2B. The Grover Diffuser ---
+            # H on all
+            for q in all_qubits:
+                statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=[q], duration=None))
+            # X on all
+            for q in all_qubits:
+                statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[q], duration=None))
+            
+            # MCZ
+            statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
+            statements.append(QuantumGate(modifiers=[], name=Identifier("mcx"), arguments=[], qubits=[*controls, *target_idx], duration=None))
+            statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
+            
+            # X on all
+            for q in all_qubits:
+                statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[q], duration=None))
+            # H on all
+            for q in all_qubits:
+                statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=[q], duration=None))
+
+        # STEP 3: Export the result
+        statements.append(leqo_output("out", 0, q_reg))
+
+        # Rough depth estimation
+        return [EnrichmentResult(implementation(node, statements), ImplementationMetaData(width=n, depth=n * 10 * iterations))]
