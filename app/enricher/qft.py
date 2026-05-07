@@ -39,7 +39,9 @@ def _validate_qft_constraints(constraints: Constraints | None, node: QFTNode) ->
     """
     Validate constraints for QFT implementations.
 
-    QFT expects exactly one qubit input register whose size matches node.size.
+    QFT expects exactly one qubit input register. If node.size is provided,
+    it must match the input register size. If node.size is omitted, the size
+    is derived from the input register.
 
     :param constraints: Constraints to validate.
     :param node: QFT node the constraints are for.
@@ -62,16 +64,15 @@ def _validate_qft_constraints(constraints: Constraints | None, node: QFTNode) ->
     if not isinstance(input_type, LeqoQubitType):
         raise InputTypeMismatch(node, 0, actual=input_type, expected="qubit")
 
-    size = input_type.size
-    if size is None:
+    input_size = input_type.size
+    if input_size is None:
         msg = "Could not determine size of QFT input register"
         raise EnricherException(msg, node)
 
-    if size != node.size:
-        raise InputSizeMismatch(node, 0, actual=size, expected=node.size)
+    if node.size is not None and input_size != node.size:
+        raise InputSizeMismatch(node, 0, actual=input_size, expected=node.size)
 
-    return size
-
+    return input_size
 
 def _q(index: int) -> IndexedIdentifier:
     """

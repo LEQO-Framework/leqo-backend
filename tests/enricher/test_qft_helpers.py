@@ -3,7 +3,16 @@ import math
 import pytest
 from openqasm3.ast import FloatLiteral, QuantumGate
 
-from app.enricher.qft import _build_qft_statements
+from app.enricher import Constraints
+from app.enricher.exceptions import EnricherException
+from app.enricher.qft import _build_qft_statements, _validate_qft_constraints
+from app.model.CompileRequest import QFTNode
+from app.model.data_types import IntType, QubitType
+from app.model.exceptions import (
+    InputCountMismatch,
+    InputSizeMismatch,
+    InputTypeMismatch,
+)
 
 
 def _only_gates(statements):
@@ -124,3 +133,112 @@ def test_inverse_qft_puts_swaps_at_beginning() -> None:
     statements = _only_gates(_build_qft_statements(3, inverse=True))
 
     assert _gate_name(statements[0]) == "swap"
+
+
+def test_qft_constraints_derive_size_from_input_register() -> None:
+    expected_size = 2
+    node = QFTNode(id="nodeId")
+    constraints = Constraints(
+        requested_inputs={0: QubitType(expected_size)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    assert _validate_qft_constraints(constraints, node) == expected_size
+
+
+def test_qft_constraints_accept_matching_explicit_size() -> None:
+    expected_size = 2
+    node = QFTNode(id="nodeId", size=expected_size)
+    constraints = Constraints(
+        requested_inputs={0: QubitType(expected_size)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    assert _validate_qft_constraints(constraints, node) == expected_size
+
+
+def test_qft_constraints_reject_mismatching_explicit_size() -> None:
+    input_size = 2
+    expected_node_size = 3
+    node = QFTNode(id="nodeId", size=expected_node_size)
+    constraints = Constraints(
+        requested_inputs={0: QubitType(input_size)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    with pytest.raises(
+        InputSizeMismatch,
+        match=r"^Expected size 3 for input 0\. Got 2\.$",
+    ):
+        _validate_qft_constraints(constraints, node)
+
+
+@pytest.mark.parametrize(
+    "constraints",
+    [
+        None,
+        Constraints(
+            requested_inputs={},
+            optimizeWidth=False,
+            optimizeDepth=False,
+        ),
+    ],
+)
+def test_qft_constraints_require_an_input_register(
+    constraints: Constraints | None,
+) -> None:
+    node = QFTNode(id="nodeId")
+
+    with pytest.raises(
+        InputCountMismatch,
+        match=r"^Node should have 1 inputs\. Got 0\.$",
+    ):
+        _validate_qft_constraints(constraints, node)
+
+
+def test_qft_constraints_reject_multiple_input_registers() -> None:
+    node = QFTNode(id="nodeId")
+    constraints = Constraints(
+        requested_inputs={0: QubitType(1), 1: QubitType(1)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    with pytest.raises(
+        InputCountMismatch,
+        match=r"^Node should have 1 inputs\. Got 2\.$",
+    ):
+        _validate_qft_constraints(constraints, node)
+
+
+def test_qft_constraints_reject_non_qubit_input() -> None:
+    node = QFTNode(id="nodeId")
+    constraints = Constraints(
+        requested_inputs={0: IntType(32)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    with pytest.raises(
+        InputTypeMismatch,
+        match=r"^Expected type 'qubit' for input 0\.",
+    ):
+        _validate_qft_constraints(constraints, node)
+
+
+def test_qft_constraints_reject_missing_input_index_zero() -> None:
+    node = QFTNode(id="nodeId")
+    constraints = Constraints(
+        requested_inputs={1: QubitType(2)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    with pytest.raises(
+        EnricherException,
+        match=r"^Could not determine input type for QFT input 0$",
+    ):
+        _validate_qft_constraints(constraints, node)

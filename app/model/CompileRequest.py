@@ -323,10 +323,11 @@ class QFTNode(BaseNode):
 
     type: Literal["qft"] = "qft"
 
-    size: int = Field(gt=0)
+    size: int | None = Field(default=None, gt=0)
     """Number of qubits the QFT acts on."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
+
 
 
 # region Literals
