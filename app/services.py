@@ -32,6 +32,7 @@ from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.enricher.qiskit_prepare import HAS_QISKIT, QiskitPrepareStateEnricherStrategy
 from app.enricher.splitter import SplitterEnricherStrategy
+from app.enricher.universal_oracles import GroverDiffuserEnricherStrategy, UniversalOracleEnricherStrategy
 from app.model.database_model import Base
 from app.utils import not_none
 
@@ -98,6 +99,8 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         EncodeValueEnricherStrategy(engine),
         PrepareStateEnricherStrategy(engine),
         DeutschJozsaEnricherStrategy(),
+        UniversalOracleEnricherStrategy(),
+        GroverDiffuserEnricherStrategy(),
     ]
     if HAS_QISKIT:
         strategies.append(QiskitPrepareStateEnricherStrategy())

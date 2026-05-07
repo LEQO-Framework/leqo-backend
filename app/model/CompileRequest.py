@@ -516,6 +516,47 @@ class DeutschJozsaNode(BaseNode):
                 raise ValueError(f"balancedMask {self.balancedMask} is too large for {self.numQubits} query qubits.")
         
         return self
+    
+class UniversalOracleNode(BaseNode):
+    """
+    Arbitrary Oracle defined by a Truth Table.
+    """
+    type: Literal["universal-oracle"] = "universal-oracle"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """Number of query qubits (n). The truth table must be length 2^n."""
+
+    truthTable: str
+    """A string of 0s and 1s representing the output of f(x) for all states."""
+
+    mode: Literal["boolean", "phase"]
+    """
+    'boolean': Flips a target qubit if f(x)=1 (Used for Deutsch-Jozsa).
+    'phase': Flips the phase of the state if f(x)=1 (Used for Grover).
+    """
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="after")
+    def _validate_truth_table(self) -> "UniversalOracleNode":
+        expected_length = 1 << self.numQubits
+        if len(self.truthTable) != expected_length:
+            raise ValueError(f"Truth table for {self.numQubits} qubits must be exactly {expected_length} bits long.")
+        if not all(c in "01" for c in self.truthTable):
+            raise ValueError("Truth table must contain only 0s and 1s.")
+        return self
+
+
+class GroverDiffuserNode(BaseNode):
+    """
+    Standard Grover Diffuser (Inversion about the mean).
+    """
+    type: Literal["grover-diffuser"] = "grover-diffuser"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """Number of qubits to apply the diffuser to."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 # region ControlFlow
 class NestedBlock(BaseModel):
@@ -610,6 +651,8 @@ NestableNode = (
     | AncillaNode
     | OperatorNode
     | DeutschJozsaNode
+    | UniversalOracleNode
+    | GroverDiffuserNode
 )
 Node = NestableNode | QubitNode | ControlFlowNode
 
@@ -747,6 +790,8 @@ EnrichableNode = (
     | OperatorNode
     | QubitNode
     | DeutschJozsaNode
+    | UniversalOracleNode
+    | GroverDiffuserNode
 )
 
 
