@@ -74,6 +74,7 @@ def _validate_qft_constraints(constraints: Constraints | None, node: QFTNode) ->
 
     return input_size
 
+
 def _q(index: int) -> IndexedIdentifier:
     """
     Return q[index] as an OpenQASM indexed identifier.

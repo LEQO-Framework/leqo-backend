@@ -329,7 +329,6 @@ class QFTNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
-
 # region Literals
 class BitLiteralNode(BaseNode):
     """
