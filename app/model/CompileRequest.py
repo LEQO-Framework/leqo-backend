@@ -149,6 +149,7 @@ class PrepareStateNode(BaseNode):
                 state_name = node_data.get("quantumStateName")
                 if state_name is not None:
                     normalized["quantumState"] = str(state_name)
+
             if "size" not in normalized:
                 size_value = node_data.get("size")
                 if size_value is not None:
@@ -236,11 +237,13 @@ class MeasurementNode(BaseNode):
             if isinstance(raw, int):
                 coerced.append(raw)
                 continue
+
             if isinstance(raw, str):
                 stripped = raw.strip()
                 if stripped:
                     with suppress(ValueError):
                         coerced.append(int(stripped))
+
         return coerced
 
     @classmethod
@@ -248,18 +251,22 @@ class MeasurementNode(BaseNode):
         if isinstance(value, list):
             parsed = cls._coerce_indices(value)
             return parsed or None
+
         if isinstance(value, str):
             segments = [segment.strip() for segment in value.split(",")]
             parsed = cls._coerce_indices(segments)
             return parsed or None
+
         if isinstance(value, int):
             return [value]
+
         return None
 
     @staticmethod
     def _infer_indices_from_inputs(value: Any) -> list[int] | None:
         if not isinstance(value, list):
             return None
+
         logical_inputs = [
             entry
             for entry in value
@@ -433,7 +440,6 @@ class ArrayLiteralNode(BaseNode):
         normalized = data.copy()
         raw_values = normalized.get("values", normalized.get("value"))
 
-        # Helper to parse string to int or float
         def parse_num(s: Any) -> int | float:
             str_s = str(s)
             return float(str_s) if "." in str_s else int(str_s)
@@ -452,7 +458,6 @@ class ArrayLiteralNode(BaseNode):
         else:
             normalized.setdefault("values", [])
 
-        # Infer elementType from the raw data if not provided
         if "elementType" not in normalized and normalized.get("values"):
             if any(isinstance(v, float) for v in normalized["values"]):
                 normalized["elementType"] = "float"
@@ -463,7 +468,6 @@ class ArrayLiteralNode(BaseNode):
 
     @model_validator(mode="after")
     def _default_bit_size(self) -> ArrayLiteralNode:
-        # We only care about elementBitSize if it's an integer array
         if self.elementType != "float" and self.elementBitSize is None:
             bit_size = (
                 max(
@@ -478,6 +482,7 @@ class ArrayLiteralNode(BaseNode):
                 else 1
             )
             self.elementBitSize = bit_size
+
         return self
 
 
@@ -593,6 +598,7 @@ class OperatorNode(BaseNode):
     """
 
     type: Literal["operator"] = "operator"
+
     operator: Literal[
         "+",
         "-",
@@ -702,14 +708,17 @@ class Edge(BaseModel):
                 node_id = value
                 index = 0
                 handle = normalized.get(handle_field)
+
                 if isinstance(handle, str):
                     if handle.endswith(node_id):
                         prefix = handle[: -len(node_id)]
                     else:
                         prefix = handle
+
                     match = re.search(r"(\d+)(?!.*\d)", prefix)
                     if match is not None:
                         index = int(match.group(1))
+
                 normalized[field] = (node_id, index)
 
         _convert_endpoint("source", "sourceHandle")
@@ -723,6 +732,48 @@ class Edge(BaseModel):
                     normalized["size"] = int(stripped)
 
         return normalized
+
+
+def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        value = data.get(key)
+        if value is not None:
+            return value
+
+    return None
+
+
+def _normalize_data_type_node(converted: dict[str, Any]) -> None:
+    data_field = converted.get("data")
+    if not isinstance(data_field, dict):
+        return
+
+    data_type = data_field.get("dataType")
+    if not isinstance(data_type, str):
+        return
+
+    match data_type.lower():
+        case "array":
+            converted["type"] = "array"
+            converted.setdefault("label", data_field.get("label"))
+
+            if "values" not in converted and "value" in data_field:
+                converted["values"] = data_field["value"]
+
+            if "elementBitSize" not in converted and "bitSize" in data_field:
+                converted["elementBitSize"] = data_field["bitSize"]
+
+        case "qubit":
+            converted["type"] = "qubit"
+            converted.setdefault("label", data_field.get("label"))
+
+            if "size" not in converted:
+                size_value = _first_existing_value(
+                    data_field,
+                    ("size", "numberQubits", "numberOutputs", "value"),
+                )
+                if size_value is not None:
+                    converted["size"] = size_value
 
 
 class CompileRequest(BaseModel):
@@ -752,38 +803,28 @@ class CompileRequest(BaseModel):
 
         normalized = data.copy()
         nodes = normalized.get("nodes")
-        if isinstance(nodes, list):
-            converted_nodes: list[Any] = []
-            for node in nodes:
-                if isinstance(node, dict):
-                    converted = node.copy()
-                    node_type = converted.get("type")
-                    if node_type == "statePreparationNode":
-                        converted["type"] = "prepare"
-                    elif node_type == "measurementNode":
-                        converted["type"] = "measure"
-                    elif node_type == "dataTypeNode":
-                        data_field = converted.get("data")
-                        if isinstance(data_field, dict):
-                            data_type = data_field.get("dataType")
-                            if (
-                                isinstance(data_type, str)
-                                and data_type.lower() == "array"
-                            ):
-                                converted["type"] = "array"
-                                converted.setdefault("label", data_field.get("label"))
-                                if "values" not in converted and "value" in data_field:
-                                    converted["values"] = data_field["value"]
-                                if (
-                                    "elementBitSize" not in converted
-                                    and "bitSize" in data_field
-                                ):
-                                    converted["elementBitSize"] = data_field["bitSize"]
-                    converted_nodes.append(converted)
-                else:
-                    converted_nodes.append(node)
-            normalized["nodes"] = converted_nodes
+        if not isinstance(nodes, list):
+            return normalized
 
+        converted_nodes: list[Any] = []
+        for node in nodes:
+            if not isinstance(node, dict):
+                converted_nodes.append(node)
+                continue
+
+            converted = node.copy()
+            node_type = converted.get("type")
+
+            if node_type == "statePreparationNode":
+                converted["type"] = "prepare"
+            elif node_type == "measurementNode":
+                converted["type"] = "measure"
+            elif node_type == "dataTypeNode":
+                _normalize_data_type_node(converted)
+
+            converted_nodes.append(converted)
+
+        normalized["nodes"] = converted_nodes
         return normalized
 
 
@@ -814,7 +855,9 @@ class SingleInsert(BaseModel):
     """
 
     node: Annotated[EnrichableNode, Field(discriminator="type")]
+
     implementation: str
+
     metadata: SingleInsertMetaData
 
 
