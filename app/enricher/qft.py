@@ -196,7 +196,7 @@ class QFTEnricherStrategy(EnricherStrategy):
         statements = [
             Include("stdgates.inc"),
             leqo_input("q", 0, size),
-            *_build_qft_statements(size, inverse=False),
+            *_build_qft_statements(size, inverse=node.inverse),
             leqo_output("q_out", 0, Identifier("q")),
         ]
 

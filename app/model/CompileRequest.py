@@ -326,6 +326,9 @@ class QFTNode(BaseNode):
     size: int | None = Field(default=None, gt=0)
     """Number of qubits the QFT acts on."""
 
+    inverse: bool = False
+    """Whether to generate the inverse Quantum Fourier Transform."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
