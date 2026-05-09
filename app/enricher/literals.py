@@ -68,7 +68,7 @@ class LiteralEnricherStrategy(EnricherStrategy):
                             leqo_output("out", 0, Identifier("literal")),
                         ],
                     ),
-                    ImplementationMetaData(width=1, depth=1),
+                    ImplementationMetaData(width=size, depth=1),
                 )
 
             case IntLiteralNode():
