@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "name": "Concat Broadcast Test",
+    "description": "Test unary gate broadcasting on concatenated qubits (a ++ b).",
+    "author": "CLI Tester"
+  },
+  "compilation_target": "qasm",
+  "nodes": [
+    {
+      "id": "n2",
+      "type": "implementation",
+      "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\nqubit[1] a;\nqubit[1] b;\nlet q = a ++ b;\nh q;\nbit[2] c;\nc[0] = measure a[0];\nc[1] = measure b[0];\n@leqo.output 0\nlet out = c;\n"
+    }
+  ],
+  "edges": []
+}

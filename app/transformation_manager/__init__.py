@@ -65,6 +65,9 @@ from pathlib import Path
 import os
 import io
 import json
+import traceback
+
+traceback.print_exc()
 
 # BPMN Layout Configuration
 BPMN_START_X = 252  # X position of start event
@@ -383,7 +386,7 @@ class MergingProcessor(CommonProcessor):
 
         :return: The final QASM program as a string.
         """
-        print("pricess gestartet")
+        print("process gestartet")
         await self.process_nodes()
         print("nodes")
 
@@ -513,7 +516,7 @@ class EnrichingProcessor(CommonProcessor):
         return [x async for x in self.enrich()]
 
 
-CLASSICAL_TYPES = {"int", "float", "angle", "boolean", "bit"}
+CLASSICAL_TYPES = {"int", "float", "angle", "boolean", "bit", "file", "string"}
 
 
 class WorkflowProcessor(CommonProcessor):
@@ -582,24 +585,31 @@ class WorkflowProcessor(CommonProcessor):
         collapsed_edges_list: list[tuple[str, str]] = list(collapsed_edges)
 
         # Generate BPMN XML
-        bpmn_xml, all_activities = _implementation_nodes_to_bpmn_xml(
-            "workflow_process",
-            composite_nodes,
-            collapsed_edges_list,
-            metadata=node_metadata,
-            start_event_classical_nodes=[
-                node
-                for node in nodes_dict.values()
-                if getattr(node, "type", None) in CLASSICAL_TYPES
-            ],
-            containsPlaceholder=self.original_request.metadata.containsPlaceholder,
-        )
+        try:
+            bpmn_xml, all_activities = _implementation_nodes_to_bpmn_xml(
+                "workflow_process",
+                composite_nodes,
+                collapsed_edges_list,
+                metadata=node_metadata,
+                start_event_classical_nodes=[
+                    node
+                    for node in nodes_dict.values()
+                    if getattr(node, "type", None) in CLASSICAL_TYPES
+                ],
+                original_request=self.original_request,
+                qasm=self.result,
+            )
+        except Exception as e:
+            print("!!! BPMN GENERATION FAILED !!!", repr(e))
+            return "", b""
+
         print("Service Task Generation")
         # Generate ZIP-of-ZIPs for Python files
         # service_zip_bytes = await self.generate_service_zips(all_activities, node_metadata)
 
         # Generate QRMs
-        qrms = await generate_qrms(quantum_groups)
+        if quantum_groups:
+            qrms = await generate_qrms(quantum_groups)
         # return service_zip_bytes
         return bpmn_xml
 
@@ -611,8 +621,13 @@ class WorkflowProcessor(CommonProcessor):
         quantum_nodes = [
             self.frontend_graph.node_data[node_id]
             for node_id in self.frontend_graph.nodes
-            if getattr(self.frontend_graph.node_data[node_id], "type", None)
-            not in CLASSICAL_TYPES
+            if (
+                node_id in self.frontend_graph.node_data
+                and getattr(self.frontend_graph.node_data[node_id], "type", None)
+                not in CLASSICAL_TYPES
+                and getattr(self.frontend_graph.node_data[node_id], "type", None)
+                != "plugin"
+            )
         ]
 
         # print(f"Quantum nodes: {[node.id for node in quantum_nodes]}")
@@ -920,7 +935,8 @@ def _implementation_nodes_to_bpmn_xml(
     edges: list[tuple[str, str]],
     metadata: dict[str, dict[str, Any]] | None = None,
     start_event_classical_nodes: list[Any] | None = None,
-    containsPlaceholder: bool = False,
+    original_request: CompileRequest | None = None,
+    qasm: str | None = None,
 ) -> tuple[str, list[str]]:
     """Generate BPMN XML workflow diagram with correct left-to-right layout.
 
@@ -930,6 +946,14 @@ def _implementation_nodes_to_bpmn_xml(
     chain task (Set Variables) is linked into that node so the chain appears
     before the node in the diagram.
     """
+    print(
+        f"_implementation_nodes_to_bpmn_xml called with:\n"
+        f"process_id={process_id}\n"
+        f"nodes={nodes}\n"
+        f"edges={edges}\n"
+        f"metadata={metadata}\n"
+        f"start_event_classical_nodes={start_event_classical_nodes}\n"
+    )
 
     builder = BpmnBuilder(
         process_id=process_id,
@@ -937,7 +961,8 @@ def _implementation_nodes_to_bpmn_xml(
         edges=edges,
         metadata=metadata,
         start_event_classical_nodes=start_event_classical_nodes,
-        containsPlaceholder=containsPlaceholder,
+        original_request=original_request,
+        qasm=qasm,
     )
 
     return builder.build()
