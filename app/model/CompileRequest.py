@@ -709,6 +709,32 @@ class Edge(BaseModel):
         return normalized
 
 
+def _normalize_schmidt_encoding_name(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip().lower().replace("_", " ").replace("-", " ")
+
+    if normalized in {"schmidt", "schmidt decomposition"}:
+        return "schmidt"
+
+    return None
+
+
+def _normalize_state_preparation_node(converted: dict[str, Any]) -> None:
+    data_field = converted.get("data")
+
+    if isinstance(data_field, dict):
+        encoding = _normalize_schmidt_encoding_name(data_field.get("encodingType"))
+        if encoding is not None:
+            converted["type"] = "encode"
+            converted["encoding"] = encoding
+            converted.setdefault("label", data_field.get("label"))
+            return
+
+    converted["type"] = "prepare"
+
+
 class CompileRequest(BaseModel):
     """
     Top-level object representing a full graph-based quantum compile request.
@@ -742,10 +768,13 @@ class CompileRequest(BaseModel):
                 if isinstance(node, dict):
                     converted = node.copy()
                     node_type = converted.get("type")
+
                     if node_type == "statePreparationNode":
-                        converted["type"] = "prepare"
+                        _normalize_state_preparation_node(converted)
+
                     elif node_type == "measurementNode":
                         converted["type"] = "measure"
+
                     elif node_type == "dataTypeNode":
                         data_field = converted.get("data")
                         if isinstance(data_field, dict):
@@ -763,9 +792,11 @@ class CompileRequest(BaseModel):
                                     and "bitSize" in data_field
                                 ):
                                     converted["elementBitSize"] = data_field["bitSize"]
+
                     converted_nodes.append(converted)
                 else:
                     converted_nodes.append(node)
+
             normalized["nodes"] = converted_nodes
 
         return normalized
