@@ -34,7 +34,10 @@ from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.enricher.qft import QFTEnricherStrategy
 from app.enricher.qiskit_prepare import HAS_QISKIT, QiskitPrepareStateEnricherStrategy
 from app.enricher.splitter import SplitterEnricherStrategy
-from app.enricher.universal_oracles import GroverDiffuserEnricherStrategy, UniversalOracleEnricherStrategy
+from app.enricher.universal_oracles import (
+    GroverDiffuserEnricherStrategy,
+    UniversalOracleEnricherStrategy,
+)
 from app.model.database_model import Base
 from app.utils import not_none
 

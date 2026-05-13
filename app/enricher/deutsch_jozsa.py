@@ -119,17 +119,18 @@ class DeutschJozsaEnricherStrategy(EnricherStrategy):
         calculated_depth = base_depth + oracle_depth
 
         # 5. Interference
-        for i in range(n):
-            q_idx = [IndexedIdentifier(q_reg, [[IntegerLiteral(i)]])]
-            statements.append(
+        statements.extend(
+            [
                 QuantumGate(
                     modifiers=[],
                     name=Identifier("h"),
                     arguments=[],
-                    qubits=q_idx,
-                    duration=None
+                    qubits=[IndexedIdentifier(q_reg, [[IntegerLiteral(i)]])],
+                    duration=None,
                 )
-            )
+                for i in range(n)
+            ]
+        )
 
         # 6. Expose Output
         statements.append(leqo_output("out", 0, q_reg))

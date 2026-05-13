@@ -43,7 +43,7 @@ async def test_complete_grover_algorithm():
 
 @pytest.mark.asyncio
 async def test_grover_auto_iterations():
-    # Setup a 3-qubit Grover search looking for 1 state, but NO iterations specified.
+    # Setup a 3-qubit Grover search looking for 1 state, NO iterations specified.
     # N=8, M=1. Optimal exact geometric calculation is 2 iterations.
     node = GroverNode(
         id="grover-auto",
@@ -57,7 +57,6 @@ async def test_grover_auto_iterations():
 
     qasm = leqo_dumps(results[0].enriched_node.implementation)
 
-    # We should see the diffuser applied exactly twice!
     diffuser_signature = (
         "h query[0];\n"
         "h query[1];\n"
@@ -66,7 +65,9 @@ async def test_grover_auto_iterations():
         "x query[1];\n"
         "x query[2];"
     )
-    assert qasm.count(diffuser_signature) == 2
+
+    EXPECTED_ITERATIONS = 2
+    assert qasm.count(diffuser_signature) == EXPECTED_ITERATIONS
 
 
 def test_grover_validation_error():
