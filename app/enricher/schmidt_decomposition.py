@@ -14,6 +14,8 @@ SEPARABLE_RANK = 1
 @dataclass(frozen=True)
 class SchmidtDecompositionResult:
     coefficients: list[float]
+    u_vectors: list[list[complex]]
+    v_vectors: list[list[complex]]
     rank: int
     entanglement_entropy: float
     is_separable: bool
@@ -24,21 +26,27 @@ def coerce_state_vector(raw_value: Any) -> np.ndarray:
     if raw_value is None:
         raise RuntimeError("Schmidt decomposition needs a state vector input.")
 
-    if isinstance(raw_value, str):
+    if isinstance(raw_value, Statevector):
+        vector = np.asarray(raw_value.data, dtype=complex)
+
+    elif isinstance(raw_value, str):
         parts = [
             part.strip()
             for part in raw_value.replace(";", ",").split(",")
             if part.strip() != ""
         ]
         values = [complex(part) for part in parts]
+        vector = np.asarray(values, dtype=complex)
+
     elif isinstance(raw_value, Iterable) and not isinstance(
         raw_value, (bytes, bytearray)
     ):
         values = [complex(value) for value in raw_value]
+        vector = np.asarray(values, dtype=complex)
+
     else:
         values = [complex(raw_value)]
-
-    vector = np.asarray(values, dtype=complex)
+        vector = np.asarray(values, dtype=complex)
 
     if vector.size < MIN_STATE_VECTOR_LENGTH:
         raise RuntimeError("State vector must contain at least 2 amplitudes.")
@@ -86,10 +94,18 @@ def analyze_schmidt_decomposition(
     decomposition = schmidt_decomposition(state, qargs)
 
     coefficients = [float(coefficient) for coefficient, _, _ in decomposition]
+    u_vectors = [
+        np.asarray(u_state.data, dtype=complex).tolist()
+        for _, u_state, _ in decomposition
+    ]
+    v_vectors = [
+        np.asarray(v_state.data, dtype=complex).tolist()
+        for _, _, v_state in decomposition
+    ]
+
     probabilities = [
         coefficient**2 for coefficient in coefficients if coefficient > tolerance
     ]
-
     rank = len(probabilities)
     entanglement_entropy = -sum(
         probability * log2(probability) for probability in probabilities
@@ -97,6 +113,8 @@ def analyze_schmidt_decomposition(
 
     return SchmidtDecompositionResult(
         coefficients=coefficients,
+        u_vectors=u_vectors,
+        v_vectors=v_vectors,
         rank=rank,
         entanglement_entropy=entanglement_entropy,
         is_separable=rank == SEPARABLE_RANK,

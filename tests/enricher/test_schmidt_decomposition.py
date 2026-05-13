@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from qiskit.quantum_info import Statevector
 
 from app.enricher.schmidt_decomposition import (
     analyze_schmidt_decomposition,
@@ -21,6 +22,7 @@ BELL_ENTROPY = 1.0
 INVALID_TOLERANCE = 0
 RANK_TOLERANCE = 1e-10
 SMALL_AMPLITUDE = 1e-12
+NORMALIZED_VECTOR_NORM = 1.0
 
 
 def test_product_state_is_separable() -> None:
@@ -134,3 +136,25 @@ def test_rank_uses_tolerance() -> None:
 
     assert result.rank == SEPARABLE_RANK
     assert result.is_separable is True
+
+
+def test_accepts_qiskit_statevector_input() -> None:
+    state = Statevector([1, 0, 0, 0])
+
+    result = analyze_schmidt_decomposition(state, qargs=[FIRST_QUBIT])
+
+    assert result.rank == SEPARABLE_RANK
+    assert result.is_separable is True
+    assert np.isclose(result.entanglement_entropy, ZERO_ENTROPY)
+
+
+def test_returns_orthonormal_u_and_v_vectors() -> None:
+    bell_state = [1 / np.sqrt(TWO_QUBITS), 0, 0, 1 / np.sqrt(TWO_QUBITS)]
+
+    result = analyze_schmidt_decomposition(bell_state, qargs=[FIRST_QUBIT])
+
+    assert len(result.u_vectors) == BELL_STATE_RANK
+    assert len(result.v_vectors) == BELL_STATE_RANK
+
+    for vector in result.u_vectors + result.v_vectors:
+        assert np.isclose(np.linalg.norm(vector), NORMALIZED_VECTOR_NORM)
