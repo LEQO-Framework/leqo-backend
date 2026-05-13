@@ -545,6 +545,7 @@ class DeutschJozsaNode(BaseNode):
     """
     Node representing the Deutsch-Jozsa algorithm with a parameterized oracle.
     """
+
     type: Literal["deutsch-jozsa"] = "deutsch-jozsa"
 
     numQubits: Annotated[int, Field(gt=0)]
@@ -562,18 +563,21 @@ class DeutschJozsaNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
     @model_validator(mode="after")
-    def _validate_oracle_params(self) -> DeutschJozsaNode:
+    def _validate_oracle_params(self) -> "DeutschJozsaNode":
         if self.oracleType == "constant" and self.constantValue is None:
             raise ValueError("constantValue must be 0 or 1 for constant oracles.")
-
+        
         if self.oracleType == "balanced":
             if self.balancedMask is None:
                 raise ValueError("balancedMask must be provided for balanced oracles.")
             # Ensure the mask isn't larger than the available qubits can handle
             if self.balancedMask >= (1 << self.numQubits):
-                raise ValueError(f"balancedMask {self.balancedMask} is too large for {self.numQubits} query qubits.")
-
+                raise ValueError(
+                    f"balancedMask {self.balancedMask} is too large for {self.numQubits} query qubits."
+                )
+        
         return self
+
 
 class UniversalOracleNode(BaseNode):
     """
@@ -611,7 +615,7 @@ class UniversalOracleNode(BaseNode):
         return data
 
     @model_validator(mode="after")
-    def _validate_bounds(self) -> UniversalOracleNode:
+    def _validate_bounds(self) -> "UniversalOracleNode":
         max_val = (1 << self.numQubits) - 1
         for state in self.targetStates:
             if state < 0 or state > max_val:
@@ -672,7 +676,7 @@ class GroverNode(BaseNode):
         return data
 
     @model_validator(mode="after")
-    def _validate_bounds(self) -> GroverNode:
+    def _validate_bounds(self) -> "GroverNode":
         max_val = (1 << self.numQubits) - 1
         for state in self.targetStates:
             if state < 0 or state > max_val:

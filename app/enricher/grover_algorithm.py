@@ -36,7 +36,9 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
 
         if node.numIterations is None:
             iterations = (
-                0 if M in {0, N} else max(1, round((math.pi / (4 * math.asin(math.sqrt(M / N)))) - 0.5))
+                0
+                if M in {0, N}
+                else max(1, round((math.pi / (4 * math.asin(math.sqrt(M / N)))) - 0.5))
             )
         else:
             iterations = node.numIterations
@@ -88,9 +90,27 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
                 # Apply MCZ
                 statements.extend(
                     [
-                        QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None),
-                        QuantumGate(modifiers=[], name=Identifier("mcx"), arguments=[], qubits=[*controls, *target_idx], duration=None),
-                        QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None),
+                        QuantumGate(
+                            modifiers=[],
+                            name=Identifier("h"),
+                            arguments=[],
+                            qubits=target_idx,
+                            duration=None,
+                        ),
+                        QuantumGate(
+                            modifiers=[],
+                            name=Identifier("mcx"),
+                            arguments=[],
+                            qubits=[*controls, *target_idx],
+                            duration=None,
+                        ),
+                        QuantumGate(
+                            modifiers=[],
+                            name=Identifier("h"),
+                            arguments=[],
+                            qubits=target_idx,
+                            duration=None,
+                        ),
                     ]
                 )
 
@@ -112,32 +132,74 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
             # --- 2B. The Grover Diffuser ---
             statements.extend(
                 [
-                    QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=[q], duration=None)
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("h"),
+                        arguments=[],
+                        qubits=[q],
+                        duration=None,
+                    )
                     for q in all_qubits
                 ]
             )
             statements.extend(
                 [
-                    QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[q], duration=None)
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("x"),
+                        arguments=[],
+                        qubits=[q],
+                        duration=None,
+                    )
                     for q in all_qubits
                 ]
             )
             statements.extend(
                 [
-                    QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None),
-                    QuantumGate(modifiers=[], name=Identifier("mcx"), arguments=[], qubits=[*controls, *target_idx], duration=None),
-                    QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None),
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("h"),
+                        arguments=[],
+                        qubits=target_idx,
+                        duration=None,
+                    ),
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("mcx"),
+                        arguments=[],
+                        qubits=[*controls, *target_idx],
+                        duration=None,
+                    ),
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("h"),
+                        arguments=[],
+                        qubits=target_idx,
+                        duration=None,
+                    ),
                 ]
             )
             statements.extend(
                 [
-                    QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[q], duration=None)
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("x"),
+                        arguments=[],
+                        qubits=[q],
+                        duration=None,
+                    )
                     for q in all_qubits
                 ]
             )
             statements.extend(
                 [
-                    QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=[q], duration=None)
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("h"),
+                        arguments=[],
+                        qubits=[q],
+                        duration=None,
+                    )
                     for q in all_qubits
                 ]
             )

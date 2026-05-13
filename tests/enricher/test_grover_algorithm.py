@@ -58,12 +58,7 @@ async def test_grover_auto_iterations():
     qasm = leqo_dumps(results[0].enriched_node.implementation)
 
     diffuser_signature = (
-        "h query[0];\n"
-        "h query[1];\n"
-        "h query[2];\n"
-        "x query[0];\n"
-        "x query[1];\n"
-        "x query[2];"
+        "h query[0];\nh query[1];\nh query[2];\nx query[0];\nx query[1];\nx query[2];"
     )
 
     EXPECTED_ITERATIONS = 2
