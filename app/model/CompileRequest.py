@@ -745,6 +745,10 @@ def _normalize_schmidt_encoding_name(value: Any) -> str | None:
 
     if normalized in {"schmidt", "schmidt decomposition"}:
         return "schmidt"
+
+    return None
+
+
 def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
     for key in keys:
         value = data.get(key)
@@ -766,6 +770,8 @@ def _normalize_state_preparation_node(converted: dict[str, Any]) -> None:
             return
 
     converted["type"] = "prepare"
+
+
 def _normalize_data_type_node(converted: dict[str, Any]) -> None:
     data_field = converted.get("data")
     if not isinstance(data_field, dict):
