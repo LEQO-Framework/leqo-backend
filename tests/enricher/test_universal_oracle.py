@@ -7,16 +7,16 @@ from pydantic import ValidationError
 
 @pytest.mark.asyncio
 async def test_universal_oracle_phase_mode():
+    # Phase mode marking index 1 (|01>)
     node = UniversalOracleNode(
         id="uo-1", type="universal-oracle", numQubits=2, 
-        truthTable="0100", mode="phase"
+        targetStates=[1], mode="phase"
     )
     strategy = UniversalOracleEnricherStrategy()
     results = strategy._enrich_impl(node, Constraints(requested_inputs={}))
     
     qasm = leqo_dumps(results[0].enriched_node.implementation)
     
-    # Phase mode Truth Table "0100" means state |01> triggers the MCZ.
     expected_qasm = (
         '@leqo.input 0\n'
         'qubit[2] query;\n'
@@ -32,16 +32,16 @@ async def test_universal_oracle_phase_mode():
 
 @pytest.mark.asyncio
 async def test_universal_oracle_boolean_mode():
+    # Boolean mode marking index 0 (|00>)
     node = UniversalOracleNode(
         id="uo-2", type="universal-oracle", numQubits=2, 
-        truthTable="1000", mode="boolean"
+        targetStates=[0], mode="boolean"
     )
     strategy = UniversalOracleEnricherStrategy()
     results = strategy._enrich_impl(node, Constraints(requested_inputs={}))
     
     qasm = leqo_dumps(results[0].enriched_node.implementation)
     
-    # Boolean mode Truth Table "1000" triggers MCX to flip the target for state |00>
     expected_qasm = (
         '@leqo.input 0\n'
         'qubit[2] query;\n'
@@ -57,8 +57,9 @@ async def test_universal_oracle_boolean_mode():
     assert expected_qasm in qasm
 
 def test_universal_oracle_validation_error():
+    # Target state 5 is out of bounds for 2 qubits (max is 3)
     with pytest.raises(ValidationError):
         UniversalOracleNode(
             id="uo-err", type="universal-oracle", numQubits=2, 
-            truthTable="101", mode="phase"
+            targetStates=[5], mode="phase"
         )

@@ -37,34 +37,32 @@ class UniversalOracleEnricherStrategy(EnricherStrategy):
             # For phase mode (Grover), the target is just the last query qubit
             target_idx = [IndexedIdentifier(q_reg, [[IntegerLiteral(n - 1)]])]
 
-        # Build the circuit from the truth table
-        for i, bit in enumerate(node.truthTable):
-            if bit == '1':
-                # 1. Apply X gates to qubits that are '0' in the binary representation of i
-                bin_str = format(i, f'0{n}b')
-                for q, val in enumerate(bin_str):
-                    if val == '0':
-                        q_idx = [IndexedIdentifier(q_reg, [[IntegerLiteral(q)]])]
-                        statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=q_idx, duration=None))
+        # Build the circuit from the target states
+        for target_val in node.targetStates:
+            bin_str = format(target_val, f'0{n}b')
+            
+            # 1. Apply X gates to qubits that are '0'
+            for q, val in enumerate(bin_str):
+                if val == '0':
+                    q_idx = [IndexedIdentifier(q_reg, [[IntegerLiteral(q)]])]
+                    statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=q_idx, duration=None))
 
-                # 2. Apply Multi-Controlled X (MCX) or MCZ
-                controls = [IndexedIdentifier(q_reg, [[IntegerLiteral(q)]]) for q in range(n) if node.mode == "boolean" or q != n-1]
-                
-                if node.mode == "phase":
-                    # Phase mode: Apply H, then MCX, then H to the last qubit to simulate MCZ
-                    statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
-                
-                # We assume 'mcx' is available or will be transpiled by Qiskit downstream
-                statements.append(QuantumGate(modifiers=[], name=Identifier("mcx"), arguments=[], qubits=[*controls, *target_idx], duration=None))
-                
-                if node.mode == "phase":
-                    statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
+            # 2. Apply Multi-Controlled X (MCX) or MCZ
+            controls = [IndexedIdentifier(q_reg, [[IntegerLiteral(q)]]) for q in range(n) if node.mode == "boolean" or q != n-1]
+            
+            if node.mode == "phase":
+                statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
+            
+            statements.append(QuantumGate(modifiers=[], name=Identifier("mcx"), arguments=[], qubits=[*controls, *target_idx], duration=None))
+            
+            if node.mode == "phase":
+                statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
 
-                # 3. Undo the X gates
-                for q, val in enumerate(bin_str):
-                    if val == '0':
-                        q_idx = [IndexedIdentifier(q_reg, [[IntegerLiteral(q)]])]
-                        statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=q_idx, duration=None))
+            # 3. Undo the X gates
+            for q, val in enumerate(bin_str):
+                if val == '0':
+                    q_idx = [IndexedIdentifier(q_reg, [[IntegerLiteral(q)]])]
+                    statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=q_idx, duration=None))
 
         # Expose outputs
         statements.append(leqo_output("out", 0, q_reg))

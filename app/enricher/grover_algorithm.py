@@ -1,4 +1,5 @@
 from typing import override
+import math
 from openqasm3.ast import (
     Identifier,
     Include,
@@ -20,7 +21,18 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
             return []
 
         n = node.numQubits
-        iterations = node.numIterations
+        M = len(node.targetStates)
+        N = 1 << n
+
+        if node.numIterations is None:
+            if M == 0:
+                iterations = 0
+            else:
+                # Optimal Grover iterations formula: ~ (pi/4) * sqrt(N/M)
+                iterations = max(1, round((math.pi / 4) * math.sqrt(N / M)))
+        else:
+            iterations = node.numIterations
+
         statements: list[Statement] = [Include("stdgates.inc")]
         
         # Declare the register
@@ -37,26 +49,24 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
 
         # STEP 2: The Grover Loop (Oracle + Diffuser)
         for _ in range(iterations):
-            
-            # --- 2A. The Universal Oracle (Phase Mode) ---
-            for i, bit in enumerate(node.truthTable):
-                if bit == '1':
-                    bin_str = format(i, f'0{n}b')
-                    
-                    # Apply X to '0' bits
-                    for q, val in enumerate(bin_str):
-                        if val == '0':
-                            statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[all_qubits[q]], duration=None))
-                    
-                    # Apply MCZ (H -> MCX -> H on the target)
-                    statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
-                    statements.append(QuantumGate(modifiers=[], name=Identifier("mcx"), arguments=[], qubits=[*controls, *target_idx], duration=None))
-                    statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
 
-                    # Undo X on '0' bits
-                    for q, val in enumerate(bin_str):
-                        if val == '0':
-                            statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[all_qubits[q]], duration=None))
+            # --- 2A. The Universal Oracle (Phase Mode) ---
+            for target_val in node.targetStates:
+                bin_str = format(target_val, f'0{n}b')
+                # Apply X to '0' bits
+                for q, val in enumerate(bin_str):
+                    if val == '0':
+                        statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[all_qubits[q]], duration=None))
+                
+                # Apply MCZ (H -> MCX -> H on the target)
+                statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
+                statements.append(QuantumGate(modifiers=[], name=Identifier("mcx"), arguments=[], qubits=[*controls, *target_idx], duration=None))
+                statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
+
+                # Undo X on '0' bits
+                for q, val in enumerate(bin_str):
+                    if val == '0':
+                        statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[all_qubits[q]], duration=None))
 
             # --- 2B. The Grover Diffuser ---
             # H on all
@@ -82,4 +92,4 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
         statements.append(leqo_output("out", 0, q_reg))
 
         # Rough depth estimation
-        return [EnrichmentResult(implementation(node, statements), ImplementationMetaData(width=n, depth=n * 10 * iterations))]
+        return [EnrichmentResult(implementation(node, statements), ImplementationMetaData(width=n, depth=None))]

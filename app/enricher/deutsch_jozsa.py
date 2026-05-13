@@ -50,12 +50,17 @@ class DeutschJozsaEnricherStrategy(EnricherStrategy):
             q_idx = [IndexedIdentifier(q_reg, [[IntegerLiteral(i)]])]
             statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=q_idx, duration=None))
 
-        # 4. Apply the Oracle
+        # 4. Apply the Oracle & Calculate Depth
+        base_depth = 3 # X target, Initial H's, Final H's
+        
         if node.oracleType == "constant":
+            oracle_depth = 1 if node.constantValue == 1 else 0
             if node.constantValue == 1:
                 statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=t_idx, duration=None))
         else:
-            mask = node.balancedMask or 1
+            mask = node.balancedMask
+            oracle_depth = bin(mask).count("1")
+            
             for i in range(n):
                 # Apply CNOT if the i-th bit of the mask is 1
                 if (mask >> i) & 1:
@@ -65,17 +70,19 @@ class DeutschJozsaEnricherStrategy(EnricherStrategy):
                     ]
                     statements.append(QuantumGate(modifiers=[], name=Identifier("cx"), arguments=[], qubits=control_target, duration=None))
 
+        calculated_depth = base_depth + oracle_depth
+
         # 5. Interference
         for i in range(n):
             q_idx = [IndexedIdentifier(q_reg, [[IntegerLiteral(i)]])]
             statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=q_idx, duration=None))
 
-        # 6. Expose Output (Pass the RAW quantum register to the next node!)
+        # 6. Expose Output
         statements.append(leqo_output("out", 0, q_reg))
 
         return [
             EnrichmentResult(
                 implementation(node, statements),
-                ImplementationMetaData(width=n + 1, depth=5)
+                ImplementationMetaData(width=n + 1, depth=calculated_depth)
             )
         ]

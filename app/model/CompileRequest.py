@@ -524,26 +524,33 @@ class UniversalOracleNode(BaseNode):
     type: Literal["universal-oracle"] = "universal-oracle"
 
     numQubits: Annotated[int, Field(gt=0)]
-    """Number of query qubits (n). The truth table must be length 2^n."""
+    """Number of query qubits (n)."""
 
-    truthTable: str
-    """A string of 0s and 1s representing the output of f(x) for all states."""
+    targetStates: list[int]
+    """List of integer indices representing the states where f(x)=1."""
 
     mode: Literal["boolean", "phase"]
-    """
-    'boolean': Flips a target qubit if f(x)=1 (Used for Deutsch-Jozsa).
-    'phase': Flips the phase of the state if f(x)=1 (Used for Grover).
-    """
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _parse_target_states(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            ts = data.get("targetStates", "")
+            if isinstance(ts, str):
+                if not ts.strip():
+                    data["targetStates"] = []
+                else:
+                    data["targetStates"] = [int(x.strip()) for x in ts.split(",") if x.strip().isdigit()]
+        return data
+
     @model_validator(mode="after")
-    def _validate_truth_table(self) -> "UniversalOracleNode":
-        expected_length = 1 << self.numQubits
-        if len(self.truthTable) != expected_length:
-            raise ValueError(f"Truth table for {self.numQubits} qubits must be exactly {expected_length} bits long.")
-        if not all(c in "01" for c in self.truthTable):
-            raise ValueError("Truth table must contain only 0s and 1s.")
+    def _validate_bounds(self) -> "UniversalOracleNode":
+        max_val = (1 << self.numQubits) - 1
+        for state in self.targetStates:
+            if state < 0 or state > max_val:
+                raise ValueError(f"Target state {state} is out of bounds for {self.numQubits} qubits (max {max_val}).")
         return self
 
 
@@ -566,23 +573,36 @@ class GroverNode(BaseNode):
     type: Literal["grover"] = "grover"
 
     numQubits: Annotated[int, Field(gt=0)]
-    """Number of query qubits (n)."""
-
-    truthTable: str
-    """Truth table representing the target states to search for."""
-
-    numIterations: Annotated[int, Field(gt=0)]
-    """Number of times to repeat the Oracle and Diffuser."""
+    targetStates: list[int]
+    
+    numIterations: int | None = None
+    """Number of times to repeat the Oracle and Diffuser. If None, optimally computed."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _parse_target_states(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            ts = data.get("targetStates", "")
+            if isinstance(ts, str):
+                if not ts.strip():
+                    data["targetStates"] = []
+                else:
+                    data["targetStates"] = [int(x.strip()) for x in ts.split(",") if x.strip().isdigit()]
+            
+            # Handle optional iterations from frontend empty string
+            iters = data.get("numIterations")
+            if iters == "" or iters == "Auto":
+                data["numIterations"] = None
+        return data
+
     @model_validator(mode="after")
-    def _validate_grover_params(self) -> "GroverNode":
-        expected_length = 1 << self.numQubits
-        if len(self.truthTable) != expected_length:
-            raise ValueError(f"Truth table for {self.numQubits} qubits must be exactly {expected_length} bits long.")
-        if not all(c in "01" for c in self.truthTable):
-            raise ValueError("Truth table must contain only 0s and 1s.")
+    def _validate_bounds(self) -> "GroverNode":
+        max_val = (1 << self.numQubits) - 1
+        for state in self.targetStates:
+            if state < 0 or state > max_val:
+                raise ValueError(f"Target state {state} is out of bounds for {self.numQubits} qubits.")
         return self
 
 

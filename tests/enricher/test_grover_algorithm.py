@@ -7,12 +7,12 @@ from pydantic import ValidationError
 
 @pytest.mark.asyncio
 async def test_complete_grover_algorithm():
-    # Setup a 2-qubit Grover search looking for state |01> (Truth table: 0100)
+    # Setup a 2-qubit Grover search looking for state |01> (Index 1)
     node = GroverNode(
         id="grover-1", 
         type="grover", 
         numQubits=2, 
-        truthTable="0100", 
+        targetStates=[1], 
         numIterations=1
     )
     strategy = GroverAlgorithmEnricherStrategy()
@@ -52,12 +52,12 @@ async def test_complete_grover_algorithm():
     assert "let out = query;" in qasm
 
 def test_grover_validation_error():
-    # Attempting to create a node with mismatched truth table length should fail
+    # Attempting to query an out-of-bounds state (5) on a 2-qubit system (max 3) should fail
     with pytest.raises(ValidationError):
         GroverNode(
             id="g-err", 
             type="grover", 
             numQubits=2, 
-            truthTable="101", # 3 bits instead of 4
+            targetStates=[5], 
             numIterations=1
         )
