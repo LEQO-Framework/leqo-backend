@@ -1,5 +1,5 @@
-import re
 import math
+import re
 
 import pytest
 import pytest_asyncio
@@ -585,9 +585,9 @@ async def test_enrich_angle_encode_value_array_literal(engine: AsyncEngine) -> N
     expected_rotations = [
         2 * (((v - min_v) / (max_v - min_v)) * (math.pi / 2))
         for v in array_values
-        if v != min_v # Skips 0.0 rotations, just like the compiler does!
+        if v != min_v
     ]
-    
+
     rotation_args = [
         arg.strip() for arg in re.findall(r"ry\(([^)]+)\)", implementation_str)
     ]

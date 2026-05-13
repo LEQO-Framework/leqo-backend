@@ -117,7 +117,7 @@ class EncodeValueNode(BaseNode):
 
     decimalPrecision: int | None = Field(default=None, ge=1)
     """User-defined number of decimal places for float encoding."""
-    
+
     errorTolerance: float = Field(default=0.001, gt=0)
     """Fallback tolerance if decimal precision is not provided."""
 
