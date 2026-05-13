@@ -359,11 +359,12 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         array_len = self._get_array_length(classical_input)
         element_type = self._get_element_type(classical_input)
 
-        if isinstance(element_type, (data_types.FloatType, ast.FloatType)) and input_value is not None:
+        if (
+            isinstance(element_type, (data_types.FloatType, ast.FloatType))
+            and input_value is not None
+        ):
             try:
-                values = self._coerce_array_constant_value(
-                    classical_input, input_value
-                )
+                values = self._coerce_array_constant_value(classical_input, input_value)
                 _, _, bits_per_element = self._calculate_fixed_point_params(
                     values,
                     getattr(node, "decimalPrecision", None),
@@ -371,7 +372,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 )
                 return array_len * bits_per_element
             except Exception:
-                    pass
+                pass
 
         if isinstance(classical_input, data_types.ArrayType):
             return classical_input.size
