@@ -1,5 +1,6 @@
-from typing import override
 import math
+from typing import override
+
 from openqasm3.ast import (
     Identifier,
     Include,
@@ -9,14 +10,23 @@ from openqasm3.ast import (
     QubitDeclaration,
     Statement,
 )
-from app.enricher import Constraints, EnricherStrategy, EnrichmentResult, ImplementationMetaData
+
+from app.enricher import (
+    Constraints,
+    EnricherStrategy,
+    EnrichmentResult,
+    ImplementationMetaData,
+)
 from app.enricher.utils import implementation, leqo_output
-from app.model.CompileRequest import Node as FrontendNode
 from app.model.CompileRequest import GroverNode
+from app.model.CompileRequest import Node as FrontendNode
+
 
 class GroverAlgorithmEnricherStrategy(EnricherStrategy):
     @override
-    def _enrich_impl(self, node: FrontendNode, constraints: Constraints | None) -> list[EnrichmentResult]:
+    def _enrich_impl(
+        self, node: FrontendNode, constraints: Constraints | None
+    ) -> list[EnrichmentResult]:
         if not isinstance(node, GroverNode):
             return []
 
@@ -25,16 +35,16 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
         N = 1 << n
 
         if node.numIterations is None:
-            if M == 0:
-                iterations = 0
-            else:
-                # Optimal Grover iterations formula: ~ (pi/4) * sqrt(N/M)
-                iterations = max(1, round((math.pi / 4) * math.sqrt(N / M)))
+            iterations = (
+                0
+                if M in {0, N}
+                else max(1, round((math.pi / 4) * math.sqrt(N / M)))
+            )
         else:
             iterations = node.numIterations
 
         statements: list[Statement] = [Include("stdgates.inc")]
-        
+
         # Declare the register
         q_reg = Identifier("query")
         statements.append(QubitDeclaration(q_reg, IntegerLiteral(n)))
@@ -45,51 +55,157 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
 
         # STEP 1: Initialization (Uniform Superposition)
         for q in all_qubits:
-            statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=[q], duration=None))
+            statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("h"),
+                    arguments=[],
+                    qubits=[q],
+                    duration=None
+                )
+            )
 
         # STEP 2: The Grover Loop (Oracle + Diffuser)
         for _ in range(iterations):
-
             # --- 2A. The Universal Oracle (Phase Mode) ---
             for target_val in node.targetStates:
-                bin_str = format(target_val, f'0{n}b')
+                bin_str = format(target_val, f"0{n}b")
+
                 # Apply X to '0' bits
                 for q, val in enumerate(bin_str):
                     if val == '0':
-                        statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[all_qubits[q]], duration=None))
-                
+                        statements.append(
+                            QuantumGate(
+                                modifiers=[],
+                                name=Identifier("x"),
+                                arguments=[],
+                                qubits=[all_qubits[q]], duration=None
+                            )
+                        )
+
                 # Apply MCZ (H -> MCX -> H on the target)
-                statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
-                statements.append(QuantumGate(modifiers=[], name=Identifier("mcx"), arguments=[], qubits=[*controls, *target_idx], duration=None))
-                statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("h"),
+                        arguments=[],
+                        qubits=target_idx,
+                        duration=None,
+                    )
+                )
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("mcx"),
+                        arguments=[],
+                        qubits=[*controls, *target_idx],
+                        duration=None,
+                    )
+                )
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("h"),
+                        arguments=[],
+                        qubits=target_idx,
+                        duration=None,
+                    )
+                )
 
                 # Undo X on '0' bits
                 for q, val in enumerate(bin_str):
                     if val == '0':
-                        statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[all_qubits[q]], duration=None))
+                        statements.append(
+                            QuantumGate(
+                                modifiers=[],
+                                name=Identifier("x"),
+                                arguments=[],
+                                qubits=[all_qubits[q]], duration=None
+                            )
+                        )
 
             # --- 2B. The Grover Diffuser ---
             # H on all
             for q in all_qubits:
-                statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=[q], duration=None))
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("h"),
+                        arguments=[],
+                        qubits=[q],
+                        duration=None
+                    )
+                )
             # X on all
             for q in all_qubits:
-                statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[q], duration=None))
-            
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("x"),
+                        arguments=[],
+                        qubits=[q],
+                        duration=None
+                    )
+                )
+
             # MCZ
-            statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
-            statements.append(QuantumGate(modifiers=[], name=Identifier("mcx"), arguments=[], qubits=[*controls, *target_idx], duration=None))
-            statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=target_idx, duration=None))
-            
+            statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("h"),
+                    arguments=[],
+                    qubits=target_idx,
+                    duration=None,
+                )
+            )
+            statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("mcx"),
+                    arguments=[],
+                    qubits=[*controls, *target_idx],
+                    duration=None,
+                )
+            )
+            statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("h"),
+                    arguments=[],
+                    qubits=target_idx,
+                    duration=None,
+                )
+            )
+
             # X on all
             for q in all_qubits:
-                statements.append(QuantumGate(modifiers=[], name=Identifier("x"), arguments=[], qubits=[q], duration=None))
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("x"),
+                        arguments=[],
+                        qubits=[q],
+                        duration=None
+                    )
+                )
             # H on all
             for q in all_qubits:
-                statements.append(QuantumGate(modifiers=[], name=Identifier("h"), arguments=[], qubits=[q], duration=None))
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("h"),
+                        arguments=[],
+                        qubits=[q],
+                        duration=None
+                    )
+                )
 
         # STEP 3: Export the result
         statements.append(leqo_output("out", 0, q_reg))
 
-        # Rough depth estimation
-        return [EnrichmentResult(implementation(node, statements), ImplementationMetaData(width=n, depth=None))]
+        return [
+            EnrichmentResult(
+                implementation(node, statements),
+                ImplementationMetaData(width=n, depth=None),
+            )
+        ]
