@@ -2,6 +2,7 @@
 Provides enricher strategy for enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
 """
 
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 from math import pi
@@ -250,12 +251,12 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         classical_input: data_types.LeqoSupportedClassicalType,
         input_value: Any | None,
     ) -> EnrichmentResult:
-        size = self._determine_register_size(node, classical_input)
+        size = self._determine_register_size(node, classical_input, input_value)
         constant_indices: list[int] | None = None
         if input_value is not None:
             try:
                 constant_indices = self._constant_basis_indices(
-                    classical_input, size, input_value
+                    node, classical_input, size, input_value
                 )
             except RuntimeError:
                 constant_indices = None
@@ -281,7 +282,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             register_size = self._get_array_length(classical_input)
         else:
-            register_size = self._determine_register_size(node, classical_input)
+            register_size = self._determine_register_size(node, classical_input, input_value)
 
         rotation_map: dict[int, float] | None = None
         if input_value is not None:
@@ -306,43 +307,123 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             implementation(node, statements),
             ImplementationMetaData(width=register_size, depth=depth),
         )
+    
+    def _calculate_fixed_point_params(
+        self, values: list[float], decimal_precision: int | None, error_tolerance: float
+    ) -> tuple[int, int, int]:
+        """
+        Dynamically calculates the minimal required qubits for fixed point encoding.
+        Returns: (integer_bits, fractional_bits, total_bits_per_element)
+        """
+        if not values:
+            return 1, 0, 1
+
+        max_mag = max(abs(int(v)) for v in values)
+        int_bits = max(1, max_mag.bit_length() + 1) 
+
+        if decimal_precision is not None:
+            frac_bits = math.ceil(decimal_precision * math.log2(10))
+        else:
+            frac_bits = math.ceil(-math.log2(error_tolerance)) if error_tolerance < 1 else 0
+
+        total_bits_per_num = int_bits + frac_bits
+        return int_bits, frac_bits, total_bits_per_num
 
     def _determine_register_size(
         self,
         node: CompileRequest.EncodeValueNode,
         classical_input: data_types.LeqoSupportedClassicalType,
+        input_value: Any | None = None,
     ) -> int:
-        """Determines size while satisfying PLR0911."""
         res: int
         if node.encoding == "angle" and not isinstance(
             classical_input, (data_types.ArrayType, ast.ArrayType)
         ):
             res = 1
         elif isinstance(classical_input, ast.ArrayType):
-            res = self._get_array_length(classical_input)
+            array_len = self._get_array_length(classical_input)
+            element_type = self._get_element_type(classical_input)
+            if isinstance(element_type, ast.FloatType) and input_value is not None:
+                try:
+                    values = self._coerce_array_constant_value(classical_input, input_value)
+                    _, _, bits_per_element = self._calculate_fixed_point_params(
+                        values, 
+                        getattr(node, 'decimalPrecision', None), 
+                        getattr(node, 'errorTolerance', 0.001)
+                    )
+                    res = array_len * bits_per_element
+                except Exception:
+                    res = array_len * 32
+            else:
+                if hasattr(element_type, "size") and element_type.size:
+                    size_val = element_type.size.value if hasattr(element_type.size, "value") else element_type.size
+                    res = array_len * int(size_val)
+                elif isinstance(element_type, ast.ArrayType) or hasattr(element_type, "value"):
+                    res = array_len * int(element_type.value)
+                else:
+                    res = array_len * 32
+        elif isinstance(classical_input, data_types.ArrayType):
+            element_type = self._get_element_type(classical_input)
+            if isinstance(element_type, data_types.FloatType) and input_value is not None:
+                try:
+                    array_len = self._get_array_length(classical_input)
+                    values = self._coerce_array_constant_value(classical_input, input_value)
+                    _, _, bits_per_element = self._calculate_fixed_point_params(
+                        values, 
+                        getattr(node, 'decimalPrecision', None), 
+                        getattr(node, 'errorTolerance', 0.001)
+                    )
+                    res = array_len * bits_per_element
+                except Exception:
+                    res = classical_input.size
+            else:
+                res = classical_input.size
         elif isinstance(classical_input, ast.FloatType):
-            res = int(
-                classical_input.size.value
-                if hasattr(classical_input, "size") and classical_input.size
-                else 32
-            )
+            if input_value is not None:
+                try:
+                    v = float(input_value.value if hasattr(input_value, "value") else input_value)
+                    _, _, bits_per_element = self._calculate_fixed_point_params(
+                        [v], 
+                        getattr(node, 'decimalPrecision', None), 
+                        getattr(node, 'errorTolerance', 0.001)
+                    )
+                    res = bits_per_element
+                except (TypeError, ValueError):
+                    pass
+            if 'res' not in locals():
+                res = int(
+                    classical_input.size.value
+                    if hasattr(classical_input, "size") and classical_input.size
+                    else 32
+                )
         else:
             size = 0
             match classical_input:
                 case (
                     data_types.BoolType()
                     | data_types.IntType()
-                    | data_types.ArrayType()
                 ):
                     size = classical_input.size
                 case data_types.BitType():
                     size = classical_input.size or 1
                 case data_types.FloatType():
-                    size = (
-                        classical_input.size
-                        if hasattr(classical_input, "size") and classical_input.size
-                        else 32
-                    )
+                    if input_value is not None:
+                        try:
+                            v = float(input_value.value if hasattr(input_value, "value") else input_value)
+                            _, _, bits_per_element = self._calculate_fixed_point_params(
+                                [v], 
+                                getattr(node, 'decimalPrecision', None), 
+                                getattr(node, 'errorTolerance', 0.001)
+                            )
+                            size = bits_per_element
+                        except (TypeError, ValueError):
+                            pass
+                    if size == 0:
+                        size = (
+                            classical_input.size
+                            if hasattr(classical_input, "size") and classical_input.size
+                            else 32
+                        )
                 case _:
                     if hasattr(classical_input, "size") and isinstance(
                         classical_input.size, int
@@ -358,19 +439,21 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         return res
 
     def _float_to_fixed_point_indices(
-        self, value: float, element_size: int
+        self, value: float, element_size: int, fractional_bits: int
     ) -> list[int]:
         """
         Approximates a floating point number into a fixed-point binary representation
         and returns the indices of the '1' bits. Dynamically scales fractional precision.
         """
-        fractional_bits = element_size // 2
         scaled_value = round(value * (1 << fractional_bits))
+        if scaled_value < 0:
+            scaled_value = (1 << element_size) + scaled_value
         mask = scaled_value & ((1 << element_size) - 1)
         return [index for index in range(element_size) if (mask >> index) & 1]
 
     def _array_basis_indices(
         self,
+        node: CompileRequest.EncodeValueNode,
         classical_input: data_types.LeqoSupportedClassicalType,
         raw_value: Any,
     ) -> list[int]:
@@ -379,20 +462,17 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         element_type = self._get_element_type(classical_input)
 
         if isinstance(element_type, (data_types.FloatType, ast.FloatType)):
-            if hasattr(element_type, "size") and element_type.size:
-                element_size = int(
-                    element_type.size.value
-                    if hasattr(element_type.size, "value")
-                    else element_type.size
-                )
-            else:
-                element_size = 32
+            _, fractional_bits, element_size = self._calculate_fixed_point_params(
+                values, getattr(node, 'decimalPrecision', None), getattr(node, 'errorTolerance', 0.001)
+            )
 
             mask_limit = (1 << element_size) - 1
-            fractional_bits = element_size // 2
             indices: list[int] = []
             for element_index, element_value in enumerate(values):
                 scaled_val = round(float(element_value) * (1 << fractional_bits))
+                if scaled_val < 0:
+                    scaled_val = (1 << element_size) + scaled_val
+                    
                 mask = scaled_val & mask_limit
                 base_offset = element_index * element_size
                 indices.extend(
@@ -425,6 +505,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
 
     def _constant_basis_indices(
         self,
+        node: CompileRequest.EncodeValueNode,
         classical_input: data_types.LeqoSupportedClassicalType,
         register_size: int,
         raw_value: Any,
@@ -432,14 +513,17 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if isinstance(classical_input, data_types.FloatType):
             try:
                 v = float(raw_value.value if hasattr(raw_value, "value") else raw_value)
-                return self._float_to_fixed_point_indices(v, register_size)
+                _, fractional_bits, element_size = self._calculate_fixed_point_params(
+                    [v], getattr(node, 'decimalPrecision', None), getattr(node, 'errorTolerance', 0.001)
+                )
+                return self._float_to_fixed_point_indices(v, element_size, fractional_bits)
             except (TypeError, ValueError) as exc:
                 raise RuntimeError(
                     "Unsupported float input for basis encoding"
                 ) from exc
 
         if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
-            return self._array_basis_indices(classical_input, raw_value)
+            return self._array_basis_indices(node, classical_input, raw_value)
 
         try:
             value = int(raw_value)
