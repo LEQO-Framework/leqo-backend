@@ -104,6 +104,7 @@ class UniversalTranspiler:
 
     def __init__(self, provider: BaseSDKProvider):
         self.provider = provider
+        self.annotated_inputs: dict[int, ast.expr] = {}
         self.annotated_outputs: dict[int, ast.expr] = {}
 
     def visit(self, node: Any) -> Union[ast.expr, ast.stmt, List[ast.stmt], None]:
@@ -138,6 +139,7 @@ class UniversalTranspiler:
                 body.append(res)
 
         body.extend(self.provider.end_program())
+        body.extend(self._build_program_inputs_mapping())
         body.extend(self._build_program_outputs_mapping())
         
         # Prepend imports collected during traversal
@@ -150,6 +152,7 @@ class UniversalTranspiler:
     def visit_QubitDeclaration(self, node: qast.QubitDeclaration) -> List[ast.stmt]:
         name = node.qubit.name
         size = int(node.size.value) if node.size else 1
+        self._register_annotation_inputs(node, ast.Name(id=name, ctx=ast.Load()))
         return self.provider.declare_qubit(name, size)
 
     def visit_ClassicalDeclaration(self, node: qast.ClassicalDeclaration) -> List[ast.stmt]:
@@ -252,6 +255,7 @@ class UniversalTranspiler:
     def visit_AliasStatement(self, node: qast.AliasStatement) -> ast.stmt:
         name = node.target.name
         value = self.visit(node.value)
+        self._register_annotation_inputs(node, ast.Name(id=name, ctx=ast.Load()))
         self._register_annotation_outputs(node, ast.Name(id=name, ctx=ast.Load()))
         return self.provider.alias(name, value)
 
@@ -404,6 +408,21 @@ class UniversalTranspiler:
 
         return build(0)
 
+    def _register_annotation_inputs(self, node: Any, expression: ast.expr) -> None:
+        for annotation in getattr(node, "annotations", []) or []:
+            if getattr(annotation, "keyword", None) != "leqo.input":
+                continue
+            command = getattr(annotation, "command", None)
+            if command is None:
+                continue
+            try:
+                index = int(command.strip())
+            except (ValueError, AttributeError) as exc:
+                raise NotImplementedError(
+                    f"@leqo.input annotation requires an integer index, got: {command!r}"
+                ) from exc
+            self.annotated_inputs[index] = expression
+
     def _register_annotation_outputs(self, node: Any, expression: ast.expr) -> None:
         for annotation in getattr(node, "annotations", []) or []:
             if getattr(annotation, "keyword", None) != "leqo.output":
@@ -418,6 +437,23 @@ class UniversalTranspiler:
                     f"@leqo.output annotation requires an integer index, got: {command!r}"
                 ) from exc
             self.annotated_outputs[index] = expression
+
+    def _build_program_inputs_mapping(self) -> List[ast.stmt]:
+        if not self.annotated_inputs:
+            return []
+
+        keys = []
+        values = []
+        for index, expression in sorted(self.annotated_inputs.items()):
+            keys.append(ast.Constant(value=index))
+            values.append(expression)
+
+        return [
+            ast.Assign(
+                targets=[ast.Name(id='program_inputs', ctx=ast.Store())],
+                value=ast.Dict(keys=keys, values=values),
+            )
+        ]
 
     def _build_program_outputs_mapping(self) -> List[ast.stmt]:
         if not self.annotated_outputs:

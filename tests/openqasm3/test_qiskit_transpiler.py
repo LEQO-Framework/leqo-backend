@@ -204,6 +204,49 @@ def test_bitstring_literal_is_lowered_to_integer_value() -> None:
     assert "x = qc.add_var(expr.Var.new('x', types.Uint(2)), 1)" in code
 
 
+def test_annotation_derived_quantum_input_is_exposed_in_program_inputs() -> None:
+    source = '''
+    OPENQASM 3.1;
+    @leqo.input 0
+    qubit q;
+    '''
+
+    code = _transpile_qiskit(source)
+
+    assert "program_inputs = {0: q}" in code
+
+
+def test_annotation_derived_alias_input_is_exposed_in_program_inputs() -> None:
+    source = '''
+    OPENQASM 3.1;
+    qubit[2] reg;
+    @leqo.input 0
+    let port_a = reg[0];
+    @leqo.input 1
+    let port_b = reg[1];
+    '''
+
+    code = _transpile_qiskit(source)
+
+    assert "program_inputs = {0: port_a, 1: port_b}" in code
+
+
+def test_annotation_derived_inputs_are_sorted_by_index() -> None:
+    source = '''
+    OPENQASM 3.1;
+    qubit[2] reg;
+    @leqo.input 1
+    let second = reg[1];
+    @leqo.input 0
+    let first = reg[0];
+    '''
+
+    code, namespace = _execute_qiskit(source)
+
+    assert "program_inputs = {0: first, 1: second}" in code
+    assert list(namespace["program_inputs"].keys()) == [0, 1]
+
+
 def test_annotation_derived_classical_output_is_exposed_in_program_outputs() -> None:
     source = '''
     OPENQASM 3.1;

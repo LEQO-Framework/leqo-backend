@@ -38,4 +38,5 @@ expected_result: |-
   qc.rz(1.2, leqo_b36e84364da85c109a5bbae0f535f1b1_q0)
   leqo_b36e84364da85c109a5bbae0f535f1b1_q0_out = leqo_b36e84364da85c109a5bbae0f535f1b1_q0
   '# End node gate_rz'
+  program_inputs = {0: leqo_b36e84364da85c109a5bbae0f535f1b1_q0}
   program_outputs = {0: leqo_b36e84364da85c109a5bbae0f535f1b1_q0_out}

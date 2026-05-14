@@ -173,4 +173,5 @@ expected_result: |-
   result_data = job.result()
   counts = result_data.get_counts(qc)
   print('Simulation Results (500 shots):', counts)
+  program_inputs = {0: leqo_12c60e8404e85e4885a8553548547782_q, 1: leqo_18f3fd4555825e8bad858778d22cae31_q1}
   program_outputs = {0: leqo_12c60e8404e85e4885a8553548547782_out, 1: leqo_12c60e8404e85e4885a8553548547782_qubit_out}
