@@ -49,6 +49,7 @@ async def test_mcmt_gate_parameterized():
     # Check for the parameterized control using the new dynamic names
     assert "ctrl(1) @ rx(1.57) ctrl_0[0], target_0[0];" in qasm
 
+
 @pytest.mark.asyncio
 async def test_mcmt_gate_large_unrolling():
     """
@@ -86,6 +87,7 @@ async def test_mcmt_gate_array_passthrough():
     If the incoming wire is an array (size > 1), the MCMT gate must
     declare that specific wire with the larger size to avoid index errors.
     """
+
     # Create a mock input type to simulate a wire of size 3 (like a GHZ state)
     class MockInputType:
         def __init__(self, size):
@@ -99,20 +101,20 @@ async def test_mcmt_gate_array_passthrough():
         numTargets=1,
     )
     strategy = MCMTGateEnricherStrategy()
-    
+
     # Input index 0 is the control (default size 1)
     # Input index 1 is the target. We tell the constraints it has size 3.
     mock_constraints = Constraints(requested_inputs={1: MockInputType(3)})
-    
+
     results = strategy._enrich_impl(node, mock_constraints)
     qasm = leqo_dumps(results[0].enriched_node.implementation)
 
     # Check that the control wire is size 1
     assert "qubit[1] ctrl_0;" in qasm
-    
+
     # Check that the target wire was dynamically resized to 3 to hold the array!
     assert "qubit[3] target_0;" in qasm
-    
+
     # Check that the gate still applied to the 0th index of the array
     assert "ctrl(1) @ z ctrl_0[0], target_0[0];" in qasm
 
@@ -129,7 +131,7 @@ async def test_mcmt_gate_no_parameter_fallback():
         baseGate="ry",
         numControls=1,
         numTargets=1,
-        parameter=None, # Missing parameter
+        parameter=None,  # Missing parameter
     )
     strategy = MCMTGateEnricherStrategy()
     results = strategy._enrich_impl(node, Constraints(requested_inputs={}))
@@ -139,3 +141,64 @@ async def test_mcmt_gate_no_parameter_fallback():
     # It should fallback gracefully without throwing a Python NoneType error
     # OpenQASM will just receive the gate without arguments
     assert "ctrl(1) @ ry ctrl_0[0], target_0[0];" in qasm
+
+
+@pytest.mark.asyncio
+async def test_mcmt_gate_mixed_array_broadcasting():
+    """
+    Tests the compiler's ability to broadcast operations across 
+    multiple targets that have DIFFERENT array sizes (e.g., a size 3 
+    GHZ state and a size 2 Bell state acting as targets simultaneously).
+    """
+    class MockInputType:
+        def __init__(self, size):
+            self.size = size
+
+    node = MCMTGateNode(
+        id="mcmt-broadcast",
+        type="mcmt-gate",
+        baseGate="rx",
+        numControls=1,
+        numTargets=2,
+        parameter=3.0,
+    )
+    strategy = MCMTGateEnricherStrategy()
+    
+    mock_constraints = Constraints(requested_inputs={
+        1: MockInputType(3),
+        2: MockInputType(2)
+    })
+    
+    results = strategy._enrich_impl(node, mock_constraints)
+    qasm = leqo_dumps(results[0].enriched_node.implementation)
+
+    assert "qubit[1] ctrl_0;" in qasm
+    assert "qubit[3] target_0;" in qasm
+    assert "qubit[2] target_1;" in qasm
+    assert "ctrl(1) @ rx(3.0) ctrl_0[0], target_0[0];" in qasm
+    assert "ctrl(1) @ rx(3.0) ctrl_0[0], target_1[0];" in qasm
+
+
+@pytest.mark.asyncio
+async def test_mcmt_gate_output_routing_integrity():
+    """
+    Tests that the MCMT gate perfectly maps every single input wire 
+    to a corresponding @leqo.output wire, guaranteeing the DAG 
+    (Directed Acyclic Graph) does not break for downstream nodes.
+    """
+    node = MCMTGateNode(
+        id="mcmt-routing",
+        type="mcmt-gate",
+        baseGate="z",
+        numControls=2,
+        numTargets=2,
+    )
+    strategy = MCMTGateEnricherStrategy()
+    results = strategy._enrich_impl(node, Constraints(requested_inputs={}))
+
+    qasm = leqo_dumps(results[0].enriched_node.implementation)
+
+    assert "@leqo.output 0\nlet out_0 = ctrl_0;" in qasm
+    assert "@leqo.output 1\nlet out_1 = ctrl_1;" in qasm
+    assert "@leqo.output 2\nlet out_2 = target_0;" in qasm
+    assert "@leqo.output 3\nlet out_3 = target_1;" in qasm

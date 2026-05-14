@@ -46,13 +46,21 @@ class MCMTGateEnricherStrategy(EnricherStrategy):
             is_ctrl = i < c
             reg_name = f"ctrl_{i}" if is_ctrl else f"target_{i - c}"
             reg_id = Identifier(reg_name)
-            
+
             # Determine size from constraints if available, otherwise default to 1
             size = 1
-            if constraints and constraints.requested_inputs and i in constraints.requested_inputs:
+            if (
+                constraints
+                and constraints.requested_inputs
+                and i in constraints.requested_inputs
+            ):
                 inp_type = constraints.requested_inputs[i]
                 if hasattr(inp_type, "size") and inp_type.size is not None:
-                    size = int(inp_type.size.value if hasattr(inp_type.size, "value") else inp_type.size)
+                    size = int(
+                        inp_type.size.value
+                        if hasattr(inp_type.size, "value")
+                        else inp_type.size
+                    )
 
             q_decl = QubitDeclaration(reg_id, IntegerLiteral(size))
             q_decl.annotations = [Annotation("leqo.input", str(i))]
@@ -69,11 +77,15 @@ class MCMTGateEnricherStrategy(EnricherStrategy):
         if node.parameter is not None and node.baseGate in {"rx", "ry", "rz"}:
             args.append(FloatLiteral(node.parameter))
 
-        modifiers = [QuantumGateModifier(modifier=GateModifierName.ctrl, argument=IntegerLiteral(c))]
+        modifiers = [
+            QuantumGateModifier(
+                modifier=GateModifierName.ctrl, argument=IntegerLiteral(c)
+            )
+        ]
 
         # 3. Apply the Multi-Controlled gate to EACH target sequentially
-        for target_qubit in targets:
-            statements.append(
+        statements.extend(
+            [
                 QuantumGate(
                     modifiers=modifiers,
                     name=Identifier(node.baseGate),
@@ -81,7 +93,9 @@ class MCMTGateEnricherStrategy(EnricherStrategy):
                     qubits=[*controls, target_qubit],
                     duration=None,
                 )
-            )
+                for target_qubit in targets
+            ]
+        )
 
         # 4. Declare the outputs to pass the wires forward
         for i in range(total_qubits):
