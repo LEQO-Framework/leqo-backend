@@ -55,7 +55,15 @@ class _AdditionOperand:
 
 class OperatorEnricherStrategy(DataBaseEnricherStrategy):
     """
-    Strategy capable of enriching :class:`~app.model.CompileRequest.OperatorNode` from a database.
+    Strategy capable of enriching :class:`~app.model.CompileRequest.OperatorNode`.
+
+    Most operators can still be resolved from database-backed implementations.
+    Some simple quantum operators are generated dynamically in the backend instead.
+
+    Dynamic/ad-hoc enrichments intentionally bypass the database lookup because
+    their circuit can be derived directly from the requested operator and input
+    constraints. The addition operator is currently hybrid: it can be generated
+    dynamically, but it can also still fall back to DB-backed implementations.
     """
 
     def __init__(self, engine: AsyncEngine):
@@ -94,34 +102,13 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
     async def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
-        if isinstance(node, OperatorNode) and node.operator == "+":
-            dynamic_exception: Exception | None = None
-            if constraints is not None:
-                try:
-                    return [self._generate_addition_enrichment(node, constraints)]
-                except (InputCountMismatch, InputTypeMismatch):
-                    raise
-                except Exception as exc:  # pragma: no cover - defensive fallback
-                    dynamic_exception = exc
+        if not isinstance(node, OperatorNode):
+            return await super()._enrich_impl(node, constraints)
 
-            try:
-                db_results = await super()._enrich_impl(node, constraints)
-            except InputCountMismatch:
-                if constraints is not None:
-                    raise
-                db_results = []
-            if db_results:
-                return db_results
+        if node.operator == "+":
+            return await self._enrich_addition_operator(node, constraints)
 
-            fallback_results = await self._fetch_operator_without_size_constraints(
-                node, constraints
-            )
-            if fallback_results:
-                return fallback_results
-
-            if dynamic_exception is not None:
-                raise dynamic_exception
-
+        if node.operator == "min":
             if constraints is None:
                 raise InputCountMismatch(
                     node,
@@ -129,21 +116,64 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                     should_be="equal",
                     expected=2,
                 )
-
-            return [self._generate_addition_enrichment(node, constraints)]
-
-        if isinstance(node, OperatorNode) and node.operator == "min":
-            if constraints is None:
-                raise InputCountMismatch(
-                    node,
-                    actual=0,
-                    should_be="equal",
-                    expected=2,
-                )
-
             return [self._generate_min_enrichment(node, constraints)]
 
+        if node.operator == "max":
+            if constraints is None:
+                raise InputCountMismatch(
+                    node,
+                    actual=0,
+                    should_be="equal",
+                    expected=2,
+                )
+            return [self._generate_max_enrichment(node, constraints)]
+
         return await super()._enrich_impl(node, constraints)
+
+    async def _enrich_addition_operator(
+        self,
+        node: OperatorNode,
+        constraints: Constraints | None,
+    ) -> list[EnrichmentResult]:
+        dynamic_exception: Exception | None = None
+
+        if constraints is not None:
+            try:
+                return [self._generate_addition_enrichment(node, constraints)]
+            except (InputCountMismatch, InputTypeMismatch):
+                raise
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                dynamic_exception = exc
+
+        try:
+            db_results = await super()._enrich_impl(node, constraints)
+        except InputCountMismatch:
+            if constraints is not None:
+                raise
+            db_results = []
+
+        if db_results:
+            return db_results
+
+        fallback_results = await self._fetch_operator_without_size_constraints(
+            node,
+            constraints,
+        )
+        if fallback_results:
+            return fallback_results
+
+        if dynamic_exception is not None:
+            raise dynamic_exception
+
+        if constraints is None:
+            raise InputCountMismatch(
+                node,
+                actual=0,
+                should_be="equal",
+                expected=2,
+            )
+
+        return [self._generate_addition_enrichment(node, constraints)]
 
     def _generate_addition_enrichment(
         self, node: OperatorNode, constraints: Constraints
@@ -241,6 +271,63 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         return EnrichmentResult(
             implementation(node, statements),
             ImplementationMetaData(width=3, depth=1),
+        )
+
+    def _generate_max_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        requested_inputs = constraints.requested_inputs
+        self._check_constraints(node, requested_inputs)
+
+        lhs = cast(QubitType, requested_inputs[0])
+        rhs = cast(QubitType, requested_inputs[1])
+
+        lhs_size = lhs.size or 1
+        rhs_size = rhs.size or 1
+
+        if lhs_size != 1:
+            raise InputSizeMismatch(node, 0, actual=lhs_size, expected=1)
+
+        if rhs_size != 1:
+            raise InputSizeMismatch(node, 1, actual=rhs_size, expected=1)
+
+        lhs_name = "lhs"
+        rhs_name = "rhs"
+        result_name = "result"
+
+        lhs_ref = self._build_qubit_references(lhs_name, lhs.size, lhs_size)[0]
+        rhs_ref = self._build_qubit_references(rhs_name, rhs.size, rhs_size)[0]
+        result_ref = Identifier(result_name)
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            leqo_input(
+                lhs_name,
+                0,
+                lhs.size,
+                twos_complement=lhs.signed,
+            ),
+            leqo_input(
+                rhs_name,
+                1,
+                rhs.size,
+                twos_complement=rhs.signed,
+            ),
+            QubitDeclaration(
+                result_ref,
+                IntegerLiteral(1),
+            ),
+            self._cx_gate(lhs_ref, result_ref),
+            self._cx_gate(rhs_ref, result_ref),
+            self._ccx_gate(lhs_ref, rhs_ref, result_ref),
+            leqo_output("out", 0, result_ref),
+        ]
+
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(width=3, depth=3),
         )
 
     async def _fetch_operator_without_size_constraints(
