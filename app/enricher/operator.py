@@ -86,10 +86,49 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                 node, 1, actual=requested_inputs[1], expected="qubit"
             )
 
+    def _check_unary_qubit_constraints(
+        self,
+        node: OperatorNode,
+        requested_inputs: dict[int, LeqoSupportedType],
+    ) -> QubitType:
+        """
+        Checks constraints for unary quantum operators such as bitwise NOT.
+        """
+
+        if len(requested_inputs) != 1:
+            raise InputCountMismatch(
+                node,
+                actual=len(requested_inputs),
+                should_be="equal",
+                expected=1,
+            )
+
+        input_type = requested_inputs.get(0)
+        if not isinstance(input_type, QubitType):
+            raise InputTypeMismatch(
+                node,
+                0,
+                actual=input_type,
+                expected="qubit",
+            )
+
+        return input_type
+
     @override
     async def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
+        if isinstance(node, OperatorNode) and node.operator == "~":
+            if constraints is None:
+                raise InputCountMismatch(
+                    node,
+                    actual=0,
+                    should_be="equal",
+                    expected=1,
+                )
+
+            return [self._generate_bitwise_not_enrichment(node, constraints)]
+
         if isinstance(node, OperatorNode) and node.operator == "+":
             dynamic_exception: Exception | None = None
             if constraints is not None:
@@ -171,6 +210,56 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         return EnrichmentResult(
             enriched_node,
             ImplementationMetaData(width=width, depth=depth),
+        )
+
+    def _generate_bitwise_not_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        requested_input = self._check_unary_qubit_constraints(
+            node,
+            constraints.requested_inputs,
+        )
+
+        declared_size = requested_input.size
+        effective_size = declared_size or 1
+        input_name = "operand"
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            leqo_input(
+                input_name,
+                0,
+                declared_size,
+                twos_complement=requested_input.signed,
+            ),
+        ]
+
+        statements.extend(
+            QuantumGate(
+                modifiers=[],
+                name=Identifier("x"),
+                arguments=[],
+                qubits=[target],
+                duration=None,
+            )
+            for target in self._build_qubit_references(
+                input_name,
+                declared_size,
+                effective_size,
+            )
+        )
+
+        output_alias = leqo_output("out", 0, Identifier(input_name))
+        if requested_input.signed:
+            output_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
+
+        statements.append(output_alias)
+
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(width=effective_size, depth=1),
         )
 
     async def _fetch_operator_without_size_constraints(
