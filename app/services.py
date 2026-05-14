@@ -30,6 +30,7 @@ from app.enricher.models import Base as EnricherBase
 from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.enricher.qft import QFTEnricherStrategy
+from app.enricher.mcmt_gate import MCMTGateEnricherStrategy
 from app.enricher.qiskit_prepare import HAS_QISKIT, QiskitPrepareStateEnricherStrategy
 from app.enricher.splitter import SplitterEnricherStrategy
 from app.model.database_model import Base
@@ -96,6 +97,7 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         SplitterEnricherStrategy(),
         MergerEnricherStrategy(),
         QFTEnricherStrategy(),
+        MCMTGateEnricherStrategy(),
         EncodeValueEnricherStrategy(engine),
         PrepareStateEnricherStrategy(engine),
     ]
