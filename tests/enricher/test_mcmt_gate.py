@@ -146,10 +146,11 @@ async def test_mcmt_gate_no_parameter_fallback():
 @pytest.mark.asyncio
 async def test_mcmt_gate_mixed_array_broadcasting():
     """
-    Tests the compiler's ability to broadcast operations across 
-    multiple targets that have DIFFERENT array sizes (e.g., a size 3 
+    Tests the compiler's ability to broadcast operations across
+    multiple targets that have DIFFERENT array sizes (e.g., a size 3
     GHZ state and a size 2 Bell state acting as targets simultaneously).
     """
+
     class MockInputType:
         def __init__(self, size):
             self.size = size
@@ -163,12 +164,11 @@ async def test_mcmt_gate_mixed_array_broadcasting():
         parameter=3.0,
     )
     strategy = MCMTGateEnricherStrategy()
-    
-    mock_constraints = Constraints(requested_inputs={
-        1: MockInputType(3),
-        2: MockInputType(2)
-    })
-    
+
+    mock_constraints = Constraints(
+        requested_inputs={1: MockInputType(3), 2: MockInputType(2)}
+    )
+
     results = strategy._enrich_impl(node, mock_constraints)
     qasm = leqo_dumps(results[0].enriched_node.implementation)
 
@@ -182,8 +182,8 @@ async def test_mcmt_gate_mixed_array_broadcasting():
 @pytest.mark.asyncio
 async def test_mcmt_gate_output_routing_integrity():
     """
-    Tests that the MCMT gate perfectly maps every single input wire 
-    to a corresponding @leqo.output wire, guaranteeing the DAG 
+    Tests that the MCMT gate perfectly maps every single input wire
+    to a corresponding @leqo.output wire, guaranteeing the DAG
     (Directed Acyclic Graph) does not break for downstream nodes.
     """
     node = MCMTGateNode(
