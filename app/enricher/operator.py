@@ -33,7 +33,11 @@ from app.model.CompileRequest import (
     Node as FrontendNode,
 )
 from app.model.data_types import LeqoSupportedType, QubitType
-from app.model.exceptions import InputCountMismatch, InputTypeMismatch
+from app.model.exceptions import (
+    InputCountMismatch,
+    InputSizeMismatch,
+    InputTypeMismatch,
+)
 
 
 @dataclass(frozen=True)
@@ -90,6 +94,17 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
     async def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
+        if isinstance(node, OperatorNode) and node.operator == "==":
+            if constraints is None:
+                raise InputCountMismatch(
+                    node,
+                    actual=0,
+                    should_be="equal",
+                    expected=2,
+                )
+
+            return [self._generate_equality_enrichment(node, constraints)]
+
         if isinstance(node, OperatorNode) and node.operator == "+":
             dynamic_exception: Exception | None = None
             if constraints is not None:
@@ -171,6 +186,69 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         return EnrichmentResult(
             enriched_node,
             ImplementationMetaData(width=width, depth=depth),
+        )
+
+    def _generate_equality_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        requested_inputs = constraints.requested_inputs
+        self._check_constraints(node, requested_inputs)
+
+        lhs = cast(QubitType, requested_inputs[0])
+        rhs = cast(QubitType, requested_inputs[1])
+
+        lhs_size = lhs.size or 1
+        rhs_size = rhs.size or 1
+
+        if lhs_size != 1:
+            raise InputSizeMismatch(node, 0, actual=lhs_size, expected=1)
+
+        if rhs_size != 1:
+            raise InputSizeMismatch(node, 1, actual=rhs_size, expected=1)
+
+        lhs_name = "lhs"
+        rhs_name = "rhs"
+        result_name = "result"
+
+        lhs_ref = self._build_qubit_references(lhs_name, lhs.size, lhs_size)[0]
+        rhs_ref = self._build_qubit_references(rhs_name, rhs.size, rhs_size)[0]
+        result_ref = Identifier(result_name)
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            leqo_input(
+                lhs_name,
+                0,
+                lhs.size,
+                twos_complement=lhs.signed,
+            ),
+            leqo_input(
+                rhs_name,
+                1,
+                rhs.size,
+                twos_complement=rhs.signed,
+            ),
+            QubitDeclaration(
+                result_ref,
+                IntegerLiteral(1),
+            ),
+            QuantumGate(
+                modifiers=[],
+                name=Identifier("x"),
+                arguments=[],
+                qubits=[result_ref],
+                duration=None,
+            ),
+            self._cx_gate(lhs_ref, result_ref),
+            self._cx_gate(rhs_ref, result_ref),
+            leqo_output("out", 0, result_ref),
+        ]
+
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(width=3, depth=3),
         )
 
     async def _fetch_operator_without_size_constraints(
