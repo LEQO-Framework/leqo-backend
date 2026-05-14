@@ -151,6 +151,72 @@ def test_indexed_gate_application_uses_subscripted_qubit() -> None:
     assert "qc.x(q[1])" in code
 
 
+def test_custom_gate_definition_is_expanded_at_call_site_and_executes() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    gate twist(phi) a, b {
+        rz(phi / 2) a;
+        h a;
+        cx a, b;
+    }
+    qubit[2] q;
+    bit[1] out;
+    twist(pi / 8) q[0], q[1];
+    out[0] = measure q[1];
+    '''
+
+    code, namespace = _execute_qiskit(source)
+
+    assert "qc.twist" not in code
+    assert "qc.rz(" in code
+    assert "/ 2" in code
+    assert "qc.h(q[0])" in code
+    assert "qc.cx(q[0], q[1])" in code
+    assert sum(namespace["counts"].values()) == 500
+
+
+def test_parameterized_custom_gate_preserves_external_parameter_binding() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    input angle theta;
+    gate cleanup(phi) a {
+        rz(phi) a;
+        ry(phi / 2) a;
+    }
+    qubit q;
+    bit c;
+    cleanup(theta / 2) q;
+    measure q -> c;
+    '''
+
+    code = _transpile_qiskit(source)
+
+    assert 'Parameter("theta")' in code or "Parameter('theta')" in code
+    assert "qc.cleanup" not in code
+    assert "qc.rz(theta / 2, q)" in code
+    assert "qc.ry(theta / 2 / 2, q)" in code
+    assert "simulator.run" not in code
+
+
+def test_quantum_reset_lowers_to_qiskit_reset_and_executes() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    qubit[1] q;
+    bit[1] c;
+    x q[0];
+    reset q[0];
+    measure q[0] -> c[0];
+    '''
+
+    code, namespace = _execute_qiskit(source)
+
+    assert "qc.reset(q[0])" in code
+    assert namespace["counts"] == {"0": 500}
+
+
 def test_indexed_measurement_target_uses_subscripted_bits_and_executes() -> None:
     source = '''
     OPENQASM 3.0;

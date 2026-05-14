@@ -115,6 +115,13 @@ class QiskitProvider(BaseSDKProvider):
             keywords=[]
         ))
 
+    def reset(self, qubit: ast.expr) -> ast.stmt:
+        return ast.Expr(value=ast.Call(
+            func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='reset', ctx=ast.Load()),
+            args=[qubit],
+            keywords=[],
+        ))
+
     def measure(self, qubit: ast.expr, clbit: Optional[ast.expr] = None) -> ast.stmt:
         self.has_measurements = True
         args = [qubit]
@@ -559,7 +566,6 @@ class QiskitProvider(BaseSDKProvider):
                 "logic_and", "logic_or", "logic_not",
             }
         return False
-
 
 
 

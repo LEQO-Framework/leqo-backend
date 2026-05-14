@@ -1,4 +1,6 @@
 import ast
+import copy
+import math
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Union
 import openqasm3.ast as qast
@@ -38,6 +40,11 @@ class BaseSDKProvider(ABC):
     @abstractmethod
     def gate(self, name: str, qubits: List[ast.expr], args: List[ast.expr]) -> ast.stmt:
         """Apply a quantum gate."""
+        pass
+
+    @abstractmethod
+    def reset(self, qubit: ast.expr) -> ast.stmt:
+        """Reset a qubit or quantum register."""
         pass
 
     @abstractmethod
@@ -106,6 +113,8 @@ class UniversalTranspiler:
         self.provider = provider
         self.annotated_inputs: dict[int, ast.expr] = {}
         self.annotated_outputs: dict[int, ast.expr] = {}
+        self.gate_definitions: dict[str, qast.QuantumGateDefinition] = {}
+        self._identifier_scopes: list[dict[str, ast.expr]] = []
 
     def visit(self, node: Any) -> Union[ast.expr, ast.stmt, List[ast.stmt], None]:
         if node is None:
@@ -197,11 +206,25 @@ class UniversalTranspiler:
         init_expr = self.visit(init_expression) if init_expression else None
         return self.provider.declare_classical_var(name, node.type, init_expr)
 
-    def visit_QuantumGate(self, node: qast.QuantumGate) -> ast.stmt:
+    def visit_QuantumGateDefinition(self, node: qast.QuantumGateDefinition) -> None:
+        name = node.name.name
+        if name in self.gate_definitions:
+            raise NotImplementedError(f"Duplicate custom gate definition is not supported: {name}")
+        self.gate_definitions[name] = node
+        return None
+
+    def visit_QuantumGate(self, node: qast.QuantumGate) -> Union[ast.stmt, List[ast.stmt]]:
         gate_name = node.name.name
+        if gate_name in self.gate_definitions:
+            return self._expand_gate_definition(self.gate_definitions[gate_name], node)
+
         args = [self.visit(arg) for arg in node.arguments] if node.arguments else []
         qubits = [self.visit(q) for q in node.qubits]
         return self.provider.gate(gate_name, qubits, args)
+
+    def visit_QuantumReset(self, node: qast.QuantumReset) -> ast.stmt:
+        qubit_expr = self.visit(node.qubits)
+        return self.provider.reset(qubit_expr)
 
     def visit_QuantumMeasurementStatement(self, node: qast.QuantumMeasurementStatement) -> ast.stmt:
         qubit_expr = self.visit(node.measure.qubit)
@@ -323,10 +346,19 @@ class UniversalTranspiler:
         return ast.List(elts=[self.visit(value) for value in node.values], ctx=ast.Load())
 
     def visit_Identifier(self, node: qast.Identifier) -> ast.expr:
+        replacement = self._lookup_identifier_replacement(node.name)
+        if replacement is not None:
+            return copy.deepcopy(replacement)
+        if node.name == "pi":
+            return ast.Constant(value=math.pi)
         return ast.Name(id=node.name, ctx=ast.Load())
 
     def visit_IndexedIdentifier(self, node: qast.IndexedIdentifier) -> ast.expr:
-        name_node = ast.Name(id=node.name.name, ctx=ast.Load())
+        replacement = self._lookup_identifier_replacement(node.name.name)
+        if replacement is not None:
+            name_node = copy.deepcopy(replacement)
+        else:
+            name_node = ast.Name(id=node.name.name, ctx=ast.Load())
         idx_element = node.indices[0]
         
         if isinstance(idx_element, qast.DiscreteSet):
@@ -394,6 +426,51 @@ class UniversalTranspiler:
         if hasattr(node, 'value'):
             return str(node.value)
         return str(node)
+
+    def _expand_gate_definition(
+        self,
+        definition: qast.QuantumGateDefinition,
+        call: qast.QuantumGate,
+    ) -> List[ast.stmt]:
+        formal_args = [identifier.name for identifier in (definition.arguments or [])]
+        formal_qubits = [identifier.name for identifier in definition.qubits]
+        actual_args = [self.visit(arg) for arg in call.arguments] if call.arguments else []
+        actual_qubits = [self.visit(qubit) for qubit in call.qubits]
+
+        if len(formal_args) != len(actual_args):
+            raise NotImplementedError(
+                f"Custom gate {definition.name.name} expects {len(formal_args)} argument(s), "
+                f"got {len(actual_args)}."
+            )
+        if len(formal_qubits) != len(actual_qubits):
+            raise NotImplementedError(
+                f"Custom gate {definition.name.name} expects {len(formal_qubits)} qubit(s), "
+                f"got {len(actual_qubits)}."
+            )
+
+        substitutions = {
+            **dict(zip(formal_args, actual_args)),
+            **dict(zip(formal_qubits, actual_qubits)),
+        }
+
+        self._identifier_scopes.append(substitutions)
+        try:
+            expanded_body: List[ast.stmt] = []
+            for stmt in definition.body:
+                result = self.visit(stmt)
+                if isinstance(result, list):
+                    expanded_body.extend(result)
+                elif result is not None:
+                    expanded_body.append(result)
+            return expanded_body
+        finally:
+            self._identifier_scopes.pop()
+
+    def _lookup_identifier_replacement(self, name: str) -> Optional[ast.expr]:
+        for scope in reversed(self._identifier_scopes):
+            if name in scope:
+                return scope[name]
+        return None
 
     def _build_default_array_value(self, dimensions: List[Any]) -> ast.expr:
         resolved_dimensions = [int(self.resolve_literal(dimension)) for dimension in dimensions]
@@ -471,4 +548,3 @@ class UniversalTranspiler:
                 value=ast.Dict(keys=keys, values=values),
             )
         ]
-
