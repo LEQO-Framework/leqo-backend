@@ -110,7 +110,9 @@ async def test_insert_enrichtment(engine: AsyncEngine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
+async def test_enrich_amplitude_encode_value_rejects_float_input(
+    engine: AsyncEngine,
+) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -124,8 +126,8 @@ async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichments(result, "amplitude_impl", 1, 1)
+    with pytest.raises(InputTypeMismatch):
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
 
 @pytest.mark.asyncio
