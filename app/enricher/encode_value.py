@@ -18,6 +18,7 @@ from app.enricher import (
     models,
 )
 from app.enricher.db_enricher import DataBaseEnricherStrategy
+from app.enricher.encode_value_handlers import try_generate_encode_value_handler
 from app.enricher.exceptions import BoundsOutOfRange, EncodingNotSupported
 from app.enricher.utils import implementation, leqo_output
 from app.model import CompileRequest, data_types
@@ -148,6 +149,14 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     async def _enrich_impl(
         self, node: CompileRequest.Node, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
+        handler_result = try_generate_encode_value_handler(
+            node,
+            constraints,
+            self._check_constraints,
+        )
+        if handler_result is not None:
+            return handler_result
+
         if isinstance(node, CompileRequest.EncodeValueNode) and node.encoding in {
             "basis",
             "angle",
