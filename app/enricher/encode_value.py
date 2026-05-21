@@ -18,6 +18,7 @@ from app.enricher import (
     models,
 )
 from app.enricher.db_enricher import DataBaseEnricherStrategy
+from app.enricher.encode_value_handlers import try_generate_encode_value_handler
 from app.enricher.exceptions import (
     BoundsOutOfRange,
     EncodingNotSupported,
@@ -124,6 +125,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     ) -> models.BaseNode | None:
         if not isinstance(node, CompileRequest.EncodeValueNode):
             return None
+
         self._check_constraints(node, requested_inputs)
 
         requested_input = requested_inputs[0]
@@ -153,6 +155,14 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     async def _enrich_impl(
         self, node: CompileRequest.Node, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
+        handler_result = try_generate_encode_value_handler(
+            node,
+            constraints,
+            self._check_constraints,
+        )
+        if handler_result is not None:
+            return handler_result
+
         if (
             isinstance(node, CompileRequest.EncodeValueNode)
             and node.encoding == "schmidt"
@@ -224,6 +234,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                         constraints.requested_input_values.get(0),
                     ),
                 ]
+
             return [
                 self._generate_angle_enrichment(
                     node,

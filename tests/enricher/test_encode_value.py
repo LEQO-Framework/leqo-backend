@@ -1,4 +1,5 @@
 import re
+from math import sqrt
 
 import pytest
 import pytest_asyncio
@@ -110,7 +111,9 @@ async def test_insert_enrichtment(engine: AsyncEngine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
+async def test_enrich_amplitude_encode_value_rejects_float_input(
+    engine: AsyncEngine,
+) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -124,8 +127,8 @@ async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichments(result, "amplitude_impl", 1, 1)
+    with pytest.raises(InputTypeMismatch):
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
 
 @pytest.mark.asyncio
@@ -456,12 +459,12 @@ async def test_enrich_angle_encode_value_node_not_in_db(engine: AsyncEngine) -> 
 
     assert "@leqo.input 0" in implementation_str
     assert "int[32] value;" in implementation_str
-    assert "qubit[32] encoded;" in implementation_str
-    assert implementation_str.count("ry(3.141592653589793)") == ENCODE_REGISTER_SIZE
+    assert "qubit[1] encoded;" in implementation_str
+    assert implementation_str.count("ry(3.141592653589793)") == 1
     assert "@leqo.output 0" in implementation_str
     assert "let out = encoded;" in implementation_str
-    assert result.meta_data.width == ENCODE_REGISTER_SIZE
-    assert result.meta_data.depth == ENCODE_REGISTER_SIZE
+    assert result.meta_data.width == 1
+    assert result.meta_data.depth == 1
 
 
 @pytest.mark.asyncio
@@ -579,12 +582,11 @@ async def test_enrich_angle_encode_value_array_literal(engine: AsyncEngine) -> N
     assert "array[int[3], 2] value;" not in implementation_str
     assert "if" not in implementation_str
     assert f"qubit[{array_type.length}] encoded;" in implementation_str
-    mask_limit = (1 << array_type.element_type.size) - 1
-    expected_rotations = [
-        2 * float(value & mask_limit)
-        for value in array_values
-        if (value & mask_limit) != 0
-    ]
+
+    float_values = [float(value) for value in array_values]
+    norm = sqrt(sum(value**2 for value in float_values))
+    expected_rotations = [2 * value / norm for value in float_values if value != 0.0]
+
     rotation_args = [
         arg.strip() for arg in re.findall(r"ry\(([^)]+)\)", implementation_str)
     ]
