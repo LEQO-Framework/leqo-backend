@@ -1,17 +1,13 @@
 import numpy as np
 import pennylane as qml
 
-
-
 dev = qml.device("lightning.qubit", wires=3)
 
 
 @qml.qnode(dev)
 def qpe_reference():
-  
-    qml.PauliX(wires=2)  
+    qml.PauliX(wires=2)
 
-   
     unitary = qml.PhaseShift(2 * np.pi * 0.25, wires=2)
 
     qml.QuantumPhaseEstimation(
