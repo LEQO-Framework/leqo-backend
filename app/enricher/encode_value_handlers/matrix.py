@@ -68,8 +68,7 @@ def _reshape_and_validate_unitary_matrix(
 
     if dimension * dimension != total_length:
         raise RuntimeError(
-            "Matrix encoding expects a flat square matrix "
-            "(length must be n^2)."
+            "Matrix encoding expects a flat square matrix (length must be n^2)."
         )
 
     if dimension < MIN_MATRIX_DIMENSION:
