@@ -339,6 +339,22 @@ class QFTNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
+class QPENode(BaseNode):
+    """
+    Node representing a first Quantum Phase Estimation implementation.
+    """
+
+    type: Literal["qpe"] = "qpe"
+
+    estimationSize: int = Field(gt=0)
+    """Number of qubits in the phase estimation register."""
+
+    phase: float = Field(ge=0, lt=1)
+    """Eigenphase used for the controlled phase unitary in QPE V1."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
 # region Literals
 class BitLiteralNode(BaseNode):
     """
@@ -661,6 +677,7 @@ NestableNode = (
     | BoundaryNode
     | GateNode
     | QFTNode
+    | QPENode
     | ParameterizedGateNode
     | LiteralNode
     | AncillaNode
