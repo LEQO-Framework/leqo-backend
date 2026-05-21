@@ -23,11 +23,14 @@ from app.enricher import (
     ImplementationMetaData,
 )
 from app.enricher.exceptions import EnricherException
+from app.enricher.qft import _build_qft_statements
 from app.enricher.utils import implementation, leqo_input, leqo_output
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.CompileRequest import QPENode
 from app.model.data_types import QubitType
 from app.model.exceptions import InputCountMismatch, InputTypeMismatch
+
+TARGET_REGISTER_SIZE = 1
 
 
 def _estimation(index: int) -> IndexedIdentifier:
@@ -49,7 +52,9 @@ def _h(qubit: IndexedIdentifier) -> QuantumGate:
 
 
 def _cp(
-    angle: float, control: IndexedIdentifier, target: IndexedIdentifier
+    angle: float,
+    control: IndexedIdentifier,
+    target: IndexedIdentifier,
 ) -> QuantumGate:
     return QuantumGate(
         modifiers=[],
@@ -58,33 +63,6 @@ def _cp(
         qubits=[control, target],
         duration=None,
     )
-
-
-def _swap(left: IndexedIdentifier, right: IndexedIdentifier) -> QuantumGate:
-    return QuantumGate(
-        modifiers=[],
-        name=Identifier("swap"),
-        arguments=[],
-        qubits=[left, right],
-        duration=None,
-    )
-
-
-def _build_inverse_qft_statements(size: int) -> list[Statement]:
-    statements: list[Statement] = []
-
-    for left in range(size // 2):
-        right = size - left - 1
-        statements.append(_swap(_estimation(left), _estimation(right)))
-
-    for target in reversed(range(size)):
-        for control in reversed(range(target + 1, size)):
-            angle = -pi / (2 ** (control - target))
-            statements.append(_cp(angle, _estimation(control), _estimation(target)))
-
-        statements.append(_h(_estimation(target)))
-
-    return statements
 
 
 def _validate_qpe_constraints(
@@ -107,9 +85,18 @@ def _validate_qpe_constraints(
         msg = "Could not determine size of QPE target register"
         raise EnricherException(msg, node)
 
-    if input_type.size != 1:
+    if input_type.size != TARGET_REGISTER_SIZE:
         msg = "QPE V1 expects a single-qubit target register"
         raise EnricherException(msg, node)
+
+
+def _controlled_phase_power_angle(
+    phase: float,
+    estimation_size: int,
+    estimation_index: int,
+) -> float:
+    power = 2 ** (estimation_size - estimation_index - 1)
+    return 2 * pi * phase * power
 
 
 def _build_qpe_statements(node: QPENode) -> list[Statement]:
@@ -117,18 +104,32 @@ def _build_qpe_statements(node: QPENode) -> list[Statement]:
 
     statements: list[Statement] = [
         Include("stdgates.inc"),
-        leqo_input("target", 0, 1),
+        leqo_input("target", 0, TARGET_REGISTER_SIZE),
         QubitDeclaration(Identifier("estimation"), IntegerLiteral(estimation_size)),
     ]
 
     statements.extend(_h(_estimation(index)) for index in range(estimation_size))
 
-    for index in range(estimation_size):
-        power = 2 ** (estimation_size - index - 1)
-        angle = 2 * pi * node.phase * power
-        statements.append(_cp(angle, _estimation(index), _target(0)))
+    statements.extend(
+        _cp(
+            _controlled_phase_power_angle(
+                node.phase,
+                estimation_size,
+                index,
+            ),
+            _estimation(index),
+            _target(0),
+        )
+        for index in range(estimation_size)
+    )
 
-    statements.extend(_build_inverse_qft_statements(estimation_size))
+    statements.extend(
+        _build_qft_statements(
+            estimation_size,
+            inverse=True,
+            register_name="estimation",
+        )
+    )
 
     statements.append(leqo_output("phase", 0, Identifier("estimation")))
     statements.append(leqo_output("target_out", 1, Identifier("target")))
