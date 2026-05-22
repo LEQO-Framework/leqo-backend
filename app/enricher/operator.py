@@ -2,6 +2,7 @@
 Provides enricher strategy for enriching :class:`~app.model.CompileRequest.OperatorNode` from a database.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import cast, override
 
@@ -35,7 +36,6 @@ from app.model.CompileRequest import (
 from app.model.data_types import LeqoSupportedType, QubitType
 from app.model.exceptions import (
     InputCountMismatch,
-    InputSizeMismatch,
     InputTypeMismatch,
 )
 
@@ -98,6 +98,34 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                 node, 1, actual=requested_inputs[1], expected="qubit"
             )
 
+    def _check_unary_qubit_constraints(
+        self,
+        node: OperatorNode,
+        requested_inputs: dict[int, LeqoSupportedType],
+    ) -> QubitType:
+        """
+        Checks constraints for unary quantum operators such as bitwise NOT.
+        """
+
+        if len(requested_inputs) != 1:
+            raise InputCountMismatch(
+                node,
+                actual=len(requested_inputs),
+                should_be="equal",
+                expected=1,
+            )
+
+        input_type = requested_inputs.get(0)
+        if not isinstance(input_type, QubitType):
+            raise InputTypeMismatch(
+                node,
+                0,
+                actual=input_type,
+                expected="qubit",
+            )
+
+        return input_type
+
     @override
     async def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
@@ -105,28 +133,33 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         if not isinstance(node, OperatorNode):
             return await super()._enrich_impl(node, constraints)
 
+        if node.operator == "~":
+            if constraints is None:
+                raise InputCountMismatch(
+                    node,
+                    actual=0,
+                    should_be="equal",
+                    expected=1,
+                )
+
+            return [self._generate_bitwise_not_enrichment(node, constraints)]
+
         if node.operator == "+":
             return await self._enrich_addition_operator(node, constraints)
 
         if node.operator == "min":
-            if constraints is None:
-                raise InputCountMismatch(
-                    node,
-                    actual=0,
-                    should_be="equal",
-                    expected=2,
-                )
-            return [self._generate_min_enrichment(node, constraints)]
+            return await self._enrich_min_max_operator(
+                node,
+                constraints,
+                self._generate_min_enrichment,
+            )
 
         if node.operator == "max":
-            if constraints is None:
-                raise InputCountMismatch(
-                    node,
-                    actual=0,
-                    should_be="equal",
-                    expected=2,
-                )
-            return [self._generate_max_enrichment(node, constraints)]
+            return await self._enrich_min_max_operator(
+                node,
+                constraints,
+                self._generate_max_enrichment,
+            )
 
         return await super()._enrich_impl(node, constraints)
 
@@ -175,6 +208,33 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
 
         return [self._generate_addition_enrichment(node, constraints)]
 
+    async def _enrich_min_max_operator(
+        self,
+        node: OperatorNode,
+        constraints: Constraints | None,
+        generator: Callable[[OperatorNode, Constraints], EnrichmentResult],
+    ) -> list[EnrichmentResult]:
+        if constraints is None:
+            raise InputCountMismatch(
+                node,
+                actual=0,
+                should_be="equal",
+                expected=2,
+            )
+
+        self._check_constraints(node, constraints.requested_inputs)
+
+        lhs = cast(QubitType, constraints.requested_inputs[0])
+        rhs = cast(QubitType, constraints.requested_inputs[1])
+
+        lhs_size = lhs.size or 1
+        rhs_size = rhs.size or 1
+
+        if lhs_size == 1 and rhs_size == 1:
+            return [generator(node, constraints)]
+
+        return await super()._enrich_impl(node, constraints)
+
     def _generate_addition_enrichment(
         self, node: OperatorNode, constraints: Constraints
     ) -> EnrichmentResult:
@@ -218,6 +278,56 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
             ImplementationMetaData(width=width, depth=depth),
         )
 
+    def _generate_bitwise_not_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        requested_input = self._check_unary_qubit_constraints(
+            node,
+            constraints.requested_inputs,
+        )
+
+        declared_size = requested_input.size
+        effective_size = declared_size or 1
+        input_name = "operand"
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            leqo_input(
+                input_name,
+                0,
+                declared_size,
+                twos_complement=requested_input.signed,
+            ),
+        ]
+
+        statements.extend(
+            QuantumGate(
+                modifiers=[],
+                name=Identifier("x"),
+                arguments=[],
+                qubits=[target],
+                duration=None,
+            )
+            for target in self._build_qubit_references(
+                input_name,
+                declared_size,
+                effective_size,
+            )
+        )
+
+        output_alias = leqo_output("out", 0, Identifier(input_name))
+        if requested_input.signed:
+            output_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
+
+        statements.append(output_alias)
+
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(width=effective_size, depth=1),
+        )
+
     def _generate_min_enrichment(
         self,
         node: OperatorNode,
@@ -231,12 +341,6 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
 
         lhs_size = lhs.size or 1
         rhs_size = rhs.size or 1
-
-        if lhs_size != 1:
-            raise InputSizeMismatch(node, 0, actual=lhs_size, expected=1)
-
-        if rhs_size != 1:
-            raise InputSizeMismatch(node, 1, actual=rhs_size, expected=1)
 
         lhs_name = "lhs"
         rhs_name = "rhs"
@@ -286,12 +390,6 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
 
         lhs_size = lhs.size or 1
         rhs_size = rhs.size or 1
-
-        if lhs_size != 1:
-            raise InputSizeMismatch(node, 0, actual=lhs_size, expected=1)
-
-        if rhs_size != 1:
-            raise InputSizeMismatch(node, 1, actual=rhs_size, expected=1)
 
         lhs_name = "lhs"
         rhs_name = "rhs"
