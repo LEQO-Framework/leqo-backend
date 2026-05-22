@@ -642,6 +642,12 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 return int(raw_value) < 0
             except (TypeError, ValueError):
                 return False
+            
+        if isinstance(classical_input, (data_types.FloatType, ast.FloatType)):
+            try:
+                return float(raw_value) < 0
+            except (TypeError, ValueError):
+                return False
 
         if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             try:
