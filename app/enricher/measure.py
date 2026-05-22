@@ -13,6 +13,7 @@ from openqasm3.ast import (
     Identifier,
     IndexedIdentifier,
     IntegerLiteral,
+    QuantumGate,
     QuantumMeasurement,
 )
 
@@ -37,6 +38,30 @@ from app.model.CompileRequest import (
 from app.model.data_types import QubitType
 from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 from app.utils import duplicates
+
+
+def _quantum_gate(name: str, target: Identifier | IndexedIdentifier) -> QuantumGate:
+    return QuantumGate(
+        modifiers=[],
+        name=Identifier(name),
+        arguments=[],
+        qubits=[target],
+    )
+
+
+def _basis_change_gates(
+    basis: str, target: Identifier | IndexedIdentifier
+) -> list[QuantumGate]:
+    if basis == "X":
+        return [_quantum_gate("h", target)]
+
+    if basis == "Y":
+        return [
+            _quantum_gate("sdg", target),
+            _quantum_gate("h", target),
+        ]
+
+    return []
 
 
 class MeasurementEnricherStrategy(EnricherStrategy):
@@ -70,35 +95,46 @@ class MeasurementEnricherStrategy(EnricherStrategy):
         requested_type = constraints.requested_inputs[0]
         input_size = requested_type.size
         is_signed = getattr(requested_type, "signed", False)
+        basis = node.basis
+
         if input_size is None:
             if node.indices not in ([], [0]):
                 raise InvalidSingleQubitIndex(node)
+
+            measurement_target = Identifier("q")
+            basis_change_gates = _basis_change_gates(basis, measurement_target)
+
             statements = [
                 leqo_input("q", 0, input_size, twos_complement=is_signed),
+                *basis_change_gates,
                 ClassicalDeclaration(
                     BitType(),
                     Identifier("result"),
-                    QuantumMeasurement(Identifier("q")),
+                    QuantumMeasurement(measurement_target),
                 ),
             ]
+
             qubit_alias = leqo_output("qubit_out", 1, Identifier("q"))
             if is_signed:
                 qubit_alias.annotations.append(
                     Annotation("leqo.twos_complement", "true")
                 )
+
             statements.extend(
                 [
                     leqo_output("out", 0, Identifier("result")),
                     qubit_alias,
                 ]
             )
+
             return EnrichmentResult(
                 implementation(
                     node,
                     statements,
                 ),
-                ImplementationMetaData(width=0, depth=1),
+                ImplementationMetaData(width=0, depth=1 + len(basis_change_gates)),
             )
+
         indices = node.indices if len(node.indices) > 0 else list(range(input_size))
 
         out_of_range_indices = [i for i in indices if i < 0 or i >= input_size]
@@ -117,23 +153,25 @@ class MeasurementEnricherStrategy(EnricherStrategy):
         if is_signed:
             qubit_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
 
+        measurement_target = IndexedIdentifier(
+            Identifier("q"), [DiscreteSet(index_exprs)]
+        )
+        basis_change_gates = _basis_change_gates(basis, measurement_target)
+
         return EnrichmentResult(
             implementation(
                 node,
                 [
                     qubit_decl,
+                    *basis_change_gates,
                     ClassicalDeclaration(
                         BitType(IntegerLiteral(output_size)),
                         Identifier("result"),
-                        QuantumMeasurement(
-                            IndexedIdentifier(
-                                Identifier("q"), [DiscreteSet(index_exprs)]
-                            )
-                        ),
+                        QuantumMeasurement(measurement_target),
                     ),
                     leqo_output("out", 0, Identifier("result")),
                     qubit_alias,
                 ],
             ),
-            ImplementationMetaData(width=0, depth=1),
+            ImplementationMetaData(width=0, depth=1 + len(basis_change_gates)),
         )

@@ -204,6 +204,9 @@ class MeasurementNode(BaseNode):
     indices: list[Annotated[int, Field(ge=0)]]
     """List of qubit indices to measure."""
 
+    basis: Literal["X", "Y", "Z"] = "Z"
+    """Measurement basis. Defaults to Z-basis."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
     @model_validator(mode="before")
@@ -228,7 +231,50 @@ class MeasurementNode(BaseNode):
         if indices is not None:
             normalized["indices"] = indices
 
+        basis = cls._parse_basis(normalized.get("basis"))
+        if basis is None and node_dict is not None:
+            basis = cls._parse_basis(
+                cls._first_existing_value(
+                    node_dict,
+                    (
+                        "basis",
+                        "measurementBasis",
+                        "basisType",
+                        "measurementBasisType",
+                    ),
+                )
+            )
+
+        if basis is not None:
+            normalized["basis"] = basis
+
         return normalized
+
+    @staticmethod
+    def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
+        for key in keys:
+            value = data.get(key)
+            if value is not None:
+                return value
+
+        return None
+
+    @staticmethod
+    def _parse_basis(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+
+        normalized = value.strip().upper()
+
+        match normalized:
+            case "X" | "X-BASIS" | "X BASIS":
+                return "X"
+            case "Y" | "Y-BASIS" | "Y BASIS":
+                return "Y"
+            case "Z" | "Z-BASIS" | "Z BASIS":
+                return "Z"
+            case _:
+                return None
 
     @staticmethod
     def _coerce_indices(values: Iterable[Any]) -> list[int]:

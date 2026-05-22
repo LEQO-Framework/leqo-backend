@@ -229,3 +229,88 @@ async def test_duplicate_indices() -> None:
     strategy = MeasurementEnricherStrategy()
     with pytest.raises(DuplicateIndices, match=r"^Duplicate indices \[1, 2\]$"):
         await strategy.enrich(node, constraints)
+
+
+@pytest.mark.asyncio
+async def test_measure_x_basis_single_qubit() -> None:
+    node = MeasurementNode(id="nodeId", indices=[0], basis="X")
+    constraints = Constraints(
+        requested_inputs={0: QubitType(None)}, optimizeWidth=False, optimizeDepth=False
+    )
+
+    strategy = MeasurementEnricherStrategy()
+    result = list(await strategy.enrich(node, constraints))
+
+    assert len(result) == 1
+    assert_enrichment(
+        result[0].enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit q;
+        h q;
+        bit result = measure q;
+        @leqo.output 0
+        let out = result;
+        @leqo.output 1
+        let qubit_out = q;
+        """,
+    )
+
+
+@pytest.mark.asyncio
+async def test_measure_y_basis_single_qubit() -> None:
+    node = MeasurementNode(id="nodeId", indices=[0], basis="Y")
+    constraints = Constraints(
+        requested_inputs={0: QubitType(None)}, optimizeWidth=False, optimizeDepth=False
+    )
+
+    strategy = MeasurementEnricherStrategy()
+    result = list(await strategy.enrich(node, constraints))
+
+    assert len(result) == 1
+    assert_enrichment(
+        result[0].enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit q;
+        sdg q;
+        h q;
+        bit result = measure q;
+        @leqo.output 0
+        let out = result;
+        @leqo.output 1
+        let qubit_out = q;
+        """,
+    )
+
+
+@pytest.mark.asyncio
+async def test_measure_x_basis_multi_qubit_indices() -> None:
+    node = MeasurementNode(id="nodeId", indices=[0, 1, 2], basis="X")
+    constraints = Constraints(
+        requested_inputs={0: QubitType(3)}, optimizeWidth=False, optimizeDepth=False
+    )
+
+    strategy = MeasurementEnricherStrategy()
+    result = list(await strategy.enrich(node, constraints))
+
+    assert len(result) == 1
+    assert_enrichment(
+        result[0].enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        @leqo.input 0
+        qubit[3] q;
+        h q[{0, 1, 2}];
+        bit[3] result = measure q[{0, 1, 2}];
+        @leqo.output 0
+        let out = result;
+        @leqo.output 1
+        let qubit_out = q;
+        """,
+    )
