@@ -304,6 +304,9 @@ class GateNode(BaseNode):
     gate: OneQubitGate | TwoQubitGate | ThreeQubitGate | Literal["cnot", "toffoli"]
     """The gate to apply (e.g., "x", "cnot", etc.)."""
 
+    controlCount: int = Field(default=0, ge=0)
+    """Number of control qubits used for controlled gate application."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
@@ -319,6 +322,9 @@ class ParameterizedGateNode(BaseNode):
 
     parameter: float
     """Value of the gate's parameter."""
+
+    controlCount: int = Field(default=0, ge=0)
+    """Number of control qubits used for controlled gate application."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 

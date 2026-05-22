@@ -6,7 +6,16 @@ Provides enricher strategy for gate nodes
 
 from typing import get_args, override
 
-from openqasm3.ast import Expression, FloatLiteral, Identifier, Include, QuantumGate
+from openqasm3.ast import (
+    Expression,
+    FloatLiteral,
+    GateModifierName,
+    Identifier,
+    Include,
+    IntegerLiteral,
+    QuantumGate,
+    QuantumGateModifier,
+)
 
 from app.enricher import (
     Constraints,
@@ -84,6 +93,26 @@ def _validate_constraints(
     return size
 
 
+def _control_modifiers(control_count: int) -> list[QuantumGateModifier]:
+    if control_count == 0:
+        return []
+
+    if control_count == 1:
+        return [
+            QuantumGateModifier(
+                modifier=GateModifierName.ctrl,
+                argument=None,
+            )
+        ]
+
+    return [
+        QuantumGateModifier(
+            modifier=GateModifierName.ctrl,
+            argument=IntegerLiteral(control_count),
+        )
+    ]
+
+
 def enrich_gate(
     node: Node,
     constraints: Constraints | None,
@@ -97,29 +126,31 @@ def enrich_gate(
     :param node: Node that defined the gate. (Used as context for errors etc.)
     :param constraints: Constraints that should be applied.
     :param gate_name: Name of the gate to generate.
-    :param input_count: Count of expected inputs.
+    :param input_count: Count of expected target inputs for the base gate.
     :param arguments: Optional arguments passed to the gate.
     :return: Final enrichment result.
     """
 
-    size = _validate_constraints(constraints, node, input_count)
+    control_count = getattr(node, "controlCount", 0)
+    total_input_count = input_count + control_count
+    size = _validate_constraints(constraints, node, total_input_count)
 
     return EnrichmentResult(
         implementation(
             node,
             [
                 Include("stdgates.inc"),
-                *(leqo_input(f"q{i}", i, size) for i in range(input_count)),
+                *(leqo_input(f"q{i}", i, size) for i in range(total_input_count)),
                 QuantumGate(
-                    modifiers=[],
+                    modifiers=_control_modifiers(control_count),
                     name=Identifier(gate_name),
                     arguments=list(arguments),
-                    qubits=[Identifier(f"q{i}") for i in range(input_count)],
+                    qubits=[Identifier(f"q{i}") for i in range(total_input_count)],
                     duration=None,
                 ),
                 *(
                     leqo_output(f"q{i}_out", i, Identifier(f"q{i}"))
-                    for i in range(input_count)
+                    for i in range(total_input_count)
                 ),
             ],
         ),
