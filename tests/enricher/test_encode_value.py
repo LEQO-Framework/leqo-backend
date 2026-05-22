@@ -645,3 +645,33 @@ async def test_enrich_angle_encode_value_array_input(engine: AsyncEngine) -> Non
     assert "@leqo.output 0" in implementation_str
     assert result.meta_data.width == array_type.length
     assert result.meta_data.depth == array_type.length
+
+
+@pytest.mark.asyncio
+async def test_enrich_matrix_encode_value_dispatches_to_handler(
+    engine: AsyncEngine,
+) -> None:
+    node = FrontendEncodeValueNode(
+        id="1",
+        label=None,
+        type="encode",
+        encoding="matrix",
+        bounds=1,
+    )
+    constraints = Constraints(
+        requested_inputs={0: ArrayType.with_size(1, 4)},
+        requested_input_values={0: [0, 1, 1, 0]},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    results = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
+    result = next(iter(results))
+
+    implementation_str = leqo_dumps(result.enriched_node.implementation)
+
+    assert 'include "stdgates.inc";' in implementation_str
+    assert "qubit[1] encoded;" in implementation_str
+    assert "@leqo.output 0" in implementation_str
+    assert "let out = encoded;" in implementation_str
+    assert result.meta_data.width == 1
