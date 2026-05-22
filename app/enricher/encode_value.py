@@ -2,7 +2,6 @@
 Provides enricher strategy for enriching :class:`~app.model.CompileRequest.EncodeValueNode` from a database.
 """
 
-import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 from math import ceil, log2, pi, sqrt
