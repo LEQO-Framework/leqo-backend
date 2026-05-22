@@ -263,8 +263,38 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         signed_output = self._basis_output_requires_signed_flag(
             classical_input, input_value
         )
+
+        # 1. Vector length for metadata
+        vector_length = 1
+        if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
+            vector_length = self._get_array_length(classical_input)
+
+        # 2. Precision for metadata
+        fractional_bits = 0
+        element_type = self._get_element_type(classical_input) if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)) else classical_input
+        is_float_type = isinstance(element_type, (data_types.FloatType, ast.FloatType))
+        
+        if not is_float_type and input_value is not None:
+            try:
+                if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
+                    vals = self._coerce_array_constant_value(classical_input, input_value)
+                    is_float_type = any(isinstance(v, float) or (isinstance(v, str) and "." in str(v)) for v in vals)
+                else:
+                    v = input_value.value if hasattr(input_value, "value") else input_value
+                    is_float_type = isinstance(v, float) or (isinstance(v, str) and "." in str(v))
+            except Exception:
+                pass
+
+        if is_float_type:
+            decimal_precision = getattr(node, "decimalPrecision", None)
+            error_tolerance = getattr(node, "errorTolerance", 0.001)
+            if decimal_precision is not None:
+                fractional_bits = math.ceil(decimal_precision * math.log2(10))
+            else:
+                fractional_bits = math.ceil(-math.log2(error_tolerance)) if error_tolerance < 1 else 0
+
         statements = self._build_basis_statements(
-            classical_input, size, constant_indices, signed_output
+            classical_input, size, constant_indices, signed_output, vector_length, fractional_bits
         )
         depth = size if constant_indices is None else len(constant_indices)
         return EnrichmentResult(
@@ -691,6 +721,8 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         register_size: int,
         constant_indices: list[int] | None,
         signed_output: bool,
+        vector_length: int = 1,
+        fractional_bits: int = 0,
     ) -> list[ast.Statement]:
         qubit_identifier = ast.Identifier("encoded")
         statements: list[ast.Statement] = [ast.Include("stdgates.inc")]
@@ -749,6 +781,15 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             output_alias.annotations.append(
                 ast.Annotation("leqo.twos_complement", "true")
             )
+            
+        output_alias.annotations.append(
+            ast.Annotation("leqo.length", str(vector_length))
+        )
+        if fractional_bits > 0:
+            output_alias.annotations.append(
+                ast.Annotation("leqo.fractional_bits", str(fractional_bits))
+            )
+
         statements.append(output_alias)
         return statements
 
