@@ -510,6 +510,7 @@ class ArrayLiteralNode(BaseNode):
         normalized["values"] = processed
 
         if "elementType" not in normalized and processed:
+
             def has_float(v: Any) -> bool:
                 if isinstance(v, list):
                     return any(has_float(i) for i in v)

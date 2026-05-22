@@ -81,27 +81,88 @@ class QAOAEnricherStrategy(EnricherStrategy):
             ]
         )
 
-        def build_max2sat_gates(u_node: int, v_node: int, g_val: FloatLiteral) -> list[QuantumGate]:
+        def build_max2sat_gates(
+            u_node: int, v_node: int, g_val: FloatLiteral
+        ) -> list[QuantumGate]:
             return [
-                QuantumGate(modifiers=[], name=Identifier("rz"), arguments=[g_val], qubits=[get_q(u_node)]),
-                QuantumGate(modifiers=[], name=Identifier("rz"), arguments=[g_val], qubits=[get_q(v_node)]),
-                QuantumGate(modifiers=[], name=Identifier("cx"), arguments=[], qubits=[get_q(u_node), get_q(v_node)]),
-                QuantumGate(modifiers=[], name=Identifier("rz"), arguments=[g_val], qubits=[get_q(v_node)]),
-                QuantumGate(modifiers=[], name=Identifier("cx"), arguments=[], qubits=[get_q(u_node), get_q(v_node)]),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("rz"),
+                    arguments=[g_val],
+                    qubits=[get_q(u_node)],
+                ),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("rz"),
+                    arguments=[g_val],
+                    qubits=[get_q(v_node)],
+                ),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("cx"),
+                    arguments=[],
+                    qubits=[get_q(u_node), get_q(v_node)],
+                ),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("rz"),
+                    arguments=[g_val],
+                    qubits=[get_q(v_node)],
+                ),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("cx"),
+                    arguments=[],
+                    qubits=[get_q(u_node), get_q(v_node)],
+                ),
             ]
 
-        def build_coloring_gates(u_node: int, v_node: int, neg_g_val: FloatLiteral) -> list[QuantumGate]:
+        def build_coloring_gates(
+            u_node: int, v_node: int, neg_g_val: FloatLiteral
+        ) -> list[QuantumGate]:
             return [
-                QuantumGate(modifiers=[], name=Identifier("cx"), arguments=[], qubits=[get_q(u_node), get_q(v_node)]),
-                QuantumGate(modifiers=[], name=Identifier("rz"), arguments=[neg_g_val], qubits=[get_q(v_node)]),
-                QuantumGate(modifiers=[], name=Identifier("cx"), arguments=[], qubits=[get_q(u_node), get_q(v_node)]),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("cx"),
+                    arguments=[],
+                    qubits=[get_q(u_node), get_q(v_node)],
+                ),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("rz"),
+                    arguments=[neg_g_val],
+                    qubits=[get_q(v_node)],
+                ),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("cx"),
+                    arguments=[],
+                    qubits=[get_q(u_node), get_q(v_node)],
+                ),
             ]
 
-        def build_maxcut_gates(u_node: int, v_node: int, g_val: FloatLiteral) -> list[QuantumGate]:
+        def build_maxcut_gates(
+            u_node: int, v_node: int, g_val: FloatLiteral
+        ) -> list[QuantumGate]:
             return [
-                QuantumGate(modifiers=[], name=Identifier("cx"), arguments=[], qubits=[get_q(u_node), get_q(v_node)]),
-                QuantumGate(modifiers=[], name=Identifier("rz"), arguments=[g_val], qubits=[get_q(v_node)]),
-                QuantumGate(modifiers=[], name=Identifier("cx"), arguments=[], qubits=[get_q(u_node), get_q(v_node)]),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("cx"),
+                    arguments=[],
+                    qubits=[get_q(u_node), get_q(v_node)],
+                ),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("rz"),
+                    arguments=[g_val],
+                    qubits=[get_q(v_node)],
+                ),
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("cx"),
+                    arguments=[],
+                    qubits=[get_q(u_node), get_q(v_node)],
+                ),
             ]
 
         # 3. Apply the QAOA Layers
