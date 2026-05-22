@@ -341,15 +341,24 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         fractional_bits = 0
         element_type = self._get_element_type(classical_input) if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)) else classical_input
         is_float_type = isinstance(element_type, (data_types.FloatType, ast.FloatType))
-        
+
         if not is_float_type and input_value is not None:
             try:
                 if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
                     vals = self._coerce_array_constant_value(classical_input, input_value)
-                    is_float_type = any(isinstance(v, float) or (isinstance(v, str) and "." in str(v)) for v in vals)
+                    is_float_type = any(
+                        isinstance(v, float) or (isinstance(v, str) and "." in str(v))
+                        for v in vals
+                    )
                 else:
-                    v = input_value.value if hasattr(input_value, "value") else input_value
-                    is_float_type = isinstance(v, float) or (isinstance(v, str) and "." in str(v))
+                    v = (
+                        input_value.value
+                        if hasattr(input_value, "value")
+                        else input_value
+                    )
+                    is_float_type = isinstance(v, float) or (
+                        isinstance(v, str) and "." in str(v)
+                    )
             except Exception:
                 pass
 
@@ -642,7 +651,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 return int(raw_value) < 0
             except (TypeError, ValueError):
                 return False
-            
+
         if isinstance(classical_input, (data_types.FloatType, ast.FloatType)):
             try:
                 return float(raw_value) < 0
