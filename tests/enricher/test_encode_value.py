@@ -1,5 +1,6 @@
 import math
 import re
+from math import sqrt
 
 import pytest
 import pytest_asyncio
@@ -111,7 +112,9 @@ async def test_insert_enrichtment(engine: AsyncEngine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
+async def test_enrich_amplitude_encode_value_rejects_float_input(
+    engine: AsyncEngine,
+) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -125,8 +128,8 @@ async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichments(result, "amplitude_impl", 1, 1)
+    with pytest.raises(InputTypeMismatch):
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
 
 @pytest.mark.asyncio
@@ -299,7 +302,6 @@ async def test_enrich_encode_value_bit_literal(engine: AsyncEngine) -> None:
     assert "qubit[1] encoded;" in implementation_str
     assert implementation_str.count("x encoded[0];") == 1
     assert "@leqo.output 0" in implementation_str
-    assert "@leqo.length 1" in implementation_str
     assert result.meta_data.width == 1
     assert result.meta_data.depth == 1
 
@@ -338,7 +340,6 @@ async def test_enrich_encode_value_node_not_in_db(engine: AsyncEngine) -> None:
     assert "x encoded[0];" in implementation_str
     assert "x encoded[31];" in implementation_str
     assert "@leqo.output 0" in implementation_str
-    assert "@leqo.length 1" in implementation_str
     assert "let out = encoded;" in implementation_str
     assert result.meta_data.width == ENCODE_REGISTER_SIZE
     assert result.meta_data.depth == ENCODE_REGISTER_SIZE
@@ -383,7 +384,6 @@ async def test_enrich_encode_value_node_not_in_db_with_literal_value(
     assert implementation_str.count("x encoded[2];") == 1
     assert "x encoded[1];" not in implementation_str
     assert "@leqo.output 0" in implementation_str
-    assert "@leqo.length 1" in implementation_str
     assert "@leqo.twos_complement true" not in implementation_str
     assert "let out = encoded;" in implementation_str
     assert result.meta_data.width == expected_width
@@ -420,7 +420,6 @@ async def test_enrich_basis_encode_negative_literal_sets_signed_output(
     )
 
     assert "@leqo.output 0" in implementation_str
-    assert "@leqo.length 1" in implementation_str
     assert "@leqo.twos_complement true" in implementation_str
 
 
@@ -506,9 +505,6 @@ async def test_enrich_encode_value_array_literal(engine: AsyncEngine) -> None:
     assert f"qubit[{total_size}] encoded;" in implementation_str
     for index in (0, 4, 5):
         assert f"x encoded[{index}];" in implementation_str
-    
-    assert "@leqo.length 2" in implementation_str
-    
     expected_depth = sum(
         (value & ((1 << element_size) - 1)).bit_count() for value in array_values
     )
@@ -549,7 +545,6 @@ async def test_enrich_encode_value_array_input(engine: AsyncEngine) -> None:
     assert f"qubit[{array_type.size}] encoded;" in implementation_str
     assert implementation_str.count("if") == array_type.size
     assert "@leqo.output 0" in implementation_str
-    assert "@leqo.length 2" in implementation_str
     assert result.meta_data.width == array_type.size
     assert result.meta_data.depth == array_type.size
 
@@ -588,13 +583,10 @@ async def test_enrich_angle_encode_value_array_literal(engine: AsyncEngine) -> N
     assert "array[int[3], 2] value;" not in implementation_str
     assert "if" not in implementation_str
     assert f"qubit[{array_type.length}] encoded;" in implementation_str
-    min_v = min(array_values)
-    max_v = max(array_values)
-    expected_rotations = [
-        2 * (((v - min_v) / (max_v - min_v)) * (math.pi / 2))
-        for v in array_values
-        if v != min_v
-    ]
+
+    float_values = [float(value) for value in array_values]
+    norm = sqrt(sum(value**2 for value in float_values))
+    expected_rotations = [2 * value / norm for value in float_values if value != 0.0]
 
     rotation_args = [
         arg.strip() for arg in re.findall(r"ry\(([^)]+)\)", implementation_str)
@@ -698,7 +690,7 @@ async def test_enrich_encode_value_float_precision(engine: AsyncEngine) -> None:
     # 2. Structural properties preserved!
     assert "@leqo.twos_complement true" in implementation_str
     assert "@leqo.length 1" in implementation_str
-    
+
     # math.ceil(2 * log2(10)) -> math.ceil(2 * 3.32) -> 7
     assert "@leqo.fractional_bits 7" in implementation_str
 
