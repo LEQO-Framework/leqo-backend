@@ -151,7 +151,9 @@ async def test_enrich_angle_encode_value(engine: AsyncEngine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_matrix_encode_value(engine: AsyncEngine) -> None:
+async def test_enrich_matrix_encode_value_rejects_non_array_input(
+    engine: AsyncEngine,
+) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -165,8 +167,8 @@ async def test_enrich_matrix_encode_value(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichments(result, "matrix_impl", 3, 3)
+    with pytest.raises(InputTypeMismatch):
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
 
 @pytest.mark.asyncio

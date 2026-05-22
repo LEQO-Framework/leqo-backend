@@ -6,7 +6,7 @@ from app.enricher import Constraints, EnrichmentResult
 from app.enricher.encode_value_handlers.amplitude import generate_amplitude_enrichment
 from app.enricher.encode_value_handlers.matrix import generate_matrix_enrichment
 from app.model import CompileRequest, data_types
-from app.model.exceptions import InputCountMismatch
+from app.model.exceptions import InputCountMismatch, InputTypeMismatch
 
 
 CheckConstraints = Callable[
@@ -45,14 +45,18 @@ def try_generate_encode_value_handler(
             expected=1,
         )
 
-    requested_input = constraints.requested_inputs.get(0)
+    check_constraints(node, constraints.requested_inputs)
 
+    requested_input = constraints.requested_inputs[0]
     if node.encoding in {"amplitude", "matrix"} and not isinstance(
         requested_input,
         (data_types.ArrayType, ast.ArrayType),
     ):
-        return None
-
-    check_constraints(node, constraints.requested_inputs)
+        raise InputTypeMismatch(
+            node,
+            input_index=0,
+            actual=requested_input,
+            expected="array",
+        )
 
     return [handler(node, constraints)]
