@@ -737,6 +737,18 @@ class Edge(BaseModel):
         return normalized
 
 
+def _normalize_schmidt_encoding_name(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip().lower().replace("_", " ").replace("-", " ")
+
+    if normalized in {"schmidt", "schmidt decomposition"}:
+        return "schmidt"
+
+    return None
+
+
 def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
     for key in keys:
         value = data.get(key)
@@ -744,6 +756,20 @@ def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
             return value
 
     return None
+
+
+def _normalize_state_preparation_node(converted: dict[str, Any]) -> None:
+    data_field = converted.get("data")
+
+    if isinstance(data_field, dict):
+        encoding = _normalize_schmidt_encoding_name(data_field.get("encodingType"))
+        if encoding is not None:
+            converted["type"] = "encode"
+            converted["encoding"] = encoding
+            converted.setdefault("label", data_field.get("label"))
+            return
+
+    converted["type"] = "prepare"
 
 
 def _normalize_data_type_node(converted: dict[str, Any]) -> None:
@@ -819,7 +845,7 @@ class CompileRequest(BaseModel):
             node_type = converted.get("type")
 
             if node_type == "statePreparationNode":
-                converted["type"] = "prepare"
+                _normalize_state_preparation_node(converted)
             elif node_type == "measurementNode":
                 converted["type"] = "measure"
             elif node_type == "dataTypeNode":

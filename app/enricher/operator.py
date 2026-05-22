@@ -2,6 +2,7 @@
 Provides enricher strategy for enriching :class:`~app.model.CompileRequest.OperatorNode` from a database.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import cast, override
 
@@ -25,13 +26,8 @@ from app.enricher.exceptions import NoImplementationFound
 from app.enricher.models import BaseNode, Input, InputType, NodeType, OperatorType
 from app.enricher.models import OperatorNode as OperatorNodeTable
 from app.enricher.utils import implementation, leqo_input, leqo_output
-from app.model.CompileRequest import (
-    ImplementationNode,
-    OperatorNode,
-)
-from app.model.CompileRequest import (
-    Node as FrontendNode,
-)
+from app.model.CompileRequest import ImplementationNode, OperatorNode
+from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import LeqoSupportedType, QubitType
 from app.model.exceptions import (
     InputCountMismatch,
@@ -55,7 +51,15 @@ class _AdditionOperand:
 
 class OperatorEnricherStrategy(DataBaseEnricherStrategy):
     """
-    Strategy capable of enriching :class:`~app.model.CompileRequest.OperatorNode` from a database.
+    Strategy capable of enriching :class:`~app.model.CompileRequest.OperatorNode`.
+
+    Most operators can still be resolved from database-backed implementations.
+    Some simple quantum operators are generated dynamically in the backend instead.
+
+    Dynamic/ad-hoc enrichments intentionally bypass the database lookup because
+    their circuit can be derived directly from the requested operator and input
+    constraints. The addition operator is currently hybrid: it can be generated
+    dynamically, but it can also still fall back to DB-backed implementations.
     """
 
     def __init__(self, engine: AsyncEngine):
@@ -90,60 +94,163 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                 node, 1, actual=requested_inputs[1], expected="qubit"
             )
 
+    def _check_unary_qubit_constraints(
+        self,
+        node: OperatorNode,
+        requested_inputs: dict[int, LeqoSupportedType],
+    ) -> QubitType:
+        """
+        Checks constraints for unary quantum operators such as bitwise NOT.
+        """
+
+        if len(requested_inputs) != 1:
+            raise InputCountMismatch(
+                node,
+                actual=len(requested_inputs),
+                should_be="equal",
+                expected=1,
+            )
+
+        input_type = requested_inputs.get(0)
+        if not isinstance(input_type, QubitType):
+            raise InputTypeMismatch(
+                node,
+                0,
+                actual=input_type,
+                expected="qubit",
+            )
+
+        return input_type
+
     @override
     async def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
-        if isinstance(node, OperatorNode) and node.operator == "==":
-            if constraints is None:
-                raise InputCountMismatch(
-                    node,
-                    actual=0,
-                    should_be="equal",
-                    expected=2,
-                )
+        if not isinstance(node, OperatorNode):
+            result = await super()._enrich_impl(node, constraints)
 
-            return [self._generate_equality_enrichment(node, constraints)]
-
-        if isinstance(node, OperatorNode) and node.operator == "+":
-            dynamic_exception: Exception | None = None
-            if constraints is not None:
-                try:
-                    return [self._generate_addition_enrichment(node, constraints)]
-                except (InputCountMismatch, InputTypeMismatch):
-                    raise
-                except Exception as exc:  # pragma: no cover - defensive fallback
-                    dynamic_exception = exc
-
-            try:
-                db_results = await super()._enrich_impl(node, constraints)
-            except InputCountMismatch:
-                if constraints is not None:
-                    raise
-                db_results = []
-            if db_results:
-                return db_results
-
-            fallback_results = await self._fetch_operator_without_size_constraints(
-                node, constraints
+        elif node.operator == "==":
+            result = await self._enrich_single_qubit_binary_operator(
+                node,
+                constraints,
+                self._generate_equality_enrichment,
             )
-            if fallback_results:
-                return fallback_results
 
-            if dynamic_exception is not None:
-                raise dynamic_exception
-
+        elif node.operator == "~":
             if constraints is None:
                 raise InputCountMismatch(
                     node,
                     actual=0,
                     should_be="equal",
-                    expected=2,
+                    expected=1,
                 )
 
-            return [self._generate_addition_enrichment(node, constraints)]
+            result = [self._generate_bitwise_not_enrichment(node, constraints)]
 
-        return await super()._enrich_impl(node, constraints)
+        elif node.operator == "+":
+            result = await self._enrich_addition_operator(node, constraints)
+
+        elif node.operator == "min":
+            result = await self._enrich_single_qubit_binary_operator(
+                node,
+                constraints,
+                self._generate_min_enrichment,
+            )
+
+        elif node.operator == "max":
+            result = await self._enrich_single_qubit_binary_operator(
+                node,
+                constraints,
+                self._generate_max_enrichment,
+            )
+
+        else:
+            result = await super()._enrich_impl(node, constraints)
+
+        return result
+
+    async def _enrich_addition_operator(
+        self,
+        node: OperatorNode,
+        constraints: Constraints | None,
+    ) -> list[EnrichmentResult]:
+        dynamic_exception: Exception | None = None
+
+        if constraints is not None:
+            try:
+                return [self._generate_addition_enrichment(node, constraints)]
+            except (InputCountMismatch, InputTypeMismatch):
+                raise
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                dynamic_exception = exc
+
+        try:
+            db_results = await super()._enrich_impl(node, constraints)
+        except InputCountMismatch:
+            if constraints is not None:
+                raise
+            db_results = []
+
+        if db_results:
+            return db_results
+
+        fallback_results = await self._fetch_operator_without_size_constraints(
+            node,
+            constraints,
+        )
+        if fallback_results:
+            return fallback_results
+
+        if dynamic_exception is not None:
+            raise dynamic_exception
+
+        if constraints is None:
+            raise InputCountMismatch(
+                node,
+                actual=0,
+                should_be="equal",
+                expected=2,
+            )
+
+        return [self._generate_addition_enrichment(node, constraints)]
+
+    async def _enrich_single_qubit_binary_operator(
+        self,
+        node: OperatorNode,
+        constraints: Constraints | None,
+        generator: Callable[[OperatorNode, Constraints], EnrichmentResult],
+    ) -> list[EnrichmentResult]:
+        if constraints is None:
+            raise InputCountMismatch(
+                node,
+                actual=0,
+                should_be="equal",
+                expected=2,
+            )
+
+        self._check_constraints(node, constraints.requested_inputs)
+
+        lhs = cast(QubitType, constraints.requested_inputs[0])
+        rhs = cast(QubitType, constraints.requested_inputs[1])
+
+        lhs_size = lhs.size or 1
+        rhs_size = rhs.size or 1
+
+        if lhs_size == 1 and rhs_size == 1:
+            return [generator(node, constraints)]
+
+        db_results = await super()._enrich_impl(node, constraints)
+        if db_results:
+            return db_results
+
+        fallback_results = await self._fetch_operator_without_size_constraints(
+            node,
+            constraints,
+        )
+        if fallback_results:
+            return fallback_results
+
+        return [generator(node, constraints)]
 
     def _generate_addition_enrichment(
         self, node: OperatorNode, constraints: Constraints
@@ -243,6 +350,168 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
             ),
             self._cx_gate(lhs_ref, result_ref),
             self._cx_gate(rhs_ref, result_ref),
+            leqo_output("out", 0, result_ref),
+        ]
+
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(width=3, depth=3),
+        )
+
+    def _generate_bitwise_not_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        requested_input = self._check_unary_qubit_constraints(
+            node,
+            constraints.requested_inputs,
+        )
+
+        declared_size = requested_input.size
+        effective_size = declared_size or 1
+        input_name = "operand"
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            leqo_input(
+                input_name,
+                0,
+                declared_size,
+                twos_complement=requested_input.signed,
+            ),
+        ]
+
+        statements.extend(
+            QuantumGate(
+                modifiers=[],
+                name=Identifier("x"),
+                arguments=[],
+                qubits=[target],
+                duration=None,
+            )
+            for target in self._build_qubit_references(
+                input_name,
+                declared_size,
+                effective_size,
+            )
+        )
+
+        output_alias = leqo_output("out", 0, Identifier(input_name))
+        if requested_input.signed:
+            output_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
+
+        statements.append(output_alias)
+
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(width=effective_size, depth=1),
+        )
+
+    def _generate_min_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        requested_inputs = constraints.requested_inputs
+        self._check_constraints(node, requested_inputs)
+
+        lhs = cast(QubitType, requested_inputs[0])
+        rhs = cast(QubitType, requested_inputs[1])
+
+        lhs_size = lhs.size or 1
+        rhs_size = rhs.size or 1
+
+        if lhs_size != 1:
+            raise InputSizeMismatch(node, 0, actual=lhs_size, expected=1)
+
+        if rhs_size != 1:
+            raise InputSizeMismatch(node, 1, actual=rhs_size, expected=1)
+
+        lhs_name = "lhs"
+        rhs_name = "rhs"
+        result_name = "result"
+
+        lhs_ref = self._build_qubit_references(lhs_name, lhs.size, lhs_size)[0]
+        rhs_ref = self._build_qubit_references(rhs_name, rhs.size, rhs_size)[0]
+        result_ref = Identifier(result_name)
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            leqo_input(
+                lhs_name,
+                0,
+                lhs.size,
+                twos_complement=lhs.signed,
+            ),
+            leqo_input(
+                rhs_name,
+                1,
+                rhs.size,
+                twos_complement=rhs.signed,
+            ),
+            QubitDeclaration(
+                result_ref,
+                IntegerLiteral(1),
+            ),
+            self._ccx_gate(lhs_ref, rhs_ref, result_ref),
+            leqo_output("out", 0, result_ref),
+        ]
+
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(width=3, depth=1),
+        )
+
+    def _generate_max_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        requested_inputs = constraints.requested_inputs
+        self._check_constraints(node, requested_inputs)
+
+        lhs = cast(QubitType, requested_inputs[0])
+        rhs = cast(QubitType, requested_inputs[1])
+
+        lhs_size = lhs.size or 1
+        rhs_size = rhs.size or 1
+
+        if lhs_size != 1:
+            raise InputSizeMismatch(node, 0, actual=lhs_size, expected=1)
+
+        if rhs_size != 1:
+            raise InputSizeMismatch(node, 1, actual=rhs_size, expected=1)
+
+        lhs_name = "lhs"
+        rhs_name = "rhs"
+        result_name = "result"
+
+        lhs_ref = self._build_qubit_references(lhs_name, lhs.size, lhs_size)[0]
+        rhs_ref = self._build_qubit_references(rhs_name, rhs.size, rhs_size)[0]
+        result_ref = Identifier(result_name)
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            leqo_input(
+                lhs_name,
+                0,
+                lhs.size,
+                twos_complement=lhs.signed,
+            ),
+            leqo_input(
+                rhs_name,
+                1,
+                rhs.size,
+                twos_complement=rhs.signed,
+            ),
+            QubitDeclaration(
+                result_ref,
+                IntegerLiteral(1),
+            ),
+            self._cx_gate(lhs_ref, result_ref),
+            self._cx_gate(rhs_ref, result_ref),
+            self._ccx_gate(lhs_ref, rhs_ref, result_ref),
             leqo_output("out", 0, result_ref),
         ]
 
