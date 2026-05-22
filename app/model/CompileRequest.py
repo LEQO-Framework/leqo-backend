@@ -5,11 +5,11 @@ It provides classes to model metadata, node data, and the complete compile reque
 
 from __future__ import annotations
 
-from abc import ABC
 import ast
+import re
+from abc import ABC
 from collections.abc import Iterable
 from contextlib import suppress
-import re
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -475,7 +475,8 @@ class ArrayLiteralNode(BaseNode):
 
         def parse_num(s: Any) -> int | float:
             str_s = str(s).strip()
-            if not str_s: return 0
+            if not str_s:
+                return 0
             return float(str_s) if "." in str_s else int(str_s)
 
         # Process elements while preserving 2D structures
@@ -483,7 +484,7 @@ class ArrayLiteralNode(BaseNode):
             if isinstance(val, (list, tuple)):
                 # Keep the inner list structure intact, just parse its numbers
                 return [process_element(item) for item in val]
-            elif isinstance(val, (int, float, str)):
+            if isinstance(val, (int, float, str)):
                 return parse_num(val)
             return val
 
@@ -493,23 +494,27 @@ class ArrayLiteralNode(BaseNode):
                 processed = process_element(parsed)
             except (ValueError, SyntaxError):
                 # Fallback for comma-separated single strings
-                parts = [p.strip() for p in raw_values.replace(";", ",").split(",") if p.strip()]
+                parts = [
+                    p.strip()
+                    for p in raw_values.replace(";", ",").split(",")
+                    if p.strip()
+                ]
                 processed = [parse_num(p) for p in parts]
-        elif isinstance(raw_values, Iterable) and not isinstance(raw_values, (str, bytes)):
+        elif isinstance(raw_values, Iterable) and not isinstance(
+            raw_values, (str, bytes)
+        ):
             processed = [process_element(v) for v in raw_values]
         else:
             processed = [process_element(raw_values)] if raw_values is not None else []
 
         normalized["values"] = processed
 
-        # Adjust your element type checking to handle potential sub-lists safely
         if "elementType" not in normalized and processed:
-            # Check elements or sub-elements for floats
             def has_float(v: Any) -> bool:
                 if isinstance(v, list):
                     return any(has_float(i) for i in v)
                 return isinstance(v, float)
-                
+
             normalized["elementType"] = "float" if has_float(processed) else "int"
 
         return normalized

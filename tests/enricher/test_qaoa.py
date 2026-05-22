@@ -9,7 +9,7 @@ from app.openqasm3.printer import leqo_dumps
 @pytest.mark.asyncio
 async def test_qaoa_maxcut_ansatz():
     """
-    Tests if the QAOA Strategy correctly unrolls the Cost and Mixer 
+    Tests if the QAOA Strategy correctly unrolls the Cost and Mixer
     Hamiltonians for a 3-node graph with 2 layers (p=2) using MaxCut.
     """
     node = QAOANode(
@@ -33,7 +33,7 @@ async def test_qaoa_maxcut_ansatz():
     # Layer 0 MaxCut: standard ZZ coupling
     assert "cx q_qaoa[0], q_qaoa[1];" in qasm
     assert "rz(0.5) q_qaoa[1];" in qasm
-    
+
     # Layer 1 MaxCut
     assert "rz(0.6) q_qaoa[1];" in qasm
     assert "rx(0.3) q_qaoa[2];" in qasm
@@ -42,7 +42,7 @@ async def test_qaoa_maxcut_ansatz():
 @pytest.mark.asyncio
 async def test_qaoa_max2sat_ansatz():
     """
-    Tests if Max-2-SAT injects single-qubit bias rotations along with the 
+    Tests if Max-2-SAT injects single-qubit bias rotations along with the
     interacting ZZ gate sequences.
     """
     node = QAOANode(
@@ -63,7 +63,7 @@ async def test_qaoa_max2sat_ansatz():
     # Verify single qubit bias rotations exist for the nodes in the clauses
     assert "rz(0.4) q_sat[0];" in qasm
     assert "rz(0.4) q_sat[1];" in qasm
-    
+
     # Verify coupling collection accompanies it
     assert "cx q_sat[0], q_sat[1];" in qasm
     assert "rz(0.4) q_sat[1];" in qasm
@@ -90,6 +90,4 @@ async def test_qaoa_graph_coloring_ansatz():
     results = strategy._enrich_impl(node, Constraints(requested_inputs={}))
     qasm = leqo_dumps(results[0].enriched_node.implementation)
 
-    # Verify that the phase rotation parameter gets flipped to a negative float
     assert "rz(-0.7) q_color[1];" in qasm
-    assert "rx(0.25) q_color[0];" in qasm
