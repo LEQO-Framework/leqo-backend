@@ -44,8 +44,8 @@ class _AngleEmissionContext:
 
 @dataclass
 class BasisMetadata:
-    vector_length: int
-    fractional_bits: int
+    vector_length: int = 1
+    fractional_bits: int = 0
 
 
 class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
@@ -444,9 +444,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if decimal_precision is not None:
             frac_bits = ceil(decimal_precision * log2(10))
         else:
-            frac_bits = (
-                ceil(-log2(error_tolerance)) if error_tolerance < 1 else 0
-            )
+            frac_bits = ceil(-log2(error_tolerance)) if error_tolerance < 1 else 0
 
         total_bits_per_num = int_bits + frac_bits
         return int_bits, frac_bits, total_bits_per_num
@@ -658,26 +656,25 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if raw_value is None:
             return False
 
+        result = False
         if isinstance(classical_input, data_types.IntType):
             try:
-                return int(raw_value) < 0
+                result = int(raw_value) < 0
             except (TypeError, ValueError):
-                return False
-
-        if isinstance(classical_input, (data_types.FloatType, ast.FloatType)):
+                result = False
+        elif isinstance(classical_input, (data_types.FloatType, ast.FloatType)):
             try:
-                return float(raw_value) < 0
+                result = float(raw_value) < 0
             except (TypeError, ValueError):
-                return False
-
-        if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
+                result = False
+        elif isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             try:
                 values = self._coerce_array_constant_value(classical_input, raw_value)
-                return any(value < 0 for value in values)
+                result = any(value < 0 for value in values)
             except RuntimeError:
-                return False
+                result = False
 
-        return False
+        return result
 
     @staticmethod
     def _coerce_array_constant_value(
