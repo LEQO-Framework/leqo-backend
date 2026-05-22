@@ -5,12 +5,12 @@ It provides classes to model metadata, node data, and the complete compile reque
 
 from __future__ import annotations
 
-import ast
-import re
 from abc import ABC
+import ast
 from collections.abc import Iterable
 from contextlib import suppress
-from typing import Annotated, Any, Literal, List, Union, Iterable
+import re
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -453,7 +453,7 @@ class ArrayLiteralNode(BaseNode):
 
     type: Literal["array"] = "array"
 
-    values: List[Union[int, float]]
+    values: list[int | float | list[int | float]]
     """Ordered list of values in the array (flattened for OpenQASM compatibility)."""
 
     elementBitSize: int | None = Field(default=None, ge=1)
@@ -478,49 +478,52 @@ class ArrayLiteralNode(BaseNode):
             if not str_s: return 0
             return float(str_s) if "." in str_s else int(str_s)
 
-        # Flatten all nested structures into a 1D list
-        flattened = []
-        def process_and_flatten(val: Any):
+        # Process elements while preserving 2D structures
+        def process_element(val: Any) -> Any:
             if isinstance(val, (list, tuple)):
-                for item in val:
-                    process_and_flatten(item)
+                # Keep the inner list structure intact, just parse its numbers
+                return [process_element(item) for item in val]
             elif isinstance(val, (int, float, str)):
-                flattened.append(parse_num(val))
+                return parse_num(val)
+            return val
 
         if isinstance(raw_values, str):
             try:
                 parsed = ast.literal_eval(raw_values)
-                process_and_flatten(parsed)
+                processed = process_element(parsed)
             except (ValueError, SyntaxError):
+                # Fallback for comma-separated single strings
                 parts = [p.strip() for p in raw_values.replace(";", ",").split(",") if p.strip()]
-                for p in parts:
-                    flattened.append(parse_num(p))
-        
+                processed = [parse_num(p) for p in parts]
         elif isinstance(raw_values, Iterable) and not isinstance(raw_values, (str, bytes)):
-            process_and_flatten(raw_values)
-            
+            processed = [process_element(v) for v in raw_values]
         else:
-            if raw_values is not None:
-                process_and_flatten(raw_values)
+            processed = [process_element(raw_values)] if raw_values is not None else []
 
-        normalized["values"] = flattened
+        normalized["values"] = processed
 
-        if "elementType" not in normalized and flattened:
-            if any(isinstance(v, float) for v in flattened):
-                normalized["elementType"] = "float"
-            else:
-                normalized["elementType"] = "int"
+        # Adjust your element type checking to handle potential sub-lists safely
+        if "elementType" not in normalized and processed:
+            # Check elements or sub-elements for floats
+            def has_float(v: Any) -> bool:
+                if isinstance(v, list):
+                    return any(has_float(i) for i in v)
+                return isinstance(v, float)
+                
+            normalized["elementType"] = "float" if has_float(processed) else "int"
 
         return normalized
 
     @model_validator(mode="after")
-    def _default_bit_size(self) -> "ArrayLiteralNode":
+    def _default_bit_size(self) -> ArrayLiteralNode:
         if self.elementType != "float" and self.elementBitSize is None:
             if self.values:
                 # Make sure we only calculate bit_size for ints, ignoring floats
                 ints_only = [v for v in self.values if isinstance(v, int)]
                 if ints_only:
-                    self.elementBitSize = max((_infer_int_bit_size(v) for v in ints_only), default=1)
+                    self.elementBitSize = max(
+                        (_infer_int_bit_size(v) for v in ints_only), default=1
+                    )
                 else:
                     self.elementBitSize = 1
             else:
