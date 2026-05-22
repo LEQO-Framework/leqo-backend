@@ -75,14 +75,15 @@ class MCMTGateEnricherStrategy(EnricherStrategy):
                     targets_flat.append(indexed_id)
 
         # 2. Prepare the gate arguments and modifiers
-        gate_name_lower = node.baseGate.lower().split('(')[0]
+        gate_name_lower = node.baseGate.lower().split("(")[0]
         args = []
         if node.parameter is not None and node.baseGate in {"rx", "ry", "rz"}:
             args.append(FloatLiteral(node.parameter))
 
         modifiers = [
             QuantumGateModifier(
-                modifier=GateModifierName.ctrl, argument=IntegerLiteral(len(controls_flat))
+                modifier=GateModifierName.ctrl,
+                argument=IntegerLiteral(len(controls_flat)),
             )
         ]
 
