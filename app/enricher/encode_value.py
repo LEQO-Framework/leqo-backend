@@ -5,7 +5,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Encod
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass
-from math import pi, sqrt
+from math import ceil, log2, pi, sqrt
 from typing import Any, cast, override
 
 from openqasm3 import ast
@@ -41,6 +41,12 @@ class _AngleEmissionContext:
     register_size: int
     rotation_map: dict[int, float] | None
     value_identifier: ast.Identifier | None
+
+
+@dataclass
+class BasisMetadata:
+    vector_length: int
+    fractional_bits: int
 
 
 class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
@@ -332,20 +338,24 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             classical_input, input_value
         )
 
-        # 1. Vector length for metadata
         vector_length = 1
         if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             vector_length = self._get_array_length(classical_input)
 
-        # 2. Precision for metadata
         fractional_bits = 0
-        element_type = self._get_element_type(classical_input) if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)) else classical_input
+        element_type = (
+            self._get_element_type(classical_input)
+            if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType))
+            else classical_input
+        )
         is_float_type = isinstance(element_type, (data_types.FloatType, ast.FloatType))
 
         if not is_float_type and input_value is not None:
             try:
                 if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
-                    vals = self._coerce_array_constant_value(classical_input, input_value)
+                    vals = self._coerce_array_constant_value(
+                        classical_input, input_value
+                    )
                     is_float_type = any(
                         isinstance(v, float) or (isinstance(v, str) and "." in str(v))
                         for v in vals
@@ -366,12 +376,15 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             decimal_precision = getattr(node, "decimalPrecision", None)
             error_tolerance = getattr(node, "errorTolerance", 0.001)
             if decimal_precision is not None:
-                fractional_bits = math.ceil(decimal_precision * math.log2(10))
+                fractional_bits = ceil(decimal_precision * log2(10))
             else:
-                fractional_bits = math.ceil(-math.log2(error_tolerance)) if error_tolerance < 1 else 0
+                fractional_bits = (
+                    ceil(-log2(error_tolerance)) if error_tolerance < 1 else 0
+                )
 
+        metadata = BasisMetadata(vector_length, fractional_bits)
         statements = self._build_basis_statements(
-            classical_input, size, constant_indices, signed_output, vector_length, fractional_bits
+            classical_input, size, constant_indices, signed_output, metadata
         )
         depth = size if constant_indices is None else len(constant_indices)
         return EnrichmentResult(
@@ -430,10 +443,10 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         int_bits = max(1, max_mag.bit_length() + 1)
 
         if decimal_precision is not None:
-            frac_bits = math.ceil(decimal_precision * math.log2(10))
+            frac_bits = ceil(decimal_precision * log2(10))
         else:
             frac_bits = (
-                math.ceil(-math.log2(error_tolerance)) if error_tolerance < 1 else 0
+                ceil(-log2(error_tolerance)) if error_tolerance < 1 else 0
             )
 
         total_bits_per_num = int_bits + frac_bits
@@ -740,8 +753,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         _register_size: int,
         raw_value: Any,
     ) -> dict[int, float]:
-        """Calculates rotations while satisfying PLR0911."""
-        final_rotations: dict[int, float]
+        final_rotations: dict[int, float] = {0: 0.0}
 
         if isinstance(classical_input, (data_types.FloatType, ast.FloatType)):
             try:
@@ -775,8 +787,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         elif isinstance(classical_input, (data_types.BitType, data_types.BoolType)):
             v = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
             final_rotations = {0: v * (pi / 2)}
-        else:
-            final_rotations = {0: 0.0}
 
         return final_rotations
 
@@ -786,8 +796,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         register_size: int,
         constant_indices: list[int] | None,
         signed_output: bool,
-        vector_length: int = 1,
-        fractional_bits: int = 0,
+        meta: BasisMetadata,
     ) -> list[ast.Statement]:
         qubit_identifier = ast.Identifier("encoded")
         statements: list[ast.Statement] = [ast.Include("stdgates.inc")]
@@ -846,13 +855,13 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             output_alias.annotations.append(
                 ast.Annotation("leqo.twos_complement", "true")
             )
-            
+
         output_alias.annotations.append(
-            ast.Annotation("leqo.length", str(vector_length))
+            ast.Annotation("leqo.length", str(meta.vector_length))
         )
-        if fractional_bits > 0:
+        if meta.fractional_bits > 0:
             output_alias.annotations.append(
-                ast.Annotation("leqo.fractional_bits", str(fractional_bits))
+                ast.Annotation("leqo.fractional_bits", str(meta.fractional_bits))
             )
 
         statements.append(output_alias)
