@@ -75,16 +75,20 @@ def _validate_qft_constraints(constraints: Constraints | None, node: QFTNode) ->
     return input_size
 
 
-def _q(index: int) -> IndexedIdentifier:
+def _q(index: int, register_name: str = "q") -> IndexedIdentifier:
     """
-    Return q[index] as an OpenQASM indexed identifier.
+    Return register_name[index] as an OpenQASM indexed identifier.
     """
-    return IndexedIdentifier(Identifier("q"), [[IntegerLiteral(index)]])
+    return IndexedIdentifier(Identifier(register_name), [[IntegerLiteral(index)]])
 
 
-def _build_qft_statements(size: int, inverse: bool = False) -> list[Statement]:
+def _build_qft_statements(
+    size: int,
+    inverse: bool = False,
+    register_name: str = "q",
+) -> list[Statement]:
     """
-    Build the QFT or IQFT gate sequence for a register q[size].
+    Build the QFT or IQFT gate sequence for a register with the given name.
 
     Forward QFT:
     - Hadamard on each qubit
@@ -106,7 +110,7 @@ def _build_qft_statements(size: int, inverse: bool = False) -> list[Statement]:
                     modifiers=[],
                     name=Identifier("h"),
                     arguments=[],
-                    qubits=[_q(target)],
+                    qubits=[_q(target, register_name)],
                     duration=None,
                 )
             )
@@ -118,7 +122,10 @@ def _build_qft_statements(size: int, inverse: bool = False) -> list[Statement]:
                         modifiers=[],
                         name=Identifier("cp"),
                         arguments=[FloatLiteral(angle)],
-                        qubits=[_q(control), _q(target)],
+                        qubits=[
+                            _q(control, register_name),
+                            _q(target, register_name),
+                        ],
                         duration=None,
                     )
                 )
@@ -130,7 +137,10 @@ def _build_qft_statements(size: int, inverse: bool = False) -> list[Statement]:
                     modifiers=[],
                     name=Identifier("swap"),
                     arguments=[],
-                    qubits=[_q(left), _q(right)],
+                    qubits=[
+                        _q(left, register_name),
+                        _q(right, register_name),
+                    ],
                     duration=None,
                 )
             )
@@ -143,7 +153,10 @@ def _build_qft_statements(size: int, inverse: bool = False) -> list[Statement]:
                     modifiers=[],
                     name=Identifier("swap"),
                     arguments=[],
-                    qubits=[_q(left), _q(right)],
+                    qubits=[
+                        _q(left, register_name),
+                        _q(right, register_name),
+                    ],
                     duration=None,
                 )
             )
@@ -156,7 +169,10 @@ def _build_qft_statements(size: int, inverse: bool = False) -> list[Statement]:
                         modifiers=[],
                         name=Identifier("cp"),
                         arguments=[FloatLiteral(angle)],
-                        qubits=[_q(control), _q(target)],
+                        qubits=[
+                            _q(control, register_name),
+                            _q(target, register_name),
+                        ],
                         duration=None,
                     )
                 )
@@ -166,7 +182,7 @@ def _build_qft_statements(size: int, inverse: bool = False) -> list[Statement]:
                     modifiers=[],
                     name=Identifier("h"),
                     arguments=[],
-                    qubits=[_q(target)],
+                    qubits=[_q(target, register_name)],
                     duration=None,
                 )
             )
