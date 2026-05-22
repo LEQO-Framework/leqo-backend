@@ -38,10 +38,10 @@ class MCMTGateEnricherStrategy(EnricherStrategy):
         total_qubits = c + t
 
         statements: list[Statement] = [Include("stdgates.inc")]
-        controls = []
-        targets = []
+        controls_flat = []
+        targets_flat = []
 
-        # 1. Dynamically declare each incoming wire as its own @leqo.input
+        # 1. Dynamically declare each incoming wire and flatten the registers
         for i in range(total_qubits):
             is_ctrl = i < c
             reg_name = f"ctrl_{i}" if is_ctrl else f"target_{i - c}"
@@ -66,34 +66,37 @@ class MCMTGateEnricherStrategy(EnricherStrategy):
             q_decl.annotations = [Annotation("leqo.input", str(i))]
             statements.append(q_decl)
 
-            # Map the wires for the gate operation
-            if is_ctrl:
-                controls.append(IndexedIdentifier(reg_id, [[IntegerLiteral(0)]]))
-            else:
-                targets.append(IndexedIdentifier(reg_id, [[IntegerLiteral(0)]]))
+            # Map the wires for the gate operation by flattening the register
+            for q_idx in range(size):
+                indexed_id = IndexedIdentifier(reg_id, [[IntegerLiteral(q_idx)]])
+                if is_ctrl:
+                    controls_flat.append(indexed_id)
+                else:
+                    targets_flat.append(indexed_id)
 
         # 2. Prepare the gate arguments and modifiers
+        gate_name_lower = node.baseGate.lower().split('(')[0]
         args = []
         if node.parameter is not None and node.baseGate in {"rx", "ry", "rz"}:
             args.append(FloatLiteral(node.parameter))
 
         modifiers = [
             QuantumGateModifier(
-                modifier=GateModifierName.ctrl, argument=IntegerLiteral(c)
+                modifier=GateModifierName.ctrl, argument=IntegerLiteral(len(controls_flat))
             )
         ]
 
-        # 3. Apply the Multi-Controlled gate to EACH target sequentially
+        # 3. Apply the Multi-Controlled gate to EACH flattened target sequentially
         statements.extend(
             [
                 QuantumGate(
                     modifiers=modifiers,
-                    name=Identifier(node.baseGate),
+                    name=Identifier(gate_name_lower),
                     arguments=args,
-                    qubits=[*controls, target_qubit],
+                    qubits=[*controls_flat, target_qubit],
                     duration=None,
                 )
-                for target_qubit in targets
+                for target_qubit in targets_flat
             ]
         )
 
@@ -106,6 +109,6 @@ class MCMTGateEnricherStrategy(EnricherStrategy):
         return [
             EnrichmentResult(
                 implementation(node, statements),
-                ImplementationMetaData(width=total_qubits, depth=t),
+                ImplementationMetaData(width=total_qubits, depth=len(targets_flat)),
             )
         ]
