@@ -21,6 +21,10 @@ from sqlalchemy.ext.asyncio import (
 from app.config import Settings
 from app.db_migrations import apply_migrations
 from app.enricher import Enricher
+from app.enricher.controlled_u import (
+    HAS_QISKIT_CONTROLLED_U,
+    ControlledUEnricherStrategy,
+)
 from app.enricher.deutsch_jozsa import DeutschJozsaEnricherStrategy
 from app.enricher.encode_value import EncodeValueEnricherStrategy
 from app.enricher.gates import GateEnricherStrategy
@@ -115,6 +119,10 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
     ]
     if HAS_QISKIT:
         strategies.append(QiskitPrepareStateEnricherStrategy())
+
+    if HAS_QISKIT_CONTROLLED_U:
+        strategies.append(ControlledUEnricherStrategy())
+
     strategies.extend(
         [
             OperatorEnricherStrategy(engine),
