@@ -115,7 +115,7 @@ class EncodeValueNode(BaseNode):
     bounds: int = Field(ge=0, default=0, le=1)
     """Indicates whether values are clamped (0 or 1)."""
 
-    decimalPrecision: int | None = Field(default=None, ge=1)
+    decimalPrecision: int | None = Field(default=None, ge=0)
     """User-defined number of decimal places for float encoding."""
 
     errorTolerance: float = Field(default=0.001, gt=0)
