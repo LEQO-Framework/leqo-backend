@@ -383,6 +383,22 @@ class QPENode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
+class ControlledUNode(BaseNode):
+    """
+    Node representing a controlled unitary matrix operation.
+    """
+
+    type: Literal["controlled-u"] = "controlled-u"
+
+    matrix: list[list[float]]
+    """Unitary matrix applied to the target qubits."""
+
+    controlValue: Literal[0, 1] = 1
+    """Control value that activates the unitary operation."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
 # region Literals
 class BitLiteralNode(BaseNode):
     """
@@ -851,6 +867,7 @@ NestableNode = (
     | GateNode
     | QFTNode
     | QPENode
+    | ControlledUNode
     | ParameterizedGateNode
     | MCMTGateNode
     | LiteralNode
