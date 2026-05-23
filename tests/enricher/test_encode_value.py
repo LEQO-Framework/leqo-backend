@@ -647,12 +647,6 @@ async def test_enrich_angle_encode_value_array_input(engine: AsyncEngine) -> Non
 
 @pytest.mark.asyncio
 async def test_enrich_encode_value_float_precision(engine: AsyncEngine) -> None:
-    """
-    Tests if the encode_value properly uses the decimalPrecision parameter
-    to reduce the required qubits, and accurately assigns the structural metadata
-    to the generated register so the bitstring can be safely decoded.
-    """
-    # 1. Clear the database cache to force dynamic AST generation
     async with AsyncSession(engine) as session:
         await session.execute(
             delete(EncodeValueNode).where(
@@ -686,12 +680,53 @@ async def test_enrich_encode_value_float_precision(engine: AsyncEngine) -> None:
         else leqo_dumps(implementation)
     )
 
-    # 2. Structural properties preserved!
     assert "@leqo.twos_complement true" in implementation_str
     assert "@leqo.length 1" in implementation_str
-
-    # math.ceil(2 * log2(10)) -> math.ceil(2 * 3.32) -> 7
     assert "@leqo.fractional_bits 7" in implementation_str
-
-    # 3. Total bits verification (abs(-2) -> max_mag=2 -> int_bits=3. Total: 3 + 7 = 10)
     assert "qubit[10] encoded;" in implementation_str
+
+
+@pytest.mark.asyncio
+async def test_enrich_encode_value_float_array_precision(
+    engine: AsyncEngine,
+) -> None:
+    async with AsyncSession(engine) as session:
+        await session.execute(
+            delete(EncodeValueNode).where(
+                EncodeValueNode.encoding == EncodingType.BASIS
+            )
+        )
+        await session.commit()
+
+    node = FrontendEncodeValueNode(
+        id="1",
+        label=None,
+        type="encode",
+        encoding="basis",
+        bounds=1,
+        decimalPrecision=2,
+    )
+    array_type = ArrayType.with_size(32, 3, is_float=True)
+    expected_width = 33
+    constraints = Constraints(
+        requested_inputs={0: array_type},
+        requested_input_values={0: [-2.1, 0.4, 6.9]},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    results = list(await EncodeValueEnricherStrategy(engine).enrich(node, constraints))
+    assert len(results) == 1
+
+    implementation = results[0].enriched_node.implementation
+    implementation_str = (
+        implementation
+        if isinstance(implementation, str)
+        else leqo_dumps(implementation)
+    )
+
+    assert "@leqo.twos_complement true" in implementation_str
+    assert "@leqo.length 3" in implementation_str
+    assert "@leqo.fractional_bits 7" in implementation_str
+    assert f"qubit[{expected_width}] encoded;" in implementation_str
+    assert results[0].meta_data.width == expected_width
