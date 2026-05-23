@@ -18,7 +18,13 @@ from app.enricher import (
     models,
 )
 from app.enricher.db_enricher import DataBaseEnricherStrategy
-from app.enricher.exceptions import BoundsOutOfRange, EncodingNotSupported
+from app.enricher.encode_value_handlers import try_generate_encode_value_handler
+from app.enricher.exceptions import (
+    BoundsOutOfRange,
+    EncodingNotSupported,
+    EnricherException,
+)
+from app.enricher.schmidt_decomposition import analyze_schmidt_decomposition
 from app.enricher.utils import implementation, leqo_output
 from app.model import CompileRequest, data_types
 from app.model.exceptions import (
@@ -119,6 +125,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     ) -> models.BaseNode | None:
         if not isinstance(node, CompileRequest.EncodeValueNode):
             return None
+
         self._check_constraints(node, requested_inputs)
 
         requested_input = requested_inputs[0]
@@ -148,6 +155,65 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     async def _enrich_impl(
         self, node: CompileRequest.Node, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
+        handler_result = try_generate_encode_value_handler(
+            node,
+            constraints,
+            self._check_constraints,
+        )
+        if handler_result is not None:
+            return handler_result
+
+        if (
+            isinstance(node, CompileRequest.EncodeValueNode)
+            and node.encoding == "schmidt"
+        ):
+            if constraints is None:
+                raise InputCountMismatch(
+                    node,
+                    actual=0,
+                    should_be="equal",
+                    expected=1,
+                )
+
+            self._check_constraints(node, constraints.requested_inputs)
+
+            requested_input = constraints.requested_inputs[0]
+            if not isinstance(requested_input, (data_types.ArrayType, ast.ArrayType)):
+                db_results = await super()._enrich_impl(node, constraints)
+                if db_results:
+                    return db_results
+
+                raise InputTypeMismatch(
+                    node,
+                    input_index=0,
+                    actual=requested_input,
+                    expected="array",
+                )
+
+            input_value = constraints.requested_input_values.get(0)
+            if input_value is None:
+                raise EnricherException(
+                    "Schmidt decomposition needs a constant state vector input.",
+                    node,
+                )
+
+            raw_state_vector = (
+                input_value.values if hasattr(input_value, "values") else input_value
+            )
+            result = analyze_schmidt_decomposition(raw_state_vector, qargs=[0])
+
+            raise EnricherException(
+                (
+                    "Schmidt decomposition analysis is available, but circuit "
+                    "generation is not implemented yet. "
+                    f"rank={result.rank}, "
+                    f"coefficients={result.coefficients}, "
+                    f"entanglement_entropy={result.entanglement_entropy}, "
+                    f"is_separable={result.is_separable}"
+                ),
+                node,
+            )
+
         if isinstance(node, CompileRequest.EncodeValueNode) and node.encoding in {
             "basis",
             "angle",
@@ -162,7 +228,8 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             self._check_constraints(node, constraints.requested_inputs)
 
             classical_input = cast(
-                data_types.LeqoSupportedClassicalType, constraints.requested_inputs[0]
+                data_types.LeqoSupportedClassicalType,
+                constraints.requested_inputs[0],
             )
             if node.encoding == "basis":
                 return [
@@ -172,6 +239,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                         constraints.requested_input_values.get(0),
                     ),
                 ]
+
             return [
                 self._generate_angle_enrichment(
                     node,
@@ -442,7 +510,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             ):
                 data_is_float = True
 
-        # 2. Check declared type
         if isinstance(array_type, data_types.ArrayType):
             type_is_float = isinstance(array_type.element_type, data_types.FloatType)
             len_obj = (
@@ -460,10 +527,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         else:
             raise RuntimeError("Unknown array type structure")
 
-        # 3. Choose converter (Float wins if data says so)
         converter = float if (type_is_float or data_is_float) else int
-
-        # 4. Convert
         actual_raw = raw_value.values if hasattr(raw_value, "values") else raw_value
 
         if isinstance(actual_raw, str):
