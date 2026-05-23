@@ -376,3 +376,110 @@ async def test_enrich_operator_node_not_in_db(engine: AsyncEngine) -> None:
     )
 
     assert (await OperatorEnricherStrategy(engine).enrich(node, constraints)) == []
+
+
+@pytest.mark.asyncio
+async def test_enrich_minus_operator(engine: AsyncEngine) -> None:
+    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="-")
+    constraints = Constraints(
+        requested_inputs={0: QubitType(size=3), 1: QubitType(size=4)},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    enrichment_results = await OperatorEnricherStrategy(engine).enrich(
+        node, constraints
+    )
+    enrichment_results = list(enrichment_results)
+
+    assert len(enrichment_results) == 1
+
+    result = enrichment_results[0]
+    lhs_size = constraints.requested_inputs[0].size or 1
+    rhs_size = constraints.requested_inputs[1].size or 1
+    max_bits = max(lhs_size, rhs_size)
+    expected_result_size = max_bits + 1
+    expected_complement = expected_result_size
+    expected_carry = max(expected_result_size - 1, 0)
+    expected_width = (
+        lhs_size
+        + rhs_size
+        + expected_result_size
+        + expected_complement
+        + expected_carry
+        + 1
+    )
+
+    assert result.meta_data.width == expected_width
+    assert result.meta_data.depth is not None
+    assert result.meta_data.depth > 0
+
+    program = result.enriched_node.implementation
+    assert isinstance(program, Program)
+
+    alias_statement = program.statements[-1]
+    assert isinstance(alias_statement, AliasStatement)
+    assert any(
+        annotation.keyword == "leqo.twos_complement"
+        for annotation in alias_statement.annotations
+    )
+
+    output_value = alias_statement.value
+    assert isinstance(output_value, Identifier)
+    assert output_value.name == "difference"
+
+
+@pytest.mark.asyncio
+async def test_subtraction_uses_twos_complement_construction(
+    engine: AsyncEngine,
+) -> None:
+    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="-")
+    constraints = Constraints(
+        requested_inputs={0: QubitType(size=2), 1: QubitType(size=2)},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    enrichment = OperatorEnricherStrategy(engine)._generate_subtraction_enrichment(
+        node, constraints
+    )
+
+    program = enrichment.enriched_node.implementation
+    assert isinstance(program, Program)
+
+    difference_decl = next(
+        stmt
+        for stmt in program.statements
+        if isinstance(stmt, QubitDeclaration) and stmt.qubit.name == "difference"
+    )
+    complement_decl = next(
+        stmt
+        for stmt in program.statements
+        if isinstance(stmt, QubitDeclaration) and stmt.qubit.name == "rhs_complement"
+    )
+    one_decl = next(
+        stmt
+        for stmt in program.statements
+        if isinstance(stmt, QubitDeclaration) and stmt.qubit.name == "one"
+    )
+
+    expected_subtraction_register_size = 3
+    min_twos_complement_x_gate_count = 4
+
+    assert difference_decl.size.value == expected_subtraction_register_size
+    assert complement_decl.size.value == expected_subtraction_register_size
+    assert one_decl.size.value == 1
+
+    x_gates = [
+        statement
+        for statement in program.statements
+        if isinstance(statement, QuantumGate) and statement.name.name == "x"
+    ]
+    cx_gates = [
+        statement
+        for statement in program.statements
+        if isinstance(statement, QuantumGate) and statement.name.name == "cx"
+    ]
+
+    assert len(x_gates) >= min_twos_complement_x_gate_count
+    assert len(cx_gates) > 0

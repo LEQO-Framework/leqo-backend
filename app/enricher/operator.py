@@ -150,6 +150,9 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         elif node.operator == "+":
             result = await self._enrich_addition_operator(node, constraints)
 
+        elif node.operator == "-":
+            result = await self._enrich_subtraction_operator(node, constraints)
+
         elif node.operator == "min":
             result = await self._enrich_single_qubit_binary_operator(
                 node,
@@ -213,6 +216,51 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
             )
 
         return [self._generate_addition_enrichment(node, constraints)]
+
+    async def _enrich_subtraction_operator(
+        self,
+        node: OperatorNode,
+        constraints: Constraints | None,
+    ) -> list[EnrichmentResult]:
+        dynamic_exception: Exception | None = None
+
+        if constraints is not None:
+            try:
+                return [self._generate_subtraction_enrichment(node, constraints)]
+            except (InputCountMismatch, InputTypeMismatch):
+                raise
+            except Exception as exc:  # pragma: no cover - defensive fallback
+                dynamic_exception = exc
+
+        try:
+            db_results = await super()._enrich_impl(node, constraints)
+        except InputCountMismatch:
+            if constraints is not None:
+                raise
+            db_results = []
+
+        if db_results:
+            return db_results
+
+        fallback_results = await self._fetch_operator_without_size_constraints(
+            node,
+            constraints,
+        )
+        if fallback_results:
+            return fallback_results
+
+        if dynamic_exception is not None:
+            raise dynamic_exception
+
+        if constraints is None:
+            raise InputCountMismatch(
+                node,
+                actual=0,
+                should_be="equal",
+                expected=2,
+            )
+
+        return [self._generate_subtraction_enrichment(node, constraints)]
 
     async def _enrich_single_qubit_binary_operator(
         self,
@@ -289,6 +337,55 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         enriched_node = implementation(node, statements)
         width = (
             addend0.effective_size + addend1.effective_size + result_size + carry_count
+        )
+        return EnrichmentResult(
+            enriched_node,
+            ImplementationMetaData(width=width, depth=depth),
+        )
+
+    def _generate_subtraction_enrichment(
+        self, node: OperatorNode, constraints: Constraints
+    ) -> EnrichmentResult:
+        requested_inputs = constraints.requested_inputs
+        self._check_constraints(node, requested_inputs)
+
+        lhs = cast(QubitType, requested_inputs[0])
+        rhs = cast(QubitType, requested_inputs[1])
+
+        minuend = _AdditionOperand(
+            name="minuend",
+            index=0,
+            declared_size=lhs.size,
+            effective_size=lhs.size or 1,
+            signed=lhs.signed,
+        )
+        subtrahend = _AdditionOperand(
+            name="subtrahend",
+            index=1,
+            declared_size=rhs.size,
+            effective_size=rhs.size or 1,
+            signed=rhs.signed,
+        )
+
+        (
+            statements,
+            result_size,
+            complement_count,
+            carry_count,
+            depth,
+        ) = self._build_subtraction_statements(
+            minuend=minuend,
+            subtrahend=subtrahend,
+        )
+
+        enriched_node = implementation(node, statements)
+        width = (
+            minuend.effective_size
+            + subtrahend.effective_size
+            + result_size
+            + complement_count
+            + carry_count
+            + 1
         )
         return EnrichmentResult(
             enriched_node,
@@ -706,6 +803,140 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         statements.append(output_alias)
 
         return statements, result_size, carry_count, depth
+
+    def _build_subtraction_statements(
+        self,
+        *,
+        minuend: _AdditionOperand,
+        subtrahend: _AdditionOperand,
+    ) -> tuple[list[Statement], int, int, int, int]:
+        max_operand_bits = max(minuend.effective_size, subtrahend.effective_size)
+        iteration_bits = max_operand_bits + 1
+        result_size = iteration_bits
+        complement_count = iteration_bits
+        carry_count = max(iteration_bits - 1, 0)
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            leqo_input(
+                minuend.name,
+                minuend.index,
+                minuend.declared_size,
+                twos_complement=minuend.signed,
+            ),
+            leqo_input(
+                subtrahend.name,
+                subtrahend.index,
+                subtrahend.declared_size,
+                twos_complement=subtrahend.signed,
+            ),
+            QubitDeclaration(
+                Identifier("difference"),
+                IntegerLiteral(result_size),
+            ),
+            QubitDeclaration(
+                Identifier("rhs_complement"),
+                IntegerLiteral(complement_count),
+            ),
+            QubitDeclaration(
+                Identifier("one"),
+                IntegerLiteral(1),
+            ),
+        ]
+
+        if carry_count > 0:
+            statements.append(
+                QubitDeclaration(
+                    Identifier("carry"),
+                    IntegerLiteral(carry_count),
+                )
+            )
+
+        minuend_bits = self._build_qubit_references(
+            minuend.name,
+            minuend.declared_size,
+            minuend.effective_size,
+        )
+        subtrahend_bits = self._build_qubit_references(
+            subtrahend.name,
+            subtrahend.declared_size,
+            subtrahend.effective_size,
+        )
+        result_bits = self._build_qubit_references(
+            "difference",
+            result_size,
+            result_size,
+        )
+        complement_bits = self._build_qubit_references(
+            "rhs_complement",
+            complement_count,
+            complement_count,
+        )
+        carry_bits = [
+            self._qubit_reference("carry", index) for index in range(carry_count)
+        ]
+        one_bit = self._qubit_reference("one", 0)
+
+        gate_statements: list[Statement] = []
+        depth = 0
+
+        gate_statements.append(
+            QuantumGate(
+                modifiers=[],
+                name=Identifier("x"),
+                arguments=[],
+                qubits=[one_bit],
+                duration=None,
+            )
+        )
+        depth += 1
+
+        for index in range(iteration_bits):
+            complement_bit = complement_bits[index]
+            subtrahend_bit = self._select_operand_bit(
+                subtrahend,
+                subtrahend_bits,
+                index,
+            )
+
+            gate_statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("x"),
+                    arguments=[],
+                    qubits=[complement_bit],
+                    duration=None,
+                )
+            )
+            depth += 1
+
+            if subtrahend_bit is not None:
+                gate_statements.append(self._cx_gate(subtrahend_bit, complement_bit))
+                depth += 1
+
+        for index in range(iteration_bits):
+            minuend_bit = self._select_operand_bit(minuend, minuend_bits, index)
+            complement_bit = complement_bits[index]
+            result_bit = result_bits[index]
+            carry_in = one_bit if index == 0 else carry_bits[index - 1]
+            carry_out = carry_bits[index] if index < carry_count else None
+
+            round_statements, round_depth = self._build_addition_round(
+                addend0_bit=minuend_bit,
+                addend1_bit=complement_bit,
+                result_bit=result_bit,
+                carry_in=carry_in,
+                carry_out=carry_out,
+            )
+            gate_statements.extend(round_statements)
+            depth += round_depth
+
+        statements.extend(gate_statements)
+        output_alias = leqo_output("out", 0, Identifier("difference"))
+        output_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
+        statements.append(output_alias)
+
+        return statements, result_size, complement_count, carry_count, depth
 
     def _determine_carry_out(
         self,
