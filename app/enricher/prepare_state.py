@@ -109,7 +109,10 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
                 )
             ]
 
-        if isinstance(node, PrepareStateNode) and (str(node.quantumState).lower() in ("w", "quantumstatetype.w") or node.quantumState == QuantumStateType.W):
+        if isinstance(node, PrepareStateNode) and (
+            str(node.quantumState).lower() in ("w", "quantumstatetype.w")
+            or node.quantumState == QuantumStateType.W
+        ):
             self._check_constraints(
                 node, {} if constraints is None else constraints.requested_inputs
             )

@@ -1,4 +1,5 @@
 import math
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
@@ -157,7 +158,7 @@ async def test_enrich_superposition_prepare_state(engine: AsyncEngine) -> None:
 @pytest.mark.asyncio
 async def test_enrich_w_prepare_state(engine: AsyncEngine) -> None:
     """
-    Tests that a W-State node generates the correct sequential 
+    Tests that a W-State node generates the correct sequential
     controlled-RY and CNOT ladder for amplitude distribution.
     """
     node = FrontendPrepareStateNode(
@@ -179,7 +180,7 @@ async def test_enrich_w_prepare_state(engine: AsyncEngine) -> None:
 
     result = results[0]
     implementation = result.enriched_node.implementation
-    
+
     implementation_str = (
         implementation
         if isinstance(implementation, str)
@@ -199,9 +200,11 @@ async def test_enrich_w_prepare_state(engine: AsyncEngine) -> None:
 
     assert "@leqo.output 0" in implementation_str
     assert "let out = q;" in implementation_str
-    
-    assert result.meta_data.width == 3
-    assert result.meta_data.depth == 6
+
+    expected_width = 3
+    expected_depth = 6
+    assert result.meta_data.width == expected_width
+    assert result.meta_data.depth == expected_depth
 
 
 @pytest.mark.asyncio
