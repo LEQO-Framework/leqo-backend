@@ -350,6 +350,9 @@ class GateNode(BaseNode):
     gate: OneQubitGate | TwoQubitGate | ThreeQubitGate | Literal["cnot", "toffoli"]
     """The gate to apply (e.g., "x", "cnot", etc.)."""
 
+    controlCount: int = Field(default=0, ge=0)
+    """Number of control qubits used for controlled gate application."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
@@ -365,6 +368,31 @@ class ParameterizedGateNode(BaseNode):
 
     parameter: float
     """Value of the gate's parameter."""
+
+    controlCount: int = Field(default=0, ge=0)
+    """Number of control qubits used for controlled gate application."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class MCMTGateNode(BaseNode):
+    """
+    Node representing a Multi-Controlled Multi-Target (MCMT) gate.
+    """
+
+    type: Literal["mcmt-gate"] = "mcmt-gate"
+
+    baseGate: Literal["x", "y", "z", "h", "rx", "ry", "rz", "s", "sdg", "t", "tdg"]
+    """The base gate to be controlled and applied to targets."""
+
+    numControls: int = Field(gt=0)
+    """Number of control qubits."""
+
+    numTargets: int = Field(gt=0)
+    """Number of target qubits."""
+
+    parameter: float | None = None
+    """Parameter for rotation gates (rx, ry, rz)."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -397,6 +425,22 @@ class QPENode(BaseNode):
 
     phase: float = Field(ge=0, lt=1)
     """Eigenphase used for the controlled phase unitary in QPE V1."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class ControlledUNode(BaseNode):
+    """
+    Node representing a controlled unitary matrix operation.
+    """
+
+    type: Literal["controlled-u"] = "controlled-u"
+
+    matrix: list[list[float]]
+    """Unitary matrix applied to the target qubits."""
+
+    controlValue: Literal[0, 1] = 1
+    """Control value that activates the unitary operation."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -603,6 +647,151 @@ class AncillaNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
+class DeutschJozsaNode(BaseNode):
+    """
+    Node representing the Deutsch-Jozsa algorithm with a parameterized oracle.
+    """
+
+    type: Literal["deutsch-jozsa"] = "deutsch-jozsa"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """The number of query qubits (n) for the oracle."""
+
+    oracleType: Literal["constant", "balanced"]
+    """The type of hidden oracle to generate."""
+
+    constantValue: Literal[0, 1] | None = None
+    """The value to return if the oracle is constant."""
+
+    balancedMask: Annotated[int, Field(ge=1)] | None = None
+    """Integer mask dictating CNOT controls for a balanced oracle."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="after")
+    def _validate_oracle_params(self) -> DeutschJozsaNode:
+        if self.oracleType == "constant" and self.constantValue is None:
+            raise ValueError("constantValue must be 0 or 1 for constant oracles.")
+
+        if self.oracleType == "balanced":
+            if self.balancedMask is None:
+                raise ValueError("balancedMask must be provided for balanced oracles.")
+            # Ensure the mask isn't larger than the available qubits can handle
+            if self.balancedMask >= (1 << self.numQubits):
+                raise ValueError(
+                    f"balancedMask {self.balancedMask} is too large for {self.numQubits} query qubits."
+                )
+
+        return self
+
+
+class UniversalOracleNode(BaseNode):
+    """
+    Arbitrary Oracle defined by a Truth Table.
+    """
+
+    type: Literal["universal-oracle"] = "universal-oracle"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """Number of query qubits (n). The truth table must be length 2^n."""
+
+    targetStates: list[int]
+    """List of integer indices representing the states where f(x)=1."""
+
+    mode: Literal["boolean", "phase"]
+    """
+    'boolean': Flips a target qubit if f(x)=1 (Used for Deutsch-Jozsa).
+    'phase': Flips the phase of the state if f(x)=1 (Used for Grover).
+    """
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _parse_target_states(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            ts = data.get("targetStates", "")
+            if isinstance(ts, str):
+                if not ts.strip():
+                    data["targetStates"] = []
+                else:
+                    data["targetStates"] = [
+                        int(x.strip()) for x in ts.split(",") if x.strip().isdigit()
+                    ]
+        return data
+
+    @model_validator(mode="after")
+    def _validate_bounds(self) -> UniversalOracleNode:
+        max_val = (1 << self.numQubits) - 1
+        for state in self.targetStates:
+            if state < 0 or state > max_val:
+                raise ValueError(
+                    f"Target state {state} is out of bounds for {self.numQubits} qubits (max {max_val})."
+                )
+        return self
+
+
+class GroverDiffuserNode(BaseNode):
+    """
+    Standard Grover Diffuser (Inversion about the mean).
+    """
+
+    type: Literal["grover-diffuser"] = "grover-diffuser"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """Number of qubits to apply the diffuser to."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class GroverNode(BaseNode):
+    """
+    Complete Grover's Algorithm node (State Prep + Oracle + Diffuser).
+    """
+
+    type: Literal["grover"] = "grover"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """Number of query qubits (n)."""
+
+    targetStates: list[int]
+    """Truth table representing the target states to search for."""
+
+    numIterations: int | None = None
+    """Number of times to repeat the Oracle and Diffuser. If None, optimally computed."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _parse_target_states(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            ts = data.get("targetStates", "")
+            if isinstance(ts, str):
+                if not ts.strip():
+                    data["targetStates"] = []
+                else:
+                    data["targetStates"] = [
+                        int(x.strip()) for x in ts.split(",") if x.strip().isdigit()
+                    ]
+
+            # Handle optional iterations from frontend empty string
+            iters = data.get("numIterations")
+            if iters in {"", "Auto"}:
+                data["numIterations"] = None
+        return data
+
+    @model_validator(mode="after")
+    def _validate_bounds(self) -> GroverNode:
+        max_val = (1 << self.numQubits) - 1
+        for state in self.targetStates:
+            if state < 0 or state > max_val:
+                raise ValueError(
+                    f"Target state {state} is out of bounds for {self.numQubits} qubits."
+                )
+        return self
+
+
 # region ControlFlow
 class NestedBlock(BaseModel):
     """
@@ -724,13 +913,18 @@ NestableNode = (
     | GateNode
     | QFTNode
     | QPENode
+    | ControlledUNode
     | ParameterizedGateNode
+    | MCMTGateNode
     | LiteralNode
     | AncillaNode
     | OperatorNode
+    | DeutschJozsaNode
+    | UniversalOracleNode
+    | GroverDiffuserNode
+    | GroverNode
     | PluginNode
 )
-
 
 Node = NestableNode | QubitNode | ControlFlowNode
 
@@ -924,11 +1118,16 @@ EnrichableNode = (
     BoundaryNode
     | GateNode
     | ParameterizedGateNode
+    | MCMTGateNode
     | QFTNode
     | LiteralNode
     | AncillaNode
     | OperatorNode
     | QubitNode
+    | DeutschJozsaNode
+    | UniversalOracleNode
+    | GroverDiffuserNode
+    | GroverNode
 )
 
 

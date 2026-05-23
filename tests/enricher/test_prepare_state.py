@@ -1,3 +1,5 @@
+import math
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
@@ -12,6 +14,7 @@ from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNod
 from app.model.CompileRequest import SingleInsertMetaData
 from app.model.data_types import FloatType
 from app.model.exceptions import InputCountMismatch
+from app.openqasm3.printer import leqo_dumps
 from tests.enricher.utils import assert_enrichments
 
 
@@ -47,26 +50,8 @@ async def setup_database_data(session: AsyncSession) -> None:
         quantum_state=QuantumStateType.GHZ,
         size=6,
     )
-    node4 = PrepareStateNode(
-        type=NodeType.PREPARE,
-        depth=4,
-        width=4,
-        implementation="superposition_impl",
-        inputs=[],
-        quantum_state=QuantumStateType.UNIFORM,
-        size=4,
-    )
-    node5 = PrepareStateNode(
-        type=NodeType.PREPARE,
-        depth=6,
-        width=9,
-        implementation="w_impl",
-        inputs=[],
-        quantum_state=QuantumStateType.W,
-        size=9,
-    )
 
-    session.add_all([node1, node2, node3, node4, node5])
+    session.add_all([node1, node2, node3])
     await session.commit()
 
 
@@ -155,23 +140,71 @@ async def test_enrich_superposition_prepare_state(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    result = await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichments(result, "superposition_impl", 4, 4)
+    results = list(await PrepareStateEnricherStrategy(engine).enrich(node, constraints))
+    assert len(results) == 1
+
+    implementation = results[0].enriched_node.implementation
+    implementation_str = (
+        implementation
+        if isinstance(implementation, str)
+        else leqo_dumps(implementation)
+    )
+
+    assert "qubit[4] q;" in implementation_str
+    assert "h q;" in implementation_str
+    assert "@leqo.output 0" in implementation_str
 
 
 @pytest.mark.asyncio
 async def test_enrich_w_prepare_state(engine: AsyncEngine) -> None:
+    """
+    Tests that a W-State node generates the correct sequential
+    controlled-RY and CNOT ladder for amplitude distribution.
+    """
     node = FrontendPrepareStateNode(
-        id="5", label=None, type="prepare", quantumState="w", size=9
+        id="w-state-node-1",
+        label="Prepare State",
+        type="prepare",
+        quantumState="w",
+        size=3,
     )
+
     constraints = Constraints(
         requested_inputs={},
         optimizeDepth=True,
         optimizeWidth=True,
     )
 
-    result = await PrepareStateEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichments(result, "w_impl", 9, 6)
+    results = list(await PrepareStateEnricherStrategy(engine).enrich(node, constraints))
+    assert len(results) == 1
+
+    result = results[0]
+    implementation = result.enriched_node.implementation
+
+    implementation_str = (
+        implementation
+        if isinstance(implementation, str)
+        else leqo_dumps(implementation)
+    )
+
+    assert "qubit[3] q;" in implementation_str
+    assert "x q[0];" in implementation_str
+
+    theta_0 = 2 * math.asin(math.sqrt(2 / 3))
+    theta_1 = 2 * math.asin(math.sqrt(1 / 2))
+
+    assert f"cry({theta_0}) q[0], q[1];" in implementation_str
+    assert "cx q[1], q[0];" in implementation_str
+    assert f"cry({theta_1}) q[1], q[2];" in implementation_str
+    assert "cx q[2], q[1];" in implementation_str
+
+    assert "@leqo.output 0" in implementation_str
+    assert "let out = q;" in implementation_str
+
+    expected_width = 3
+    expected_depth = 6
+    assert result.meta_data.width == expected_width
+    assert result.meta_data.depth == expected_depth
 
 
 @pytest.mark.asyncio
