@@ -329,6 +329,28 @@ class ParameterizedGateNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
+class MCMTGateNode(BaseNode):
+    """
+    Node representing a Multi-Controlled Multi-Target (MCMT) gate.
+    """
+
+    type: Literal["mcmt-gate"] = "mcmt-gate"
+
+    baseGate: Literal["x", "y", "z", "h", "rx", "ry", "rz", "s", "sdg", "t", "tdg"]
+    """The base gate to be controlled and applied to targets."""
+
+    numControls: int = Field(gt=0)
+    """Number of control qubits."""
+
+    numTargets: int = Field(gt=0)
+    """Number of target qubits."""
+
+    parameter: float | None = None
+    """Parameter for rotation gates (rx, ry, rz)."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
 class QFTNode(BaseNode):
     """
     Node representing the Quantum Fourier Transform on a qubit register.
@@ -830,6 +852,7 @@ NestableNode = (
     | QFTNode
     | QPENode
     | ParameterizedGateNode
+    | MCMTGateNode
     | LiteralNode
     | AncillaNode
     | OperatorNode
@@ -1032,6 +1055,7 @@ EnrichableNode = (
     BoundaryNode
     | GateNode
     | ParameterizedGateNode
+    | MCMTGateNode
     | QFTNode
     | LiteralNode
     | AncillaNode

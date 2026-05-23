@@ -26,6 +26,7 @@ from app.enricher.encode_value import EncodeValueEnricherStrategy
 from app.enricher.gates import GateEnricherStrategy
 from app.enricher.grover_algorithm import GroverAlgorithmEnricherStrategy
 from app.enricher.literals import LiteralEnricherStrategy
+from app.enricher.mcmt_gate import MCMTGateEnricherStrategy
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.enricher.merger import MergerEnricherStrategy
 from app.enricher.models import Base as EnricherBase
@@ -104,6 +105,7 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         MergerEnricherStrategy(),
         QFTEnricherStrategy(),
         QPEEnricherStrategy(),
+        MCMTGateEnricherStrategy(),
         EncodeValueEnricherStrategy(engine),
         PrepareStateEnricherStrategy(engine),
         DeutschJozsaEnricherStrategy(),
