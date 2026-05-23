@@ -21,9 +21,12 @@ from sqlalchemy.ext.asyncio import (
 from app.config import Settings
 from app.db_migrations import apply_migrations
 from app.enricher import Enricher
+from app.enricher.deutsch_jozsa import DeutschJozsaEnricherStrategy
 from app.enricher.encode_value import EncodeValueEnricherStrategy
 from app.enricher.gates import GateEnricherStrategy
+from app.enricher.grover_algorithm import GroverAlgorithmEnricherStrategy
 from app.enricher.literals import LiteralEnricherStrategy
+from app.enricher.mcmt_gate import MCMTGateEnricherStrategy
 from app.enricher.measure import MeasurementEnricherStrategy
 from app.enricher.merger import MergerEnricherStrategy
 from app.enricher.models import Base as EnricherBase
@@ -31,7 +34,12 @@ from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
 from app.enricher.qft import QFTEnricherStrategy
 from app.enricher.qiskit_prepare import HAS_QISKIT, QiskitPrepareStateEnricherStrategy
+from app.enricher.qpe import QPEEnricherStrategy
 from app.enricher.splitter import SplitterEnricherStrategy
+from app.enricher.universal_oracles import (
+    GroverDiffuserEnricherStrategy,
+    UniversalOracleEnricherStrategy,
+)
 from app.model.database_model import Base
 from app.utils import not_none
 
@@ -96,8 +104,14 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         SplitterEnricherStrategy(),
         MergerEnricherStrategy(),
         QFTEnricherStrategy(),
+        QPEEnricherStrategy(),
+        MCMTGateEnricherStrategy(),
         EncodeValueEnricherStrategy(engine),
         PrepareStateEnricherStrategy(engine),
+        DeutschJozsaEnricherStrategy(),
+        UniversalOracleEnricherStrategy(),
+        GroverDiffuserEnricherStrategy(),
+        GroverAlgorithmEnricherStrategy(),
     ]
     if HAS_QISKIT:
         strategies.append(QiskitPrepareStateEnricherStrategy())

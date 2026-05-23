@@ -230,3 +230,103 @@ def test_supported_controlled_rotation_lcm_gates_are_mapped_to_qasm(
         let q1_out = q1;
         """,
     )
+
+
+def test_controlled_single_qubit_gate_is_mapped_to_qasm() -> None:
+    node = GateNode(id="nodeId", gate="x", controlCount=1)
+    constraints = Constraints(
+        requested_inputs={0: QubitType(3), 1: QubitType(3)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    result = GateEnricherStrategy()._enrich_simple_gate(node, constraints).enriched_node
+
+    assert_enrichment(
+        result,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        include "stdgates.inc";
+        @leqo.input 0
+        qubit[3] q0;
+        @leqo.input 1
+        qubit[3] q1;
+        ctrl @ x q0, q1;
+        @leqo.output 0
+        let q0_out = q0;
+        @leqo.output 1
+        let q1_out = q1;
+        """,
+    )
+
+
+def test_multi_controlled_single_qubit_gate_is_mapped_to_qasm() -> None:
+    node = GateNode(id="nodeId", gate="x", controlCount=2)
+    constraints = Constraints(
+        requested_inputs={0: QubitType(3), 1: QubitType(3), 2: QubitType(3)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    result = GateEnricherStrategy()._enrich_simple_gate(node, constraints).enriched_node
+
+    assert_enrichment(
+        result,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        include "stdgates.inc";
+        @leqo.input 0
+        qubit[3] q0;
+        @leqo.input 1
+        qubit[3] q1;
+        @leqo.input 2
+        qubit[3] q2;
+        ctrl(2) @ x q0, q1, q2;
+        @leqo.output 0
+        let q0_out = q0;
+        @leqo.output 1
+        let q1_out = q1;
+        @leqo.output 2
+        let q2_out = q2;
+        """,
+    )
+
+
+def test_controlled_parameterized_gate_is_mapped_to_qasm() -> None:
+    node = ParameterizedGateNode(
+        id="nodeId",
+        gate="rx",
+        parameter=0.5,
+        controlCount=1,
+    )
+    constraints = Constraints(
+        requested_inputs={0: QubitType(3), 1: QubitType(3)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    result = (
+        GateEnricherStrategy()
+        ._enrich_parameterized_gate(node, constraints)
+        .enriched_node
+    )
+
+    assert_enrichment(
+        result,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        include "stdgates.inc";
+        @leqo.input 0
+        qubit[3] q0;
+        @leqo.input 1
+        qubit[3] q1;
+        ctrl @ rx(0.5) q0, q1;
+        @leqo.output 0
+        let q0_out = q0;
+        @leqo.output 1
+        let q1_out = q1;
+        """,
+    )
