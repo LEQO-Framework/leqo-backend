@@ -20,6 +20,7 @@ from app.openqasm3.stdgates import (
     TwoQubitGate,
     TwoQubitGateWithAngle,
     TwoQubitGateWithParam,
+    TwoQubitGateWithParams,
 )
 
 
@@ -312,16 +313,24 @@ class GateNode(BaseNode):
 
 class ParameterizedGateNode(BaseNode):
     """
-    Node representing a gate that requires a parameter (e.g., angle rotation).
+    Node representing a gate that requires one or more parameters.
     """
 
     type: Literal["gate-with-param"] = "gate-with-param"
 
-    gate: OneQubitGateWithAngle | TwoQubitGateWithParam | TwoQubitGateWithAngle
+    gate: (
+        OneQubitGateWithAngle
+        | TwoQubitGateWithParam
+        | TwoQubitGateWithAngle
+        | TwoQubitGateWithParams
+    )
     """The parameterized gate to apply."""
 
-    parameter: float
-    """Value of the gate's parameter."""
+    parameter: float | None = None
+    """Single parameter value for one-parameter gates."""
+
+    parameters: list[float] | None = None
+    """Parameter values for multi-parameter gates such as cu."""
 
     controlCount: int = Field(default=0, ge=0)
     """Number of control qubits used for controlled gate application."""
