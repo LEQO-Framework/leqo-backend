@@ -35,6 +35,11 @@ from app.model.exceptions import (
     InputTypeMismatch,
 )
 
+_BINARY_OPERATOR_INPUT_COUNT = 2
+_BITWISE_AND_DEPTH = 1
+_BITWISE_XOR_DEPTH = 2
+_BITWISE_OR_DEPTH = 3
+
 
 @dataclass(frozen=True)
 class _AdditionOperand:
@@ -146,6 +151,11 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                 )
 
             result = [self._generate_bitwise_not_enrichment(node, constraints)]
+
+        elif node.operator in {"&", "^", "|"}:
+            result = [
+                self._generate_binary_bitwise_operator_enrichment(node, constraints)
+            ]
 
         elif node.operator == "+":
             result = await self._enrich_addition_operator(node, constraints)
@@ -406,6 +416,161 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         return EnrichmentResult(
             implementation(node, statements),
             ImplementationMetaData(width=effective_size, depth=1),
+        )
+
+    def _check_binary_qubit_register_constraints(
+        self,
+        node: OperatorNode,
+        requested_inputs: dict[int, LeqoSupportedType],
+    ) -> tuple[QubitType, QubitType, int]:
+        self._check_constraints(node, requested_inputs)
+
+        lhs = cast(QubitType, requested_inputs[0])
+        rhs = cast(QubitType, requested_inputs[1])
+
+        lhs_size = lhs.size or 1
+        rhs_size = rhs.size or 1
+
+        if lhs_size != rhs_size:
+            raise InputSizeMismatch(node, 1, actual=rhs_size, expected=lhs_size)
+
+        return lhs, rhs, lhs_size
+
+    def _generate_bitwise_and_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        return self._generate_binary_bitwise_enrichment(
+            node,
+            constraints,
+            operator="&",
+            depth=_BITWISE_AND_DEPTH,
+        )
+
+    def _generate_bitwise_xor_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        return self._generate_binary_bitwise_enrichment(
+            node,
+            constraints,
+            operator="^",
+            depth=_BITWISE_XOR_DEPTH,
+        )
+
+    def _generate_bitwise_or_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        return self._generate_binary_bitwise_enrichment(
+            node,
+            constraints,
+            operator="|",
+            depth=_BITWISE_OR_DEPTH,
+        )
+
+    def _generate_binary_bitwise_operator_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints | None,
+    ) -> EnrichmentResult:
+        if constraints is None:
+            raise InputCountMismatch(
+                node,
+                actual=0,
+                should_be="equal",
+                expected=_BINARY_OPERATOR_INPUT_COUNT,
+            )
+
+        operator_depths = {
+            "&": _BITWISE_AND_DEPTH,
+            "^": _BITWISE_XOR_DEPTH,
+            "|": _BITWISE_OR_DEPTH,
+        }
+
+        return self._generate_binary_bitwise_enrichment(
+            node,
+            constraints,
+            operator=node.operator,
+            depth=operator_depths[node.operator],
+        )
+
+    def _generate_binary_bitwise_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+        *,
+        operator: str,
+        depth: int,
+    ) -> EnrichmentResult:
+        """
+        Generate register-wise binary bitwise operators dynamically.
+
+        These deterministic circuits do not require a DB-backed implementation.
+        """
+
+        lhs, rhs, register_size = self._check_binary_qubit_register_constraints(
+            node,
+            constraints.requested_inputs,
+        )
+
+        lhs_name = "lhs"
+        rhs_name = "rhs"
+        result_name = "result"
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            leqo_input(
+                lhs_name,
+                0,
+                lhs.size,
+                twos_complement=lhs.signed,
+            ),
+            leqo_input(
+                rhs_name,
+                1,
+                rhs.size,
+                twos_complement=rhs.signed,
+            ),
+            QubitDeclaration(
+                Identifier(result_name),
+                IntegerLiteral(register_size),
+            ),
+        ]
+
+        lhs_bits = self._build_qubit_references(lhs_name, lhs.size, register_size)
+        rhs_bits = self._build_qubit_references(rhs_name, rhs.size, register_size)
+        result_bits = self._build_qubit_references(
+            result_name,
+            register_size,
+            register_size,
+        )
+
+        for lhs_bit, rhs_bit, result_bit in zip(
+            lhs_bits,
+            rhs_bits,
+            result_bits,
+            strict=True,
+        ):
+            if operator in {"^", "|"}:
+                statements.append(self._cx_gate(lhs_bit, result_bit))
+                statements.append(self._cx_gate(rhs_bit, result_bit))
+
+            if operator in {"&", "|"}:
+                statements.append(self._ccx_gate(lhs_bit, rhs_bit, result_bit))
+
+        output_alias = leqo_output("out", 0, Identifier(result_name))
+        if lhs.signed or rhs.signed:
+            output_alias.annotations.append(Annotation("leqo.twos_complement", "true"))
+
+        statements.append(output_alias)
+
+        return EnrichmentResult(
+            implementation(node, statements),
+            ImplementationMetaData(width=register_size * 3, depth=depth),
         )
 
     def _generate_min_enrichment(
