@@ -308,14 +308,14 @@ class MeasurementNode(BaseNode):
     @classmethod
     def _parse_pauli_strings(cls, value: Any) -> list[str] | None:
         if isinstance(value, list):
-            strings: list[str] = []
+            parsed_strings: list[str] = []
             for item in value:
                 parsed = cls._parse_basis(item)
                 if parsed is None:
                     return None
-                strings.append(parsed)
+                parsed_strings.append(parsed)
 
-            return strings or None
+            return parsed_strings or None
 
         if isinstance(value, str):
             parts = [
@@ -324,14 +324,14 @@ class MeasurementNode(BaseNode):
                 if part.strip()
             ]
 
-            strings: list[str] = []
+            parsed_parts: list[str] = []
             for part in parts:
                 parsed = cls._parse_basis(part)
                 if parsed is None:
                     return None
-                strings.append(parsed)
+                parsed_parts.append(parsed)
 
-            return strings or None
+            return parsed_parts or None
 
         return None
 
