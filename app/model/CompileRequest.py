@@ -204,8 +204,11 @@ class MeasurementNode(BaseNode):
     indices: list[Annotated[int, Field(ge=0)]]
     """List of qubit indices to measure."""
 
-    basis: Literal["X", "Y", "Z"] = "Z"
-    """Measurement basis. Defaults to Z-basis."""
+    basis: str = "Z"
+    """Measurement basis or composite Pauli basis string. Defaults to Z-basis."""
+
+    pauliStrings: list[str] = Field(default_factory=list)
+    """Optional list of Pauli strings to measure in one measurement node."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -248,6 +251,27 @@ class MeasurementNode(BaseNode):
         if basis is not None:
             normalized["basis"] = basis
 
+        pauli_strings = cls._parse_pauli_strings(normalized.get("pauliStrings"))
+        if pauli_strings is None:
+            pauli_strings = cls._parse_pauli_strings(normalized.get("pauli_strings"))
+
+        if pauli_strings is None and node_dict is not None:
+            pauli_strings = cls._parse_pauli_strings(
+                cls._first_existing_value(
+                    node_dict,
+                    (
+                        "pauliStrings",
+                        "pauli_strings",
+                        "pauliString",
+                        "pauli_string",
+                        "measurementPauliStrings",
+                    ),
+                )
+            )
+
+        if pauli_strings is not None:
+            normalized["pauliStrings"] = pauli_strings
+
         return normalized
 
     @staticmethod
@@ -265,16 +289,51 @@ class MeasurementNode(BaseNode):
             return None
 
         normalized = value.strip().upper()
+        alias = normalized.replace("_", " ").replace("-", " ")
 
-        match normalized:
-            case "X" | "X-BASIS" | "X BASIS":
+        match alias:
+            case "X BASIS":
                 return "X"
-            case "Y" | "Y-BASIS" | "Y BASIS":
+            case "Y BASIS":
                 return "Y"
-            case "Z" | "Z-BASIS" | "Z BASIS":
+            case "Z BASIS":
                 return "Z"
-            case _:
-                return None
+
+        compact = normalized.replace(" ", "")
+        if compact and all(char in {"I", "X", "Y", "Z"} for char in compact):
+            return compact
+
+        return None
+
+    @classmethod
+    def _parse_pauli_strings(cls, value: Any) -> list[str] | None:
+        if isinstance(value, list):
+            strings: list[str] = []
+            for item in value:
+                parsed = cls._parse_basis(item)
+                if parsed is None:
+                    return None
+                strings.append(parsed)
+
+            return strings or None
+
+        if isinstance(value, str):
+            parts = [
+                part.strip()
+                for part in value.replace(";", ",").split(",")
+                if part.strip()
+            ]
+
+            strings: list[str] = []
+            for part in parts:
+                parsed = cls._parse_basis(part)
+                if parsed is None:
+                    return None
+                strings.append(parsed)
+
+            return strings or None
+
+        return None
 
     @staticmethod
     def _coerce_indices(values: Iterable[Any]) -> list[int]:

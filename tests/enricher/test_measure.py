@@ -247,6 +247,7 @@ async def test_measure_x_basis_single_qubit() -> None:
         "nodeId",
         """\
         OPENQASM 3.1;
+        include "stdgates.inc";
         @leqo.input 0
         qubit q;
         h q;
@@ -275,6 +276,7 @@ async def test_measure_y_basis_single_qubit() -> None:
         "nodeId",
         """\
         OPENQASM 3.1;
+        include "stdgates.inc";
         @leqo.input 0
         qubit q;
         sdg q;
@@ -304,9 +306,12 @@ async def test_measure_x_basis_multi_qubit_indices() -> None:
         "nodeId",
         """\
         OPENQASM 3.1;
+        include "stdgates.inc";
         @leqo.input 0
         qubit[3] q;
-        h q[{0, 1, 2}];
+        h q[0];
+        h q[1];
+        h q[2];
         bit[3] result = measure q[{0, 1, 2}];
         @leqo.output 0
         let out = result;
@@ -314,3 +319,103 @@ async def test_measure_x_basis_multi_qubit_indices() -> None:
         let qubit_out = q;
         """,
     )
+
+
+@pytest.mark.asyncio
+async def test_measure_composite_basis_multi_qubit_indices() -> None:
+    node = MeasurementNode(id="nodeId", indices=[0, 1, 2], basis="XYZ")
+    constraints = Constraints(
+        requested_inputs={0: QubitType(3)}, optimizeWidth=False, optimizeDepth=False
+    )
+
+    strategy = MeasurementEnricherStrategy()
+    result = list(await strategy.enrich(node, constraints))
+
+    assert len(result) == 1
+    assert_enrichment(
+        result[0].enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        include "stdgates.inc";
+        @leqo.input 0
+        qubit[3] q;
+        h q[0];
+        sdg q[1];
+        h q[1];
+        bit[3] result = measure q[{0, 1, 2}];
+        @leqo.output 0
+        let out = result;
+        @leqo.output 1
+        let qubit_out = q;
+        """,
+    )
+
+
+@pytest.mark.asyncio
+async def test_measure_multiple_pauli_strings() -> None:
+    node = MeasurementNode(
+        id="nodeId",
+        indices=[0, 1],
+        pauliStrings=["XX", "YZ"],
+    )
+    constraints = Constraints(
+        requested_inputs={0: QubitType(2)}, optimizeWidth=False, optimizeDepth=False
+    )
+
+    strategy = MeasurementEnricherStrategy()
+    result = list(await strategy.enrich(node, constraints))
+
+    expected_result_count = 2
+    assert len(result) == expected_result_count
+
+    assert_enrichment(
+        result[0].enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        include "stdgates.inc";
+        @leqo.input 0
+        qubit[2] q;
+        h q[0];
+        h q[1];
+        bit[2] result = measure q[{0, 1}];
+        @leqo.output 0
+        let out = result;
+        @leqo.output 1
+        let qubit_out = q;
+        """,
+    )
+
+    assert_enrichment(
+        result[1].enriched_node,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        include "stdgates.inc";
+        @leqo.input 0
+        qubit[2] q;
+        sdg q[0];
+        h q[0];
+        bit[2] result = measure q[{0, 1}];
+        @leqo.output 0
+        let out = result;
+        @leqo.output 1
+        let qubit_out = q;
+        """,
+    )
+
+
+@pytest.mark.asyncio
+async def test_measure_composite_basis_length_mismatch() -> None:
+    node = MeasurementNode(id="nodeId", indices=[0, 1, 2], basis="XY")
+    constraints = Constraints(
+        requested_inputs={0: QubitType(3)}, optimizeWidth=False, optimizeDepth=False
+    )
+
+    strategy = MeasurementEnricherStrategy()
+    with pytest.raises(
+        ValueError,
+        match="Composite measurement basis length must either be 1 or match",
+    ):
+        await strategy.enrich(node, constraints)
