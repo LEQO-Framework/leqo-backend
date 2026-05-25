@@ -218,8 +218,6 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
             )
 
         return [self._generate_addition_enrichment(node, constraints)]
-    
-
 
     async def _enrich_multiplication_operator(
         self,
@@ -266,7 +264,8 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         if fallback_results:
             return fallback_results
 
-        return [self._generate_multiplication_enrichment(node, constraints)]    
+        return [self._generate_multiplication_enrichment(node, constraints)]
+
     async def _enrich_single_qubit_binary_operator(
         self,
         node: OperatorNode,
