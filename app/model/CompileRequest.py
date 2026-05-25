@@ -210,6 +210,12 @@ class MeasurementNode(BaseNode):
     indices: list[Annotated[int, Field(ge=0)]]
     """List of qubit indices to measure."""
 
+    basis: str = "Z"
+    """Measurement basis or composite Pauli basis string. Defaults to Z-basis."""
+
+    pauliStrings: list[str] = Field(default_factory=list)
+    """Optional list of Pauli strings to measure in one measurement node."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
     @model_validator(mode="before")
@@ -234,7 +240,106 @@ class MeasurementNode(BaseNode):
         if indices is not None:
             normalized["indices"] = indices
 
+        basis = cls._parse_basis(normalized.get("basis"))
+        if basis is None and node_dict is not None:
+            basis = cls._parse_basis(
+                cls._first_existing_value(
+                    node_dict,
+                    (
+                        "basis",
+                        "measurementBasis",
+                        "basisType",
+                        "measurementBasisType",
+                    ),
+                )
+            )
+
+        if basis is not None:
+            normalized["basis"] = basis
+
+        pauli_strings = cls._parse_pauli_strings(normalized.get("pauliStrings"))
+        if pauli_strings is None:
+            pauli_strings = cls._parse_pauli_strings(normalized.get("pauli_strings"))
+
+        if pauli_strings is None and node_dict is not None:
+            pauli_strings = cls._parse_pauli_strings(
+                cls._first_existing_value(
+                    node_dict,
+                    (
+                        "pauliStrings",
+                        "pauli_strings",
+                        "pauliString",
+                        "pauli_string",
+                        "measurementPauliStrings",
+                    ),
+                )
+            )
+
+        if pauli_strings is not None:
+            normalized["pauliStrings"] = pauli_strings
+
         return normalized
+
+    @staticmethod
+    def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
+        for key in keys:
+            value = data.get(key)
+            if value is not None:
+                return value
+
+        return None
+
+    @staticmethod
+    def _parse_basis(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+
+        normalized = value.strip().upper()
+        alias = normalized.replace("_", " ").replace("-", " ")
+
+        match alias:
+            case "X BASIS":
+                return "X"
+            case "Y BASIS":
+                return "Y"
+            case "Z BASIS":
+                return "Z"
+
+        compact = normalized.replace(" ", "")
+        if compact and all(char in {"I", "X", "Y", "Z"} for char in compact):
+            return compact
+
+        return None
+
+    @classmethod
+    def _parse_pauli_strings(cls, value: Any) -> list[str] | None:
+        if isinstance(value, list):
+            parsed_strings: list[str] = []
+            for item in value:
+                parsed = cls._parse_basis(item)
+                if parsed is None:
+                    return None
+                parsed_strings.append(parsed)
+
+            return parsed_strings or None
+
+        if isinstance(value, str):
+            parts = [
+                part.strip()
+                for part in value.replace(";", ",").split(",")
+                if part.strip()
+            ]
+
+            parsed_parts: list[str] = []
+            for part in parts:
+                parsed = cls._parse_basis(part)
+                if parsed is None:
+                    return None
+                parsed_parts.append(parsed)
+
+            return parsed_parts or None
+
+        return None
 
     @staticmethod
     def _coerce_indices(values: Iterable[Any]) -> list[int]:
