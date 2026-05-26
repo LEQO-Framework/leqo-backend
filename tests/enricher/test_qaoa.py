@@ -132,3 +132,33 @@ async def test_qaoa_edge_cases_and_fallback():
 
     expected_beta_count = 6
     assert qasm.count("rx(0.4)") == expected_beta_count
+
+@pytest.mark.asyncio
+async def test_qaoa_max2sat_with_polarity_cnf():
+    """
+    Tests if Max-2-SAT supports DIMACS signed literals convention to declare
+    variable polarities (e.g., negative integers invert the RZ rotation angles).
+    """
+    node = QAOANode(
+        id="qaoa-polarity",
+        type="qaoa",
+        p=1,
+        problem="Max2SAT",
+        optimizer="SPSA",
+        edges="[[1, -2]]",  # x0 OR NOT x1
+        gamma="0.4",
+        beta="0.1",
+        outputIdentifier="q_polar",
+    )
+    strategy = QAOAEnricherStrategy()
+    results = strategy._enrich_impl(node, Constraints(requested_inputs={}))
+    qasm = leqo_dumps(results[0].enriched_node.implementation)
+
+    # (1) maps to positive rotation on qubit 0
+    assert "rz(0.4) q_polar[0];" in qasm
+
+    # (-2) maps to inverted negative rotation on qubit 1
+    assert "rz(-0.4) q_polar[1];" in str(qasm)
+
+    # sign_u * sign_v (1 * -1 = -1)
+    assert "rz(-0.4) q_polar[1];" in qasm

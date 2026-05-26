@@ -31,15 +31,24 @@ class QAOAEnricherStrategy(EnricherStrategy):
         if not isinstance(node, QAOANode):
             return []
 
+        is_dimacs = False
         try:
             edges = ast.literal_eval(node.edges)
             if edges and isinstance(edges, list) and not isinstance(edges[0], list):
                 edges = [edges[i : i + 2] for i in range(0, len(edges), 2)]
 
-            num_qubits = max(max(edge) for edge in edges) + 1
+            flattened_edges = [lit for edge in edges for lit in edge]
+            if any(lit < 0 for lit in flattened_edges) or (
+                node.problem == "Max2SAT" and 0 not in flattened_edges and len(flattened_edges) > 0
+            ):
+                is_dimacs = True
+                num_qubits = max(abs(lit) for lit in flattened_edges)
+            else:
+                num_qubits = max(flattened_edges) + 1 if flattened_edges else 2
         except Exception:
             edges = [[0, 1]]
             num_qubits = 2
+            is_dimacs = False
 
         # Parse Gamma and Beta inputs
         try:
@@ -82,38 +91,54 @@ class QAOAEnricherStrategy(EnricherStrategy):
         )
 
         def build_max2sat_gates(
-            u_node: int, v_node: int, g_val: FloatLiteral
+            u: int, v: int, g_val: FloatLiteral, gamma_float: float
         ) -> list[QuantumGate]:
+            if is_dimacs:
+                sign_u = 1 if u > 0 else -1
+                sign_v = 1 if v > 0 else -1
+                idx_u = abs(u) - 1
+                idx_v = abs(v) - 1
+
+                val_u = FloatLiteral(sign_u * gamma_float)
+                val_v = FloatLiteral(sign_v * gamma_float)
+                val_uv = FloatLiteral(sign_u * sign_v * gamma_float)
+            else:
+                idx_u = u
+                idx_v = v
+                val_u = g_val
+                val_v = g_val
+                val_uv = g_val
+
             return [
                 QuantumGate(
                     modifiers=[],
                     name=Identifier("rz"),
-                    arguments=[g_val],
-                    qubits=[get_q(u_node)],
+                    arguments=[val_u],
+                    qubits=[get_q(idx_u)],
                 ),
                 QuantumGate(
                     modifiers=[],
                     name=Identifier("rz"),
-                    arguments=[g_val],
-                    qubits=[get_q(v_node)],
+                    arguments=[val_v],
+                    qubits=[get_q(idx_v)],
                 ),
                 QuantumGate(
                     modifiers=[],
                     name=Identifier("cx"),
                     arguments=[],
-                    qubits=[get_q(u_node), get_q(v_node)],
+                    qubits=[get_q(idx_u), get_q(idx_v)],
                 ),
                 QuantumGate(
                     modifiers=[],
                     name=Identifier("rz"),
-                    arguments=[g_val],
-                    qubits=[get_q(v_node)],
+                    arguments=[val_uv],
+                    qubits=[get_q(idx_v)],
                 ),
                 QuantumGate(
                     modifiers=[],
                     name=Identifier("cx"),
                     arguments=[],
-                    qubits=[get_q(u_node), get_q(v_node)],
+                    qubits=[get_q(idx_u), get_q(idx_v)],
                 ),
             ]
 
@@ -175,7 +200,7 @@ class QAOAEnricherStrategy(EnricherStrategy):
             # Cost Hamiltonian
             if problem_type == "Max2SAT":
                 for u, v in edges:
-                    statements.extend(build_max2sat_gates(u, v, gamma_val))
+                    statements.extend(build_max2sat_gates(u, v, gamma_val, gammas[i]))
             elif problem_type == "GraphColoring":
                 neg_gamma_val = FloatLiteral(-gammas[i])
                 for u, v in edges:
