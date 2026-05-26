@@ -20,7 +20,8 @@ from app.enricher import (
     ImplementationMetaData,
 )
 from app.enricher.utils import implementation, leqo_output
-from app.model.CompileRequest import GroverNode, Node as FrontendNode
+from app.model.CompileRequest import GroverNode
+from app.model.CompileRequest import Node as FrontendNode
 
 MAX_STANDARD_CONTROLS = 2
 

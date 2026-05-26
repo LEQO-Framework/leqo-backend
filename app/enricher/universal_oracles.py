@@ -85,7 +85,7 @@ class UniversalOracleEnricherStrategy(EnricherStrategy):
             if len(controls) == 1:
                 gate_name = "cx"
                 gate_modifiers = []
-            elif len(controls) == 2:
+            elif len(controls) == 2:  # noqa: PLR2004
                 gate_name = "ccx"
                 gate_modifiers = []
             else:
@@ -167,7 +167,7 @@ class GroverDiffuserEnricherStrategy(EnricherStrategy):
         if len(controls) == 1:
             gate_name = "cx"
             gate_modifiers = []
-        elif len(controls) == 2:
+        elif len(controls) == 2:  # noqa: PLR2004
             gate_name = "ccx"
             gate_modifiers = []
         else:
