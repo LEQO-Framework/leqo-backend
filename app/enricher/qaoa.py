@@ -182,6 +182,7 @@ class QAOAEnricherStrategy(EnricherStrategy):
                     statements.extend(build_coloring_gates(u, v, neg_gamma_val))
             else:
                 # Default / MaxCut
+                beta_val = FloatLiteral(2.0 * betas[i])
                 for u, v in edges:
                     statements.extend(build_maxcut_gates(u, v, gamma_val))
 

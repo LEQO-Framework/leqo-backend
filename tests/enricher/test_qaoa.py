@@ -36,7 +36,7 @@ async def test_qaoa_maxcut_ansatz():
 
     # Layer 1 MaxCut
     assert "rz(0.6) q_qaoa[1];" in qasm
-    assert "rx(0.3) q_qaoa[2];" in qasm
+    assert "rx(0.6) q_qaoa[2];" in qasm
 
 
 @pytest.mark.asyncio
@@ -91,3 +91,41 @@ async def test_qaoa_graph_coloring_ansatz():
     qasm = leqo_dumps(results[0].enriched_node.implementation)
 
     assert "rz(-0.7) q_color[1];" in qasm
+
+
+@pytest.mark.asyncio
+async def test_qaoa_edge_cases_and_fallback():
+    """
+    Tests the fallback mechanisms of the QAOA Strategy:
+    1. Invalid edge strings should default to a 2-qubit system with edge [[0, 1]].
+    2. Missing/short gamma and beta lists should pad themselves to length `p`.
+    """
+    node = QAOANode(
+        id="qaoa-edge",
+        type="qaoa",
+        p=3,
+        problem="MaxCut",
+        optimizer="COBYLA",
+        edges="an_invalid_edge_string", # Should trigger Exception and fallback to [[0, 1]]
+        gamma="0.7",  # Only 1 value provided for 3 layers
+        beta="",      # No values provided, should fallback to default 0.2
+        outputIdentifier="q_edge",
+    )
+    
+    strategy = QAOAEnricherStrategy()
+    results = strategy._enrich_impl(node, Constraints(requested_inputs={}))
+    qasm = leqo_dumps(results[0].enriched_node.implementation)
+
+    # 1. Fallback to 2 qubits due to invalid edge string
+    assert "qubit[2] q_edge;" in qasm
+    assert "cx q_edge[0], q_edge[1];" in qasm
+
+    # 2. Gamma padding:
+    assert qasm.count("rz(0.7)") == 3
+    
+    # 3. Beta defaulting and padding:
+    # An empty beta list falls back to 0.2. 
+    # Mixer multiplies by 2.0 (0.2 * 2.0 = 0.4).
+    # Applied to 2 qubits across 3 layers = 6 total rx(0.4) gates.
+    assert "rx(0.4) q_edge[0];" in qasm
+    assert qasm.count("rx(0.4)") == 6
