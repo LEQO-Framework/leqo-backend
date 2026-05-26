@@ -2,13 +2,13 @@ from typing import override
 
 from openqasm3.ast import (
     Annotation,
+    GateModifierName,
     Identifier,
     Include,
     IndexedIdentifier,
     IntegerLiteral,
     QuantumGate,
     QuantumGateModifier,
-    GateModifierName,
     QubitDeclaration,
     Statement,
 )
@@ -81,7 +81,7 @@ class UniversalOracleEnricherStrategy(EnricherStrategy):
                     )
                 )
 
-            # mcx replacement with correct AST typing
+            # mcx replacement
             if len(controls) == 1:
                 gate_name = "cx"
                 gate_modifiers = []
@@ -91,7 +91,9 @@ class UniversalOracleEnricherStrategy(EnricherStrategy):
             else:
                 gate_name = "x"
                 gate_modifiers = [
-                    QuantumGateModifier(GateModifierName.ctrl, IntegerLiteral(len(controls)))
+                    QuantumGateModifier(
+                        GateModifierName.ctrl, IntegerLiteral(len(controls))
+                    )
                 ]
 
             statements.append(
@@ -171,7 +173,9 @@ class GroverDiffuserEnricherStrategy(EnricherStrategy):
         else:
             gate_name = "x"
             gate_modifiers = [
-                QuantumGateModifier(GateModifierName.ctrl, IntegerLiteral(len(controls)))
+                QuantumGateModifier(
+                    GateModifierName.ctrl, IntegerLiteral(len(controls))
+                )
             ]
 
         statements.extend(
