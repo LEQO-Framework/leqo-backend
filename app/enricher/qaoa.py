@@ -177,11 +177,15 @@ class QAOAEnricherStrategy(EnricherStrategy):
 
         # Parse Gamma and Beta inputs
         try:
-            gammas = [float(x.strip()) for x in node.gamma.split(",")] if node.gamma else []
+            gammas = (
+                [float(x.strip()) for x in node.gamma.split(",")] if node.gamma else []
+            )
         except ValueError:
             gammas = []
         try:
-            betas = [float(x.strip()) for x in node.beta.split(",")] if node.beta else []
+            betas = (
+                [float(x.strip()) for x in node.beta.split(",")] if node.beta else []
+            )
         except ValueError:
             betas = []
 
@@ -218,7 +222,9 @@ class QAOAEnricherStrategy(EnricherStrategy):
             # Cost Hamiltonian
             if problem_type == "Max2SAT":
                 for u, v in edges:
-                    statements.extend(_build_max2sat_gates(q_reg, u, v, gammas[i], is_dimacs))
+                    statements.extend(
+                        _build_max2sat_gates(q_reg, u, v, gammas[i], is_dimacs)
+                    )
             elif problem_type == "GraphColoring":
                 neg_gamma_val = FloatLiteral(-gammas[i])
                 for u, v in edges:
