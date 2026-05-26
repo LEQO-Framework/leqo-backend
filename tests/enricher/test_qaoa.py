@@ -133,6 +133,7 @@ async def test_qaoa_edge_cases_and_fallback():
     expected_beta_count = 6
     assert qasm.count("rx(0.4)") == expected_beta_count
 
+
 @pytest.mark.asyncio
 async def test_qaoa_max2sat_with_polarity_cnf():
     """
