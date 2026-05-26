@@ -57,7 +57,6 @@ def _build_max2sat_gates(
     q_reg: Identifier,
     u: int,
     v: int,
-    g_val: FloatLiteral,
     gamma_float: float,
     is_dimacs: bool,
 ) -> list[QuantumGate]:
@@ -74,6 +73,7 @@ def _build_max2sat_gates(
     else:
         idx_u = u
         idx_v = v
+        g_val = FloatLiteral(gamma_float)
         val_u = g_val
         val_v = g_val
         val_uv = g_val
@@ -177,19 +177,11 @@ class QAOAEnricherStrategy(EnricherStrategy):
 
         # Parse Gamma and Beta inputs
         try:
-            gammas = (
-                [float(x.strip()) for x in node.gamma.split(",")]
-                if node.gamma
-                else []
-            )
+            gammas = [float(x.strip()) for x in node.gamma.split(",")] if node.gamma else []
         except ValueError:
             gammas = []
         try:
-            betas = (
-                [float(x.strip()) for x in node.beta.split(",")]
-                if node.beta
-                else []
-            )
+            betas = [float(x.strip()) for x in node.beta.split(",")] if node.beta else []
         except ValueError:
             betas = []
 
@@ -226,24 +218,16 @@ class QAOAEnricherStrategy(EnricherStrategy):
             # Cost Hamiltonian
             if problem_type == "Max2SAT":
                 for u, v in edges:
-                    statements.extend(
-                        _build_max2sat_gates(
-                            q_reg, u, v, gamma_val, gammas[i], is_dimacs
-                        )
-                    )
+                    statements.extend(_build_max2sat_gates(q_reg, u, v, gammas[i], is_dimacs))
             elif problem_type == "GraphColoring":
                 neg_gamma_val = FloatLiteral(-gammas[i])
                 for u, v in edges:
-                    statements.extend(
-                        _build_coloring_gates(q_reg, u, v, neg_gamma_val)
-                    )
+                    statements.extend(_build_coloring_gates(q_reg, u, v, neg_gamma_val))
             else:
                 # Default / MaxCut
                 beta_val = FloatLiteral(2.0 * betas[i])
                 for u, v in edges:
-                    statements.extend(
-                        _build_maxcut_gates(q_reg, u, v, gamma_val)
-                    )
+                    statements.extend(_build_maxcut_gates(q_reg, u, v, gamma_val))
 
             # Mixer Hamiltonian
             statements.extend(
