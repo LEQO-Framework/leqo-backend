@@ -2,26 +2,27 @@ import math
 from typing import override
 
 from openqasm3.ast import (
+    GateModifierName,
     Identifier,
     Include,
     IndexedIdentifier,
     IntegerLiteral,
     QuantumGate,
     QuantumGateModifier,
-    GateModifierName,
     QubitDeclaration,
     Statement,
 )
 
 from app.enricher import (
     Constraints,
-    EnricherStrategy,
     EnrichmentResult,
+    EnricherStrategy,
     ImplementationMetaData,
 )
 from app.enricher.utils import implementation, leqo_output
-from app.model.CompileRequest import GroverNode
-from app.model.CompileRequest import Node as FrontendNode
+from app.model.CompileRequest import GroverNode, Node as FrontendNode
+
+MAX_STANDARD_CONTROLS = 2
 
 
 class GroverAlgorithmEnricherStrategy(EnricherStrategy):
@@ -58,13 +59,15 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
         if len(controls) == 1:
             gate_name = "cx"
             gate_modifiers = []
-        elif len(controls) == 2:
+        elif len(controls) == MAX_STANDARD_CONTROLS:
             gate_name = "ccx"
             gate_modifiers = []
         else:
             gate_name = "x"
             gate_modifiers = [
-                QuantumGateModifier(GateModifierName.ctrl, IntegerLiteral(len(controls)))
+                QuantumGateModifier(
+                    GateModifierName.ctrl, IntegerLiteral(len(controls))
+                )
             ]
 
         # STEP 1: Initialization
