@@ -2,11 +2,14 @@
 Provides enricher strategy for enriching :class:`~app.model.CompileRequest.PrepareStateNode` from a database.
 """
 
+import math
 from typing import cast, override
 
 from openqasm3.ast import (
+    FloatLiteral,
     Identifier,
     Include,
+    IndexedIdentifier,
     IntegerLiteral,
     QuantumGate,
     QubitDeclaration,
@@ -106,7 +109,67 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
                 )
             ]
 
-        # Fallback to Database lookup for other states (e.g. GHZ, W-State)
+        if isinstance(node, PrepareStateNode) and (
+            str(node.quantumState).lower() in ("w", "quantumstatetype.w")
+            or node.quantumState == QuantumStateType.W
+        ):
+            self._check_constraints(
+                node, {} if constraints is None else constraints.requested_inputs
+            )
+
+            size = node.size
+            q_id = Identifier("q")
+            statements = [
+                Include("stdgates.inc"),
+                QubitDeclaration(q_id, IntegerLiteral(size)),
+            ]
+
+            statements.append(
+                QuantumGate(
+                    modifiers=[],
+                    name=Identifier("x"),
+                    arguments=[],
+                    qubits=[IndexedIdentifier(q_id, [IntegerLiteral(0)])],
+                    duration=None,
+                )
+            )
+
+            for i in range(size - 1):
+                prob = (size - i - 1) / (size - i)
+                theta = 2 * math.asin(math.sqrt(prob))
+
+                ctrl_qubit = IndexedIdentifier(q_id, [IntegerLiteral(i)])
+                target_qubit = IndexedIdentifier(q_id, [IntegerLiteral(i + 1)])
+
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("cry"),
+                        arguments=[FloatLiteral(theta)],
+                        qubits=[ctrl_qubit, target_qubit],
+                        duration=None,
+                    )
+                )
+
+                statements.append(
+                    QuantumGate(
+                        modifiers=[],
+                        name=Identifier("cx"),
+                        arguments=[],
+                        qubits=[target_qubit, ctrl_qubit],
+                        duration=None,
+                    )
+                )
+
+            statements.append(leqo_output("out", 0, q_id))
+
+            return [
+                EnrichmentResult(
+                    implementation(node, statements),
+                    ImplementationMetaData(width=size, depth=size * 2),
+                )
+            ]
+
         return await super()._enrich_impl(node, constraints)
 
     @override
@@ -120,6 +183,10 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
     ) -> BaseNode | None:
         if not isinstance(node, PrepareStateNode):
             return None
+
+        if node.quantumState in {"uniform", "w"}:
+            return None
+
         self._check_constraints(node, requested_inputs)
 
         return PrepareStateTable(
@@ -136,6 +203,9 @@ class PrepareStateEnricherStrategy(DataBaseEnricherStrategy):
         self, node: FrontendNode, constraints: Constraints | None
     ) -> Select[tuple[BaseNode]] | None:
         if not isinstance(node, PrepareStateNode):
+            return None
+
+        if node.quantumState in {"uniform", "w"}:
             return None
 
         self._check_constraints(

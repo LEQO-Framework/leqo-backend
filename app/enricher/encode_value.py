@@ -4,7 +4,7 @@ Provides enricher strategy for enriching :class:`~app.model.CompileRequest.Encod
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from math import pi, sqrt
+from math import ceil, log2, pi, sqrt
 from typing import Any, cast, override
 
 from openqasm3 import ast
@@ -18,12 +18,17 @@ from app.enricher import (
     models,
 )
 from app.enricher.db_enricher import DataBaseEnricherStrategy
-from app.enricher.exceptions import BoundsOutOfRange, EncodingNotSupported
+from app.enricher.encode_value_handlers import try_generate_encode_value_handler
+from app.enricher.exceptions import (
+    BoundsOutOfRange,
+    EncodingNotSupported,
+    EnricherException,
+)
+from app.enricher.schmidt_decomposition import analyze_schmidt_decomposition
 from app.enricher.utils import implementation, leqo_output
 from app.model import CompileRequest, data_types
 from app.model.exceptions import (
     InputCountMismatch,
-    InputSizeMismatch,
     InputTypeMismatch,
 )
 
@@ -35,6 +40,12 @@ class _AngleEmissionContext:
     register_size: int
     rotation_map: dict[int, float] | None
     value_identifier: ast.Identifier | None
+
+
+@dataclass
+class BasisMetadata:
+    vector_length: int = 1
+    fractional_bits: int = 0
 
 
 class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
@@ -119,6 +130,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     ) -> models.BaseNode | None:
         if not isinstance(node, CompileRequest.EncodeValueNode):
             return None
+
         self._check_constraints(node, requested_inputs)
 
         requested_input = requested_inputs[0]
@@ -148,6 +160,65 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
     async def _enrich_impl(
         self, node: CompileRequest.Node, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
+        handler_result = try_generate_encode_value_handler(
+            node,
+            constraints,
+            self._check_constraints,
+        )
+        if handler_result is not None:
+            return handler_result
+
+        if (
+            isinstance(node, CompileRequest.EncodeValueNode)
+            and node.encoding == "schmidt"
+        ):
+            if constraints is None:
+                raise InputCountMismatch(
+                    node,
+                    actual=0,
+                    should_be="equal",
+                    expected=1,
+                )
+
+            self._check_constraints(node, constraints.requested_inputs)
+
+            requested_input = constraints.requested_inputs[0]
+            if not isinstance(requested_input, (data_types.ArrayType, ast.ArrayType)):
+                db_results = await super()._enrich_impl(node, constraints)
+                if db_results:
+                    return db_results
+
+                raise InputTypeMismatch(
+                    node,
+                    input_index=0,
+                    actual=requested_input,
+                    expected="array",
+                )
+
+            input_value = constraints.requested_input_values.get(0)
+            if input_value is None:
+                raise EnricherException(
+                    "Schmidt decomposition needs a constant state vector input.",
+                    node,
+                )
+
+            raw_state_vector = (
+                input_value.values if hasattr(input_value, "values") else input_value
+            )
+            result = analyze_schmidt_decomposition(raw_state_vector, qargs=[0])
+
+            raise EnricherException(
+                (
+                    "Schmidt decomposition analysis is available, but circuit "
+                    "generation is not implemented yet. "
+                    f"rank={result.rank}, "
+                    f"coefficients={result.coefficients}, "
+                    f"entanglement_entropy={result.entanglement_entropy}, "
+                    f"is_separable={result.is_separable}"
+                ),
+                node,
+            )
+
         if isinstance(node, CompileRequest.EncodeValueNode) and node.encoding in {
             "basis",
             "angle",
@@ -162,7 +233,8 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             self._check_constraints(node, constraints.requested_inputs)
 
             classical_input = cast(
-                data_types.LeqoSupportedClassicalType, constraints.requested_inputs[0]
+                data_types.LeqoSupportedClassicalType,
+                constraints.requested_inputs[0],
             )
             if node.encoding == "basis":
                 return [
@@ -172,6 +244,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                         constraints.requested_input_values.get(0),
                     ),
                 ]
+
             return [
                 self._generate_angle_enrichment(
                     node,
@@ -250,12 +323,12 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         classical_input: data_types.LeqoSupportedClassicalType,
         input_value: Any | None,
     ) -> EnrichmentResult:
-        size = self._determine_register_size(node, classical_input)
+        size = self._determine_register_size(node, classical_input, input_value)
         constant_indices: list[int] | None = None
         if input_value is not None:
             try:
                 constant_indices = self._constant_basis_indices(
-                    classical_input, size, input_value
+                    node, classical_input, size, input_value
                 )
             except RuntimeError:
                 constant_indices = None
@@ -263,8 +336,54 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         signed_output = self._basis_output_requires_signed_flag(
             classical_input, input_value
         )
+
+        vector_length = 1
+        if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
+            vector_length = self._get_array_length(classical_input)
+
+        fractional_bits = 0
+        element_type = (
+            self._get_element_type(classical_input)
+            if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType))
+            else classical_input
+        )
+        is_float_type = isinstance(element_type, (data_types.FloatType, ast.FloatType))
+
+        if not is_float_type and input_value is not None:
+            try:
+                if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
+                    vals = self._coerce_array_constant_value(
+                        classical_input, input_value
+                    )
+                    is_float_type = any(
+                        isinstance(v, float) or (isinstance(v, str) and "." in str(v))
+                        for v in vals
+                    )
+                else:
+                    v = (
+                        input_value.value
+                        if hasattr(input_value, "value")
+                        else input_value
+                    )
+                    is_float_type = isinstance(v, float) or (
+                        isinstance(v, str) and "." in str(v)
+                    )
+            except Exception:
+                pass
+
+        if is_float_type:
+            decimal_precision = getattr(node, "decimalPrecision", None)
+            error_tolerance = getattr(node, "errorTolerance", 0.001)
+            if decimal_precision is not None:
+                fractional_bits = ceil(decimal_precision * log2(10))
+            else:
+                fractional_bits = (
+                    ceil(-log2(error_tolerance)) if error_tolerance < 1 else 0
+                )
+
+        metadata = BasisMetadata(vector_length, fractional_bits)
         statements = self._build_basis_statements(
-            classical_input, size, constant_indices, signed_output
+            classical_input, size, constant_indices, signed_output, metadata
         )
         depth = size if constant_indices is None else len(constant_indices)
         return EnrichmentResult(
@@ -281,7 +400,9 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             register_size = self._get_array_length(classical_input)
         else:
-            register_size = self._determine_register_size(node, classical_input)
+            register_size = self._determine_register_size(
+                node, classical_input, input_value
+            )
 
         rotation_map: dict[int, float] | None = None
         if input_value is not None:
@@ -307,81 +428,162 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             ImplementationMetaData(width=register_size, depth=depth),
         )
 
+    def _calculate_fixed_point_params(
+        self, values: list[float], decimal_precision: int | None, error_tolerance: float
+    ) -> tuple[int, int, int]:
+        """
+        Dynamically calculates the minimal required qubits for fixed point encoding.
+        Returns: (integer_bits, fractional_bits, total_bits_per_element)
+        """
+        if not values:
+            return 1, 0, 1
+
+        max_mag = max(abs(int(v)) for v in values)
+        int_bits = max(1, max_mag.bit_length() + 1)
+
+        if decimal_precision is not None:
+            frac_bits = ceil(decimal_precision * log2(10))
+        else:
+            frac_bits = ceil(-log2(error_tolerance)) if error_tolerance < 1 else 0
+
+        total_bits_per_num = int_bits + frac_bits
+        return int_bits, frac_bits, total_bits_per_num
+
     def _determine_register_size(
         self,
         node: CompileRequest.EncodeValueNode,
         classical_input: data_types.LeqoSupportedClassicalType,
+        input_value: Any | None = None,
     ) -> int:
-        """Determines size while satisfying PLR0911."""
-        res: int
-        if node.encoding == "angle" and not isinstance(
-            classical_input, (data_types.ArrayType, ast.ArrayType)
-        ):
-            res = 1
-        elif isinstance(classical_input, ast.ArrayType):
-            res = self._get_array_length(classical_input)
-        elif isinstance(classical_input, ast.FloatType):
-            res = 1
-        else:
-            size = 0
-            match classical_input:
-                case (
-                    data_types.BoolType()
-                    | data_types.IntType()
-                    | data_types.ArrayType()
-                ):
-                    size = classical_input.size
-                case data_types.BitType():
-                    size = classical_input.size or 1
-                case data_types.FloatType():
-                    size = 1
-                case _:
-                    if hasattr(classical_input, "size") and isinstance(
-                        classical_input.size, int
-                    ):
-                        size = classical_input.size
-                    else:
-                        raise InputTypeMismatch(
-                            node, 0, actual=classical_input, expected="classical type"
-                        )
-            if size <= 0:
-                raise InputSizeMismatch(node, 0, actual=size, expected=1)
-            res = size
-        return res
+        is_array = isinstance(classical_input, (data_types.ArrayType, ast.ArrayType))
 
-    def _constant_basis_indices(
+        if node.encoding == "angle":
+            if is_array:
+                return self._get_array_length(classical_input)
+            return 1
+
+        if is_array:
+            return self._determine_array_size(node, classical_input, input_value)
+
+        return self._determine_scalar_size(node, classical_input, input_value)
+
+    def _determine_array_size(
         self,
+        node: CompileRequest.EncodeValueNode,
+        classical_input: Any,
+        input_value: Any | None,
+    ) -> int:
+        array_len = self._get_array_length(classical_input)
+        element_type = self._get_element_type(classical_input)
+
+        if (
+            isinstance(element_type, (data_types.FloatType, ast.FloatType))
+            and input_value is not None
+        ):
+            try:
+                values = self._coerce_array_constant_value(classical_input, input_value)
+                _, _, bits_per_element = self._calculate_fixed_point_params(
+                    values,
+                    getattr(node, "decimalPrecision", None),
+                    getattr(node, "errorTolerance", 0.001),
+                )
+                return array_len * bits_per_element
+            except Exception:
+                pass
+
+        if isinstance(classical_input, data_types.ArrayType):
+            return classical_input.size
+
+        if hasattr(element_type, "size") and element_type.size:
+            size_val = (
+                element_type.size.value
+                if hasattr(element_type.size, "value")
+                else element_type.size
+            )
+            return array_len * int(size_val)
+
+        return array_len * 32
+
+    def _determine_scalar_size(
+        self,
+        node: CompileRequest.EncodeValueNode,
+        classical_input: Any,
+        input_value: Any | None,
+    ) -> int:
+        if isinstance(classical_input, (data_types.FloatType, ast.FloatType)):
+            if input_value is not None:
+                try:
+                    v = float(
+                        input_value.value
+                        if hasattr(input_value, "value")
+                        else input_value
+                    )
+                    _, _, bits_per_element = self._calculate_fixed_point_params(
+                        [v],
+                        getattr(node, "decimalPrecision", None),
+                        getattr(node, "errorTolerance", 0.001),
+                    )
+                    return bits_per_element
+                except (TypeError, ValueError):
+                    pass
+            if isinstance(classical_input, ast.FloatType):
+                return int(
+                    classical_input.size.value
+                    if hasattr(classical_input, "size") and classical_input.size
+                    else 32
+                )
+            return getattr(classical_input, "size", 32) or 32
+
+        if isinstance(classical_input, (data_types.IntType, data_types.BoolType)):
+            return classical_input.size
+        if isinstance(classical_input, data_types.BitType):
+            return classical_input.size or 1
+
+        if hasattr(classical_input, "size") and isinstance(classical_input.size, int):
+            return classical_input.size
+
+        raise InputTypeMismatch(
+            node, 0, actual=classical_input, expected="classical type"
+        )
+
+    def _float_to_fixed_point_indices(
+        self, value: float, element_size: int, fractional_bits: int
+    ) -> list[int]:
+        """
+        Approximates a floating point number into a fixed-point binary representation
+        and returns the indices of the '1' bits. Dynamically scales fractional precision.
+        """
+        scaled_value = round(value * (1 << fractional_bits))
+        if scaled_value < 0:
+            scaled_value = (1 << element_size) + scaled_value
+        mask = scaled_value & ((1 << element_size) - 1)
+        return [index for index in range(element_size) if (mask >> index) & 1]
+
+    def _array_basis_indices(
+        self,
+        node: CompileRequest.EncodeValueNode,
         classical_input: data_types.LeqoSupportedClassicalType,
-        register_size: int,
         raw_value: Any,
     ) -> list[int]:
-        if isinstance(classical_input, data_types.FloatType):
-            raise RuntimeError("FloatType not supported for basis encoding")
+        """Helper method to handle array logic, reducing branch complexity."""
+        values = self._coerce_array_constant_value(classical_input, raw_value)
+        element_type = self._get_element_type(classical_input)
 
-        if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
-            values = self._coerce_array_constant_value(classical_input, raw_value)
-            element_type = self._get_element_type(classical_input)
-
-            if isinstance(element_type, (data_types.FloatType, ast.FloatType)):
-                raise RuntimeError("Float Array not supported for basis encoding")
-
-            if hasattr(element_type, "size"):
-                element_size = element_type.size
-            elif isinstance(element_type, ast.ArrayType) or hasattr(
-                element_type, "value"
-            ):
-                element_size = element_type.value
-            else:
-                element_size = 32
-
-            if hasattr(element_size, "value"):
-                element_size = element_size.value
-            element_size = int(element_size)
+        if isinstance(element_type, (data_types.FloatType, ast.FloatType)):
+            _, fractional_bits, element_size = self._calculate_fixed_point_params(
+                values,
+                getattr(node, "decimalPrecision", None),
+                getattr(node, "errorTolerance", 0.001),
+            )
 
             mask_limit = (1 << element_size) - 1
             indices: list[int] = []
             for element_index, element_value in enumerate(values):
-                mask = int(element_value) & mask_limit
+                scaled_val = round(float(element_value) * (1 << fractional_bits))
+                if scaled_val < 0:
+                    scaled_val = (1 << element_size) + scaled_val
+
+                mask = scaled_val & mask_limit
                 base_offset = element_index * element_size
                 indices.extend(
                     base_offset + bit
@@ -389,6 +591,53 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                     if (mask >> bit) & 1
                 )
             return indices
+
+        if hasattr(element_type, "size"):
+            element_size = element_type.size
+        elif isinstance(element_type, ast.ArrayType) or hasattr(element_type, "value"):
+            element_size = element_type.value
+        else:
+            element_size = 32
+
+        if hasattr(element_size, "value"):
+            element_size = element_size.value
+        element_size = int(element_size)
+
+        mask_limit = (1 << element_size) - 1
+        indices = []
+        for element_index, element_value in enumerate(values):
+            mask = int(element_value) & mask_limit
+            base_offset = element_index * element_size
+            indices.extend(
+                base_offset + bit for bit in range(element_size) if (mask >> bit) & 1
+            )
+        return indices
+
+    def _constant_basis_indices(
+        self,
+        node: CompileRequest.EncodeValueNode,
+        classical_input: data_types.LeqoSupportedClassicalType,
+        register_size: int,
+        raw_value: Any,
+    ) -> list[int]:
+        if isinstance(classical_input, data_types.FloatType):
+            try:
+                v = float(raw_value.value if hasattr(raw_value, "value") else raw_value)
+                _, fractional_bits, element_size = self._calculate_fixed_point_params(
+                    [v],
+                    getattr(node, "decimalPrecision", None),
+                    getattr(node, "errorTolerance", 0.001),
+                )
+                return self._float_to_fixed_point_indices(
+                    v, element_size, fractional_bits
+                )
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    "Unsupported float input for basis encoding"
+                ) from exc
+
+        if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
+            return self._array_basis_indices(node, classical_input, raw_value)
 
         try:
             value = int(raw_value)
@@ -407,20 +656,25 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         if raw_value is None:
             return False
 
+        result = False
         if isinstance(classical_input, data_types.IntType):
             try:
-                return int(raw_value) < 0
+                result = int(raw_value) < 0
             except (TypeError, ValueError):
-                return False
-
-        if isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
+                result = False
+        elif isinstance(classical_input, (data_types.FloatType, ast.FloatType)):
+            try:
+                result = float(raw_value) < 0
+            except (TypeError, ValueError):
+                result = False
+        elif isinstance(classical_input, (data_types.ArrayType, ast.ArrayType)):
             try:
                 values = self._coerce_array_constant_value(classical_input, raw_value)
-                return any(value < 0 for value in values)
+                result = any(value < 0 for value in values)
             except RuntimeError:
-                return False
+                result = False
 
-        return False
+        return result
 
     @staticmethod
     def _coerce_array_constant_value(
@@ -442,7 +696,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             ):
                 data_is_float = True
 
-        # 2. Check declared type
         if isinstance(array_type, data_types.ArrayType):
             type_is_float = isinstance(array_type.element_type, data_types.FloatType)
             len_obj = (
@@ -460,10 +713,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         else:
             raise RuntimeError("Unknown array type structure")
 
-        # 3. Choose converter (Float wins if data says so)
         converter = float if (type_is_float or data_is_float) else int
-
-        # 4. Convert
         actual_raw = raw_value.values if hasattr(raw_value, "values") else raw_value
 
         if isinstance(actual_raw, str):
@@ -499,8 +749,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         _register_size: int,
         raw_value: Any,
     ) -> dict[int, float]:
-        """Calculates rotations while satisfying PLR0911."""
-        final_rotations: dict[int, float]
+        final_rotations: dict[int, float] = {0: 0.0}
 
         if isinstance(classical_input, (data_types.FloatType, ast.FloatType)):
             try:
@@ -534,8 +783,6 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         elif isinstance(classical_input, (data_types.BitType, data_types.BoolType)):
             v = int(raw_value.value if hasattr(raw_value, "value") else raw_value)
             final_rotations = {0: v * (pi / 2)}
-        else:
-            final_rotations = {0: 0.0}
 
         return final_rotations
 
@@ -545,6 +792,7 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
         register_size: int,
         constant_indices: list[int] | None,
         signed_output: bool,
+        meta: BasisMetadata,
     ) -> list[ast.Statement]:
         qubit_identifier = ast.Identifier("encoded")
         statements: list[ast.Statement] = [ast.Include("stdgates.inc")]
@@ -603,6 +851,15 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
             output_alias.annotations.append(
                 ast.Annotation("leqo.twos_complement", "true")
             )
+
+        output_alias.annotations.append(
+            ast.Annotation("leqo.length", str(meta.vector_length))
+        )
+        if meta.fractional_bits > 0:
+            output_alias.annotations.append(
+                ast.Annotation("leqo.fractional_bits", str(meta.fractional_bits))
+            )
+
         statements.append(output_alias)
         return statements
 
@@ -819,9 +1076,13 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                 collection=value_identifier,
                 index=[ast.IntegerLiteral(element_index)],
             )
+            is_float = isinstance(element_type, (data_types.FloatType, ast.FloatType))
+            shift_target = element_expr
+            if is_float:
+                shift_target = ast.Cast(ast.IntegerType(), element_expr)
             shifted = ast.BinaryExpression(
                 ast.BinaryOperator[">>"],
-                element_expr,
+                shift_target,
                 ast.IntegerLiteral(bit_index),
             )
             masked = ast.BinaryExpression(
@@ -867,6 +1128,21 @@ class EncodeValueEnricherStrategy(DataBaseEnricherStrategy):
                     ast.IntegerLiteral(1),
                 )
             case data_types.FloatType():
-                raise RuntimeError("FloatType not supported for basis encoding")
+                int_cast = ast.Cast(ast.IntegerType(), value_identifier)
+                shifted = ast.BinaryExpression(
+                    ast.BinaryOperator[">>"],
+                    int_cast,
+                    ast.IntegerLiteral(index),
+                )
+                masked = ast.BinaryExpression(
+                    ast.BinaryOperator["&"],
+                    shifted,
+                    ast.IntegerLiteral(1),
+                )
+                return ast.BinaryExpression(
+                    ast.BinaryOperator["=="],
+                    masked,
+                    ast.IntegerLiteral(1),
+                )
             case _:
                 raise RuntimeError("Unsupported classical input for basis encoding")

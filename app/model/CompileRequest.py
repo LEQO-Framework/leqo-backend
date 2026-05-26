@@ -115,6 +115,12 @@ class EncodeValueNode(BaseNode):
     bounds: int = Field(ge=0, default=0, le=1)
     """Indicates whether values are clamped (0 or 1)."""
 
+    decimalPrecision: int | None = Field(default=None, ge=0)
+    """User-defined number of decimal places for float encoding."""
+
+    errorTolerance: float = Field(default=0.001, gt=0)
+    """Fallback tolerance if decimal precision is not provided."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
@@ -204,6 +210,12 @@ class MeasurementNode(BaseNode):
     indices: list[Annotated[int, Field(ge=0)]]
     """List of qubit indices to measure."""
 
+    basis: str = "Z"
+    """Measurement basis or composite Pauli basis string. Defaults to Z-basis."""
+
+    pauliStrings: list[str] = Field(default_factory=list)
+    """Optional list of Pauli strings to measure in one measurement node."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
     @model_validator(mode="before")
@@ -228,7 +240,106 @@ class MeasurementNode(BaseNode):
         if indices is not None:
             normalized["indices"] = indices
 
+        basis = cls._parse_basis(normalized.get("basis"))
+        if basis is None and node_dict is not None:
+            basis = cls._parse_basis(
+                cls._first_existing_value(
+                    node_dict,
+                    (
+                        "basis",
+                        "measurementBasis",
+                        "basisType",
+                        "measurementBasisType",
+                    ),
+                )
+            )
+
+        if basis is not None:
+            normalized["basis"] = basis
+
+        pauli_strings = cls._parse_pauli_strings(normalized.get("pauliStrings"))
+        if pauli_strings is None:
+            pauli_strings = cls._parse_pauli_strings(normalized.get("pauli_strings"))
+
+        if pauli_strings is None and node_dict is not None:
+            pauli_strings = cls._parse_pauli_strings(
+                cls._first_existing_value(
+                    node_dict,
+                    (
+                        "pauliStrings",
+                        "pauli_strings",
+                        "pauliString",
+                        "pauli_string",
+                        "measurementPauliStrings",
+                    ),
+                )
+            )
+
+        if pauli_strings is not None:
+            normalized["pauliStrings"] = pauli_strings
+
         return normalized
+
+    @staticmethod
+    def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
+        for key in keys:
+            value = data.get(key)
+            if value is not None:
+                return value
+
+        return None
+
+    @staticmethod
+    def _parse_basis(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+
+        normalized = value.strip().upper()
+        alias = normalized.replace("_", " ").replace("-", " ")
+
+        match alias:
+            case "X BASIS":
+                return "X"
+            case "Y BASIS":
+                return "Y"
+            case "Z BASIS":
+                return "Z"
+
+        compact = normalized.replace(" ", "")
+        if compact and all(char in {"I", "X", "Y", "Z"} for char in compact):
+            return compact
+
+        return None
+
+    @classmethod
+    def _parse_pauli_strings(cls, value: Any) -> list[str] | None:
+        if isinstance(value, list):
+            parsed_strings: list[str] = []
+            for item in value:
+                parsed = cls._parse_basis(item)
+                if parsed is None:
+                    return None
+                parsed_strings.append(parsed)
+
+            return parsed_strings or None
+
+        if isinstance(value, str):
+            parts = [
+                part.strip()
+                for part in value.replace(";", ",").split(",")
+                if part.strip()
+            ]
+
+            parsed_parts: list[str] = []
+            for part in parts:
+                parsed = cls._parse_basis(part)
+                if parsed is None:
+                    return None
+                parsed_parts.append(parsed)
+
+            return parsed_parts or None
+
+        return None
 
     @staticmethod
     def _coerce_indices(values: Iterable[Any]) -> list[int]:
@@ -304,6 +415,9 @@ class GateNode(BaseNode):
     gate: OneQubitGate | TwoQubitGate | ThreeQubitGate | Literal["cnot", "toffoli"]
     """The gate to apply (e.g., "x", "cnot", etc.)."""
 
+    controlCount: int = Field(default=0, ge=0)
+    """Number of control qubits used for controlled gate application."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
@@ -320,6 +434,31 @@ class ParameterizedGateNode(BaseNode):
     parameter: float
     """Value of the gate's parameter."""
 
+    controlCount: int = Field(default=0, ge=0)
+    """Number of control qubits used for controlled gate application."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class MCMTGateNode(BaseNode):
+    """
+    Node representing a Multi-Controlled Multi-Target (MCMT) gate.
+    """
+
+    type: Literal["mcmt-gate"] = "mcmt-gate"
+
+    baseGate: Literal["x", "y", "z", "h", "rx", "ry", "rz", "s", "sdg", "t", "tdg"]
+    """The base gate to be controlled and applied to targets."""
+
+    numControls: int = Field(gt=0)
+    """Number of control qubits."""
+
+    numTargets: int = Field(gt=0)
+    """Number of target qubits."""
+
+    parameter: float | None = None
+    """Parameter for rotation gates (rx, ry, rz)."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
@@ -335,6 +474,38 @@ class QFTNode(BaseNode):
 
     inverse: bool = False
     """Whether to generate the inverse Quantum Fourier Transform."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class QPENode(BaseNode):
+    """
+    Node representing a first Quantum Phase Estimation implementation.
+    """
+
+    type: Literal["qpe"] = "qpe"
+
+    estimationSize: int = Field(gt=0)
+    """Number of qubits in the phase estimation register."""
+
+    phase: float = Field(ge=0, lt=1)
+    """Eigenphase used for the controlled phase unitary in QPE V1."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class ControlledUNode(BaseNode):
+    """
+    Node representing a controlled unitary matrix operation.
+    """
+
+    type: Literal["controlled-u"] = "controlled-u"
+
+    matrix: list[list[float]]
+    """Unitary matrix applied to the target qubits."""
+
+    controlValue: Literal[0, 1] = 1
+    """Control value that activates the unitary operation."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -806,7 +977,10 @@ NestableNode = (
     | BoundaryNode
     | GateNode
     | QFTNode
+    | QPENode
+    | ControlledUNode
     | ParameterizedGateNode
+    | MCMTGateNode
     | LiteralNode
     | AncillaNode
     | OperatorNode
@@ -885,6 +1059,18 @@ class Edge(BaseModel):
         return normalized
 
 
+def _normalize_schmidt_encoding_name(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip().lower().replace("_", " ").replace("-", " ")
+
+    if normalized in {"schmidt", "schmidt decomposition"}:
+        return "schmidt"
+
+    return None
+
+
 def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
     for key in keys:
         value = data.get(key)
@@ -892,6 +1078,20 @@ def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
             return value
 
     return None
+
+
+def _normalize_state_preparation_node(converted: dict[str, Any]) -> None:
+    data_field = converted.get("data")
+
+    if isinstance(data_field, dict):
+        encoding = _normalize_schmidt_encoding_name(data_field.get("encodingType"))
+        if encoding is not None:
+            converted["type"] = "encode"
+            converted["encoding"] = encoding
+            converted.setdefault("label", data_field.get("label"))
+            return
+
+    converted["type"] = "prepare"
 
 
 def _normalize_data_type_node(converted: dict[str, Any]) -> None:
@@ -967,7 +1167,7 @@ class CompileRequest(BaseModel):
             node_type = converted.get("type")
 
             if node_type == "statePreparationNode":
-                converted["type"] = "prepare"
+                _normalize_state_preparation_node(converted)
             elif node_type == "measurementNode":
                 converted["type"] = "measure"
             elif node_type == "dataTypeNode":
@@ -983,6 +1183,7 @@ EnrichableNode = (
     BoundaryNode
     | GateNode
     | ParameterizedGateNode
+    | MCMTGateNode
     | QFTNode
     | LiteralNode
     | AncillaNode
