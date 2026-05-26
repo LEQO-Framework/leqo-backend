@@ -26,9 +26,9 @@ async def test_complete_grover_algorithm():
     assert "h query[0];" in qasm
     assert "h query[1];" in qasm
 
-    # Assert 3: Oracle step (Marks |01> by applying X to q0, then MCZ)
+    # Assert 3: Oracle step (Marks |01> by applying X to q0, then standard cx)
     expected_oracle = (
-        "x query[0];\nh query[1];\nmcx query[0], query[1];\nh query[1];\nx query[0];"
+        "x query[0];\nh query[1];\ncx query[0], query[1];\nh query[1];\nx query[0];"
     )
     assert expected_oracle in qasm
 

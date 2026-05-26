@@ -7,6 +7,7 @@ from openqasm3.ast import (
     IndexedIdentifier,
     IntegerLiteral,
     QuantumGate,
+    QuantumGateModifier,
     QubitDeclaration,
     Statement,
 )
@@ -52,6 +53,19 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
         target_idx = [all_qubits[-1]]
         controls = all_qubits[:-1]
 
+        # mcx replacement
+        if len(controls) == 1:
+            gate_name = "cx"
+            gate_modifiers = []
+        elif len(controls) == 2:
+            gate_name = "ccx"
+            gate_modifiers = []
+        else:
+            gate_name = "x"
+            gate_modifiers = [
+                QuantumGateModifier(Identifier("ctrl"), [IntegerLiteral(len(controls))])
+            ]
+
         # STEP 1: Initialization
         statements.extend(
             [
@@ -87,7 +101,7 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
                     ]
                 )
 
-                # Apply MCZ
+                # Apply MCZ Decomposed Sequence via Standard Gates / Modifiers
                 statements.extend(
                     [
                         QuantumGate(
@@ -98,8 +112,8 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
                             duration=None,
                         ),
                         QuantumGate(
-                            modifiers=[],
-                            name=Identifier("mcx"),
+                            modifiers=gate_modifiers,
+                            name=Identifier(gate_name),
                             arguments=[],
                             qubits=[*controls, *target_idx],
                             duration=None,
@@ -164,8 +178,8 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
                         duration=None,
                     ),
                     QuantumGate(
-                        modifiers=[],
-                        name=Identifier("mcx"),
+                        modifiers=gate_modifiers,
+                        name=Identifier(gate_name),
                         arguments=[],
                         qubits=[*controls, *target_idx],
                         duration=None,
