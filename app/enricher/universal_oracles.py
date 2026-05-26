@@ -8,6 +8,7 @@ from openqasm3.ast import (
     IntegerLiteral,
     QuantumGate,
     QuantumGateModifier,
+    GateModifierName,
     QubitDeclaration,
     Statement,
 )
@@ -80,7 +81,7 @@ class UniversalOracleEnricherStrategy(EnricherStrategy):
                     )
                 )
 
-            # mcx replacement
+            # mcx replacement with correct AST typing
             if len(controls) == 1:
                 gate_name = "cx"
                 gate_modifiers = []
@@ -90,9 +91,7 @@ class UniversalOracleEnricherStrategy(EnricherStrategy):
             else:
                 gate_name = "x"
                 gate_modifiers = [
-                    QuantumGateModifier(
-                        Identifier("ctrl"), [IntegerLiteral(len(controls))]
-                    )
+                    QuantumGateModifier(GateModifierName.ctrl, IntegerLiteral(len(controls)))
                 ]
 
             statements.append(
@@ -172,7 +171,7 @@ class GroverDiffuserEnricherStrategy(EnricherStrategy):
         else:
             gate_name = "x"
             gate_modifiers = [
-                QuantumGateModifier(Identifier("ctrl"), [IntegerLiteral(len(controls))])
+                QuantumGateModifier(GateModifierName.ctrl, IntegerLiteral(len(controls)))
             ]
 
         statements.extend(

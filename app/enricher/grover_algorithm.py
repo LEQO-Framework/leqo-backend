@@ -8,6 +8,7 @@ from openqasm3.ast import (
     IntegerLiteral,
     QuantumGate,
     QuantumGateModifier,
+    GateModifierName,
     QubitDeclaration,
     Statement,
 )
@@ -63,7 +64,7 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
         else:
             gate_name = "x"
             gate_modifiers = [
-                QuantumGateModifier(Identifier("ctrl"), [IntegerLiteral(len(controls))])
+                QuantumGateModifier(GateModifierName.ctrl, IntegerLiteral(len(controls)))
             ]
 
         # STEP 1: Initialization
