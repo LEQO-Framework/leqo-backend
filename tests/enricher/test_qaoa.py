@@ -106,12 +106,12 @@ async def test_qaoa_edge_cases_and_fallback():
         p=3,
         problem="MaxCut",
         optimizer="COBYLA",
-        edges="an_invalid_edge_string", # Should trigger Exception and fallback to [[0, 1]]
+        edges="an_invalid_edge_string",  # Should trigger Exception and fallback to [[0, 1]]
         gamma="0.7",  # Only 1 value provided for 3 layers
-        beta="",      # No values provided, should fallback to default 0.2
+        beta="",  # No values provided, fallback to default 0.2
         outputIdentifier="q_edge",
     )
-    
+
     strategy = QAOAEnricherStrategy()
     results = strategy._enrich_impl(node, Constraints(requested_inputs={}))
     qasm = leqo_dumps(results[0].enriched_node.implementation)
@@ -121,11 +121,14 @@ async def test_qaoa_edge_cases_and_fallback():
     assert "cx q_edge[0], q_edge[1];" in qasm
 
     # 2. Gamma padding:
-    assert qasm.count("rz(0.7)") == 3
-    
+    expected_gamma_count = 3
+    assert qasm.count("rz(0.7)") == expected_gamma_count
+
     # 3. Beta defaulting and padding:
-    # An empty beta list falls back to 0.2. 
+    # Empty beta list falls back to 0.2.
     # Mixer multiplies by 2.0 (0.2 * 2.0 = 0.4).
     # Applied to 2 qubits across 3 layers = 6 total rx(0.4) gates.
     assert "rx(0.4) q_edge[0];" in qasm
-    assert qasm.count("rx(0.4)") == 6
+
+    expected_beta_count = 6
+    assert qasm.count("rx(0.4)") == expected_beta_count
