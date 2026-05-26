@@ -2,13 +2,13 @@ from typing import override
 
 from openqasm3.ast import (
     Annotation,
-    GateModifierName,
     Identifier,
     Include,
     IndexedIdentifier,
     IntegerLiteral,
     QuantumGate,
     QuantumGateModifier,
+    GateModifierName,
     QubitDeclaration,
     Statement,
 )
@@ -20,13 +20,8 @@ from app.enricher import (
     ImplementationMetaData,
 )
 from app.enricher.utils import implementation, leqo_output
-from app.model.CompileRequest import (
-    GroverDiffuserNode,
-    Node as FrontendNode,
-    UniversalOracleNode,
-)
-
-MAX_STANDARD_CONTROLS = 2
+from app.model.CompileRequest import GroverDiffuserNode, UniversalOracleNode
+from app.model.CompileRequest import Node as FrontendNode
 
 
 class UniversalOracleEnricherStrategy(EnricherStrategy):
@@ -86,19 +81,17 @@ class UniversalOracleEnricherStrategy(EnricherStrategy):
                     )
                 )
 
-            # mcx replacement
+            # mcx replacement with correct AST typing
             if len(controls) == 1:
                 gate_name = "cx"
                 gate_modifiers = []
-            elif len(controls) == MAX_STANDARD_CONTROLS:
+            elif len(controls) == 2:
                 gate_name = "ccx"
                 gate_modifiers = []
             else:
                 gate_name = "x"
                 gate_modifiers = [
-                    QuantumGateModifier(
-                        GateModifierName.ctrl, IntegerLiteral(len(controls))
-                    )
+                    QuantumGateModifier(GateModifierName.ctrl, IntegerLiteral(len(controls)))
                 ]
 
             statements.append(
@@ -172,15 +165,13 @@ class GroverDiffuserEnricherStrategy(EnricherStrategy):
         if len(controls) == 1:
             gate_name = "cx"
             gate_modifiers = []
-        elif len(controls) == MAX_STANDARD_CONTROLS:
+        elif len(controls) == 2:
             gate_name = "ccx"
             gate_modifiers = []
         else:
             gate_name = "x"
             gate_modifiers = [
-                QuantumGateModifier(
-                    GateModifierName.ctrl, IntegerLiteral(len(controls))
-                )
+                QuantumGateModifier(GateModifierName.ctrl, IntegerLiteral(len(controls)))
             ]
 
         statements.extend(
