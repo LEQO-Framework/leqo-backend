@@ -15,8 +15,8 @@ from openqasm3.ast import (
 
 from app.enricher import (
     Constraints,
-    EnrichmentResult,
     EnricherStrategy,
+    EnrichmentResult,
     ImplementationMetaData,
 )
 from app.enricher.utils import implementation, leqo_output
