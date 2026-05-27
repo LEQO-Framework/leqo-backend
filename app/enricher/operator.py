@@ -35,6 +35,8 @@ from app.model.exceptions import (
     InputTypeMismatch,
 )
 
+_BINARY_OPERATOR_INPUT_COUNT = 2
+
 
 @dataclass(frozen=True)
 class _AdditionOperand:
@@ -150,6 +152,9 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         elif node.operator == "+":
             result = await self._enrich_addition_operator(node, constraints)
 
+        elif node.operator == "*":
+            result = await self._enrich_multiplication_operator(node, constraints)
+
         elif node.operator == "min":
             result = await self._enrich_single_qubit_binary_operator(
                 node,
@@ -213,6 +218,53 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
             )
 
         return [self._generate_addition_enrichment(node, constraints)]
+
+    async def _enrich_multiplication_operator(
+        self,
+        node: OperatorNode,
+        constraints: Constraints | None,
+    ) -> list[EnrichmentResult]:
+        if constraints is None:
+            raise InputCountMismatch(
+                node,
+                actual=0,
+                should_be="equal",
+                expected=_BINARY_OPERATOR_INPUT_COUNT,
+            )
+
+        self._check_constraints(node, constraints.requested_inputs)
+
+        lhs = cast(QubitType, constraints.requested_inputs[0])
+        rhs = cast(QubitType, constraints.requested_inputs[1])
+
+        if lhs.signed:
+            raise InputTypeMismatch(
+                node,
+                0,
+                actual=lhs,
+                expected="unsigned qubit",
+            )
+
+        if rhs.signed:
+            raise InputTypeMismatch(
+                node,
+                1,
+                actual=rhs,
+                expected="unsigned qubit",
+            )
+
+        db_results = await super()._enrich_impl(node, constraints)
+        if db_results:
+            return db_results
+
+        fallback_results = await self._fetch_operator_without_size_constraints(
+            node,
+            constraints,
+        )
+        if fallback_results:
+            return fallback_results
+
+        return [self._generate_multiplication_enrichment(node, constraints)]
 
     async def _enrich_single_qubit_binary_operator(
         self,
@@ -292,6 +344,148 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         )
         return EnrichmentResult(
             enriched_node,
+            ImplementationMetaData(width=width, depth=depth),
+        )
+
+    def _generate_multiplication_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
+        requested_inputs = constraints.requested_inputs
+        self._check_constraints(node, requested_inputs)
+
+        lhs = cast(QubitType, requested_inputs[0])
+        rhs = cast(QubitType, requested_inputs[1])
+
+        if lhs.signed:
+            raise InputTypeMismatch(
+                node,
+                0,
+                actual=lhs,
+                expected="unsigned qubit",
+            )
+
+        if rhs.signed:
+            raise InputTypeMismatch(
+                node,
+                1,
+                actual=rhs,
+                expected="unsigned qubit",
+            )
+
+        lhs_size = lhs.size or 1
+        rhs_size = rhs.size or 1
+        result_size = lhs_size + rhs_size
+        carry_count = max(result_size - 1, 0)
+
+        lhs_name = "lhs"
+        rhs_name = "rhs"
+        partial_name = "partial"
+        accumulator_names = [f"accumulator{index}" for index in range(rhs_size + 1)]
+        carry_names = [f"carry{index}" for index in range(rhs_size)]
+
+        statements: list[Statement] = [
+            Include("stdgates.inc"),
+            leqo_input(
+                lhs_name,
+                0,
+                lhs.size,
+                twos_complement=lhs.signed,
+            ),
+            leqo_input(
+                rhs_name,
+                1,
+                rhs.size,
+                twos_complement=rhs.signed,
+            ),
+        ]
+
+        statements.extend(
+            QubitDeclaration(
+                Identifier(accumulator_name),
+                IntegerLiteral(result_size),
+            )
+            for accumulator_name in accumulator_names
+        )
+
+        statements.append(
+            QubitDeclaration(
+                Identifier(partial_name),
+                IntegerLiteral(result_size),
+            )
+        )
+
+        if carry_count > 0:
+            statements.extend(
+                QubitDeclaration(
+                    Identifier(carry_name),
+                    IntegerLiteral(carry_count),
+                )
+                for carry_name in carry_names
+            )
+
+        lhs_bits = self._build_qubit_references(lhs_name, lhs.size, lhs_size)
+        rhs_bits = self._build_qubit_references(rhs_name, rhs.size, rhs_size)
+        partial_bits = self._build_qubit_references(
+            partial_name,
+            result_size,
+            result_size,
+        )
+
+        depth = 0
+
+        for rhs_index, rhs_bit in enumerate(rhs_bits):
+            for lhs_index, lhs_bit in enumerate(lhs_bits):
+                partial_index = lhs_index + rhs_index
+                statements.append(
+                    self._ccx_gate(lhs_bit, rhs_bit, partial_bits[partial_index])
+                )
+                depth += 1
+
+            accumulator_bits = self._build_qubit_references(
+                accumulator_names[rhs_index],
+                result_size,
+                result_size,
+            )
+            next_accumulator_bits = self._build_qubit_references(
+                accumulator_names[rhs_index + 1],
+                result_size,
+                result_size,
+            )
+
+            addition_statements, addition_depth = (
+                self._build_fixed_width_addition_rounds(
+                    addend0_bits=accumulator_bits,
+                    addend1_bits=partial_bits,
+                    result_bits=next_accumulator_bits,
+                    carry_name=carry_names[rhs_index],
+                )
+            )
+
+            statements.extend(addition_statements)
+            depth += addition_depth
+
+            for lhs_index in reversed(range(lhs_size)):
+                lhs_bit = lhs_bits[lhs_index]
+                partial_index = lhs_index + rhs_index
+                statements.append(
+                    self._ccx_gate(lhs_bit, rhs_bit, partial_bits[partial_index])
+                )
+                depth += 1
+
+        statements.append(leqo_output("out", 0, Identifier(accumulator_names[-1])))
+
+        width = (
+            lhs_size
+            + rhs_size
+            + len(accumulator_names) * result_size
+            + result_size
+            + len(carry_names) * carry_count
+        )
+
+        return EnrichmentResult(
+            implementation(node, statements),
             ImplementationMetaData(width=width, depth=depth),
         )
 
@@ -706,6 +900,48 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         statements.append(output_alias)
 
         return statements, result_size, carry_count, depth
+
+    def _build_fixed_width_addition_rounds(
+        self,
+        *,
+        addend0_bits: list[Identifier | IndexedIdentifier],
+        addend1_bits: list[Identifier | IndexedIdentifier],
+        result_bits: list[Identifier | IndexedIdentifier],
+        carry_name: str,
+    ) -> tuple[list[Statement], int]:
+        """
+        Build a fixed-width unsigned addition circuit.
+
+        This helper is used by multiplication to accumulate shifted partial
+        products into a new accumulator register. It reuses the existing
+        bit-level addition round logic.
+        """
+
+        width = len(result_bits)
+        carry_count = max(width - 1, 0)
+        carry_bits = [
+            self._qubit_reference(carry_name, index) for index in range(carry_count)
+        ]
+
+        statements: list[Statement] = []
+        depth = 0
+
+        for index in range(width):
+            carry_in = carry_bits[index - 1] if index > 0 else None
+            carry_out = carry_bits[index] if index < carry_count else None
+
+            round_statements, round_depth = self._build_addition_round(
+                addend0_bit=addend0_bits[index],
+                addend1_bit=addend1_bits[index],
+                result_bit=result_bits[index],
+                carry_in=carry_in,
+                carry_out=carry_out,
+            )
+
+            statements.extend(round_statements)
+            depth += round_depth
+
+        return statements, depth
 
     def _determine_carry_out(
         self,

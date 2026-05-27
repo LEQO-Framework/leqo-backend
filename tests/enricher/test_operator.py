@@ -26,7 +26,7 @@ from app.model.CompileRequest import PrepareStateNode as FrontendPrepareStateNod
 from app.model.CompileRequest import SingleInsertMetaData
 from app.model.data_types import FloatType, QubitType
 from app.model.exceptions import InputCountMismatch, InputTypeMismatch
-from tests.enricher.utils import assert_enrichments
+from tests.enricher.utils import assert_enrichments, leqo_dumps
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -376,3 +376,91 @@ async def test_enrich_operator_node_not_in_db(engine: AsyncEngine) -> None:
     )
 
     assert (await OperatorEnricherStrategy(engine).enrich(node, constraints)) == []
+
+
+@pytest.mark.asyncio
+async def test_dynamic_multiplication_operator_for_larger_registers(
+    engine: AsyncEngine,
+) -> None:
+    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="*")
+    constraints = Constraints(
+        requested_inputs={0: QubitType(size=2), 1: QubitType(size=5)},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    result = await OperatorEnricherStrategy(engine).enrich(node, constraints)
+
+    assert len(result) == 1
+
+    enriched_result = result[0]
+    impl = enriched_result.enriched_node.implementation
+    impl_str = impl if isinstance(impl, str) else leqo_dumps(impl)
+
+    assert "multiplication_impl" not in impl_str
+    assert "qubit[7] accumulator0;" in impl_str
+    assert "qubit[7] accumulator5;" in impl_str
+    assert "qubit[7] partial;" in impl_str
+    assert "ccx" in impl_str
+    assert "@leqo.output 0" in impl_str
+    assert "let out = accumulator5;" in impl_str
+
+    expected_width = 86
+    expected_depth = 200
+
+    assert enriched_result.meta_data.width == expected_width
+    assert enriched_result.meta_data.depth == expected_depth
+
+
+@pytest.mark.asyncio
+async def test_dynamic_multiplication_rejects_signed_lhs(
+    engine: AsyncEngine,
+) -> None:
+    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="*")
+    constraints = Constraints(
+        requested_inputs={
+            0: QubitType(size=2, signed=True),
+            1: QubitType(size=5),
+        },
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    with pytest.raises(InputTypeMismatch, match="unsigned qubit"):
+        await OperatorEnricherStrategy(engine).enrich(node, constraints)
+
+
+@pytest.mark.asyncio
+async def test_dynamic_multiplication_rejects_signed_rhs(
+    engine: AsyncEngine,
+) -> None:
+    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="*")
+    constraints = Constraints(
+        requested_inputs={
+            0: QubitType(size=2),
+            1: QubitType(size=5, signed=True),
+        },
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    with pytest.raises(InputTypeMismatch, match="unsigned qubit"):
+        await OperatorEnricherStrategy(engine).enrich(node, constraints)
+
+
+@pytest.mark.asyncio
+async def test_multiplication_rejects_signed_lhs_before_db_lookup(
+    engine: AsyncEngine,
+) -> None:
+    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="*")
+    constraints = Constraints(
+        requested_inputs={
+            0: QubitType(size=1, signed=True),
+            1: QubitType(size=4),
+        },
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    with pytest.raises(InputTypeMismatch, match="unsigned qubit"):
+        await OperatorEnricherStrategy(engine).enrich(node, constraints)
