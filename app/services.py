@@ -36,6 +36,7 @@ from app.enricher.merger import MergerEnricherStrategy
 from app.enricher.models import Base as EnricherBase
 from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
+from app.enricher.vqe import VQEEnricherStrategy
 from app.enricher.qft import QFTEnricherStrategy
 from app.enricher.qiskit_prepare import HAS_QISKIT, QiskitPrepareStateEnricherStrategy
 from app.enricher.qpe import QPEEnricherStrategy
@@ -116,6 +117,7 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         UniversalOracleEnricherStrategy(),
         GroverDiffuserEnricherStrategy(),
         GroverAlgorithmEnricherStrategy(),
+        VQEEnricherStrategy(),
     ]
     if HAS_QISKIT:
         strategies.append(QiskitPrepareStateEnricherStrategy())

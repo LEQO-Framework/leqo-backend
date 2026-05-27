@@ -855,6 +855,34 @@ class GroverNode(BaseNode):
                     f"Target state {state} is out of bounds for {self.numQubits} qubits."
                 )
         return self
+    
+
+class VQENode(BaseModel):
+    """
+    Models a Variational Quantum Eigensolver (VQE) node.
+    """
+
+    id: str
+
+    type: Literal["vqe"]
+
+    numQubits: int
+
+    ansatz: str
+    """e.g., "HardwareEfficient", "RyRz" """
+
+    layers: int
+
+    parameters: str
+    """Comma-separated list of initial theta values """
+
+    observable: str
+    """e.g., "Z0", "Z0Z1 """
+
+    optimizer: str
+    """e.g., "ParameterShift", "COBYLA" """
+
+    outputIdentifier: str = "vqe_reg"
 
 
 # region ControlFlow
@@ -989,6 +1017,7 @@ NestableNode = (
     | GroverDiffuserNode
     | GroverNode
     | PluginNode
+    | VQENode
 )
 
 Node = NestableNode | QubitNode | ControlFlowNode
@@ -1193,6 +1222,7 @@ EnrichableNode = (
     | UniversalOracleNode
     | GroverDiffuserNode
     | GroverNode
+    | VQENode
 )
 
 
