@@ -1,13 +1,5 @@
 from typing import override
 
-from app.enricher import (
-    Constraints,
-    EnrichmentResult,
-    EnricherStrategy,
-    ImplementationMetaData,
-)
-from app.enricher.utils import implementation, leqo_output
-from app.model.CompileRequest import Node as FrontendNode, VQENode
 from openqasm3.ast import (
     FloatLiteral,
     Identifier,
@@ -18,6 +10,15 @@ from openqasm3.ast import (
     QubitDeclaration,
     Statement,
 )
+
+from app.enricher import (
+    Constraints,
+    EnrichmentResult,
+    EnricherStrategy,
+    ImplementationMetaData,
+)
+from app.enricher.utils import implementation, leqo_output
+from app.model.CompileRequest import Node as FrontendNode, VQENode
 
 
 def _get_q(q_reg: Identifier, idx: int) -> IndexedIdentifier:

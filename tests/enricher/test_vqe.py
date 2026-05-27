@@ -18,7 +18,7 @@ async def test_vqe_ansatz_generation_and_padding():
         numQubits=2,
         ansatz="HardwareEfficient",
         layers=1,
-        parameters="1.5, 2.5",  # Only 2 parameters provided, needs 4 total (2 per layer + initial)
+        parameters="1.5, 2.5",
         observable="Z0Z1",
         optimizer="ParameterShift",
         outputIdentifier="vqe_reg",
@@ -56,18 +56,18 @@ async def test_vqe_no_params_fallback():
         parameters="",
         observable="Z0",
         optimizer="COBYLA",
-        outputIdentifier="vqe_reg"
+        outputIdentifier="vqe_reg",
     )
     strategy = VQEEnricherStrategy()
     results = strategy._enrich_impl(node, Constraints(requested_inputs={}))
     qasm = leqo_dumps(results[0].enriched_node.implementation)
 
     assert "qubit[3] vqe_reg;" in qasm
-    
+
     # Total padded parameters should be 9
     expected_param_count = 9
     assert qasm.count("ry(0.1)") == expected_param_count
-    
+
     # Total CX gates should be 4 (2 entanglement gates per layer * 2 layers)
     expected_cx_count = 4
     assert qasm.count("cx") == expected_cx_count
