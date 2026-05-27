@@ -18,10 +18,8 @@ from app.enricher import (
     ImplementationMetaData,
 )
 from app.enricher.utils import implementation, leqo_output
-from app.model.CompileRequest import (
-    Node as FrontendNode,
-    VQENode,
-)
+from app.model.CompileRequest import Node as FrontendNode
+from app.model.CompileRequest import VQENode
 
 
 def _get_q(q_reg: Identifier, idx: int) -> IndexedIdentifier:
