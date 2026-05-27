@@ -36,7 +36,6 @@ from app.enricher.merger import MergerEnricherStrategy
 from app.enricher.models import Base as EnricherBase
 from app.enricher.operator import OperatorEnricherStrategy
 from app.enricher.prepare_state import PrepareStateEnricherStrategy
-from app.enricher.vqe import VQEEnricherStrategy
 from app.enricher.qft import QFTEnricherStrategy
 from app.enricher.qiskit_prepare import HAS_QISKIT, QiskitPrepareStateEnricherStrategy
 from app.enricher.qpe import QPEEnricherStrategy
@@ -45,6 +44,7 @@ from app.enricher.universal_oracles import (
     GroverDiffuserEnricherStrategy,
     UniversalOracleEnricherStrategy,
 )
+from app.enricher.vqe import VQEEnricherStrategy
 from app.model.database_model import Base
 from app.utils import not_none
 

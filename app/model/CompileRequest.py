@@ -855,7 +855,7 @@ class GroverNode(BaseNode):
                     f"Target state {state} is out of bounds for {self.numQubits} qubits."
                 )
         return self
-    
+
 
 class VQENode(BaseModel):
     """

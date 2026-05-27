@@ -1,5 +1,13 @@
 from typing import override
 
+from app.enricher import (
+    Constraints,
+    EnrichmentResult,
+    EnricherStrategy,
+    ImplementationMetaData,
+)
+from app.enricher.utils import implementation, leqo_output
+from app.model.CompileRequest import Node as FrontendNode, VQENode
 from openqasm3.ast import (
     FloatLiteral,
     Identifier,
@@ -10,15 +18,6 @@ from openqasm3.ast import (
     QubitDeclaration,
     Statement,
 )
-
-from app.enricher import (
-    Constraints,
-    EnricherStrategy,
-    EnrichmentResult,
-    ImplementationMetaData,
-)
-from app.enricher.utils import implementation, leqo_output
-from app.model.CompileRequest import Node as FrontendNode, VQENode
 
 
 def _get_q(q_reg: Identifier, idx: int) -> IndexedIdentifier:
@@ -57,41 +56,47 @@ class VQEEnricherStrategy(EnricherStrategy):
         param_idx = 0
 
         # Initial Rotation Layer (Ry)
-        for q in range(n):
-            statements.append(
+        statements.extend(
+            [
                 QuantumGate(
                     modifiers=[],
                     name=Identifier("ry"),
-                    arguments=[FloatLiteral(params[param_idx])],
+                    arguments=[FloatLiteral(params[param_idx + q])],
                     qubits=[_get_q(q_reg, q)],
                 )
-            )
-            param_idx += 1
+                for q in range(n)
+            ]
+        )
+        param_idx += n
 
         # Entanglement & Rotation Layers
-        for layer in range(p):
+        for _layer in range(p):
             # Entanglement (Linear CX chain)
-            for q in range(n - 1):
-                statements.append(
+            statements.extend(
+                [
                     QuantumGate(
                         modifiers=[],
                         name=Identifier("cx"),
                         arguments=[],
                         qubits=[_get_q(q_reg, q), _get_q(q_reg, q + 1)],
                     )
-                )
+                    for q in range(n - 1)
+                ]
+            )
 
             # Rotation block (Ry)
-            for q in range(n):
-                statements.append(
+            statements.extend(
+                [
                     QuantumGate(
                         modifiers=[],
                         name=Identifier("ry"),
-                        arguments=[FloatLiteral(params[param_idx])],
+                        arguments=[FloatLiteral(params[param_idx + q])],
                         qubits=[_get_q(q_reg, q)],
                     )
-                )
-                param_idx += 1
+                    for q in range(n)
+                ]
+            )
+            param_idx += n
 
         statements.append(leqo_output("out_0", 0, q_reg))
 

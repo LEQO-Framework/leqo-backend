@@ -28,14 +28,14 @@ async def test_vqe_ansatz_generation_and_padding():
     qasm = leqo_dumps(results[0].enriched_node.implementation)
 
     assert "qubit[2] vqe_reg;" in qasm
-    
+
     # Initial rotation layer (uses user params)
     assert "ry(1.5) vqe_reg[0];" in qasm
     assert "ry(2.5) vqe_reg[1];" in qasm
-    
+
     # Entanglement chain
     assert "cx vqe_reg[0], vqe_reg[1];" in qasm
-    
+
     # Ansatz layer padding (pads with 0.1)
     assert "ry(0.1) vqe_reg[0];" in qasm
     assert "ry(0.1) vqe_reg[1];" in qasm
