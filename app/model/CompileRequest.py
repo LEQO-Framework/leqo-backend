@@ -5,6 +5,7 @@ It provides classes to model metadata, node data, and the complete compile reque
 
 from __future__ import annotations
 
+import ast
 import re
 from abc import ABC
 from collections.abc import Iterable
@@ -478,6 +479,35 @@ class QFTNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
+class QAOANode(BaseNode):
+    """
+    Node representing a Quantum Approximate Optimization Algorithm (QAOA) Ansatz generator.
+    """
+
+    type: Literal["qaoa"] = "qaoa"
+
+    p: int = Field(gt=0)
+    """Number of layers in the QAOA ansatz."""
+
+    problem: Literal["MaxCut", "Max2SAT", "GraphColoring"] = "MaxCut"
+    """The optimization problem to solve (defines the Cost Hamiltonian)."""
+
+    optimizer: Literal["COBYLA", "SPSA", "NELDER_MEAD"]
+    """Classical optimizer intended for downstream execution."""
+
+    edges: str
+    """String representation of the graph edge list, e.g., '[[0,1], [1,2]]'."""
+
+    gamma: str = ""
+    beta: str = ""
+    """Optimizer parameters."""
+
+    outputIdentifier: str
+    """The identifier for the generated quantum register."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
 class QPENode(BaseNode):
     """
     Node representing a first Quantum Phase Estimation implementation.
@@ -594,8 +624,8 @@ class ArrayLiteralNode(BaseNode):
 
     type: Literal["array"] = "array"
 
-    values: list[float | int]
-    """Ordered list of values in the array."""
+    values: list[int | float | list[int | float]]
+    """Ordered list of values in the array (flattened for OpenQASM compatibility)."""
 
     elementBitSize: int | None = Field(default=None, ge=1)
     """Bit width of each element in the array (only used for integers)."""
@@ -615,48 +645,66 @@ class ArrayLiteralNode(BaseNode):
         raw_values = normalized.get("values", normalized.get("value"))
 
         def parse_num(s: Any) -> int | float:
-            str_s = str(s)
+            str_s = str(s).strip()
+            if not str_s:
+                return 0
             return float(str_s) if "." in str_s else int(str_s)
 
-        if isinstance(raw_values, str):
-            parts = [
-                part.strip()
-                for part in raw_values.replace(";", ",").split(",")
-                if part.strip() != ""
-            ]
-            normalized["values"] = [parse_num(part) for part in parts]
-        elif isinstance(raw_values, Iterable):
-            normalized["values"] = [parse_num(value) for value in raw_values]
-        elif raw_values is not None:
-            normalized["values"] = [parse_num(raw_values)]
-        else:
-            normalized.setdefault("values", [])
+        # Process elements while preserving 2D structures
+        def process_element(val: Any) -> Any:
+            if isinstance(val, (list, tuple)):
+                # Keep the inner list structure intact, just parse its numbers
+                return [process_element(item) for item in val]
+            if isinstance(val, (int, float, str)):
+                return parse_num(val)
+            return val
 
-        if "elementType" not in normalized and normalized.get("values"):
-            if any(isinstance(v, float) for v in normalized["values"]):
-                normalized["elementType"] = "float"
-            else:
-                normalized["elementType"] = "int"
+        if isinstance(raw_values, str):
+            try:
+                parsed = ast.literal_eval(raw_values)
+                processed = process_element(parsed)
+            except (ValueError, SyntaxError):
+                # Fallback for comma-separated single strings
+                parts = [
+                    p.strip()
+                    for p in raw_values.replace(";", ",").split(",")
+                    if p.strip()
+                ]
+                processed = [parse_num(p) for p in parts]
+        elif isinstance(raw_values, Iterable) and not isinstance(
+            raw_values, (str, bytes)
+        ):
+            processed = [process_element(v) for v in raw_values]
+        else:
+            processed = [process_element(raw_values)] if raw_values is not None else []
+
+        normalized["values"] = processed
+
+        if "elementType" not in normalized and processed:
+
+            def has_float(v: Any) -> bool:
+                if isinstance(v, list):
+                    return any(has_float(i) for i in v)
+                return isinstance(v, float)
+
+            normalized["elementType"] = "float" if has_float(processed) else "int"
 
         return normalized
 
     @model_validator(mode="after")
     def _default_bit_size(self) -> ArrayLiteralNode:
         if self.elementType != "float" and self.elementBitSize is None:
-            bit_size = (
-                max(
-                    (
-                        _infer_int_bit_size(value)
-                        for value in self.values
-                        if isinstance(value, int)
-                    ),
-                    default=1,
-                )
-                if self.values
-                else 1
-            )
-            self.elementBitSize = bit_size
-
+            if self.values:
+                # Make sure we only calculate bit_size for ints, ignoring floats
+                ints_only = [v for v in self.values if isinstance(v, int)]
+                if ints_only:
+                    self.elementBitSize = max(
+                        (_infer_int_bit_size(v) for v in ints_only), default=1
+                    )
+                else:
+                    self.elementBitSize = 1
+            else:
+                self.elementBitSize = 1
         return self
 
 
@@ -977,6 +1025,7 @@ NestableNode = (
     | BoundaryNode
     | GateNode
     | QFTNode
+    | QAOANode
     | QPENode
     | ControlledUNode
     | ParameterizedGateNode
@@ -1185,6 +1234,9 @@ EnrichableNode = (
     | ParameterizedGateNode
     | MCMTGateNode
     | QFTNode
+    | QAOANode
+    | QPENode
+    | ControlledUNode
     | LiteralNode
     | AncillaNode
     | OperatorNode
