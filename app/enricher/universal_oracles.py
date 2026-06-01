@@ -48,7 +48,7 @@ class UniversalOracleEnricherStrategy(EnricherStrategy):
             target_idx = [IndexedIdentifier(t_reg, [[IntegerLiteral(0)]])]
 
         for target_val in node.targetStates:
-            bin_str = format(target_val, f"0{n}b")
+            bin_str = format(target_val, f"0{n}b")[::-1]
 
             statements.extend(
                 [

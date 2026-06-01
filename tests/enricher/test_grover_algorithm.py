@@ -26,9 +26,14 @@ async def test_complete_grover_algorithm():
     assert "h query[0];" in qasm
     assert "h query[1];" in qasm
 
-    # Assert 3: Oracle step (Marks |01> by applying X to q0, then standard cx)
+    # Assert 3: Oracle step
+    # Mark |01> (binary 01 -> reversed 10 -> q0=1, q1=0). So we flip q1 to mark it.
     expected_oracle = (
-        "x query[0];\nh query[1];\ncx query[0], query[1];\nh query[1];\nx query[0];"
+        "x query[1];\n"
+        "h query[1];\n"
+        "cx query[0], query[1];\n"
+        "h query[1];\n"
+        "x query[1];"
     )
     assert expected_oracle in qasm
 
@@ -58,7 +63,15 @@ async def test_grover_auto_iterations():
     qasm = leqo_dumps(results[0].enriched_node.implementation)
 
     diffuser_signature = (
-        "h query[0];\nh query[1];\nh query[2];\nx query[0];\nx query[1];\nx query[2];"
+        "h query[0];\n"
+        "h query[1];\n"
+        "h query[2];\n"
+        "x query[0];\n"
+        "x query[1];\n"
+        "x query[2];\n"
+        "h query[2];\n"
+        "ccx query[0], query[1], query[2];\n"
+        "h query[2];"
     )
 
     EXPECTED_ITERATIONS = 2

@@ -89,7 +89,7 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
         for _ in range(iterations):
             # --- 2A. The Universal Oracle (Phase Mode) ---
             for target_val in node.targetStates:
-                bin_str = format(target_val, f"0{n}b")
+                bin_str = format(target_val, f"0{n}b")[::-1]
 
                 # Apply X to '0' bits
                 statements.extend(
@@ -106,7 +106,7 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
                     ]
                 )
 
-                # Apply MCZ Decomposed Sequence via Standard Gates / Modifiers
+                # Apply MCZ
                 statements.extend(
                     [
                         QuantumGate(
