@@ -29,22 +29,22 @@ async def test_vqe_ansatz_generation():
 
     assert "qubit[2] vqe_reg;" in qasm
 
-    assert '@leqo.optimizer ParameterShift' in qasm
-    assert '@leqo.observable "Z0Z1"' in qasm
+    assert "@leqo.optimizer ParameterShift" in qasm
+    assert "@leqo.observable \"Z0Z1\"" in qasm
 
     # Initial rotation layer
     assert "ry(1.5) vqe_reg[0];" in qasm
     assert "ry(2.5) vqe_reg[1];" in qasm
-    
+
     # Entanglement chain
     assert "cx vqe_reg[0], vqe_reg[1];" in qasm
-    
+
     # Next rotation layer
     assert "ry(3.5) vqe_reg[0];" in qasm
     assert "ry(4.5) vqe_reg[1];" in qasm
 
     # depth calculation: 1 + p * n -> 1 + 1 * 2 = 3
-    assert results[0].meta_data.depth == 3
+    assert results[0].meta_data.depth == 3  # noqa: PLR2004
 
 
 @pytest.mark.asyncio
@@ -73,7 +73,7 @@ async def test_vqe_no_params_fallback():
     assert qasm.count("ry(0.1)") == expected_param_count
 
     # Depth check: 1 + 2 * 3 = 7
-    assert results[0].meta_data.depth == 7
+    assert results[0].meta_data.depth == 7  # noqa: PLR2004
 
 
 @pytest.mark.asyncio
