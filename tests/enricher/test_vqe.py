@@ -30,7 +30,7 @@ async def test_vqe_ansatz_generation():
     assert "qubit[2] vqe_reg;" in qasm
 
     assert "@leqo.optimizer ParameterShift" in qasm
-    assert "@leqo.observable \"Z0Z1\"" in qasm
+    assert '@leqo.observable "Z0Z1"' in qasm
 
     # Initial rotation layer
     assert "ry(1.5) vqe_reg[0];" in qasm
@@ -51,7 +51,6 @@ async def test_vqe_ansatz_generation():
 async def test_vqe_no_params_fallback():
     """
     Tests if providing NO parameters generates a fully 0.1 padded circuit.
-    3 Qubits, 2 Layers = 3 * (2+1) = 9 parameters expected.
     """
     node = VQENode(
         id="vqe-2",

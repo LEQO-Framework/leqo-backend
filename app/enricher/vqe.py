@@ -29,7 +29,6 @@ def _get_q(q_reg: Identifier, idx: int) -> IndexedIdentifier:
 
 
 class VQEEnricherStrategy(EnricherStrategy):
-
     @override
     def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
