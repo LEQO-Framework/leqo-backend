@@ -861,6 +861,7 @@ class VQENode(BaseNode):
     """
     Models a Variational Quantum Eigensolver (VQE) node.
     """
+
     type: Literal["vqe"] = "vqe"
 
     numQubits: Annotated[int, Field(gt=0)]
