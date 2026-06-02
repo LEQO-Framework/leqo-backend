@@ -745,7 +745,7 @@ def test_concatenation_alias_translates_to_python_add() -> None:
 
     code = _transpile_qiskit(source)
 
-    assert "both = a + b" in code
+    assert "both = list(a) + list(b)" in code
 
 
 def test_sub_assignment_uses_expr_sub() -> None:
@@ -858,6 +858,51 @@ def test_empty_if_block_emits_pass_to_preserve_indentation() -> None:
     assert "    pass" in code
     assert "with _else:" in code
     assert "qc.x(q)" in code
+
+
+def test_bare_bit_if_condition_is_lifted_to_bool_expression_and_executes() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    qubit[2] q;
+    bit[1] c;
+    bit[1] out;
+    h q[0];
+    c[0] = measure q[0];
+    if (c[0]) {
+        x q[1];
+    } else {
+        z q[1];
+    }
+    out[0] = measure q[1];
+    '''
+
+    code, namespace = _execute_qiskit(source)
+
+    assert "with qc.if_test(expr.lift(c[0]))" in code
+    assert sum(namespace["counts"].values()) == 500
+
+
+def test_bare_bit_while_condition_is_lifted_to_bool_expression_and_executes() -> None:
+    source = '''
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    qubit[1] q;
+    bit[1] c;
+    bit[1] out;
+    x q[0];
+    c[0] = measure q[0];
+    while (c[0]) {
+        x q[0];
+        c[0] = measure q[0];
+    }
+    out[0] = measure q[0];
+    '''
+
+    code, namespace = _execute_qiskit(source)
+
+    assert "with qc.while_loop(expr.lift(c[0]))" in code
+    assert namespace["counts"] == {"0 0": 500}
 
 
 def test_measurement_driven_while_loop_uses_qc_while_loop() -> None:

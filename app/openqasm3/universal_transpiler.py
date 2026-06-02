@@ -338,9 +338,23 @@ class UniversalTranspiler:
         return self.provider.io_declaration(name, io_type, node.type)
 
     def visit_Concatenation(self, node: qast.Concatenation) -> ast.BinOp:
-        lhs = self.visit(node.lhs)
-        rhs = self.visit(node.rhs)
+        lhs = self._as_qubit_sequence(self.visit(node.lhs))
+        rhs = self._as_qubit_sequence(self.visit(node.rhs))
         return ast.BinOp(left=lhs, op=ast.Add(), right=rhs)
+
+    def _as_qubit_sequence(self, value: ast.expr) -> ast.expr:
+        """
+        Wrap a concatenation operand so it can be joined with ``+``.
+
+        OpenQASM ``++`` concatenates qubit registers, but Qiskit does not define
+        ``QuantumRegister + QuantumRegister``. Wrapping each operand in ``list(...)``
+        turns the join into Python list concatenation, yielding a flat, indexable
+        qubit sequence. A nested concatenation already produces such a list, so it
+        is left untouched to avoid a redundant ``list(list(...))``.
+        """
+        if isinstance(value, ast.BinOp) and isinstance(value.op, ast.Add):
+            return value
+        return ast.Call(func=ast.Name(id='list', ctx=ast.Load()), args=[value], keywords=[])
 
     def visit_ArrayLiteral(self, node: qast.ArrayLiteral) -> ast.List:
         return ast.List(elts=[self.visit(value) for value in node.values], ctx=ast.Load())

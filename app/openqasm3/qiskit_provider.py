@@ -134,9 +134,29 @@ class QiskitProvider(BaseSDKProvider):
             keywords=[]
         ))
 
+    def _lower_classical_condition(self, condition: ast.expr) -> ast.expr:
+        """
+        Ensure a branch or loop condition is a valid Qiskit classical condition.
+
+        Comparison and logical operators already lower to ``expr.*`` calls that
+        yield a ``Bool()`` value. A bare classical resource, however, reaches us
+        as a raw ``ast.Subscript`` (e.g. ``c[0]``) or ``ast.Name`` (e.g. ``c``).
+        Qiskit rejects a bare ``Clbit``/register as a condition, so wrap those in
+        ``expr.lift(...)`` to produce the boolean expression Qiskit expects.
+        """
+        if isinstance(condition, (ast.Subscript, ast.Name)):
+            self.used_imports.add("import qiskit.circuit.classical.expr as expr")
+            return ast.Call(
+                func=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr='lift', ctx=ast.Load()),
+                args=[condition],
+                keywords=[],
+            )
+        return condition
+
     def if_block(self, condition: ast.expr, then_body: List[ast.stmt], else_body: Optional[List[ast.stmt]] = None) -> Union[ast.stmt, List[ast.stmt]]:
         self.used_imports.add("import qiskit.circuit.classical.expr as expr")
-        
+        condition = self._lower_classical_condition(condition)
+
         with_item = ast.withitem(
             context_expr=ast.Call(
                 func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='if_test', ctx=ast.Load()),
@@ -158,6 +178,7 @@ class QiskitProvider(BaseSDKProvider):
         return main_if
 
     def while_loop(self, condition: ast.expr, body: List[ast.stmt]) -> ast.stmt:
+        condition = self._lower_classical_condition(condition)
         with_item = ast.withitem(
             context_expr=ast.Call(
                 func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='while_loop', ctx=ast.Load()),
