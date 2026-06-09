@@ -1,0 +1,77 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "Bell State Braket",
+      "description": "Two-qubit Bell-state preparation and measurement for Amazon Braket export.",
+      "author": ""
+    },
+    "compilation_target": "braket",
+    "nodes": [
+      { "id": "q0", "type": "qubit" },
+      { "id": "q1", "type": "qubit" },
+      { "id": "h_q0", "type": "gate", "gate": "h" },
+      { "id": "ent_cx", "type": "gate", "gate": "cnot" },
+      { "id": "m0", "type": "measure", "indices": [0] },
+      { "id": "m1", "type": "measure", "indices": [0] }
+    ],
+    "edges": [
+      { "source": ["q0", 0], "target": ["h_q0", 0] },
+      { "source": ["h_q0", 0], "target": ["ent_cx", 0] },
+      { "source": ["q1", 0], "target": ["ent_cx", 1] },
+      { "source": ["ent_cx", 0], "target": ["m0", 0] },
+      { "source": ["ent_cx", 1], "target": ["m1", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |-
+  from braket.circuits import Circuit
+  from braket.devices import LocalSimulator
+
+  def _leqo_qubit(operand):
+      if isinstance(operand, (list, tuple)) and len(operand) == 1:
+          return operand[0]
+      return operand
+  c = Circuit()
+  leqo_reg = list(range(2))
+  '# Start node q0'
+  leqo_677c62829b2f503e829851dd8911e48a_literal = [leqo_reg[0]]
+  leqo_677c62829b2f503e829851dd8911e48a_out = leqo_677c62829b2f503e829851dd8911e48a_literal
+  '# End node q0'
+  '# Start node q1'
+  leqo_64bc2e5f2880544d8c66cf84e4146b48_literal = [leqo_reg[1]]
+  leqo_64bc2e5f2880544d8c66cf84e4146b48_out = leqo_64bc2e5f2880544d8c66cf84e4146b48_literal
+  '# End node q1'
+  '# Start node h_q0'
+  leqo_53275d3b3708551d8254ff6711182808_q0 = [leqo_reg[0]]
+  c.h(_leqo_qubit(leqo_53275d3b3708551d8254ff6711182808_q0))
+  leqo_53275d3b3708551d8254ff6711182808_q0_out = leqo_53275d3b3708551d8254ff6711182808_q0
+  '# End node h_q0'
+  '# Start node ent_cx'
+  leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q0 = [leqo_reg[0]]
+  leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q1 = [leqo_reg[1]]
+  c.cnot(_leqo_qubit(leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q0), _leqo_qubit(leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q1))
+  leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q0_out = leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q0
+  leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q1_out = leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q1
+  '# End node ent_cx'
+  '# Start node m0'
+  leqo_5f9029b590825673813bc86fde8c5635_q = [leqo_reg[0]]
+  leqo_5f9029b590825673813bc86fde8c5635_result = [0]
+  c.measure(leqo_5f9029b590825673813bc86fde8c5635_q[0])
+  leqo_5f9029b590825673813bc86fde8c5635_out = leqo_5f9029b590825673813bc86fde8c5635_result
+  leqo_5f9029b590825673813bc86fde8c5635_qubit_out = leqo_5f9029b590825673813bc86fde8c5635_q
+  '# End node m0'
+  '# Start node m1'
+  leqo_7b3bc777dca35b37aa766558530831c3_q = [leqo_reg[1]]
+  leqo_7b3bc777dca35b37aa766558530831c3_result = [0]
+  c.measure(leqo_7b3bc777dca35b37aa766558530831c3_q[0])
+  leqo_7b3bc777dca35b37aa766558530831c3_out = leqo_7b3bc777dca35b37aa766558530831c3_result
+  leqo_7b3bc777dca35b37aa766558530831c3_qubit_out = leqo_7b3bc777dca35b37aa766558530831c3_q
+  '# End node m1'
+  ' --- EXECUTION ---'
+  device = LocalSimulator()
+  task = device.run(c, shots=500)
+  counts = task.result().measurement_counts
+  print('Simulation Results (500 shots):', counts)
+  program_inputs = {0: leqo_7b3bc777dca35b37aa766558530831c3_q, 1: leqo_3fedaf0fa4e6573a8c773e5a8bbd4771_q1}
+  program_outputs = {0: leqo_7b3bc777dca35b37aa766558530831c3_out, 1: leqo_7b3bc777dca35b37aa766558530831c3_qubit_out}

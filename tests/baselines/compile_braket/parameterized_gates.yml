@@ -1,0 +1,46 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "Parameterized Gates Braket",
+      "description": "Test parameterized gate translation to Amazon Braket.",
+      "author": ""
+    },
+    "compilation_target": "braket",
+    "nodes": [
+      { "id": "q0", "type": "qubit" },
+      { "id": "gate_rx", "type": "gate-with-param", "gate": "rx", "parameter": 0.5 },
+      { "id": "gate_rz", "type": "gate-with-param", "gate": "rz", "parameter": 1.2 }
+    ],
+    "edges": [
+      { "source": ["q0", 0], "target": ["gate_rx", 0] },
+      { "source": ["gate_rx", 0], "target": ["gate_rz", 0] }
+    ]
+  }
+expected_status: 200
+expected_result: |-
+  from braket.circuits import Circuit
+  from braket.devices import LocalSimulator
+
+  def _leqo_qubit(operand):
+      if isinstance(operand, (list, tuple)) and len(operand) == 1:
+          return operand[0]
+      return operand
+  c = Circuit()
+  leqo_reg = list(range(1))
+  '# Start node q0'
+  leqo_677c62829b2f503e829851dd8911e48a_literal = [leqo_reg[0]]
+  leqo_677c62829b2f503e829851dd8911e48a_out = leqo_677c62829b2f503e829851dd8911e48a_literal
+  '# End node q0'
+  '# Start node gate_rx'
+  leqo_ce47746331755bf8b9ebbbefb43a6b14_q0 = [leqo_reg[0]]
+  c.rx(_leqo_qubit(leqo_ce47746331755bf8b9ebbbefb43a6b14_q0), 0.5)
+  leqo_ce47746331755bf8b9ebbbefb43a6b14_q0_out = leqo_ce47746331755bf8b9ebbbefb43a6b14_q0
+  '# End node gate_rx'
+  '# Start node gate_rz'
+  leqo_b36e84364da85c109a5bbae0f535f1b1_q0 = [leqo_reg[0]]
+  c.rz(_leqo_qubit(leqo_b36e84364da85c109a5bbae0f535f1b1_q0), 1.2)
+  leqo_b36e84364da85c109a5bbae0f535f1b1_q0_out = leqo_b36e84364da85c109a5bbae0f535f1b1_q0
+  '# End node gate_rz'
+  program_inputs = {0: leqo_b36e84364da85c109a5bbae0f535f1b1_q0}
+  program_outputs = {0: leqo_b36e84364da85c109a5bbae0f535f1b1_q0_out}

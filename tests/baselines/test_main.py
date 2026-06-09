@@ -217,6 +217,20 @@ def test_compile_qiskit(test: tuple[str, Baseline], client: TestClient) -> None:
 
 @pytest.mark.parametrize(
     "test",
+    find_files(Baseline, TEST_DIR / "compile_braket"),
+    ids=lambda test: test[0],
+)
+def test_compile_braket(test: tuple[str, Baseline], client: TestClient) -> None:
+    _file, base = test
+    response = handle_endpoints(client, base.request, "/compile")
+
+    assert base.expected_status == response.status_code
+    assert base.expected_result == response.text
+    assert_valid_python_source(response.text)
+
+
+@pytest.mark.parametrize(
+    "test",
     find_files(Baseline, TEST_DIR / "compile_qiskit_errors"),
     ids=lambda test: test[0],
 )
