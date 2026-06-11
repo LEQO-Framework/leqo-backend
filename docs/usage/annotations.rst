@@ -75,6 +75,22 @@ Annotations can be emulated in openqasm2 by using special comments.
 
 .. _input-anker:
 
+
+
+
+Generated Encode-Value Snippets
+-------------------------------
+
+Some backend enrichments generate OpenQASM snippets from classical values rather than from already existing input qubits.
+Amplitude encoding is one example of this case.
+the amplitude encoding handler accepts a constant classical array, generates a quantum state preparation circuit from this array, and exposes the generated quantum register as an output of the snipet.
+
+In this case, the classical array is not represented as an `@leqo.input` qubit register.
+Instead, it is used by the backend during snippet generation.
+The generated quantum register is marked with `@leqo.output` so that the prepared state can be passed to following nodes in the model.
+
+The amplitude encoding follow the existing annotation model by exposing the prepared register as a linking output.
+
 Input
 -----
 
