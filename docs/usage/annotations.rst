@@ -95,8 +95,8 @@ The amplitude encoding follow the existing annotation model by exposing the prep
 
 
 .. list-table:: Encode-value handlers and generated outputs
-:header-rows: 1
-:widths: 25 35 40
+    :header-rows: 1
+    :widths: 25 35 40
 
 * * Handler
   * Classical input
