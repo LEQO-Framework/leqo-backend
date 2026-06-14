@@ -73,8 +73,6 @@ Annotations can be emulated in openqasm2 by using special comments.
     The `whole line <https://openqasm.com/language/directives.html#annotations#:~:text=continue%20to%20the%20end%20of%20the%20line>`_ will be interpreted like an annotation.
     Therefore you cannot use inline-comments on annotations!
 
-.. _input-anker:
-
 
 
 
@@ -82,17 +80,16 @@ Generated Encode-Value Snippets
 -------------------------------
 
 Some backend enrichments generate OpenQASM snippets from classical values rather than from already existing input qubits.
-Amplitude encoding is one example of this case.
-the amplitude encoding handler accepts a constant classical array, generates a quantum state preparation circuit from this array, and exposes the generated quantum register as an output of the snipet.
+Amplitude encoding and matrix encoding are examples of this case.
+The amplitude encoding handler accepts a constant classical array, generates a quantum state-preparation circuit from this array, and exposes the generated quantum register as an output of the snippet.
+The matrix encoding handler accepts a constant flat array, interprets it as a unitary matrix, generates a corresponding unitary operation, and also exposes the generated quantum register as an output of the snippet.
 
-In this case, the classical array is not represented as an `@leqo.input` qubit register.
+In these cases, the classical array is not represented as an ``@leqo.input`` qubit register.
 Instead, it is used by the backend during snippet generation.
-The generated quantum register is marked with `@leqo.output` so that the prepared state can be passed to following nodes in the model.
+The generated quantum register is marked with ``@leqo.output`` so that the prepared or transformed state can be passed to following nodes in the model.
 
 The encode-value handlers follow the existing annotation model by exposing the generated register as a linking output.
-
-
-
+They do not introduce a separate ancilla-management mechanism or new uncomputation logic.
 
 .. list-table:: Encode-value handlers and generated outputs
    :header-rows: 1
@@ -107,6 +104,8 @@ The encode-value handlers follow the existing annotation model by exposing the g
    * - Matrix encoding
      - Constant flat array interpreted as a unitary matrix
      - Unitary operation generated with Qiskit ``UnitaryGate`` and exposed as ``@leqo.output``
+
+.. _input-anker:
 
 Input
 -----
