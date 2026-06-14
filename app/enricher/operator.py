@@ -129,11 +129,11 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         if not isinstance(node, OperatorNode):
             result = await super()._enrich_impl(node, constraints)
 
-        elif node.operator == "==":
+        elif node.operator in {"==", "!=", "<", ">", "<=", ">="}:
             result = await self._enrich_single_qubit_binary_operator(
                 node,
                 constraints,
-                self._generate_equality_enrichment,
+                self._generate_comparison_enrichment,
             )
 
         elif node.operator == "~":
@@ -397,6 +397,13 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         node: OperatorNode,
         constraints: Constraints,
     ) -> EnrichmentResult:
+        return self._generate_comparison_enrichment(node, constraints)
+
+    def _generate_comparison_enrichment(
+        self,
+        node: OperatorNode,
+        constraints: Constraints,
+    ) -> EnrichmentResult:
         requested_inputs = constraints.requested_inputs
         self._check_constraints(node, requested_inputs)
 
@@ -420,6 +427,13 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
         rhs_ref = self._build_qubit_references(rhs_name, rhs.size, rhs_size)[0]
         result_ref = Identifier(result_name)
 
+        comparison_gates = self._comparison_gates(
+            node.operator,
+            lhs_ref,
+            rhs_ref,
+            result_ref,
+        )
+
         statements: list[Statement] = [
             Include("stdgates.inc"),
             leqo_input(
@@ -438,21 +452,74 @@ class OperatorEnricherStrategy(DataBaseEnricherStrategy):
                 result_ref,
                 IntegerLiteral(1),
             ),
-            QuantumGate(
-                modifiers=[],
-                name=Identifier("x"),
-                arguments=[],
-                qubits=[result_ref],
-                duration=None,
-            ),
-            self._cx_gate(lhs_ref, result_ref),
-            self._cx_gate(rhs_ref, result_ref),
+            *comparison_gates,
             leqo_output("out", 0, result_ref),
         ]
 
         return EnrichmentResult(
             implementation(node, statements),
-            ImplementationMetaData(width=3, depth=3),
+            ImplementationMetaData(width=3, depth=len(comparison_gates)),
+        )
+
+    def _comparison_gates(
+        self,
+        operator: str,
+        lhs_ref: Identifier | IndexedIdentifier,
+        rhs_ref: Identifier | IndexedIdentifier,
+        result_ref: Identifier | IndexedIdentifier,
+    ) -> list[QuantumGate]:
+        if operator == "==":
+            return [
+                self._x_gate(result_ref),
+                self._cx_gate(lhs_ref, result_ref),
+                self._cx_gate(rhs_ref, result_ref),
+            ]
+
+        if operator == "!=":
+            return [
+                self._cx_gate(lhs_ref, result_ref),
+                self._cx_gate(rhs_ref, result_ref),
+            ]
+
+        if operator == "<":
+            return [
+                self._x_gate(lhs_ref),
+                self._ccx_gate(lhs_ref, rhs_ref, result_ref),
+                self._x_gate(lhs_ref),
+            ]
+
+        if operator == ">":
+            return [
+                self._x_gate(rhs_ref),
+                self._ccx_gate(lhs_ref, rhs_ref, result_ref),
+                self._x_gate(rhs_ref),
+            ]
+
+        if operator == "<=":
+            return [
+                self._x_gate(result_ref),
+                self._x_gate(rhs_ref),
+                self._ccx_gate(lhs_ref, rhs_ref, result_ref),
+                self._x_gate(rhs_ref),
+            ]
+
+        if operator == ">=":
+            return [
+                self._x_gate(result_ref),
+                self._x_gate(lhs_ref),
+                self._ccx_gate(lhs_ref, rhs_ref, result_ref),
+                self._x_gate(lhs_ref),
+            ]
+
+        raise ValueError(f"Unsupported comparison operator: {operator}")
+
+    def _x_gate(self, target: Identifier | IndexedIdentifier) -> QuantumGate:
+        return QuantumGate(
+            modifiers=[],
+            name=Identifier("x"),
+            arguments=[],
+            qubits=[target],
+            duration=None,
         )
 
     def _generate_bitwise_not_enrichment(
