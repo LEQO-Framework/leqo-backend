@@ -92,18 +92,18 @@ The encode-value handlers follow the existing annotation model by exposing the g
 They do not introduce a separate ancilla-management mechanism or new uncomputation logic.
 
 .. list-table:: Encode-value handlers and generated outputs
-   :header-rows: 1
-   :widths: 25 35 40
+    :header-rows: 1
+    :widths: 25 35 40
 
-   * - Handler
-     - Classical input
-     - Generated quantum output
-   * - Amplitude encoding
-     - Constant array interpreted as an amplitude vector
-     - State-preparation circuit generated with Qiskit ``StatePreparation`` and exposed as ``@leqo.output``
-   * - Matrix encoding
-     - Constant flat array interpreted as a unitary matrix
-     - Unitary operation generated with Qiskit ``UnitaryGate`` and exposed as ``@leqo.output``
+    * - Handler
+      - Classical input
+      - Generated quantum output
+    * - Amplitude encoding
+      - Constant array interpreted as an amplitude vector
+      - State-preparation circuit generated with Qiskit `StatePreparation` and exposed as `@leqo.output`
+    * - Matrix encoding
+      - Constant flat array interpreted as a unitary matrix
+      - Unitary operation generated with Qiskit `UnitaryGate` and exposed as `@leqo.output`
 
 .. _input-anker:
 
