@@ -89,25 +89,24 @@ In this case, the classical array is not represented as an `@leqo.input` qubit r
 Instead, it is used by the backend during snippet generation.
 The generated quantum register is marked with `@leqo.output` so that the prepared state can be passed to following nodes in the model.
 
-The amplitude encoding follow the existing annotation model by exposing the prepared register as a linking output.
+The encode-value handlers follow the existing annotation model by exposing the generated register as a linking output.
 
 
 
 
 .. list-table:: Encode-value handlers and generated outputs
-    :header-rows: 1
-    :widths: 25 35 40
+   :header-rows: 1
+   :widths: 25 35 40
 
-* * Handler
-  * Classical input
-  * Generated quantum output
-* * Amplitude encoding
-  * Constant array interpreted as an amplitude vector
-  * State-preparation circuit generated with Qiskit `StatePreparation` and exposed as `@leqo.output`
-* * Matrix encoding
-  * Constant flat array interpreted as a unitary matrix
-  * Unitary operation generated with Qiskit `UnitaryGate` and exposed as `@leqo.output`
-
+   * - Handler
+     - Classical input
+     - Generated quantum output
+   * - Amplitude encoding
+     - Constant array interpreted as an amplitude vector
+     - State-preparation circuit generated with Qiskit ``StatePreparation`` and exposed as ``@leqo.output``
+   * - Matrix encoding
+     - Constant flat array interpreted as a unitary matrix
+     - Unitary operation generated with Qiskit ``UnitaryGate`` and exposed as ``@leqo.output``
 
 Input
 -----
