@@ -44,9 +44,9 @@ intersphinx_mapping = {
     "sphinx": ("https://www.sphinx-doc.org/en/master/", None),
     "fastapi": ("https://fastapi.tiangolo.com/", None),
     "pydantic": (
-    "https://docs.pydantic.dev/latest/",
-    "https://pydantic.dev/docs/validation/latest/objects.inv",
-),
+        "https://docs.pydantic.dev/latest/",
+        "https://pydantic.dev/docs/validation/latest/objects.inv",
+    ),
 }
 
 intersphinx_disabled_domains = ["std"]
