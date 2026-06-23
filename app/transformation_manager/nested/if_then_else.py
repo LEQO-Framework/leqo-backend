@@ -17,9 +17,10 @@ from openqasm3.parser import parse
 
 from app.enricher import ParsedImplementationNode
 from app.model.CompileRequest import (
+    Edge,
     IfThenElseNode,
 )
-from app.model.data_types import LeqoSupportedType
+from app.model.data_types import LeqoSupportedType, QubitType
 from app.openqasm3.rename import simple_rename
 from app.transformation_manager.frontend_graph import FrontendGraph
 from app.transformation_manager.graph import ProgramGraph, ProgramNode
@@ -74,6 +75,23 @@ async def enrich_if_then_else(
     endif_front_node = ParsedImplementationNode(
         id=endif_id, implementation=pass_node_impl
     )
+
+    # The frontend modeler cannot draw a node-less qubit pass-through inside a
+    # branch, so an empty or partial arm leaves the then/else qubit outputs
+    # mismatched and merge_if_nodes raises "output of 'then' does not match
+    # with output of 'else'". Fill the missing identity pass-throughs here:
+    # every qubit that enters the if-then-else must also leave through both arms.
+    qubit_ports = {
+        index
+        for index, input_type in requested_inputs.items()
+        if isinstance(input_type, QubitType)
+    }
+    for nested_block in (node.thenBlock, node.elseBlock):
+        routed_out = {e.target[1] for e in nested_block.edges if e.target[0] == node.id}
+        for port in sorted(qubit_ports - routed_out):
+            nested_block.edges.append(
+                Edge(source=(node.id, port), target=(node.id, port))
+            )
 
     for nested_block in (node.thenBlock, node.elseBlock):
         for edge in nested_block.edges:
