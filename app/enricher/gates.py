@@ -46,7 +46,11 @@ from app.openqasm3.stdgates import (
     TwoQubitGate,
     TwoQubitGateWithAngle,
     TwoQubitGateWithParam,
+    TwoQubitGateWithParams,
 )
+
+_CU_PARAMETER_COUNT = 4
+_SINGLE_PARAMETER_COUNT = 1
 
 
 def _validate_constraints(
@@ -111,6 +115,24 @@ def _control_modifiers(control_count: int) -> list[QuantumGateModifier]:
             argument=IntegerLiteral(control_count),
         )
     ]
+
+
+def _parameter_literals(
+    node: ParameterizedGateNode,
+    expected_parameter_count: int,
+) -> list[FloatLiteral]:
+    parameters = getattr(node, "parameters", None)
+
+    if parameters is None:
+        if node.parameter is None:
+            raise GateNotSupported(node)
+
+        parameters = [node.parameter]
+
+    if len(parameters) != expected_parameter_count:
+        raise GateNotSupported(node)
+
+    return [FloatLiteral(parameter) for parameter in parameters]
 
 
 def enrich_gate(
@@ -212,12 +234,20 @@ class GateEnricherStrategy(EnricherStrategy):
 
         if node.gate in get_args(OneQubitGateWithAngle):
             return enrich_gate(
-                node, constraints, node.gate, 1, FloatLiteral(node.parameter)
+                node,
+                constraints,
+                node.gate,
+                1,
+                *_parameter_literals(node, _SINGLE_PARAMETER_COUNT),
             )
 
         if node.gate in get_args(TwoQubitGateWithAngle):
             return enrich_gate(
-                node, constraints, node.gate, 2, FloatLiteral(node.parameter)
+                node,
+                constraints,
+                node.gate,
+                2,
+                *_parameter_literals(node, _SINGLE_PARAMETER_COUNT),
             )
 
         # Gates with generic params are currently handled exactly like gates with angles
@@ -225,7 +255,20 @@ class GateEnricherStrategy(EnricherStrategy):
 
         if node.gate in get_args(TwoQubitGateWithParam):
             return enrich_gate(
-                node, constraints, node.gate, 2, FloatLiteral(node.parameter)
+                node,
+                constraints,
+                node.gate,
+                2,
+                *_parameter_literals(node, _SINGLE_PARAMETER_COUNT),
+            )
+
+        if node.gate in get_args(TwoQubitGateWithParams):
+            return enrich_gate(
+                node,
+                constraints,
+                node.gate,
+                2,
+                *_parameter_literals(node, _CU_PARAMETER_COUNT),
             )
 
         raise GateNotSupported(node)

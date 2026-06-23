@@ -12,4 +12,5 @@ ThreeQubitGate = Literal["ccx", "cswap"]
 
 OneQubitGateWithAngle = Literal["rx", "ry", "rz", "p"]
 TwoQubitGateWithParam = Literal["cp"]
+TwoQubitGateWithParams = Literal["cu"]
 TwoQubitGateWithAngle = Literal["crx", "cry", "crz"]
