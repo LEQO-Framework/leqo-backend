@@ -4,7 +4,7 @@ from openqasm3.ast import AliasStatement, QuantumGate
 from app.enricher import Constraints
 from app.enricher.operator import OperatorEnricherStrategy
 from app.model.CompileRequest import OperatorNode
-from app.model.data_types import QubitType
+from app.model.data_types import FloatType, QubitType
 from app.model.exceptions import (
     InputCountMismatch,
     InputSizeMismatch,
@@ -161,3 +161,24 @@ async def test_dynamic_quantum_binary_bitwise_operators_preserve_signed_annotati
         annotation.keyword == "leqo.twos_complement"
         for annotation in alias_statement.annotations
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operator", ["&", "^", "|"])
+async def test_dynamic_quantum_binary_bitwise_operators_reject_non_qubit_inputs(
+    engine,
+    operator: str,
+) -> None:
+    node = OperatorNode(id="bitwise-node", type="operator", operator=operator)
+    constraints = Constraints(
+        requested_inputs={
+            0: QubitType(size=REGISTER_SIZE),
+            1: FloatType(size=32),
+        },
+        requested_input_values={},
+    )
+
+    strategy = OperatorEnricherStrategy(engine)
+
+    with pytest.raises(InputTypeMismatch):
+        await strategy._enrich_impl(node, constraints)
