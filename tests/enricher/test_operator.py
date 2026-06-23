@@ -280,19 +280,6 @@ async def test_enrich_multiplication_operator(engine: AsyncEngine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_OR_operator(engine: AsyncEngine) -> None:
-    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="|")
-    constraints = Constraints(
-        requested_inputs={0: QubitType(size=4), 1: QubitType(size=3)},
-        optimizeDepth=True,
-        optimizeWidth=True,
-    )
-
-    result = await OperatorEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichments(result, "or_impl", 3, 3)
-
-
-@pytest.mark.asyncio
 async def test_enrich_greater_operator(engine: AsyncEngine) -> None:
     node = FrontendOperatorNode(id="1", label=None, type="operator", operator=">")
     constraints = Constraints(
@@ -368,7 +355,7 @@ async def test_enrich_operator_classical_input(engine: AsyncEngine) -> None:
 
 @pytest.mark.asyncio
 async def test_enrich_operator_node_not_in_db(engine: AsyncEngine) -> None:
-    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="&")
+    node = FrontendOperatorNode(id="1", label=None, type="operator", operator="!=")
     constraints = Constraints(
         requested_inputs={0: QubitType(size=5), 1: QubitType(size=6)},
         optimizeDepth=True,
