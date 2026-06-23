@@ -1,0 +1,10 @@
+# Tooling to run defense_demo.ipynb on top of the leqo backend environment.
+# Install into the env that already has the backend deps (qiskit, openqasm3, numpy):
+#     pip install -r demo/requirements-demo.txt
+ipykernel
+nbclient
+nbconvert
+jupyter_client==8.6.3  # 8.9.x fails on Python 3.13 via a PEP 728 extra_items TypedDict
+matplotlib
+pylatexenc
+qiskit-ibm-runtime  # optional, only for the real-hardware section
