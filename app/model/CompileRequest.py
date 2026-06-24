@@ -914,6 +914,34 @@ class GroverNode(BaseNode):
         return self
 
 
+class VQENode(BaseNode):
+    """
+    Models a Variational Quantum Eigensolver (VQE) node.
+    """
+
+    type: Literal["vqe"] = "vqe"
+
+    numQubits: Annotated[int, Field(gt=0)]
+
+    ansatz: str
+
+    """e.g., "HardwareEfficient", "RyRz" """
+    layers: Annotated[int, Field(gt=0)]
+
+    parameters: str
+    """Comma-separated list of initial theta values """
+
+    observable: str
+    """e.g., "Z0", "Z0Z1" """
+
+    optimizer: str
+    """e.g., "ParameterShift", "COBYLA" """
+
+    outputIdentifier: str = "vqe_reg"
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
 # region ControlFlow
 class NestedBlock(BaseModel):
     """
@@ -1047,6 +1075,7 @@ NestableNode = (
     | GroverDiffuserNode
     | GroverNode
     | PluginNode
+    | VQENode
 )
 
 Node = NestableNode | QubitNode | ControlFlowNode
@@ -1254,6 +1283,7 @@ EnrichableNode = (
     | UniversalOracleNode
     | GroverDiffuserNode
     | GroverNode
+    | VQENode
 )
 
 
