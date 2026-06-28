@@ -30,6 +30,7 @@ from app.model.CompileRequest import (
     OptimizeSettings,
     RepeatNode,
     SingleInsert,
+    EditableNode
 )
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import IntType, LeqoSupportedType
@@ -600,7 +601,7 @@ class WorkflowProcessor(CommonProcessor):
                 qasm=self.result,
             )
         except Exception as e:
-            print("!!! BPMN GENERATION FAILED !!!", repr(e))
+            print("!!! BPMN GENERATION FAILED !!!", repr(e), traceback.format_exc())
             return "", b""
 
         print("Service Task Generation")
