@@ -727,6 +727,21 @@ class FileLiteralNode(BaseNode):
     value: str
     """The url navigating to the file."""
 
+class EditableNode(BaseNode):
+    """
+    Node representing an editable node for domain profiles.
+    """
+    type: Literal["editableNode"] = "editableNode"
+
+    label: str
+    """label of node"""
+
+    propertyValues: dict[str,Any] = {}
+    """Possible properties"""
+
+    mapping: list[list[Any]] = [[]] # is actually a nested list of lists of string
+    """Possible mappings to valid other nodes"""
+
 
 class StringLiteralNode(BaseNode):
     """
