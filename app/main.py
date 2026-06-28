@@ -511,9 +511,14 @@ async def process_compile_request(
                 if original_request is not None
                 else False
             )
+            contains_editableNode = any(
+                getattr(n, 'type', None) == 'editableNode' 
+                for n in original_request.nodes
+            )
             print("Contains placeholder:", contains_placeholder)
             print("Contains plugin:", contains_plugin)
-            if contains_plugin:
+            print("Contains editable node:", contains_editableNode)
+            if contains_plugin or contains_editableNode:
                 qasm = ""
             else:
                 qasm = "" if contains_placeholder else await processor.process()
