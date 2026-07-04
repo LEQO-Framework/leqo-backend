@@ -742,6 +742,8 @@ class EditableNode(BaseNode):
     mapping: list[list[Any]] = [[]] # is actually a nested list of lists of string
     """Possible mappings to valid other nodes"""
 
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
 
 class StringLiteralNode(BaseNode):
     """
@@ -1062,6 +1064,7 @@ NestableNode = (
     | GroverDiffuserNode
     | GroverNode
     | PluginNode
+    | EditableNode
 )
 
 Node = NestableNode | QubitNode | ControlFlowNode

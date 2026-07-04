@@ -645,7 +645,25 @@ async def post_debug_compile(
             print(original_request)
             metadata = getattr(processor, "containsPlaceholder", None)
             print(metadata)
-            qasm = await processor.process()
+            #qasm = await processor.process()
+            contains_plugin = False
+            if original_request is not None and hasattr(original_request, "nodes"):
+                contains_plugin = any(getattr(n, "type", None) == "plugin" for n in original_request.nodes)
+            contains_placeholder = getattr(
+                getattr(original_request, "metadata", None),
+                "containsPlaceholder",
+                False,
+            ) if original_request is not None else False
+            contains_editableNode = any(
+                getattr(n, 'type', None) == 'editableNode' 
+                for n in original_request.nodes
+            )
+            print("Contains placeholder:", contains_placeholder)
+            print("Contains plugin:", contains_plugin)
+            if contains_plugin or contains_placeholder or contains_editableNode:
+                qasm = ""
+            else:
+                qasm = await processor.process()
             workflow_processor = WorkflowProcessor(
                 processor.enricher,
                 processor.frontend_graph,
