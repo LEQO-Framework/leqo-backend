@@ -587,6 +587,16 @@ class WorkflowProcessor(CommonProcessor):
 
         # Generate BPMN XML
         try:
+            print("composite nodes", composite_nodes)
+            print("collapsed_edges_list", collapsed_edges_list)
+            print("metadata", node_metadata)
+            print("start_event_classical_nodes", [
+                    node
+                    for node in nodes_dict.values()
+                    if getattr(node, "type", None) in CLASSICAL_TYPES
+                ])
+            print("original request", self.original_request)
+            print("qasm, self.result", self.result)
             bpmn_xml, all_activities = _implementation_nodes_to_bpmn_xml(
                 "workflow_process",
                 composite_nodes,
@@ -954,6 +964,8 @@ def _implementation_nodes_to_bpmn_xml(
         f"edges={edges}\n"
         f"metadata={metadata}\n"
         f"start_event_classical_nodes={start_event_classical_nodes}\n"
+        f"original request={original_request}\n"
+        f"qasm={qasm}\n"
     )
 
     builder = BpmnBuilder(

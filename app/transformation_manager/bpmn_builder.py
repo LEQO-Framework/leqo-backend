@@ -152,9 +152,7 @@ class BpmnBuilder:
         self.process = ET.SubElement(
             self.defs,
             self.qn(BPMN2_NS, "process"),
-            {
-                process_attrs
-            },
+            process_attrs
         )
 
     def qn(self, ns: str, tag: str) -> str:
@@ -190,21 +188,22 @@ class BpmnBuilder:
 
         # Create Chains
         for start_node in start_nodes:
-            if self.is_agentic_flow:
-                self._process_node(start_node)
-            else:
-                node = self.nodes[start_node]
-                self.containsPlugin = getattr(node, "type", None) == "plugin"
+            node = self.nodes[start_node]
+            self.containsPlugin = getattr(node, "type", None) == "plugin"
 
-                if self.containsPlugin:
-                    print("creating plugin flow")
-                    self._create_plugin_flow(start_node)
-                elif self.containsPlaceholder:
-                    print("creating placeholder flow")
-                    self._create_placeholder_flow(start_node)
-                else:
-                    print("creating nonPlaceholder flow")
-                    self._create_non_placeholder_flow(start_node)
+            if self.containsPlugin:
+                print("creating plugin flow")
+                self._create_plugin_flow(start_node)
+            elif self.containsPlaceholder:
+                print("creating placeholder flow")
+                self._create_placeholder_flow(start_node)
+            elif self.is_agentic_flow:
+                mappings = getattr(node, 'mapping', [])
+                print("agentic flow....")
+                self._create_agentic_flow(start_node, mappings)
+            else:
+                print("creating nonPlaceholder flow")
+                self._create_non_placeholder_flow(start_node)
 
         # Connect chains if there are multiple
         self.connect_chains()
@@ -260,18 +259,19 @@ class BpmnBuilder:
         group_nodes = []
 
         # Iterate through the all nodes in the original request
-        for node in self.original_request.nodes:
-            node_id = node.id
+        nodes = self.original_request.get("nodes", [])
+        for node in nodes:
+            node_id = node.get("id")
 
             # node belongs to target quantum group
             node_meta = self.metadata.get(node_id, {})
             belongs_to_group = node_meta.get("quantum_group") == target_group
 
             # node is editableNode
-            is_editable = node.type == "editableNode"
+            is_editable = node.get("type") == "editableNode"
 
             # node has more than 1 mapping
-            mappings = node.mapping
+            mappings = node.get("mapping", [])
             has_multiple_mappings = isinstance(mappings, list) and len(mappings) > 1
 
             if belongs_to_group and is_editable and has_multiple_mappings:
@@ -740,7 +740,9 @@ class BpmnBuilder:
         ):
         """Creates a sequence flow for agentic chains. Connecting the chains will be separately."""
         chain = self.inserted_chains[start_node]
+        print("chain", chain)
 
+        print("start node", start_node)
         self.chain_heads.append(chain[0])  
         self.chain_ends.append(chain[-1]) #???    
 
@@ -1897,9 +1899,9 @@ class BpmnBuilder:
         inserted_nodes = []
 
         for mm_node in multi_mapping_nodes:
-            mm_node_id = mm_node.id
-            mm_mappings = mm_node.mapping
-            mm_label = mm_node.label
+            mm_node_id = mm_node.get("id")
+            mm_mappings = mm_node.get("mapping", [])
+            mm_label = mm_node.get("label", "")
 
             entry_gw_id = f"Task_{mm_node_id}_gateway_entry"
             agent_task_id = f"Task_{mm_node_id}_AI_Agent"
@@ -1969,7 +1971,7 @@ class BpmnBuilder:
                 agent_task_id,
                 feedback_task_id,
                 satisfaction_gw_id])
-
+            
         self.inserted_chains[start_node] = tuple(inserted_nodes)
 
 
