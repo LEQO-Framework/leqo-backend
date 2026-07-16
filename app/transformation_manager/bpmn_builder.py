@@ -1106,10 +1106,15 @@ class BpmnBuilder:
                 route = "vh"
             elif src.endswith("_gateway_2") and tgt.endswith("_analyze_failed_transf"):
                 route = "vh"
+            elif src.endswith("_gateway_satisfied") and tgt.endswith("_gateway_entry"):
+                route = "up-left-down"
             
             # TODO: Gateways für agentic flow
-
-            add_orthogonal_waypoints(edge, sx, sy, tx, ty, route=route)
+            if self.is_agentic_flow:
+                offset = 80 # bigger up-offset since agentic nodes are bigger
+            else:
+                offset = 40
+            add_orthogonal_waypoints(edge, sx, sy, tx, ty, route=route, up_offset=offset)
 
         print("global diagram created (all flows, incl. cross-chain)")
 
