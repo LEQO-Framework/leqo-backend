@@ -1107,9 +1107,9 @@ class BpmnBuilder:
             elif src.endswith("_gateway_2") and tgt.endswith("_analyze_failed_transf"):
                 route = "vh"
             elif src.endswith("_gateway_satisfied") and tgt.endswith("_gateway_entry"):
-                route = "up-left-down"
+                route = "up-left-down" # for agentic flow
             
-            # TODO: Gateways für agentic flow
+
             if self.is_agentic_flow:
                 offset = 80 # bigger up-offset since agentic nodes are bigger
             else:
@@ -1921,72 +1921,72 @@ class BpmnBuilder:
                 feedback_task_id = f"Task_{mm_node_id}_user_feedback"
                 satisfaction_gw_id = f"Task_{mm_node_id}_gateway_satisfied"
 
-                #mapping_str = ", ".join([m[0] for m in mm_mappings if m])
+                #print("mm_mappings", mm_mappings)
+                shared_mapping_blocks, filtered_mm_mappings = self._find_and_remove_common_mapping_blocks(mm_mappings)
+
 
                 # create elements
-                self._create_exclusive_gateway(entry_gw_id)
-                inserted_nodes.append(entry_gw_id)
-
-                # check if any inner mapping block is shared by all mappings
-                print("mm_mappings", mm_mappings)
-                shared_mapping_blocks, filtered_mm_mappings = self._find_and_remove_common_mapping_blocks(mm_mappings)
-                print("shared_mapping_blocks", shared_mapping_blocks)
-                for s in shared_mapping_blocks:
-                    s_id = f"Task_{mm_node_id}_{s}" 
-                    ET.SubElement(
-                    self.process,
-                    self.qn(BPMN2_NS, "task"),
-                    {"id": s_id, "name": s} 
-                    )
-                    inserted_nodes.append(s_id)
-
-
-
-                # AI Agent process
-                # only if there are mapping blocks that are not present in all mappings (i.e. if an AI agent has to provide a choice)
-                if len(filtered_mm_mappings) > 0:
+                # AI Agent process - exclusive gateway (entry) agentic node, user task (feedback), exclusive gateway (satisfied?)
+                # only if there are multiple mappings (i.e. if an AI agent has to provide a choice)
+                # mapping blocks that are common between all provided mappings do NOT get extracted (outside of the agentic node)
+                if len(mm_mappings) > 1:
+                    # entry gateway
+                    self._create_exclusive_gateway(entry_gw_id)
+                    
+                    # agentic node + its subprocesses
                     self._create_agentic_process(
                         agent_task_id,
                         f"Run {mm_label} - AI Agent",
-                        filtered_mm_mappings,
+                        mm_mappings,
                         mm_node_id
                     )
 
-                # User Feedback (User Task with Camunda 8 form)
-                user_task = ET.SubElement(
-                    self.process,
-                    self.qn(BPMN2_NS, "userTask"),
-                    {"id": feedback_task_id, "name": "User Feedback"},
-                )
-                ext_elements = ET.SubElement(user_task, self.qn(BPMN2_NS, "extensionElements"))
-                ET.SubElement(
-                    ext_elements, 
-                    self.qn(ZEEBE_NS, "userTask"), 
-                    {}
-                )
-                ET.SubElement(
-                    ext_elements, 
-                    self.qn(ZEEBE_NS, "formDefinition"), 
-                    {"formId": "ai-agent-chat-user-feedback"}
-                )
-                user_io_mapping = ET.SubElement(
-                    ext_elements, 
-                    self.qn(ZEEBE_NS, "ioMapping"), 
-                    {}
-                )
-                ET.SubElement(
-                    user_io_mapping,
-                    self.qn(ZEEBE_NS, "input"),
-                    {"source": "=agent.responseText", "target": "responseText"} # evtl = bei source weglassen?
-                )
+                    # User Feedback (User Task with Camunda 8 form)
+                    user_task = ET.SubElement(
+                        self.process,
+                        self.qn(BPMN2_NS, "userTask"),
+                        {"id": feedback_task_id, "name": "User Feedback"},
+                    )
+                    ext_elements = ET.SubElement(user_task, self.qn(BPMN2_NS, "extensionElements"))
+                    ET.SubElement(
+                        ext_elements, 
+                        self.qn(ZEEBE_NS, "userTask"), 
+                        {}
+                    )
+                    ET.SubElement(
+                        ext_elements, 
+                        self.qn(ZEEBE_NS, "formDefinition"), 
+                        {"formId": "ai-agent-chat-user-feedback"}
+                    )
+                    user_io_mapping = ET.SubElement(
+                        ext_elements, 
+                        self.qn(ZEEBE_NS, "ioMapping"), 
+                        {}
+                    )
+                    ET.SubElement(
+                        user_io_mapping,
+                        self.qn(ZEEBE_NS, "input"),
+                        {"source": "=agent.responseText", "target": "responseText"} # evtl = bei source weglassen?
+                    )
 
+                    # exit gateway (satisfied?)
+                    self._create_exclusive_gateway(satisfaction_gw_id, "User satisfied?") 
 
-                self._create_exclusive_gateway(satisfaction_gw_id, "User satisfied?") 
-
-                inserted_nodes.extend([
-                    agent_task_id,
-                    feedback_task_id,
-                    satisfaction_gw_id])
+                    inserted_nodes.extend([
+                        entry_gw_id,
+                        agent_task_id,
+                        feedback_task_id,
+                        satisfaction_gw_id])
+                    
+                elif len(mm_mappings) == 1: # if there is only one mapping, no decision has to be made
+                    for s in mm_mappings[0]:
+                        s_id = f"Task_{mm_node_id}_{s}" 
+                        ET.SubElement(
+                            self.process,
+                            self.qn(BPMN2_NS, "task"),
+                            {"id": s_id, "name": s} 
+                        )
+                        inserted_nodes.append(s_id)
             
         self.inserted_chains[start_node] = tuple(inserted_nodes)
 
@@ -2537,6 +2537,10 @@ class BpmnBuilder:
         Find blocks in mappings of a node that are shared by all mappings, 
         i.e. mapping = [[QAOA, QUBO], [VQE, QUBO]] --> QUBO is common block
         """
+        # common_mapping_blocks = []
+        # filtered_mappings = mappings
+        # # only filter if there is more than one mapping
+        # if len(mappings) > 1:
         # find common elements among all mappings
         common_set = set(mappings[0]).intersection(*mappings[1:])
         common_mapping_blocks = list(common_set)
