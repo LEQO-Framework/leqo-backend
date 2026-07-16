@@ -261,21 +261,23 @@ class BpmnBuilder:
         # Iterate through the all nodes in the original request
         nodes = self.original_request.get("nodes", [])
         for node in nodes:
-            node_id = node.get("id")
+            if node.get("isDataType", True) == False:
+                node_id = node.get("id")
 
-            # node belongs to target quantum group
-            node_meta = self.metadata.get(node_id, {})
-            belongs_to_group = node_meta.get("quantum_group") == target_group
+                # node belongs to target quantum group
+                node_meta = self.metadata.get(node_id, {})
+                belongs_to_group = node_meta.get("quantum_group") == target_group
 
-            # node is editableNode
-            is_editable = node.get("type") == "editableNode"
+                # node is editableNode
+                is_editable = node.get("type") == "editableNode"
 
-            # node has more than 1 mapping
-            mappings = node.get("mapping", [])
-            has_multiple_mappings = isinstance(mappings, list) and len(mappings) > 1
+                # node has more than 1 mapping
+                mappings = node.get("mapping", [])
+                #has_multiple_mappings = isinstance(mappings, list) and len(mappings) > 1
+                has_at_least_one_mapping = isinstance(mappings, list) and len(mappings) > 0
 
-            if belongs_to_group and is_editable and has_multiple_mappings:
-                group_nodes.append(node)
+                if belongs_to_group and is_editable and has_at_least_one_mapping:
+                    group_nodes.append(node)
 
         return group_nodes
 
@@ -743,37 +745,37 @@ class BpmnBuilder:
         print("chain", chain)
 
         print("start node", start_node)
-        self.chain_heads.append(chain[0])  
-        self.chain_ends.append(chain[-1]) #???    
-
-
+        # if there is a chain for this start node, connect it
         flow_map = []
+        if len(chain) > 0:
+            self.chain_heads.append(chain[0])  
+            self.chain_ends.append(chain[-1]) #???    
 
-        if self.chain_level == 0:
-            flow_map.append((self.new_flow(), self.start_id, chain[0]))
+            if self.chain_level == 0:
+                flow_map.append((self.new_flow(), self.start_id, chain[0]))
 
-        entry_gateway_id = ""
-        for i in range(len(chain)-1):
-            flow_map.append((self.new_flow(), chain[i], chain[i+1]))
+            entry_gateway_id = ""
+            for i in range(len(chain)-1):
+                flow_map.append((self.new_flow(), chain[i], chain[i+1]))
 
-            # get current entry gateway
-            if chain[i].endswith("gateway_entry"):
-                entry_gateway_id = chain[i]
+                # get current entry gateway
+                if chain[i].endswith("gateway_entry"):
+                    entry_gateway_id = chain[i]
 
-            # connect satisfied gateway with last entry gateway
-            if chain[i].endswith("gateway_satisfied") and entry_gateway_id is not "":
-                flow_map.append((self.new_flow(), chain[i], entry_gateway_id))
-                entry_gateway_id = ""
+                # connect satisfied gateway with last entry gateway
+                if chain[i].endswith("gateway_satisfied") and entry_gateway_id is not "":
+                    flow_map.append((self.new_flow(), chain[i], entry_gateway_id))
+                    entry_gateway_id = ""
 
-        if chain[i+1].endswith("gateway_satisfied") and entry_gateway_id is not "":
-            flow_map.append((self.new_flow(), chain[i+1], entry_gateway_id))
+            if chain[i+1].endswith("gateway_satisfied") and entry_gateway_id is not "":
+                flow_map.append((self.new_flow(), chain[i+1], entry_gateway_id))
 
 
-        # Create Sequence Flows
-        for fid, src, tgt in flow_map:
-            self._create_sequence_flow(fid, src, tgt)
+            # Create Sequence Flows
+            for fid, src, tgt in flow_map:
+                self._create_sequence_flow(fid, src, tgt)
 
-        print("agentic flow: main edges connected")
+            print("agentic flow: main edges connected")
 
         return flow_map
 
@@ -1516,14 +1518,18 @@ class BpmnBuilder:
         ET.SubElement(
             ext, 
             self.qn(ZEEBE_NS, "adHoc"), 
-            {"outputCollection": "toolCallResults", 
-             "outputElement": "={&#10;  id: toolCall._meta.id,&#10;  name: toolCall._meta.name,&#10;  content: toolCallResult&#10;}"
-            })
+            {
+                "outputCollection": "toolCallResults", 
+                "outputElement": "={&#10;  id: toolCall._meta.id,&#10;  name: toolCall._meta.name,&#10;  content: toolCallResult&#10;}"
+            }
+        )
         ET.SubElement(
             ext,
             self.qn(ZEEBE_NS, "taskDefinition"),
-            {"type": "io.camunda.agenticai:aiagent-job-worker:1",
-             "retries": "3"}
+            {
+                "type": "io.camunda.agenticai:aiagent-job-worker:1",
+                "retries": "3"
+            }
         )
         ioMapping = ET.SubElement(
             ext,
@@ -1564,7 +1570,7 @@ class BpmnBuilder:
             "data.response.includeAgentContext",
         ]
         assert len(input_sources) == len(input_targets)
-        for (src, tgt) in zip(input_sources, input_targets): # TODO zip
+        for (src, tgt) in zip(input_sources, input_targets):
             ET.SubElement(
                 ioMapping,
                 self.qn(ZEEBE_NS, "input"),
@@ -1891,86 +1897,91 @@ class BpmnBuilder:
 
     def _create_chain_agentic(self, start_node: str) -> None:
         """
-        Creates the agentic execution chain for every node in quantum group with multiple mappings
+        Creates the agentic execution chain for every operator node in quantum group
         (Gateway -> AI Agent -> User Feedback -> Satisfaction Gateway (Loop back or Exit)).
         """
-        multi_mapping_nodes = self.get_multi_mapping_nodes(start_node)
+        #multi_mapping_nodes = self.get_multi_mapping_nodes(start_node)
 
         inserted_nodes = []
+        nodes = self.original_request.get("nodes", [])
+        for mm_node in nodes:
+            # only add operator nodes to the chain
+            if mm_node.get("isDataType", True) == False:
+                mm_node_id = mm_node.get("id")
+                mm_mappings = mm_node.get("mapping", [])
+                mm_label = mm_node.get("label", "")
 
-        for mm_node in multi_mapping_nodes:
-            mm_node_id = mm_node.get("id")
-            mm_mappings = mm_node.get("mapping", [])
-            mm_label = mm_node.get("label", "")
+                entry_gw_id = f"Task_{mm_node_id}_gateway_entry"
+                agent_task_id = f"Task_{mm_node_id}_AI_Agent"
+                feedback_task_id = f"Task_{mm_node_id}_user_feedback"
+                satisfaction_gw_id = f"Task_{mm_node_id}_gateway_satisfied"
 
-            entry_gw_id = f"Task_{mm_node_id}_gateway_entry"
-            agent_task_id = f"Task_{mm_node_id}_AI_Agent"
-            feedback_task_id = f"Task_{mm_node_id}_user_feedback"
-            satisfaction_gw_id = f"Task_{mm_node_id}_gateway_satisfied"
+                #mapping_str = ", ".join([m[0] for m in mm_mappings if m])
 
-            #mapping_str = ", ".join([m[0] for m in mm_mappings if m])
+                # create elements
+                self._create_exclusive_gateway(entry_gw_id)
+                inserted_nodes.append(entry_gw_id)
 
-            # create elements
-            self._create_exclusive_gateway(entry_gw_id)
-            inserted_nodes.append(entry_gw_id)
+                # check if any inner mapping block is shared by all mappings
+                print("mm_mappings", mm_mappings)
+                shared_mapping_blocks, filtered_mm_mappings = self._find_and_remove_common_mapping_blocks(mm_mappings)
+                print("shared_mapping_blocks", shared_mapping_blocks)
+                for s in shared_mapping_blocks:
+                    s_id = f"Task_{mm_node_id}_{s}" 
+                    ET.SubElement(
+                    self.process,
+                    self.qn(BPMN2_NS, "task"),
+                    {"id": s_id, "name": s} 
+                    )
+                    inserted_nodes.append(s_id)
 
-            # check if any inner mapping block is shared by all mappings
-            shared_mapping_blocks, filtered_mm_mappings = self._find_and_remove_common_mapping_blocks(mm_mappings)
-            for s in shared_mapping_blocks:
-                s_id = f"Task_{mm_node_id}_{s}" # reicht das als ID?
-                ET.SubElement(
-                   self.process,
-                   self.qn(BPMN2_NS, "task"),
-                   {"id": s_id, "name": s} # bei QUBO eigentlich "Transform into QUBO" als name
+
+
+                # AI Agent process
+                # only if there are mapping blocks that are not present in all mappings (i.e. if an AI agent has to provide a choice)
+                if len(filtered_mm_mappings) > 0:
+                    self._create_agentic_process(
+                        agent_task_id,
+                        f"Run {mm_label} - AI Agent",
+                        filtered_mm_mappings,
+                        mm_node_id
+                    )
+
+                # User Feedback (User Task with Camunda 8 form)
+                user_task = ET.SubElement(
+                    self.process,
+                    self.qn(BPMN2_NS, "userTask"),
+                    {"id": feedback_task_id, "name": "User Feedback"},
                 )
-                inserted_nodes.append(s_id)
+                ext_elements = ET.SubElement(user_task, self.qn(BPMN2_NS, "extensionElements"))
+                ET.SubElement(
+                    ext_elements, 
+                    self.qn(ZEEBE_NS, "userTask"), 
+                    {}
+                )
+                ET.SubElement(
+                    ext_elements, 
+                    self.qn(ZEEBE_NS, "formDefinition"), 
+                    {"formId": "ai-agent-chat-user-feedback"}
+                )
+                user_io_mapping = ET.SubElement(
+                    ext_elements, 
+                    self.qn(ZEEBE_NS, "ioMapping"), 
+                    {}
+                )
+                ET.SubElement(
+                    user_io_mapping,
+                    self.qn(ZEEBE_NS, "input"),
+                    {"source": "=agent.responseText", "target": "responseText"} # evtl = bei source weglassen?
+                )
 
 
+                self._create_exclusive_gateway(satisfaction_gw_id, "User satisfied?") 
 
-            # AI Agent process
-            # eigene funktion
-            self._create_agentic_process(
-                agent_task_id,
-                f"Run {mm_label} - AI Agent",
-                filtered_mm_mappings,
-                mm_node_id
-            )
-
-            # User Feedback (User Task with Camunda 8 form)
-            user_task = ET.SubElement(
-                self.process,
-                self.qn(BPMN2_NS, "userTask"),
-                {"id": feedback_task_id, "name": "User Feedback"},
-            )
-            ext_elements = ET.SubElement(user_task, self.qn(BPMN2_NS, "extensionElements"))
-            ET.SubElement(
-                ext_elements, 
-                self.qn(ZEEBE_NS, "userTask"), 
-                {}
-            )
-            ET.SubElement(
-                ext_elements, 
-                self.qn(ZEEBE_NS, "formDefinition"), 
-                {"formId": "ai-agent-chat-user-feedback"}
-            )
-            user_io_mapping = ET.SubElement(
-                ext_elements, 
-                self.qn(ZEEBE_NS, "ioMapping"), 
-                {}
-            )
-            ET.SubElement(
-                user_io_mapping,
-                self.qn(ZEEBE_NS, "input"),
-                {"source": "=agent.responseText", "target": "responseText"} # evtl = bei source weglassen?
-            )
-
-
-            self._create_exclusive_gateway(satisfaction_gw_id, "User satisfied?") 
-
-            inserted_nodes.extend([
-                agent_task_id,
-                feedback_task_id,
-                satisfaction_gw_id])
+                inserted_nodes.extend([
+                    agent_task_id,
+                    feedback_task_id,
+                    satisfaction_gw_id])
             
         self.inserted_chains[start_node] = tuple(inserted_nodes)
 
@@ -2516,10 +2527,10 @@ class BpmnBuilder:
 
         return prefix + body + "\n" + suffix
 
-    def _find_and_remove_common_mapping_blocks(self, mappings: str):
+    def _find_and_remove_common_mapping_blocks(self, mappings: str[[]]):
         """
         Find blocks in mappings of a node that are shared by all mappings, 
-        i.e. mapping = [[QAOA, QUBO], [QUBO, VQE]] --> QUBO is common block
+        i.e. mapping = [[QAOA, QUBO], [VQE, QUBO]] --> QUBO is common block
         """
         # find common elements among all mappings
         common_set = set(mappings[0]).intersection(*mappings[1:])
