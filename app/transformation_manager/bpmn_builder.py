@@ -958,10 +958,15 @@ class BpmnBuilder:
         diagram = ET.SubElement(
             self.defs, self.qn(BPMNDI_NS, "BPMNDiagram"), {"id": "BPMNDiagram_1"}
         )
+        # determine process suffix
+        if self.containsPlaceholder:
+            suffix = "contains_placeholder"
+        else:
+            suffix = "no_placeholder"
         plane = ET.SubElement(
             diagram,
             self.qn(BPMNDI_NS, "BPMNPlane"),
-            {"id": "BPMNPlane_1", "bpmnElement": f"Process_{self.process_id}"},
+            {"id": "BPMNPlane_1", "bpmnElement": f"Process_{self.process_id}_{suffix}"},
         )
 
         # Put together all positions
