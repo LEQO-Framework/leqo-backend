@@ -1,6 +1,7 @@
 import pytest
 
 from app.enricher import Constraints
+from app.enricher.exceptions import GateNotSupported
 from app.enricher.gates import GateEnricherStrategy, enrich_gate
 from app.model.CompileRequest import GateNode, ParameterizedGateNode
 from app.model.data_types import IntType, QubitType
@@ -330,3 +331,56 @@ def test_controlled_parameterized_gate_is_mapped_to_qasm() -> None:
         let q1_out = q1;
         """,
     )
+
+
+def test_supported_cu_gate_is_mapped_to_qasm() -> None:
+    node = ParameterizedGateNode(
+        id="nodeId",
+        gate="cu",
+        parameters=[0.1, 0.2, 0.3, 0.4],
+    )
+    constraints = Constraints(
+        requested_inputs={0: QubitType(3), 1: QubitType(3)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    result = (
+        GateEnricherStrategy()
+        ._enrich_parameterized_gate(node, constraints)
+        .enriched_node
+    )
+
+    assert_enrichment(
+        result,
+        "nodeId",
+        """\
+        OPENQASM 3.1;
+        include "stdgates.inc";
+        @leqo.input 0
+        qubit[3] q0;
+        @leqo.input 1
+        qubit[3] q1;
+        cu(0.1, 0.2, 0.3, 0.4) q0, q1;
+        @leqo.output 0
+        let q0_out = q0;
+        @leqo.output 1
+        let q1_out = q1;
+        """,
+    )
+
+
+def test_cu_gate_rejects_wrong_parameter_count() -> None:
+    node = ParameterizedGateNode(
+        id="nodeId",
+        gate="cu",
+        parameters=[0.1, 0.2, 0.3],
+    )
+    constraints = Constraints(
+        requested_inputs={0: QubitType(3), 1: QubitType(3)},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    with pytest.raises(GateNotSupported):
+        GateEnricherStrategy()._enrich_parameterized_gate(node, constraints)

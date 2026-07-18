@@ -2,11 +2,13 @@ import math
 from typing import override
 
 from openqasm3.ast import (
+    GateModifierName,
     Identifier,
     Include,
     IndexedIdentifier,
     IntegerLiteral,
     QuantumGate,
+    QuantumGateModifier,
     QubitDeclaration,
     Statement,
 )
@@ -20,6 +22,8 @@ from app.enricher import (
 from app.enricher.utils import implementation, leqo_output
 from app.model.CompileRequest import GroverNode
 from app.model.CompileRequest import Node as FrontendNode
+
+MAX_STANDARD_CONTROLS = 2
 
 
 class GroverAlgorithmEnricherStrategy(EnricherStrategy):
@@ -52,6 +56,21 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
         target_idx = [all_qubits[-1]]
         controls = all_qubits[:-1]
 
+        # mcx replacement
+        if len(controls) == 1:
+            gate_name = "cx"
+            gate_modifiers = []
+        elif len(controls) == MAX_STANDARD_CONTROLS:
+            gate_name = "ccx"
+            gate_modifiers = []
+        else:
+            gate_name = "x"
+            gate_modifiers = [
+                QuantumGateModifier(
+                    GateModifierName.ctrl, IntegerLiteral(len(controls))
+                )
+            ]
+
         # STEP 1: Initialization
         statements.extend(
             [
@@ -70,7 +89,7 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
         for _ in range(iterations):
             # --- 2A. The Universal Oracle (Phase Mode) ---
             for target_val in node.targetStates:
-                bin_str = format(target_val, f"0{n}b")
+                bin_str = format(target_val, f"0{n}b")[::-1]
 
                 # Apply X to '0' bits
                 statements.extend(
@@ -98,8 +117,8 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
                             duration=None,
                         ),
                         QuantumGate(
-                            modifiers=[],
-                            name=Identifier("mcx"),
+                            modifiers=gate_modifiers,
+                            name=Identifier(gate_name),
                             arguments=[],
                             qubits=[*controls, *target_idx],
                             duration=None,
@@ -164,8 +183,8 @@ class GroverAlgorithmEnricherStrategy(EnricherStrategy):
                         duration=None,
                     ),
                     QuantumGate(
-                        modifiers=[],
-                        name=Identifier("mcx"),
+                        modifiers=gate_modifiers,
+                        name=Identifier(gate_name),
                         arguments=[],
                         qubits=[*controls, *target_idx],
                         duration=None,

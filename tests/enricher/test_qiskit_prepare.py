@@ -2,6 +2,7 @@ import pytest
 from openqasm3.ast import AliasStatement, Program
 
 from app.enricher import Constraints
+from app.enricher.exceptions import QuantumStateNotSupported
 from app.enricher.qiskit_prepare import HAS_QISKIT, QiskitPrepareStateEnricherStrategy
 from app.model.CompileRequest import PrepareStateNode
 
@@ -40,14 +41,28 @@ async def test_qiskit_strategy_skips_when_library_missing(
 
 @pytest.mark.asyncio
 @pytest.mark.skipif(not HAS_QISKIT, reason="Qiskit >=2 is not available")
-async def test_qiskit_strategy_generates_program() -> None:
+@pytest.mark.parametrize(
+    ("quantum_state", "size"),
+    [
+        ("ϕ+", 2),
+        ("ϕ-", 2),
+        ("ψ+", 2),
+        ("ψ-", 2),
+        ("ghz", 3),
+        ("w", 3),
+    ],
+)
+async def test_qiskit_strategy_generates_program_for_supported_states(
+    quantum_state: str,
+    size: int,
+) -> None:
     strategy = QiskitPrepareStateEnricherStrategy()
     node = PrepareStateNode(
-        id="test",
+        id=f"prepare-{quantum_state}",
         label=None,
         type="prepare",
-        quantumState="ghz",
-        size=3,
+        quantumState=quantum_state,
+        size=size,
     )
     constraints = Constraints(
         requested_inputs={},
@@ -59,8 +74,9 @@ async def test_qiskit_strategy_generates_program() -> None:
 
     results = list(enrichment_results)
     assert len(results) == 1
+
     result = results[0]
-    assert result.meta_data.width == node.size
+    assert result.meta_data.width == size
     assert result.meta_data.depth is None or result.meta_data.depth > 0
 
     program = result.enriched_node.implementation
@@ -68,7 +84,40 @@ async def test_qiskit_strategy_generates_program() -> None:
 
     alias_statement = program.statements[-1]
     assert isinstance(alias_statement, AliasStatement)
+
     annotation_keywords = [
         annotation.keyword for annotation in alias_statement.annotations
     ]
     assert "leqo.output" in annotation_keywords
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not HAS_QISKIT, reason="Qiskit >=2 is not available")
+@pytest.mark.parametrize(
+    ("quantum_state", "size"),
+    [
+        ("ϕ+", 3),
+        ("ghz", 1),
+        ("w", 1),
+    ],
+)
+async def test_qiskit_strategy_rejects_invalid_prepare_state_sizes(
+    quantum_state: str,
+    size: int,
+) -> None:
+    strategy = QiskitPrepareStateEnricherStrategy()
+    node = PrepareStateNode(
+        id=f"invalid-{quantum_state}",
+        label=None,
+        type="prepare",
+        quantumState=quantum_state,
+        size=size,
+    )
+    constraints = Constraints(
+        requested_inputs={},
+        optimizeWidth=False,
+        optimizeDepth=False,
+    )
+
+    with pytest.raises(QuantumStateNotSupported):
+        await strategy.enrich(node, constraints)

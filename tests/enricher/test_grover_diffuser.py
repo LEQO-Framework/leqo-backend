@@ -22,7 +22,7 @@ async def test_grover_diffuser():
         "x query[0];\n"
         "x query[1];\n"
         "h query[1];\n"
-        "mcx query[0], query[1];\n"
+        "cx query[0], query[1];\n"
         "h query[1];\n"
         "x query[0];\n"
         "x query[1];\n"
