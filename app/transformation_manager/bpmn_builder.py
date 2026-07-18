@@ -198,9 +198,8 @@ class BpmnBuilder:
                 print("creating placeholder flow")
                 self._create_placeholder_flow(start_node)
             elif self.is_agentic_flow:
-                mappings = getattr(node, 'mapping', [])
-                print("agentic flow....")
-                self._create_agentic_flow(start_node, mappings)
+                print("creating agentic flow")
+                self._create_agentic_flow(start_node)
             else:
                 print("creating nonPlaceholder flow")
                 self._create_non_placeholder_flow(start_node)
@@ -285,12 +284,8 @@ class BpmnBuilder:
         """Process node to create specialized agentic flow containing"""
         node = self.nodes[node_id] # todo gesamte quantum group durchgehen, nicht nur startnode
 
-        node_type = getattr(node, 'type', None)
-
-        mappings = getattr(node, 'mapping', [])
-
         print("agentic flow....")
-        self._create_agentic_flow(node_id, mappings)
+        self._create_agentic_flow(node_id)
 
 
     def indent(self, elem, level=0):
@@ -358,7 +353,7 @@ class BpmnBuilder:
 
         self.chain_level += 1
     
-    def _create_agentic_flow(self, start_node: str, mappings: list[list[str]]) -> None:
+    def _create_agentic_flow(self, start_node: str) -> None:
         """
         Creates agentic flow for editable nodes with multiple mappings.
         """
@@ -763,11 +758,11 @@ class BpmnBuilder:
                     entry_gateway_id = chain[i]
 
                 # connect satisfied gateway with last entry gateway
-                if chain[i].endswith("gateway_satisfied") and entry_gateway_id is not "":
+                if chain[i].endswith("gateway_satisfied") and entry_gateway_id != "":
                     flow_map.append((self.new_flow(), chain[i], entry_gateway_id))
                     entry_gateway_id = ""
 
-            if chain[i+1].endswith("gateway_satisfied") and entry_gateway_id is not "":
+            if chain[i+1].endswith("gateway_satisfied") and entry_gateway_id != "":
                 flow_map.append((self.new_flow(), chain[i+1], entry_gateway_id))
 
 
@@ -1141,6 +1136,7 @@ class BpmnBuilder:
             )
 
         for node_id in self.sub_processes.keys():
+            print("subprocess node_id", node_id)
             diagram = ET.SubElement(
                 self.defs, self.qn(BPMNDI_NS, "BPMNDiagram"), {"id": f"BPMNDiagram_1_{node_id}"}
             )
@@ -1906,39 +1902,45 @@ class BpmnBuilder:
         (Gateway -> AI Agent -> User Feedback -> Satisfaction Gateway (Loop back or Exit)).
         """
         #multi_mapping_nodes = self.get_multi_mapping_nodes(start_node)
-
+        print("------ start node -----", start_node)
         inserted_nodes = []
         nodes = self.original_request.get("nodes", [])
-        for mm_node in nodes:
-            # only add operator nodes to the chain
-            if mm_node.get("isDataType", True) == False:
-                mm_node_id = mm_node.get("id")
-                mm_mappings = mm_node.get("mapping", [])
-                mm_label = mm_node.get("label", "")
+        metadata = self.metadata
+        for node in nodes:
+            node_id = node.get("id")
+            node_quantum_group = metadata.get(node_id).get("quantum_group")
+            print("-------------------")
+            print("node_id", node_id)
+            print("quantum group", node_quantum_group)
+            # only add operator nodes to the chain + nodes of the correct quantum group
+            if node.get("isDataType", True) == False and node_quantum_group == start_node:
+                mappings = node.get("mapping", [])
+                label = node.get("label", "")
+                print("node_id", node_id)
 
-                entry_gw_id = f"Task_{mm_node_id}_gateway_entry"
-                agent_task_id = f"Task_{mm_node_id}_AI_Agent"
-                feedback_task_id = f"Task_{mm_node_id}_user_feedback"
-                satisfaction_gw_id = f"Task_{mm_node_id}_gateway_satisfied"
+                entry_gw_id = f"Task_{node_id}_gateway_entry"
+                agent_task_id = f"Task_{node_id}_AI_Agent"
+                feedback_task_id = f"Task_{node_id}_user_feedback"
+                satisfaction_gw_id = f"Task_{node_id}_gateway_satisfied"
 
                 #print("mm_mappings", mm_mappings)
-                shared_mapping_blocks, filtered_mm_mappings = self._find_and_remove_common_mapping_blocks(mm_mappings)
+                shared_mapping_blocks, filtered_mm_mappings = self._find_and_remove_common_mapping_blocks(mappings)
 
 
                 # create elements
                 # AI Agent process - exclusive gateway (entry) agentic node, user task (feedback), exclusive gateway (satisfied?)
                 # only if there are multiple mappings (i.e. if an AI agent has to provide a choice)
                 # mapping blocks that are common between all provided mappings do NOT get extracted (outside of the agentic node)
-                if len(mm_mappings) > 1:
+                if len(mappings) > 1:
                     # entry gateway
                     self._create_exclusive_gateway(entry_gw_id)
                     
                     # agentic node + its subprocesses
                     self._create_agentic_process(
                         agent_task_id,
-                        f"Run {mm_label} - AI Agent",
-                        mm_mappings,
-                        mm_node_id
+                        f"Run {label} - AI Agent",
+                        mappings,
+                        node_id
                     )
 
                     # User Feedback (User Task with Camunda 8 form)
@@ -1978,16 +1980,18 @@ class BpmnBuilder:
                         feedback_task_id,
                         satisfaction_gw_id])
                     
-                elif len(mm_mappings) == 1: # if there is only one mapping, no decision has to be made
-                    for s in mm_mappings[0]:
-                        s_id = f"Task_{mm_node_id}_{s}" 
+                # remove elif-case if such operator nodes should be ignored  
+                elif len(mappings) == 1: # if there is only one mapping, no decision has to be made
+                    for s in mappings[0]:
+                        s_new = s.replace(' ', '_')
+                        s_id = f"Task_{node_id}_{s_new}" 
                         ET.SubElement(
                             self.process,
                             self.qn(BPMN2_NS, "task"),
                             {"id": s_id, "name": s} 
                         )
                         inserted_nodes.append(s_id)
-            
+                print("inserted nodes", inserted_nodes)
         self.inserted_chains[start_node] = tuple(inserted_nodes)
 
 
@@ -2557,10 +2561,14 @@ class BpmnBuilder:
         """
         Create subprocess of mapping block(s) inside agentic block
         """
+        # unique suffix for each mapping to ensure unique task IDs 
+        # (problem if multiple mappings share mappings blocks, since node_id and block name remain the same)
+        mapping_uuid = uuid.uuid4().hex[:6]
         label = "_".join(mapping_blocks)
-        mapping_task_id = f"Task_{node_id}_{label}"
-        mapping_start_id = f"Start_{node_id}_{label}"
-        mapping_end_id = f"End_{node_id}_{label}"
+        mapping_task_id = f"Task_{node_id}_{mapping_uuid}_{label}"
+        mapping_start_id = f"Start_{node_id}_{mapping_uuid}_{label}"
+        mapping_end_id = f"End_{node_id}_{mapping_uuid}_{label}"
+
         ######## chain of elements #########
         sub_process = ET.SubElement(
             parent_process,
@@ -2582,12 +2590,14 @@ class BpmnBuilder:
         )
         chain = [mapping_start_id]
         for block in mapping_blocks:
+            block_name = block.replace(' ', '_')
+            task_id = f"Service_Task_{node_id}_{mapping_uuid}_{block_name}"
             service_task = ET.SubElement(
                 sub_process,
                 self.qn(BPMN2_NS, "serviceTask"),
-                {"id": f"Service_Task_{node_id}_{block}", "name": block}
+                {"id": task_id, "name": block}
             )
-            chain.append(f"Service_Task_{node_id}_{block}")
+            chain.append(task_id)
             # extesion elmenets
             ext = ET.SubElement(
                 service_task,
@@ -2605,7 +2615,7 @@ class BpmnBuilder:
             )
             input_sources = [
                 "POST",
-                f"=http://host.docker.internal:5000/{block.lower()}",
+                f"=http://host.docker.internal:5000/{block.lower()}", #block or block_name? 
                 "noAuth",
                 inputs,
                 "20",
@@ -2641,15 +2651,15 @@ class BpmnBuilder:
                     {"key": k, "value": v}
                 )
         chain.append(mapping_end_id)
-        self.sub_processes[f"Task_{node_id}_{label}"] = tuple(chain)
+        self.sub_processes[mapping_task_id] = tuple(chain)
 
         # layout
-        positions = self._calculate_subprocess_layout(f"Task_{node_id}_{label}")
-        self.task_positions_per_node_per_subprocess[f"Task_{node_id}_{label}"] = positions
+        positions = self._calculate_subprocess_layout(mapping_task_id)
+        self.task_positions_per_node_per_subprocess[mapping_task_id] = positions
 
         # connect 
-        flow_map = self._connect_mapping_subprocess_flow(f"Task_{node_id}_{label}")
-        self.flow_map_per_subprocess[f"Task_{node_id}_{label}"] = flow_map
+        flow_map = self._connect_mapping_subprocess_flow(mapping_task_id)
+        self.flow_map_per_subprocess[mapping_task_id] = flow_map
 
     def _connect_mapping_subprocess_flow(
             self,
