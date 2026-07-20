@@ -45,6 +45,7 @@ from app.enricher.universal_oracles import (
     GroverDiffuserEnricherStrategy,
     UniversalOracleEnricherStrategy,
 )
+from app.enricher.vqe import VQEEnricherStrategy
 from app.model.database_model import Base
 from app.utils import not_none
 
@@ -118,6 +119,7 @@ def get_enricher(engine: Annotated[AsyncEngine, Depends(get_db_engine)]) -> Enri
         UniversalOracleEnricherStrategy(),
         GroverDiffuserEnricherStrategy(),
         GroverAlgorithmEnricherStrategy(),
+        VQEEnricherStrategy(),
     ]
     if HAS_QISKIT:
         strategies.append(QiskitPrepareStateEnricherStrategy())
