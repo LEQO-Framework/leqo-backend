@@ -78,10 +78,7 @@ class BpmnBuilder:
         self.chain_heads = []
         self.chain_ends = []
 
-        self.is_agentic_flow = any(
-            getattr(n, 'type', None) == 'editableNode' 
-            for n in nodes.values()
-        )
+        self.is_agentic_flow = False
 
         self._register_namespaces()
         self._init_xml()
@@ -122,6 +119,10 @@ class BpmnBuilder:
         if self.placeholder_values:
             self.containsPlaceholder = True
         print("containsPlaceholder: ", self.containsPlaceholder)
+
+        self.editableOperatorNodes = self.extract_editable_operators_with_multiple_mappings()
+        if self.editableOperatorNodes:
+            self.is_agentic_flow = True
 
         if self.containsPlaceholder:
             suffix = "contains_placeholder"
@@ -279,13 +280,6 @@ class BpmnBuilder:
                     group_nodes.append(node)
 
         return group_nodes
-
-    def _process_node(self, node_id: str):
-        """Process node to create specialized agentic flow containing"""
-        node = self.nodes[node_id] # todo gesamte quantum group durchgehen, nicht nur startnode
-
-        print("agentic flow....")
-        self._create_agentic_flow(node_id)
 
 
     def indent(self, elem, level=0):
@@ -1986,16 +1980,16 @@ class BpmnBuilder:
                         satisfaction_gw_id])
                     
                 # remove elif-case if such operator nodes should be ignored  
-                elif len(mappings) == 1: # if there is only one mapping, no decision has to be made
-                    for s in mappings[0]:
-                        s_new = s.replace(' ', '_')
-                        s_id = f"Task_{node_id}_{s_new}" 
-                        ET.SubElement(
-                            self.process,
-                            self.qn(BPMN2_NS, "task"),
-                            {"id": s_id, "name": s} 
-                        )
-                        inserted_nodes.append(s_id)
+                # elif len(mappings) == 1: # if there is only one mapping, no decision has to be made
+                #     for s in mappings[0]:
+                #         s_new = s.replace(' ', '_')
+                #         s_id = f"Task_{node_id}_{s_new}" 
+                #         ET.SubElement(
+                #             self.process,
+                #             self.qn(BPMN2_NS, "task"),
+                #             {"id": s_id, "name": s} 
+                #         )
+                #         inserted_nodes.append(s_id)
                 print("inserted nodes", inserted_nodes)
         self.inserted_chains[start_node] = tuple(inserted_nodes)
 
@@ -2460,6 +2454,30 @@ class BpmnBuilder:
                     placeholders.append(key)
 
         return placeholders
+
+    def extract_editable_operators_with_multiple_mappings(self):
+        """Extracts all IDs of editable nodes that are operators with multiple possible mappings."""
+        if not isinstance(self.original_request, dict):
+            raise TypeError(
+                f"model must be dict, got {type(self.original_request).__name__}"
+            )
+
+        nodes = self.original_request.get("nodes", [])
+        if not isinstance(nodes, list):
+            raise TypeError(f"nodes must be list, got {type(nodes).__name__}")
+
+        editable_operators = []
+
+        for i, node in enumerate(nodes):
+            if not isinstance(node, dict):
+                raise TypeError(f"nodes[{i}] must be dict, got {type(node).__name__}")
+            if node.get("type") == "editableNode" and not node.get("isDataType", False):
+                mappings = node.get("mappings", [])
+                if len(mappings) > 1:
+                    editable_operators.append(node.get("id"))
+
+        return editable_operators
+
 
     def get_plugin_param_value(self, plugin_id: str, param_name: str):
         """Gets the value of a plugin input parameter via edge mapping"""
