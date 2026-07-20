@@ -733,7 +733,7 @@ class EditableNode(BaseNode):
     """
     type: Literal["editableNode"] = "editableNode"
 
-    label: str
+    label: str | None = None
     """label of node"""
 
     propertyValues: dict[str,Any] = {}

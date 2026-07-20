@@ -2709,3 +2709,4 @@ class BpmnBuilder:
         print("agentic flow: main edges connected")
 
         return flow_map   
+    
