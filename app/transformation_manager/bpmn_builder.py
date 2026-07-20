@@ -423,21 +423,23 @@ class BpmnBuilder:
         #entry_gw, agent, feedback, sat_gw = self.inserted_chains[node_id]
         i = 0
         agentic_node_has_happened = False
+        base_eid = ""
         for task in self.inserted_chains[node_id]:
             if "_gateway_" in task:
                 y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y) + (BPMN_TASK_HEIGHT - BPMN_GW_HEIGHT)//2
             else:
                 y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y) 
-
             if "AI_Agent" in task:
+                base_eid = task.rsplit("_AI_Agent", 1)[0]
                 positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y-(BPMN_AGENT_HEIGHT-BPMN_TASK_HEIGHT)/2)
                 agentic_node_has_happened = True
             elif agentic_node_has_happened:
-                number_of_sub_processes = len(self.sub_processes.keys())
+                corresponding_sub_process_keys = [k for k in self.sub_processes if k.startswith(base_eid)] # filter correct sub-processes of this AI Agent Task
+                number_of_sub_processes = len(corresponding_sub_process_keys)
                 AGENT_WIDTH = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
                 positions[task] = (x + (i-1) * (BPMN_TASK_WIDTH + BPMN_GAP_X) + AGENT_WIDTH + BPMN_GAP_X, y)
             else:
-                positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y) # evtl. dynamisch, damit es passt (wie groß könnten agentic Knoten werden?)
+                positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y) 
             i += 1
         return positions
 
@@ -454,18 +456,17 @@ class BpmnBuilder:
         #for i in range(number_of_agentic_sub_flows):
         #entry_gw, agent, feedback, sat_gw = self.inserted_chains[node_id]
         i = 0
-        last_task = ""
         for task in self.sub_processes[node_id]:
             # if "AI_Agent" in last_task:
-            #     number_of_sub_processes = len(self.sub_processes.keys())
-            #     width = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
+            #     base_eid = eid.rsplit("_AI_Agent", 1)[0]
+                # corresponding_sub_process_keys = [k for k in self.sub_processes if k.startswith(base_eid)] # filter correct sub-processes of this AI Agent Task
+                # number_of_sub_processes = len(corresponding_sub_process_keys)
             #     positions[task] = (x + (i-1) * (BPMN_TASK_WIDTH + BPMN_GAP_X) + width, y)
             if "Start" in task or "End" in task:
                 positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y + (BPMN_TASK_HEIGHT-BPMN_EVENT_HEIGHT)/2)
             else:
                 positions[task] = (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y) # evtl. dynamisch, damit es passt (wie groß könnten agentic Knoten werden?)
             i += 1
-            last_task = task
         return positions
 
     def _calculate_plugin_layout(
@@ -731,9 +732,7 @@ class BpmnBuilder:
         ):
         """Creates a sequence flow for agentic chains. Connecting the chains will be separately."""
         chain = self.inserted_chains[start_node]
-        print("chain", chain)
 
-        print("start node", start_node)
         # if there is a chain for this start node, connect it
         flow_map = []
         if len(chain) > 0:
@@ -1001,10 +1000,12 @@ class BpmnBuilder:
             elif eid in self.alt_end_event_ids:
                 add_shape(eid, x, y, BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT)
             elif "AI_Agent" in eid:
-                number_of_sub_processes = len(self.sub_processes.keys())
+                base_eid = eid.rsplit("_AI_Agent", 1)[0]
+                corresponding_sub_process_keys = [k for k in self.sub_processes if k.startswith(base_eid)] # filter correct sub-processes of this AI Agent Task
+                number_of_sub_processes = len(corresponding_sub_process_keys)
                 width = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
                 add_shape(eid, x, y, width, BPMN_AGENT_HEIGHT, {"isExpanded": "true"}) # AI Agent Shape
-                for i, sub_process in enumerate(self.sub_processes.keys()):
+                for i, sub_process in enumerate(corresponding_sub_process_keys): 
                     x_sub = x + BPMN_AGENT_WIDTH_BASE/2 + i * (BPMN_TASK_WIDTH + BPMN_AGENT_WIDHT_GAP)
                     y_sub = y + 50
                     add_shape(sub_process, x_sub, y_sub, BPMN_TASK_WIDTH, BPMN_TASK_HEIGHT)
@@ -1040,7 +1041,9 @@ class BpmnBuilder:
                 w, h = BPMN_EVENT_WIDTH, BPMN_EVENT_HEIGHT
             elif "AI_Agent" in eid:
                 h = BPMN_AGENT_HEIGHT
-                number_of_sub_processes = len(self.sub_processes.keys())
+                base_eid = eid.rsplit("_AI_Agent", 1)[0]
+                corresponding_sub_process_keys = [k for k in self.sub_processes if k.startswith(base_eid)] # filter correct sub-processes of this AI Agent Task
+                number_of_sub_processes = len(corresponding_sub_process_keys)
                 w = BPMN_AGENT_WIDTH_BASE + BPMN_AGENT_WIDHT_GAP * (number_of_sub_processes - 1) + BPMN_TASK_WIDTH * number_of_sub_processes
 
             if mode == "bottom":
@@ -1054,6 +1057,7 @@ class BpmnBuilder:
             return x + w // 2, y + h // 2
 
         for fid, src, tgt in all_flows:
+
             edge = ET.SubElement(
                 plane,
                 self.qn(BPMNDI_NS, "BPMNEdge"),
@@ -1108,6 +1112,10 @@ class BpmnBuilder:
                 offset = 80 # bigger up-offset since agentic nodes are bigger
             else:
                 offset = 40
+            if(src.endswith("feedback") or tgt.endswith("feedback")):
+                print("EDGE", fid, src, tgt)
+                print(sx, sy, tx, ty)
+                print(route)
             add_orthogonal_waypoints(edge, sx, sy, tx, ty, route=route, up_offset=offset)
 
         print("global diagram created (all flows, incl. cross-chain)")
@@ -1135,7 +1143,6 @@ class BpmnBuilder:
             )
 
         for node_id in self.sub_processes.keys():
-            print("subprocess node_id", node_id)
             diagram = ET.SubElement(
                 self.defs, self.qn(BPMNDI_NS, "BPMNDiagram"), {"id": f"BPMNDiagram_1_{node_id}"}
             )
@@ -1602,7 +1609,8 @@ class BpmnBuilder:
         # one for each QAOA and VQE
 
         inputs = self.get_inputs_from_model(node_id)
-        for mapping_block in mapping:   
+        for mapping_block in mapping:  
+            print("mapping block", mapping_block) 
             self._create_mapping_subprocess(adhocSubProcess, node_id, mapping_block, inputs) 
 
     def get_inputs_from_model(self, node_id: str):
@@ -1901,21 +1909,18 @@ class BpmnBuilder:
         (Gateway -> AI Agent -> User Feedback -> Satisfaction Gateway (Loop back or Exit)).
         """
         #multi_mapping_nodes = self.get_multi_mapping_nodes(start_node)
-        print("------ start node -----", start_node)
         inserted_nodes = []
         nodes = self.original_request.get("nodes", [])
         metadata = self.metadata
         for node in nodes:
             node_id = node.get("id")
             node_quantum_group = metadata.get(node_id).get("quantum_group")
-            print("-------------------")
-            print("node_id", node_id)
-            print("quantum group", node_quantum_group)
             # only add operator nodes to the chain + nodes of the correct quantum group
             if node.get("isDataType", True) == False and node_quantum_group == start_node:
                 mappings = node.get("mapping", [])
                 label = node.get("label", "")
                 print("node_id", node_id)
+                print("mappings", mappings)
 
                 entry_gw_id = f"Task_{node_id}_gateway_entry"
                 agent_task_id = f"Task_{node_id}_AI_Agent"
@@ -2350,7 +2355,8 @@ class BpmnBuilder:
                 self.qn(BPMN2_NS, "sequenceFlow"),
                 {"id": fid, "sourceRef": src_el_id, "targetRef": tgt_el_id, "name": "no"},
             )
-        elif "_satisfied" in src and "End" in tgt:
+        #elif "_satisfied" in src and "End" in tgt:
+        elif "_satisfied" in src:
             sf = ET.SubElement(
                 parent_process,
                 self.qn(BPMN2_NS, "sequenceFlow"),
@@ -2467,12 +2473,11 @@ class BpmnBuilder:
             raise TypeError(f"nodes must be list, got {type(nodes).__name__}")
 
         editable_operators = []
-
         for i, node in enumerate(nodes):
             if not isinstance(node, dict):
                 raise TypeError(f"nodes[{i}] must be dict, got {type(node).__name__}")
             if node.get("type") == "editableNode" and not node.get("isDataType", False):
-                mappings = node.get("mappings", [])
+                mappings = node.get("mapping", [])
                 if len(mappings) > 1:
                     editable_operators.append(node.get("id"))
 
