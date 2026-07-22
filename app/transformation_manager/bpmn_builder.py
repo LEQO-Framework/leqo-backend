@@ -2386,8 +2386,11 @@ class BpmnBuilder:
             if src_el.tag != self.qn(BPMN2_NS, "endEvent"):
                 ET.SubElement(src_el, self.qn(BPMN2_NS, "outgoing")).text = fid
                 self._fix_incoming_outgoing_order(src_el)
-
-        if "_satisfied" in src and "_entry" in tgt:
+        annotation = "yes"
+        src_task_id = src.split("_gateway")[0]
+        if src_task_id in tgt:
+            annotation = "no"
+        if "_satisfied" in src:
             sf = ET.SubElement(
                 parent_process,
                 self.qn(BPMN2_NS, "sequenceFlow"),
@@ -2395,19 +2398,7 @@ class BpmnBuilder:
                     "id": fid,
                     "sourceRef": src_el_id,
                     "targetRef": tgt_el_id,
-                    "name": "no",
-                },
-            )
-        # elif "_satisfied" in src and "End" in tgt:
-        elif "_satisfied" in src:
-            sf = ET.SubElement(
-                parent_process,
-                self.qn(BPMN2_NS, "sequenceFlow"),
-                {
-                    "id": fid,
-                    "sourceRef": src_el_id,
-                    "targetRef": tgt_el_id,
-                    "name": "yes",
+                    "name": annotation,
                 },
             )
         else:
