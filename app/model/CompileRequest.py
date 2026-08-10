@@ -728,6 +728,28 @@ class FileLiteralNode(BaseNode):
     """The url navigating to the file."""
 
 
+class EditableNode(BaseNode):
+    """
+    Node representing an editable node for domain profiles.
+    """
+
+    type: Literal["editableNode"] = "editableNode"
+
+    label: str | None = None
+    """label of node"""
+
+    propertyValues: dict[str, Any] = {}
+    """Possible properties"""
+
+    mapping: list[list[Any]] = [[]]  # is actually a nested list of lists of string
+    """Possible mappings to valid other nodes"""
+
+    isDataType: bool = True
+    """true if node is a data type, false if it is an operator node"""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
 class StringLiteralNode(BaseNode):
     """
     Node representing a string literal.
@@ -1075,6 +1097,7 @@ NestableNode = (
     | GroverDiffuserNode
     | GroverNode
     | PluginNode
+    | EditableNode
     | VQENode
 )
 
