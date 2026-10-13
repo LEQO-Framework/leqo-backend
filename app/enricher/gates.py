@@ -42,6 +42,7 @@ from app.model.exceptions import (
 from app.openqasm3.stdgates import (
     OneQubitGate,
     OneQubitGateWithAngle,
+    OneQubitGateWithParams,
     ThreeQubitGate,
     TwoQubitGate,
     TwoQubitGateWithAngle,
@@ -51,6 +52,7 @@ from app.openqasm3.stdgates import (
 
 _CU_PARAMETER_COUNT = 4
 _SINGLE_PARAMETER_COUNT = 1
+_U_PARAMETER_COUNTS = {"u2": 2, "u3": 3}
 
 
 def _validate_constraints(
@@ -239,6 +241,15 @@ class GateEnricherStrategy(EnricherStrategy):
                 node.gate,
                 1,
                 *_parameter_literals(node, _SINGLE_PARAMETER_COUNT),
+            )
+
+        if node.gate in get_args(OneQubitGateWithParams):
+            return enrich_gate(
+                node,
+                constraints,
+                node.gate,
+                1,
+                *_parameter_literals(node, _U_PARAMETER_COUNTS[node.gate]),
             )
 
         if node.gate in get_args(TwoQubitGateWithAngle):

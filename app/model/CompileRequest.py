@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.openqasm3.stdgates import (
     OneQubitGate,
     OneQubitGateWithAngle,
+    OneQubitGateWithParams,
     ThreeQubitGate,
     TwoQubitGate,
     TwoQubitGateWithAngle,
@@ -432,6 +433,7 @@ class ParameterizedGateNode(BaseNode):
 
     gate: (
         OneQubitGateWithAngle
+        | OneQubitGateWithParams
         | TwoQubitGateWithParam
         | TwoQubitGateWithAngle
         | TwoQubitGateWithParams
@@ -442,7 +444,9 @@ class ParameterizedGateNode(BaseNode):
     """Single parameter value for one-parameter gates."""
 
     parameters: list[float] | None = None
-    """Parameter values for multi-parameter gates such as cu."""
+    """Ordered angles in radians: u2 [phi, lambda], u3 [theta, phi, lambda],
+    cu [theta, phi, lambda, gamma]. Also accepts [lambda] for u1.
+    """
 
     controlCount: int = Field(default=0, ge=0)
     """Number of control qubits used for controlled gate application."""
