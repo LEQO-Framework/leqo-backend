@@ -58,24 +58,28 @@ expected_result: |
       "id": "newNode0",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n",
+      "language": "openqasm"
     },
     {
       "id": "newNode1",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nh q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nh q0;\n@leqo.output 0\nlet q0_out = q0;\n",
+      "language": "openqasm"
     },
     {
       "id": "newNode2",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[1] q;\nbit[1] result = measure q[{0}];\n@leqo.output 0\nlet out = result;\n@leqo.output 1\nlet qubit_out = q;\n"
+      "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[1] q;\nbit[1] result = measure q[{0}];\n@leqo.output 0\nlet out = result;\n@leqo.output 1\nlet qubit_out = q;\n",
+      "language": "openqasm"
     },
     {
       "id": "newNode4",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nx q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nx q0;\n@leqo.output 0\nlet q0_out = q0;\n",
+      "language": "openqasm"
     }
   ]

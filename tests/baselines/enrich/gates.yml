@@ -46,72 +46,84 @@ expected_result: |
       "id": "q0",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n",
+      "language": "openqasm"
     },
     {
       "id": "q1",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n",
+      "language": "openqasm"
     },
     {
       "id": "q2",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n",
+      "language": "openqasm"
     },
     {
       "id": "gate_h",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nh q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nh q0;\n@leqo.output 0\nlet q0_out = q0;\n",
+      "language": "openqasm"
     },
     {
       "id": "gate_rx",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nrx(0.1) q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nrx(0.1) q0;\n@leqo.output 0\nlet q0_out = q0;\n",
+      "language": "openqasm"
     },
     {
       "id": "gate_x",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nx q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nx q0;\n@leqo.output 0\nlet q0_out = q0;\n",
+      "language": "openqasm"
     },
     {
       "id": "gate_ry",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nry(0.2) q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nry(0.2) q0;\n@leqo.output 0\nlet q0_out = q0;\n",
+      "language": "openqasm"
     },
     {
       "id": "gate_y",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\ny q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\ny q0;\n@leqo.output 0\nlet q0_out = q0;\n",
+      "language": "openqasm"
     },
     {
       "id": "gate_rz",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nrz(0.3) q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nrz(0.3) q0;\n@leqo.output 0\nlet q0_out = q0;\n",
+      "language": "openqasm"
     },
     {
       "id": "gate_z",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nz q0;\n@leqo.output 0\nlet q0_out = q0;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\nz q0;\n@leqo.output 0\nlet q0_out = q0;\n",
+      "language": "openqasm"
     },
     {
       "id": "gate_cx",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\n@leqo.input 1\nqubit[1] q1;\ncx q0, q1;\n@leqo.output 0\nlet q0_out = q0;\n@leqo.output 1\nlet q1_out = q1;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\n@leqo.input 1\nqubit[1] q1;\ncx q0, q1;\n@leqo.output 0\nlet q0_out = q0;\n@leqo.output 1\nlet q1_out = q1;\n",
+      "language": "openqasm"
     },
     {
       "id": "gate_ccx",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\n@leqo.input 1\nqubit[1] q1;\n@leqo.input 2\nqubit[1] q2;\nccx q0, q1, q2;\n@leqo.output 0\nlet q0_out = q0;\n@leqo.output 1\nlet q1_out = q1;\n@leqo.output 2\nlet q2_out = q2;\n"
+      "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit[1] q0;\n@leqo.input 1\nqubit[1] q1;\n@leqo.input 2\nqubit[1] q2;\nccx q0, q1, q2;\n@leqo.output 0\nlet q0_out = q0;\n@leqo.output 1\nlet q1_out = q1;\n@leqo.output 2\nlet q2_out = q2;\n",
+      "language": "openqasm"
     }
   ]

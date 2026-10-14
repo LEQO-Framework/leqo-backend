@@ -98,7 +98,13 @@ class ImplementationNode(BaseNode):
     type: Literal["implementation"] = "implementation"
 
     implementation: str
-    """Raw OpenQASM code associated with the node."""
+    """Raw code associated with the node."""
+
+    language: Literal["openqasm", "python"] = "openqasm"
+    """
+    Language of :attr:`implementation`.
+    Python implementations can only be compiled into a workflow (as external service task).
+    """
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -1079,6 +1085,49 @@ class PluginNode(BaseNode):
     """Possible outputs."""
 
 
+class ApiConnectorOutput(BaseModel):
+    """
+    Output of an :class:`ApiConnectorNode`, extracted from the HTTP response.
+    """
+
+    name: str
+    """Name of the process variable the output is stored in."""
+
+    script: str
+    """Script extracting the output from the connector variable ``response``."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class ApiConnectorNode(BaseNode):
+    """
+    Custom operator implemented by an external HTTP API.
+    Becomes a service task with a Camunda http-connector in the workflow.
+    """
+
+    type: Literal["api-connector"] = "api-connector"
+
+    method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"] = "POST"
+    """HTTP method of the request."""
+
+    url: str
+    """URL of the API, absolute or relative to the deployment (e.g. ``/execution-service``)."""
+
+    headers: dict[str, str] = {}
+    """HTTP headers of the request."""
+
+    payload: str | None = None
+    """Script building the request body from the process variables (None = no body)."""
+
+    outputs: list[ApiConnectorOutput] = []
+    """Outputs extracted from the response, in order of the output ports."""
+
+    scriptFormat: str = "groovy"
+    """Script language of :attr:`payload` and the output scripts."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
 NestableNode = (
     ImplementationNode
     | BoundaryNode
@@ -1097,6 +1146,7 @@ NestableNode = (
     | GroverDiffuserNode
     | GroverNode
     | PluginNode
+    | ApiConnectorNode
     | EditableNode
     | VQENode
 )

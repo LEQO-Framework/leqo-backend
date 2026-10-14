@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.enricher.exceptions import (
     EnrichmentFailed,
     NoImplementationFound,
+    PythonImplementationNotSupported,
     UnableToInsertImplementation,
 )
 from app.model.CompileRequest import BaseNode, ImplementationNode, SingleInsertMetaData
@@ -194,6 +195,9 @@ class Enricher:
 
         :raises ExceptionGroup: If no strategy could generate an implementation.
         """
+
+        if isinstance(node, ImplementationNode) and node.language == "python":
+            raise PythonImplementationNotSupported(node)
 
         if isinstance(node, ImplementationNode | ParsedImplementationNode):
             return node

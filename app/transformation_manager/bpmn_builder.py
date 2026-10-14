@@ -5,6 +5,18 @@ from collections import defaultdict, deque
 from typing import Any, Tuple, Optional
 from app.transformation_manager import bpmn_templates as GroovyScript
 from app.model.CompileRequest import CompileRequest
+from app.transformation_manager.api_connector import (
+    add_http_connector,
+    api_connector_task_id,
+    is_api_connector,
+)
+from app.transformation_manager.python_service import (
+    PythonServiceInterface,
+    is_python_implementation,
+    parse_python_implementation,
+    python_service_task_id,
+    python_service_topic,
+)
 import json
 
 # BPMN namespaces
@@ -97,6 +109,7 @@ class BpmnBuilder:
         self.task_positions_per_node = {}
         self.flow_map_per_node = {}
         self.diagram_info_per_node = {}
+        self.python_interfaces: dict[str, PythonServiceInterface] = {}
 
         self.sub_processes = {}  # for agentic nodes
         self.flow_map_per_subprocess = {}  # for agentic nodes
@@ -178,13 +191,18 @@ class BpmnBuilder:
         self._create_start_event()
         self._create_end_event()
 
-        # Analyze Structure
-        incoming, _ = self._analyze_graph()
-        start_nodes = [nid for nid in self.nodes.keys() if not incoming[nid]]
-
-        # Create Chains
-        for start_node in start_nodes:
+        # Create Chains (connected afterwards in topological order)
+        for start_node in self._topological_order():
             node = self.nodes[start_node]
+            if is_python_implementation(node):
+                print("creating python service flow")
+                self._create_python_flow(start_node)
+                continue
+            if is_api_connector(node):
+                print("creating api connector flow")
+                self._create_api_connector_flow(start_node)
+                continue
+
             self.containsPlugin = getattr(node, "type", None) == "plugin"
 
             if self.containsPlugin:
@@ -357,6 +375,165 @@ class BpmnBuilder:
         self.flow_map_per_node[start_node] = flow_map
 
         self.chain_level += 1
+
+    def _create_python_flow(self, start_node: str) -> None:
+        """
+        Creates an external service task for a python implementation.
+        The task is executed by the generated service of the service deployment models.
+        """
+        node = self.nodes[start_node]
+        task_id = python_service_task_id(start_node)
+        topic = python_service_topic(start_node)
+        attrs = {"id": task_id, "name": getattr(node, "label", None) or start_node}
+
+        if self.is_agentic_flow:  # camunda 8
+            task = ET.SubElement(self.process, self.qn(BPMN2_NS, "serviceTask"), attrs)
+            ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
+            ET.SubElement(ext, self.qn(ZEEBE_NS, "taskDefinition"), {"type": topic})
+        else:  # camunda 7
+            attrs[self.qn(CAMUNDA_NS, "type")] = "external"
+            attrs[self.qn(CAMUNDA_NS, "topic")] = topic
+            attrs[self.qn(CAMUNDA_NS, "asyncAfter")] = "true"
+            ET.SubElement(self.process, self.qn(BPMN2_NS, "serviceTask"), attrs)
+            self._add_python_input_form_fields(start_node)
+
+        self.inserted_chains[start_node] = (task_id,)
+        self.chain_heads.append(task_id)
+        self.chain_ends.append(task_id)
+
+        # Layout
+        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
+        y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
+        self.task_positions_per_node[start_node] = {task_id: (x, y)}
+
+        # Connect Flows
+        flow_map = []
+        if self.chain_level == 0:
+            flow_map.append((self.new_flow(), self.start_id, task_id))
+        for fid, src, tgt in flow_map:
+            self._create_sequence_flow(fid, src, tgt)
+        self.flow_map_per_node[start_node] = flow_map
+
+        self.chain_level += 1
+
+    def _create_api_connector_flow(self, start_node: str) -> None:
+        """
+        Creates a service task with a Camunda http-connector for an API connector node.
+        The request is sent by the engine, the outputs are written as process variables.
+        """
+        node = self.nodes[start_node]
+        task_id = api_connector_task_id(start_node)
+        task = ET.SubElement(
+            self.process,
+            self.qn(BPMN2_NS, "serviceTask"),
+            {
+                "id": task_id,
+                "name": getattr(node, "label", None) or start_node,
+                self.qn(CAMUNDA_NS, "asyncAfter"): "true",
+                self.qn(CAMUNDA_NS, "exclusive"): "false",
+            },
+        )
+        ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
+        add_http_connector(ext, node, CAMUNDA_NS)
+
+        self.inserted_chains[start_node] = (task_id,)
+        self.chain_heads.append(task_id)
+        self.chain_ends.append(task_id)
+
+        # Layout
+        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
+        y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
+        self.task_positions_per_node[start_node] = {task_id: (x, y)}
+
+        # Connect Flows
+        flow_map = []
+        if self.chain_level == 0:
+            flow_map.append((self.new_flow(), self.start_id, task_id))
+        for fid, src, tgt in flow_map:
+            self._create_sequence_flow(fid, src, tgt)
+        self.flow_map_per_node[start_node] = flow_map
+
+        self.chain_level += 1
+
+    def _python_interface(self, node_id: str) -> PythonServiceInterface:
+        """Returns the (cached) parsed interface of a python node."""
+        if node_id not in self.python_interfaces:
+            self.python_interfaces[node_id] = parse_python_implementation(
+                self.nodes[node_id].implementation
+            ).interface
+        return self.python_interfaces[node_id]
+
+    def _add_python_input_form_fields(self, node_id: str) -> None:
+        """
+        Adds start form fields for the inputs of a python node that are not
+        produced by another python node. Inputs connected to a literal node
+        (input index = position of the @input variable) get the literal as default.
+        """
+        interface = self._python_interface(node_id)
+        produced = {
+            output
+            for other_id, other in self.nodes.items()
+            if other_id != node_id and is_python_implementation(other)
+            for output in self._python_interface(other_id).outputs
+        }
+
+        request_nodes = {n.get("id"): n for n in self.original_request.get("nodes", [])}
+        literal_values: dict[str, Any] = {}
+        for edge in self.original_request.get("edges", []):
+            target_id, input_index = edge["target"]
+            source = request_nodes.get(edge["source"][0], {})
+            if (
+                target_id == node_id
+                and source.get("type") in {"int", "float", "bool", "bit", "string"}
+                and input_index < len(interface.inputs)
+            ):
+                literal_values[interface.inputs[input_index]] = source.get("value")
+
+        existing = {field.get("id") for field in self.start_form}
+        for name in interface.inputs:
+            if name in existing:
+                continue
+            if name not in literal_values and (
+                name not in interface.required_inputs or name in produced
+            ):
+                continue
+
+            value = literal_values.get(name)
+            if isinstance(value, bool):
+                field_type, default = "boolean", json.dumps(value)
+            elif isinstance(value, int):
+                field_type, default = "long", str(value)
+            else:
+                field_type, default = "string", "" if value is None else str(value)
+            ET.SubElement(
+                self.start_form,
+                self.qn(CAMUNDA_NS, "formField"),
+                {
+                    "id": name,
+                    "label": name,
+                    "type": field_type,
+                    "defaultValue": default,
+                },
+            )
+
+    def _topological_order(self) -> list[str]:
+        """Returns all nodes in topological order (Kahn), ties keep insertion order."""
+        incoming, outgoing = self._analyze_graph()
+        in_degree = {nid: len(incoming[nid]) for nid in self.nodes}
+        queue = deque(nid for nid in self.nodes if in_degree[nid] == 0)
+        order = []
+        while queue:
+            nid = queue.popleft()
+            order.append(nid)
+            for succ in outgoing[nid]:
+                if succ not in in_degree:
+                    continue
+                in_degree[succ] -= 1
+                if in_degree[succ] == 0:
+                    queue.append(succ)
+        # cycles should not exist, but never drop nodes
+        order.extend(nid for nid in self.nodes if nid not in order)
+        return order
 
     def _create_placeholder_flow(
         self,
@@ -1351,6 +1528,7 @@ class BpmnBuilder:
         start_event = ET.SubElement(
             self.process, self.qn(BPMN2_NS, "startEvent"), {"id": self.start_id}
         )
+        self.start_form = None
         if self.is_agentic_flow:
             ext = ET.SubElement(start_event, self.qn(BPMN2_NS, "extensionElements"))
             ET.SubElement(
@@ -1361,6 +1539,7 @@ class BpmnBuilder:
         else:
             ext = ET.SubElement(start_event, self.qn(BPMN2_NS, "extensionElements"))
             form = ET.SubElement(ext, self.qn(CAMUNDA_NS, "formData"))
+            self.start_form = form
             ET.SubElement(
                 form,
                 self.qn(CAMUNDA_NS, "formField"),
