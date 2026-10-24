@@ -41,6 +41,15 @@ class UnableToInsertImplementation(EnricherException):
         )
 
 
+class PythonImplementationNotSupported(EnricherException):
+    def __init__(self, node: Node) -> None:
+        super().__init__(
+            "Python implementations cannot be transformed into OpenQASM. "
+            "Use compilation_target 'workflow' instead.",
+            node,
+        )
+
+
 class NoImplementationFound(EnricherException):
     def __init__(self, node: Node) -> None:
         super().__init__("No implementations were found", node)

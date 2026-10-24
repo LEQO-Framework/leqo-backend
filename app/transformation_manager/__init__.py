@@ -53,6 +53,12 @@ from app.transformation_manager.optimize import optimize
 from app.transformation_manager.post import postprocess
 from app.transformation_manager.pre import preprocess
 from app.transformation_manager.pre.utils import PreprocessingException
+from app.transformation_manager.api_connector import is_api_connector
+from app.transformation_manager.python_service import (
+    generate_service_deployment_models,
+    is_python_implementation,
+)
+from app.transformation_manager.workflow_loop import is_workflow_loop
 from app.utils import not_none
 import xml.etree.ElementTree as ET
 import xml.etree.ElementTree as ET
@@ -88,6 +94,19 @@ BPMN_GW_HEIGHT = 50  # Height of gateway
 
 
 TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
+
+
+def is_service_node(node: object) -> bool:
+    """
+    Check whether the node becomes its own service task in the workflow
+    (python implementation or API connector) or a loop of service tasks
+    instead of being compiled into OpenQASM.
+    """
+    return (
+        is_python_implementation(node)
+        or is_api_connector(node)
+        or is_workflow_loop(node)
+    )
 
 
 class CommonProcessor:
@@ -251,6 +270,54 @@ class MergingProcessor(CommonProcessor):
         )
         processor.target = request.compilation_target
         processor.original_request = request
+        return processor
+
+    def without_service_nodes(self) -> MergingProcessor | None:
+        """
+        Create a processor for the OpenQASM part of a workflow,
+        i.e. the graph without service nodes (python implementations, API connectors) and their edges.
+
+        :return: Self if there are no service nodes, None if no quantum nodes remain
+            or a service node feeds the remaining graph (its outputs are only known at runtime).
+        """
+        service_ids = {
+            node_id
+            for node_id, node in self.frontend_graph.node_data.items()
+            if is_service_node(node)
+        }
+        if not service_ids:
+            return self
+
+        if any(
+            target_id not in service_ids
+            for service_id in service_ids
+            for target_id in self.frontend_graph.successors(service_id)
+        ):
+            return None
+
+        remaining = [
+            node
+            for node_id, node in self.frontend_graph.node_data.items()
+            if node_id not in service_ids
+        ]
+        literal_types = CLASSICAL_TYPES | {"bool", "array"}
+        if all(getattr(node, "type", None) in literal_types for node in remaining):
+            return None
+
+        edges = [
+            edge
+            for edge_list in self.frontend_graph.edge_data.values()
+            for edge in edge_list
+            if edge.source[0] not in service_ids and edge.target[0] not in service_ids
+        ]
+        processor = MergingProcessor(
+            self.enricher,
+            FrontendGraph.create(remaining, edges),
+            self.optimize,
+            qiskit_compat=self.qiskit_compat,
+        )
+        processor.target = self.target
+        processor.original_request = self.original_request
         return processor
 
     async def process_nodes(self) -> None:
@@ -585,6 +652,12 @@ class WorkflowProcessor(CommonProcessor):
                 collapsed_edges.add((src_gid, tgt_gid))
         collapsed_edges_list: list[tuple[str, str]] = list(collapsed_edges)
 
+        # Generate service deployment models for python implementations
+        # (before the BPMN, so invalid annotations are not swallowed below)
+        self.service_deployment_models = generate_service_deployment_models(
+            list(nodes_dict.values())
+        )
+
         # Generate BPMN XML
         try:
             print("composite nodes", composite_nodes)
@@ -641,6 +714,7 @@ class WorkflowProcessor(CommonProcessor):
                 not in CLASSICAL_TYPES
                 and getattr(self.frontend_graph.node_data[node_id], "type", None)
                 != "plugin"
+                and not is_service_node(self.frontend_graph.node_data[node_id])
             )
         ]
 
@@ -659,11 +733,15 @@ class WorkflowProcessor(CommonProcessor):
             # Traverse neighbors
             for neighbor_id in self.frontend_graph.successors(node.id):
                 neighbor = self.frontend_graph.node_data[neighbor_id]
-                if getattr(neighbor, "type", None) not in CLASSICAL_TYPES:
+                if getattr(
+                    neighbor, "type", None
+                ) not in CLASSICAL_TYPES and not is_service_node(neighbor):
                     dfs(neighbor, group_id)
             for neighbor_id in self.frontend_graph.predecessors(node.id):
                 neighbor = self.frontend_graph.node_data[neighbor_id]
-                if getattr(neighbor, "type", None) not in CLASSICAL_TYPES:
+                if getattr(
+                    neighbor, "type", None
+                ) not in CLASSICAL_TYPES and not is_service_node(neighbor):
                     dfs(neighbor, group_id)
 
         group_counter = 0
