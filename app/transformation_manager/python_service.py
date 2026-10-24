@@ -28,15 +28,27 @@ import re
 import sys
 import tokenize
 import zipfile
+from urllib.parse import quote
 from dataclasses import dataclass, field
 from typing import Any
 
 from app.model.CompileRequest import ImplementationNode
 
+QUANTME_NAMESPACE_PULL = "http://quantil.org/quantme/pull"
+"""Namespace of the ServiceTemplates of services bound with the pulling pattern."""
+
 INPUTS_VARIABLE = "__leqo_inputs__"
 """Name of the dict injected into the user code that holds the fetched input variables."""
 
 _ANNOTATION_REGEX = re.compile(r"^#\s*@(input|output)\b(.*)$")
+_BARE_ANNOTATION_REGEX = re.compile(r"^([ \t]*)(@(?:input|output)\b)", re.MULTILINE)
+
+
+def normalize_annotations(code: str) -> str:
+    """
+    Turn annotations written without ``#`` (``@input a`` at line start) into comments.
+    """
+    return _BARE_ANNOTATION_REGEX.sub(r"\1# \2", code)
 _IDENTIFIER_SEPARATOR_REGEX = re.compile(r"[\s,]+")
 
 _PACKAGE_ALIASES = {
@@ -103,6 +115,19 @@ def python_service_topic(node_id: str) -> str:
     return "leqo_python_" + re.sub(r"[^A-Za-z0-9_-]", "_", node_id)
 
 
+def python_service_deployment_model_url(node_id: str) -> str:
+    """
+    URL of the deployment model (ServiceTemplate in the Winery) of the service created for a python node.
+
+    The Winery endpoint is a placeholder that is resolved by the frontend before deployment.
+    """
+    namespace = quote(quote(QUANTME_NAMESPACE_PULL, safe=""), safe="")
+    return (
+        "{{ wineryEndpoint }}/servicetemplates/"
+        f"{namespace}/{python_service_task_id(node_id)}/?csar"
+    )
+
+
 def _add_unique(target: list[str], name: str) -> None:
     if name not in target:
         target.append(name)
@@ -140,6 +165,7 @@ def parse_python_implementation(code: str) -> ParsedPythonImplementation:
     :return: The parsed interface and the rewritten code.
     :raises PythonAnnotationError: If the code or its annotations are invalid.
     """
+    code = normalize_annotations(code)
     try:
         module = ast.parse(code)
         comments = [
@@ -507,7 +533,7 @@ def generate_service_zip(node: ImplementationNode) -> bytes:
     inner = _zip(
         {
             "service.py": generate_service_code(node.id, topic, parsed),
-            "requirements.txt": "\n".join(detect_requirements(node.implementation))
+            "requirements.txt": "\n".join(detect_requirements(parsed.code))
             + "\n",
         }
     )
@@ -524,9 +550,20 @@ def generate_service_deployment_models(nodes: list[Any]) -> bytes | None:
     Generate a ZIP containing one ``<service task id>.zip`` per python node.
 
     :param nodes: Frontend nodes, non-python nodes are ignored.
+        Python nodes inside the block of a repeat node are included.
     :return: The ZIP or None if there are no python nodes.
     """
-    python_nodes = [x for x in nodes if is_python_implementation(x)]
+
+    def flatten(nodes: list[Any]) -> list[Any]:
+        result = []
+        for node in nodes:
+            result.append(node)
+            block = getattr(node, "block", None)
+            if block is not None:
+                result.extend(flatten(block.nodes))
+        return result
+
+    python_nodes = [x for x in flatten(nodes) if is_python_implementation(x)]
     if not python_nodes:
         return None
     return _zip(

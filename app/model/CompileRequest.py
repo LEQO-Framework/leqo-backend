@@ -1011,13 +1011,26 @@ class RepeatNode(BaseNode):
 
     type: Literal["repeat"] = "repeat"
 
-    iterations: int = Field(gt=0)
+    iterations: int | None = Field(default=None, gt=0)
     """Number of loop iterations."""
+
+    condition: str | None = None
+    """
+    Loop condition (e.g. ``a >= 1``), the block is repeated while it holds.
+    Only supported for the workflow target, used instead of ``iterations``.
+    """
 
     block: NestedBlock
     """Code block to repeat."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="after")
+    def _iterations_or_condition(self) -> RepeatNode:
+        if self.iterations is None and not self.condition:
+            msg = "RepeatNode needs either iterations or a condition."
+            raise ValueError(msg)
+        return self
 
 
 ControlFlowNode = IfThenElseNode | RepeatNode

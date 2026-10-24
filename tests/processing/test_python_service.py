@@ -20,12 +20,14 @@ from app.transformation_manager.python_service import (
     generate_service_code,
     generate_service_deployment_models,
     parse_python_implementation,
+    python_service_deployment_model_url,
     python_service_task_id,
     python_service_topic,
 )
 
 BPMN = "{http://www.omg.org/spec/BPMN/20100524/MODEL}"
 CAMUNDA = "{http://camunda.org/schema/1.0/bpmn}"
+OPENTOSCA = "{https://github.com/UST-QuAntiL/OpenTOSCA}"
 
 PYTHON_CODE = """import numpy as np
 
@@ -330,11 +332,29 @@ def test_workflow_contains_service_task() -> None:
     assert task.get("name") == "Post Processing"
     assert task.get(f"{CAMUNDA}type") == "external"
     assert task.get(f"{CAMUNDA}topic") == python_service_topic("py")
+    assert task.get(f"{OPENTOSCA}deploymentModelUrl") == (
+        "{{ wineryEndpoint }}/servicetemplates/"
+        "http%253A%252F%252Fquantil.org%252Fquantme%252Fpull/"
+        f"{python_service_task_id('py')}/?csar"
+    )
+    assert task.get(
+        f"{OPENTOSCA}deploymentModelUrl"
+    ) == python_service_deployment_model_url("py")
 
-    # input 0 is connected to the literal, input 1 is required
+    # input 0 is connected to the literal (without identifier, so its variable is
+    # named after its task), input 1 is missing in the model
+    literal_task = root.find(f".//{BPMN}serviceTask[@id='Task_lit']")
+    assert literal_task is not None
+    assert literal_task.get(f"{CAMUNDA}expression") == (
+        "${execution.setVariable('Task_lit_variable', 7)}"
+    )
+    params = {
+        param.get("name"): param.text
+        for param in task.iter(f"{CAMUNDA}inputParameter")
+    }
+    assert params == {"threshold": "${execution.getVariable('Task_lit_variable')}"}
     fields = {field.get("id"): field for field in root.iter(f"{CAMUNDA}formField")}
-    assert fields["threshold"].get("defaultValue") == "7"
-    assert fields["threshold"].get("type") == "long"
+    assert "threshold" not in fields
     assert fields["data"].get("defaultValue") == ""
 
     # the quantum chain is connected to the python task
@@ -343,4 +363,55 @@ def test_workflow_contains_service_task() -> None:
         for flow in root.iter(f"{BPMN}sequenceFlow")
     ]
     assert ("Task_quantum_group_0_human", python_service_task_id("py")) in flows
-    assert (python_service_task_id("py"), "EndEvent_1") in flows
+    assert (python_service_task_id("py"), "Task_analyze_results") in flows
+    assert ("Task_analyze_results", "EndEvent_1") in flows
+
+    # the user task before the end event shows the outputs
+    user_task = root.find(f".//{BPMN}userTask[@id='Task_analyze_results']")
+    assert user_task is not None
+    fields = user_task.iter(f"{CAMUNDA}formField")
+    assert [field.get("id") for field in fields] == ["result"]
+
+
+def test_workflow_python_inputs_matched_by_identifier() -> None:
+    python_code = "# @input factor\n# @input a\n# @output result\nresult = factor * a\n"
+    request = _request(
+        [
+            {"id": "lit", "type": "int", "value": 2},
+            {
+                "id": "py",
+                "type": "implementation",
+                "language": "python",
+                "implementation": python_code,
+            },
+        ],
+        # the edge targets input 0 (factor), but its identifier names the variable a
+        [{"source": ["lit", 0], "target": ["py", 0], "identifier": "a"}],
+        "workflow",
+    )
+    graph = FrontendGraph.create(request.nodes, request.edges)
+    processor = WorkflowProcessor(
+        Enricher(),
+        graph,
+        request.metadata,
+        result="",
+        original_request=request,
+    )
+
+    root = ET.fromstring(asyncio.run(processor.process()))
+    task = root.find(f".//{BPMN}serviceTask[@id='{python_service_task_id('py')}']")
+    assert task is not None
+    # the literal task writes a, which the python service reads directly
+    literal_task = root.find(f".//{BPMN}serviceTask[@id='Task_lit']")
+    assert literal_task is not None
+    assert literal_task.get(f"{CAMUNDA}expression") == (
+        "${execution.setVariable('a', 2)}"
+    )
+    assert list(task.iter(f"{CAMUNDA}inputParameter")) == []
+
+    # only the input missing in the model is asked in the start form
+    start_event = root.find(f".//{BPMN}startEvent")
+    assert start_event is not None
+    fields = {field.get("id") for field in start_event.iter(f"{CAMUNDA}formField")}
+    assert "factor" in fields
+    assert "a" not in fields

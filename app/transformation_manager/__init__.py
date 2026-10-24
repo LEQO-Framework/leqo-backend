@@ -58,6 +58,7 @@ from app.transformation_manager.python_service import (
     generate_service_deployment_models,
     is_python_implementation,
 )
+from app.transformation_manager.workflow_loop import is_workflow_loop
 from app.utils import not_none
 import xml.etree.ElementTree as ET
 import xml.etree.ElementTree as ET
@@ -98,9 +99,14 @@ TLookup = dict[str, tuple[ProgramNode, FrontendNode]]
 def is_service_node(node: object) -> bool:
     """
     Check whether the node becomes its own service task in the workflow
-    (python implementation or API connector) instead of being compiled into OpenQASM.
+    (python implementation or API connector) or a loop of service tasks
+    instead of being compiled into OpenQASM.
     """
-    return is_python_implementation(node) or is_api_connector(node)
+    return (
+        is_python_implementation(node)
+        or is_api_connector(node)
+        or is_workflow_loop(node)
+    )
 
 
 class CommonProcessor:

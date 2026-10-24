@@ -14,8 +14,17 @@ from app.transformation_manager.python_service import (
     PythonServiceInterface,
     is_python_implementation,
     parse_python_implementation,
+    python_service_deployment_model_url,
     python_service_task_id,
     python_service_topic,
+)
+from app.transformation_manager.workflow_loop import (
+    condition_variables,
+    is_workflow_loop,
+    loop_body_order,
+    loop_condition_expression,
+    loop_counter_variable,
+    loop_gateway_id,
 )
 import json
 
@@ -47,6 +56,14 @@ BPMN_FLOW_ID_LENGTH = 7
 BPMN_AGENT_HEIGHT = 170
 BPMN_AGENT_WIDTH_BASE = 100
 BPMN_AGENT_WIDHT_GAP = 50
+
+LITERAL_TYPES = {"int", "float", "bool", "bit", "string"}
+"""Types of the data type nodes that are written into process variables."""
+
+
+def literal_task_id(node_id: str) -> str:
+    """ID of the service task that writes the value of a data type node."""
+    return f"Task_{node_id}"
 
 
 class BpmnBuilder:
@@ -97,6 +114,8 @@ class BpmnBuilder:
 
         self.start_id = "StartEvent_1"
         self.end_id = "EndEvent_1"
+        self.final_user_task_id = "Task_analyze_results"
+        self.service_task_ids = set()  # python and api connector tasks
         self.task_positions = {}
         self.inserted_chains = {}
         self.human_tasks = {}
@@ -111,6 +130,17 @@ class BpmnBuilder:
         self.diagram_info_per_node = {}
         self.python_interfaces: dict[str, PythonServiceInterface] = {}
 
+        # nodes incl. the bodies of loops (repeat nodes become loops of service tasks)
+        self.all_nodes = dict(self.nodes)
+        for node in self.nodes.values():
+            if is_workflow_loop(node):
+                self.all_nodes.update({n.id: n for n in node.block.nodes})
+        self.loops: dict[str, tuple[str, str, str]] = {}  # gateway, first, last task
+        # data type nodes: node id -> (task id, variable name, value), camunda 7 only
+        self.literal_variables = (
+            {} if self.is_agentic_flow else self._collect_literal_variables()
+        )
+
         self.sub_processes = {}  # for agentic nodes
         self.flow_map_per_subprocess = {}  # for agentic nodes
         self.task_positions_per_node_per_subprocess = {}
@@ -124,6 +154,7 @@ class BpmnBuilder:
         ET.register_namespace("camunda", CAMUNDA_NS)
         ET.register_namespace("xsi", XSI_NS)
         ET.register_namespace("zeebe", ZEEBE_NS)
+        ET.register_namespace("opentosca", OpenTOSCA_NS)
 
     def _init_xml(self) -> None:
         """Initializes the base XML structure (definitions and process)."""
@@ -191,6 +222,10 @@ class BpmnBuilder:
         self._create_start_event()
         self._create_end_event()
 
+        # data type nodes are written into process variables first
+        if self.literal_variables:
+            self._create_literal_chain()
+
         # Create Chains (connected afterwards in topological order)
         for start_node in self._topological_order():
             node = self.nodes[start_node]
@@ -201,6 +236,10 @@ class BpmnBuilder:
             if is_api_connector(node):
                 print("creating api connector flow")
                 self._create_api_connector_flow(start_node)
+                continue
+            if is_workflow_loop(node):
+                print("creating loop flow")
+                self._create_loop_flow(start_node)
                 continue
 
             self.containsPlugin = getattr(node, "type", None) == "plugin"
@@ -220,6 +259,7 @@ class BpmnBuilder:
 
         # Connect chains if there are multiple
         self.connect_chains()
+        self._finish_loops()
 
         if self.is_agentic_flow:
             # Message
@@ -257,6 +297,8 @@ class BpmnBuilder:
                     all_activities.append(self.alt_ends[start_node][0])
                 if len(self.alt_ends[start_node]) >= 2:
                     all_activities.append(self.alt_ends[start_node][-1])
+        if self.final_user_task_id in self.task_positions_per_node:
+            all_activities.append(self.final_user_task_id)
         all_activities = [x for x in all_activities if x is not None]
 
         self.remove_invalid_incoming_outgoing(self.process)
@@ -376,15 +418,17 @@ class BpmnBuilder:
 
         self.chain_level += 1
 
-    def _create_python_flow(self, start_node: str) -> None:
+    def _create_python_task(self, node_id: str) -> str:
         """
         Creates an external service task for a python implementation.
         The task is executed by the generated service of the service deployment models.
+
+        :return: ID of the created task.
         """
-        node = self.nodes[start_node]
-        task_id = python_service_task_id(start_node)
-        topic = python_service_topic(start_node)
-        attrs = {"id": task_id, "name": getattr(node, "label", None) or start_node}
+        node = self.all_nodes[node_id]
+        task_id = python_service_task_id(node_id)
+        topic = python_service_topic(node_id)
+        attrs = {"id": task_id, "name": getattr(node, "label", None) or node_id}
 
         if self.is_agentic_flow:  # camunda 8
             task = ET.SubElement(self.process, self.qn(BPMN2_NS, "serviceTask"), attrs)
@@ -394,41 +438,31 @@ class BpmnBuilder:
             attrs[self.qn(CAMUNDA_NS, "type")] = "external"
             attrs[self.qn(CAMUNDA_NS, "topic")] = topic
             attrs[self.qn(CAMUNDA_NS, "asyncAfter")] = "true"
-            ET.SubElement(self.process, self.qn(BPMN2_NS, "serviceTask"), attrs)
-            self._add_python_input_form_fields(start_node)
+            # the service is deployed from this model and bound to the topic by the frontend
+            attrs[self.qn(OpenTOSCA_NS, "deploymentModelUrl")] = (
+                python_service_deployment_model_url(node_id)
+            )
+            task = ET.SubElement(self.process, self.qn(BPMN2_NS, "serviceTask"), attrs)
+            self._add_python_inputs(node_id, task)
 
-        self.inserted_chains[start_node] = (task_id,)
-        self.chain_heads.append(task_id)
-        self.chain_ends.append(task_id)
+        self.service_task_ids.add(task_id)
+        return task_id
 
-        # Layout
-        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
-        y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
-        self.task_positions_per_node[start_node] = {task_id: (x, y)}
-
-        # Connect Flows
-        flow_map = []
-        if self.chain_level == 0:
-            flow_map.append((self.new_flow(), self.start_id, task_id))
-        for fid, src, tgt in flow_map:
-            self._create_sequence_flow(fid, src, tgt)
-        self.flow_map_per_node[start_node] = flow_map
-
-        self.chain_level += 1
-
-    def _create_api_connector_flow(self, start_node: str) -> None:
+    def _create_api_connector_task(self, node_id: str) -> str:
         """
         Creates a service task with a Camunda http-connector for an API connector node.
         The request is sent by the engine, the outputs are written as process variables.
+
+        :return: ID of the created task.
         """
-        node = self.nodes[start_node]
-        task_id = api_connector_task_id(start_node)
+        node = self.all_nodes[node_id]
+        task_id = api_connector_task_id(node_id)
         task = ET.SubElement(
             self.process,
             self.qn(BPMN2_NS, "serviceTask"),
             {
                 "id": task_id,
-                "name": getattr(node, "label", None) or start_node,
+                "name": getattr(node, "label", None) or node_id,
                 self.qn(CAMUNDA_NS, "asyncAfter"): "true",
                 self.qn(CAMUNDA_NS, "exclusive"): "false",
             },
@@ -436,6 +470,11 @@ class BpmnBuilder:
         ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
         add_http_connector(ext, node, CAMUNDA_NS)
 
+        self.service_task_ids.add(task_id)
+        return task_id
+
+    def _create_service_chain(self, start_node: str, task_id: str) -> None:
+        """Registers a single service task as its own chain."""
         self.inserted_chains[start_node] = (task_id,)
         self.chain_heads.append(task_id)
         self.chain_ends.append(task_id)
@@ -455,66 +494,314 @@ class BpmnBuilder:
 
         self.chain_level += 1
 
+    def _create_python_flow(self, start_node: str) -> None:
+        """Creates the chain of a python implementation."""
+        self._create_service_chain(start_node, self._create_python_task(start_node))
+
+    def _create_api_connector_flow(self, start_node: str) -> None:
+        """Creates the chain of an API connector node."""
+        self._create_service_chain(
+            start_node, self._create_api_connector_task(start_node)
+        )
+
+    def _create_loop_flow(self, start_node: str) -> None:
+        """
+        Creates a loop for a repeat node with a condition or service nodes:
+        an exclusive gateway checks the condition and either runs the tasks of the
+        loop body, which lead back to the gateway, or leaves the loop (default flow).
+        """
+        node = self.nodes[start_node]
+        gateway_id = loop_gateway_id(start_node)
+        self._create_exclusive_gateway(gateway_id, node.condition or "repeat")
+
+        task_ids = []
+        for body_node in loop_body_order(node):
+            if is_python_implementation(body_node):
+                task_ids.append(self._create_python_task(body_node.id))
+            elif is_api_connector(body_node):
+                task_ids.append(self._create_api_connector_task(body_node.id))
+            else:
+                msg = (
+                    f"Node '{body_node.id}' of type '{getattr(body_node, 'type', None)}' "
+                    "is not supported inside a loop of the workflow, only python "
+                    "implementations and API connectors are."
+                )
+                raise ValueError(msg)
+        if not task_ids:
+            msg = f"The repeat node '{start_node}' does not contain any nodes."
+            raise ValueError(msg)
+
+        # condition variables that are not set in the workflow are asked at the start
+        if self.start_form is not None:
+            provided = self._provided_variables()
+            for name in condition_variables(node):
+                if name not in provided:
+                    self._add_start_form_field(name)
+
+        self.loops[start_node] = (gateway_id, task_ids[0], task_ids[-1])
+        self.inserted_chains[start_node] = (gateway_id, *task_ids)
+        self.chain_heads.append(gateway_id)
+        self.chain_ends.append(gateway_id)
+
+        # Layout: the gateway, the body in the row below it
+        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
+        y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
+        positions = {
+            gateway_id: (
+                x + BPMN_TASK_WIDTH // 2 - BPMN_GW_WIDTH // 2,
+                y + BPMN_TASK_HEIGHT // 2 - BPMN_GW_HEIGHT // 2,
+            )
+        }
+        for i, task_id in enumerate(task_ids):
+            positions[task_id] = (
+                x + (i + 1) * (BPMN_TASK_WIDTH + BPMN_GAP_X),
+                y + BPMN_TASK_HEIGHT + BPMN_GAP_Y // 2,
+            )
+        self.task_positions_per_node[start_node] = positions
+
+        # Connect Flows: gateway -> body -> back to the gateway
+        flow_map = []
+        if self.chain_level == 0:
+            flow_map.append((self.new_flow(), self.start_id, gateway_id))
+        body = [gateway_id, *task_ids, gateway_id]
+        flow_map.extend((self.new_flow(), src, tgt) for src, tgt in zip(body, body[1:]))
+        for fid, src, tgt in flow_map:
+            self._create_sequence_flow(fid, src, tgt)
+        self.flow_map_per_node[start_node] = flow_map
+
+        self.chain_level += 2  # the body occupies the row below the gateway
+
+    def _finish_loops(self) -> None:
+        """
+        Completes the loops after all chains are connected:
+
+        * the flow into the body gets the loop condition,
+        * the flow leaving the loop becomes the default flow of the gateway,
+        * for a fixed number of iterations, the flows entering the loop reset the
+          iteration counter and the flow back to the gateway increments it.
+
+        Literals connected to the repeat node are set by the literal tasks at the start.
+        """
+        for node_id, (gateway_id, first_task, last_task) in self.loops.items():
+            node = self.nodes[node_id]
+            gateway = self.process.find(f".//*[@id='{gateway_id}']")
+            counter = loop_counter_variable(node_id)
+            assignments = {counter: "0"} if node.condition is None else {}
+
+            for flow in self.process.findall(self.qn(BPMN2_NS, "sequenceFlow")):
+                source, target = flow.get("sourceRef"), flow.get("targetRef")
+                if source == gateway_id and target == first_task:
+                    cond = ET.SubElement(
+                        flow,
+                        self.qn(BPMN2_NS, "conditionExpression"),
+                        {self.qn(XSI_NS, "type"): "bpmn:tFormalExpression"},
+                    )
+                    cond.text = loop_condition_expression(node)
+                elif source == gateway_id:
+                    gateway.set("default", flow.get("id"))
+                elif target == gateway_id and source == last_task:
+                    if node.condition is None:
+                        self._add_take_listener(flow, {counter: f"{counter} + 1"})
+                elif target == gateway_id and assignments:
+                    self._add_take_listener(flow, assignments)
+
+    def _add_take_listener(self, flow: ET.Element, assignments: dict[str, str]) -> None:
+        """
+        Sets process variables when the sequence flow is taken.
+
+        :param assignments: Variable name -> JUEL expression (without ``${}``).
+        """
+        ext = ET.Element(self.qn(BPMN2_NS, "extensionElements"))
+        for name, expression in assignments.items():
+            ET.SubElement(
+                ext,
+                self.qn(CAMUNDA_NS, "executionListener"),
+                {
+                    "event": "take",
+                    "expression": f"${{execution.setVariable('{name}', {expression})}}",
+                },
+            )
+        # extension elements must be the first child of the flow
+        flow.insert(0, ext)
+
+    @staticmethod
+    def _expression_literal(value: Any) -> str:
+        """Converts a literal value into a JUEL literal."""
+        if value is None:
+            return "null"
+        if isinstance(value, bool):
+            return json.dumps(value)
+        if isinstance(value, int | float):
+            return str(value)
+        return "'" + str(value).replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+    def _collect_literal_variables(self) -> dict[str, tuple[str, str, Any]]:
+        """
+        Returns the data type nodes that are written into process variables, as
+        node id -> (task id, variable name, value).
+
+        The variable is named by the identifier of the outgoing edges (the output identifier
+        of the data type node), or ``<task id>_variable`` if it has no identifier.
+        """
+        identifiers: dict[str, str] = {}
+        for edge in self.original_request.get("edges", []):
+            if edge.get("identifier"):
+                identifiers.setdefault(edge["source"][0], edge["identifier"])
+
+        variables = {}
+        for node in self.original_request.get("nodes", []):
+            if node.get("type") not in LITERAL_TYPES:
+                continue
+            node_id = node["id"]
+            task_id = literal_task_id(node_id)
+            variable = identifiers.get(node_id) or f"{task_id}_variable"
+            variables[node_id] = (task_id, variable, node.get("value"))
+        return variables
+
+    def _create_literal_chain(self) -> None:
+        """
+        Creates a service task per data type node that writes its value into a process
+        variable. These tasks form the first chain, directly after the start event.
+        """
+        task_ids = []
+        for task_id, variable, value in self.literal_variables.values():
+            expression = self._expression_literal(value)
+            ET.SubElement(
+                self.process,
+                self.qn(BPMN2_NS, "serviceTask"),
+                {
+                    "id": task_id,
+                    "name": f"{variable} = {value}",
+                    self.qn(CAMUNDA_NS, "expression"): (
+                        f"${{execution.setVariable('{variable}', {expression})}}"
+                    ),
+                },
+            )
+            self.service_task_ids.add(task_id)
+            task_ids.append(task_id)
+
+        key = "literal_variables"
+        self.inserted_chains[key] = tuple(task_ids)
+        self.chain_heads.append(task_ids[0])
+        self.chain_ends.append(task_ids[-1])
+
+        # Layout: one row, left to right
+        x = BPMN_START_X + BPMN_CHAIN_X_OFFSET
+        y = BPMN_CHAIN_Y_BASE + self.chain_level * (BPMN_TASK_HEIGHT + BPMN_GAP_Y)
+        self.task_positions_per_node[key] = {
+            task_id: (x + i * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+            for i, task_id in enumerate(task_ids)
+        }
+
+        # Connect Flows
+        chain = [self.start_id, *task_ids] if self.chain_level == 0 else task_ids
+        flow_map = [(self.new_flow(), src, tgt) for src, tgt in zip(chain, chain[1:])]
+        for fid, src, tgt in flow_map:
+            self._create_sequence_flow(fid, src, tgt)
+        self.flow_map_per_node[key] = flow_map
+
+        self.chain_level += 1
+
     def _python_interface(self, node_id: str) -> PythonServiceInterface:
         """Returns the (cached) parsed interface of a python node."""
         if node_id not in self.python_interfaces:
             self.python_interfaces[node_id] = parse_python_implementation(
-                self.nodes[node_id].implementation
+                self.all_nodes[node_id].implementation
             ).interface
         return self.python_interfaces[node_id]
 
-    def _add_python_input_form_fields(self, node_id: str) -> None:
+    def _provided_variables(self, node_id: str | None = None) -> set[str]:
         """
-        Adds start form fields for the inputs of a python node that are not
-        produced by another python node. Inputs connected to a literal node
-        (input index = position of the @input variable) get the literal as default.
+        Returns the variables set in the workflow, i.e. the variables of the data type
+        nodes and the outputs of the python nodes (except the given one).
         """
-        interface = self._python_interface(node_id)
-        produced = {
+        provided = {variable for _, variable, _ in self.literal_variables.values()}
+        provided.update(
             output
-            for other_id, other in self.nodes.items()
+            for other_id, other in self.all_nodes.items()
             if other_id != node_id and is_python_implementation(other)
             for output in self._python_interface(other_id).outputs
-        }
+        )
+        return provided
 
-        request_nodes = {n.get("id"): n for n in self.original_request.get("nodes", [])}
-        literal_values: dict[str, Any] = {}
-        for edge in self.original_request.get("edges", []):
-            target_id, input_index = edge["target"]
-            source = request_nodes.get(edge["source"][0], {})
-            if (
-                target_id == node_id
-                and source.get("type") in {"int", "float", "bool", "bit", "string"}
-                and input_index < len(interface.inputs)
-            ):
-                literal_values[interface.inputs[input_index]] = source.get("value")
+    def _add_start_form_field(self, name: str) -> None:
+        """Adds an empty string field to the start form, if not already present."""
+        if any(field.get("id") == name for field in self.start_form):
+            return
+        ET.SubElement(
+            self.start_form,
+            self.qn(CAMUNDA_NS, "formField"),
+            {
+                "id": name,
+                "label": name,
+                "type": "string",
+                "defaultValue": "",
+            },
+        )
 
-        existing = {field.get("id") for field in self.start_form}
-        for name in interface.inputs:
-            if name in existing:
-                continue
-            if name not in literal_values and (
-                name not in interface.required_inputs or name in produced
-            ):
-                continue
+    def _python_literal_inputs(
+        self, node_id: str, interface: PythonServiceInterface
+    ) -> dict[str, str]:
+        """
+        Returns the inputs of a python node that are connected to a data type node,
+        as input name -> process variable written by the data type node.
 
-            value = literal_values.get(name)
-            if isinstance(value, bool):
-                field_type, default = "boolean", json.dumps(value)
-            elif isinstance(value, int):
-                field_type, default = "long", str(value)
+        An edge is matched to the @input variable with the same name as its variable
+        (the identifier of the data type node). Other edges fall back to the input index
+        (= position of the @input variable), if that input is not already provided by name.
+        """
+        literal_edges = [
+            (edge, self.literal_variables[edge["source"][0]][1])
+            for edge in self.original_request.get("edges", [])
+            if edge["target"][0] == node_id and edge["source"][0] in self.literal_variables
+        ]
+
+        inputs: dict[str, str] = {}
+        unmatched = []
+        for edge, variable in literal_edges:
+            if variable in interface.inputs:
+                inputs[variable] = variable
             else:
-                field_type, default = "string", "" if value is None else str(value)
-            ET.SubElement(
-                self.start_form,
-                self.qn(CAMUNDA_NS, "formField"),
-                {
-                    "id": name,
-                    "label": name,
-                    "type": field_type,
-                    "defaultValue": default,
-                },
-            )
+                unmatched.append((edge, variable))
+        for edge, variable in unmatched:
+            input_index = edge["target"][1]
+            if input_index < len(interface.inputs):
+                inputs.setdefault(interface.inputs[input_index], variable)
+        return inputs
+
+    def _add_python_inputs(self, node_id: str, task: ET.Element) -> None:
+        """
+        Provides the inputs of a python node.
+
+        Inputs connected to a data type node whose variable has another name are mapped
+        with input parameters of the service task. Start form fields are only added for
+        the remaining required inputs that are not set in the workflow, i.e. the values
+        missing in the model.
+        """
+        interface = self._python_interface(node_id)
+        provided = self._provided_variables(node_id)
+        literal_inputs = self._python_literal_inputs(node_id, interface)
+
+        mapped = {
+            name: variable
+            for name, variable in literal_inputs.items()
+            if name != variable
+        }
+        if mapped:
+            ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
+            input_output = ET.SubElement(ext, self.qn(CAMUNDA_NS, "inputOutput"))
+            for name in interface.inputs:
+                if name in mapped:
+                    param = ET.SubElement(
+                        input_output,
+                        self.qn(CAMUNDA_NS, "inputParameter"),
+                        {"name": name},
+                    )
+                    param.text = f"${{execution.getVariable('{mapped[name]}')}}"
+
+        for name in interface.required_inputs:
+            if name not in literal_inputs and name not in provided:
+                self._add_start_form_field(name)
 
     def _topological_order(self) -> list[str]:
         """Returns all nodes in topological order (Kahn), ties keep insertion order."""
@@ -1266,6 +1553,9 @@ class BpmnBuilder:
                 return x + w, y + h // 2
             return x + w // 2, y + h // 2
 
+        loop_entries = {(gw, first) for gw, first, _ in self.loops.values()}
+        loop_backs = {(last, gw) for gw, _, last in self.loops.values()}
+
         for fid, src, tgt in all_flows:
             edge = ET.SubElement(
                 plane,
@@ -1274,7 +1564,13 @@ class BpmnBuilder:
             )
 
             # Custom-Docking
-            if src.endswith("_human") and tgt.endswith("_set_circuit"):
+            if (src, tgt) in loop_entries:
+                mode_src = "bottom"
+                mode_tgt = "left"
+            elif (src, tgt) in loop_backs:
+                mode_src = "top"
+                mode_tgt = "top"
+            elif src.endswith("_human") and tgt.endswith("_set_circuit"):
                 mode_src = "bottom"
                 mode_tgt = "top"
             elif src.endswith("_human") and tgt.endswith("_set_vars_1"):
@@ -1305,7 +1601,11 @@ class BpmnBuilder:
 
             route = "hv"
             # Custom-Edges
-            if src.endswith("_gateway_4") and tgt.endswith("_gateway_3"):
+            if (src, tgt) in loop_entries:
+                route = "vh"
+            elif (src, tgt) in loop_backs:
+                route = "up-left-down"
+            elif src.endswith("_gateway_4") and tgt.endswith("_gateway_3"):
                 route = "up-left-down"
             elif src.endswith("_gateway_4") and tgt.endswith("_analyze_failed_job"):
                 route = "vh"
@@ -1517,11 +1817,71 @@ class BpmnBuilder:
                     (fid, self.chain_ends[i], self.chain_heads[i + 1])
                 )
             else:
+                last = self.chain_ends[i]
+                # quantum chains already end with a user task, service tasks and loops do not
+                if last in self.service_task_ids or any(
+                    last == gateway_id for gateway_id, _, _ in self.loops.values()
+                ):
+                    self._create_final_user_task(last)
+                    fid = self.new_flow()
+                    self._create_sequence_flow(fid, last, self.final_user_task_id)
+                    self.cross_chain_flows.append((fid, last, self.final_user_task_id))
+                    last = self.final_user_task_id
                 fid = self.new_flow()
-                self._create_sequence_flow(fid, self.chain_ends[i], self.end_id)
-                self.cross_chain_flows.append((fid, self.chain_ends[i], self.end_id))
+                self._create_sequence_flow(fid, last, self.end_id)
+                self.cross_chain_flows.append((fid, last, self.end_id))
 
         print("chains connected")
+
+    def _create_final_user_task(self, previous_task_id: str) -> None:
+        """
+        Creates the user task before the end event, placed right of the last task.
+        In Camunda 7 it shows the outputs of the python implementations.
+        """
+        task = ET.SubElement(
+            self.process,
+            self.qn(BPMN2_NS, "userTask"),
+            {"id": self.final_user_task_id, "name": "Analyze Results"},
+        )
+        ext = ET.SubElement(task, self.qn(BPMN2_NS, "extensionElements"))
+        if self.is_agentic_flow:  # camunda 8
+            ET.SubElement(ext, self.qn(ZEEBE_NS, "userTask"), {})
+        else:  # camunda 7
+            form = ET.SubElement(ext, self.qn(CAMUNDA_NS, "formData"))
+            outputs: list[str] = []
+            for node_id, node in self.all_nodes.items():
+                if is_python_implementation(node):
+                    for name in self._python_interface(node_id).outputs:
+                        if name not in outputs:
+                            outputs.append(name)
+            for name in outputs:
+                field = ET.SubElement(
+                    form,
+                    self.qn(CAMUNDA_NS, "formField"),
+                    {"id": name, "label": name, "type": "string"},
+                )
+                validation = ET.SubElement(field, self.qn(CAMUNDA_NS, "validation"))
+                ET.SubElement(
+                    validation, self.qn(CAMUNDA_NS, "constraint"), {"name": "readonly"}
+                )
+
+        positions = [
+            pos
+            for chain_positions in self.task_positions_per_node.values()
+            for pos in chain_positions.values()
+        ]
+        max_x = max((x for x, _ in positions), default=BPMN_START_X)
+        _, y = next(
+            (
+                chain_positions[previous_task_id]
+                for chain_positions in self.task_positions_per_node.values()
+                if previous_task_id in chain_positions
+            ),
+            (0, BPMN_CHAIN_Y_BASE),
+        )
+        self.task_positions_per_node[self.final_user_task_id] = {
+            self.final_user_task_id: (max_x + BPMN_TASK_WIDTH + BPMN_GAP_X, y)
+        }
 
     def _create_start_event(self) -> None:
         """Creates the Start Event and configures its form fields."""

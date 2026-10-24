@@ -29,6 +29,9 @@ def unroll_repeat(
     :param requested_inputs: The inputs for that node
     :return: The unrolled + enriched graph and the border nodes of this graph
     """
+    if node.iterations is None:
+        msg = "A repeat with a condition can only be compiled into a workflow."
+        raise RepeatException(msg, node)
     if node.iterations < 1:  # should have been checked by fastapi
         msg = f"RepeatNode can't have {node.iterations} < 1 iterations."
         raise RepeatException(msg, node)

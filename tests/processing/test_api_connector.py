@@ -145,4 +145,5 @@ def test_workflow_contains_one_service_task_per_api_connector() -> None:
     ]
     assert ("Task_quantum_group_0_human", api_connector_task_id("api")) in flows
     assert (api_connector_task_id("api"), api_connector_task_id("api2")) in flows
-    assert (api_connector_task_id("api2"), "EndEvent_1") in flows
+    assert (api_connector_task_id("api2"), "Task_analyze_results") in flows
+    assert ("Task_analyze_results", "EndEvent_1") in flows
