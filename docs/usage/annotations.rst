@@ -76,34 +76,41 @@ Annotations can be emulated in openqasm2 by using special comments.
 
 
 
-Generated Encode-Value Snippets
--------------------------------
+Generated Enrichment Outputs
+----------------------------
 
-Some backend enrichments generate OpenQASM snippets from classical values rather than from already existing input qubits.
-Amplitude encoding and matrix encoding are examples of this case.
-The amplitude encoding handler accepts a constant classical array, generates a quantum state-preparation circuit from this array, and exposes the generated quantum register as an output of the snippet.
-The matrix encoding handler accepts a constant flat array, interprets it as a unitary matrix, generates a corresponding unitary operation, and also exposes the generated quantum register as an output of the snippet.
+Some enrichments generate OpenQASM snippets from model-level properties or classical values instead of using already existing input qubits.
+This applies to angle encoding, amplitude encoding, matrix encoding, encode-value handling, and selected measurement-related enrichments.
 
-In these cases, the classical array is not represented as an ``@leqo.input`` qubit register.
-Instead, it is used by the backend during snippet generation.
-The generated quantum register is marked with ``@leqo.output`` so that the prepared or transformed state can be passed to following nodes in the model.
+For angle encoding, the backend receives classical scalar or array values and generates rotation-based encoding operations.
+For amplitude encoding, the backend receives a classical array, interprets it as an amplitude vector, and generates a state-preparation circuit.
+For matrix encoding, the backend receives a flat classical array, interprets it as a unitary matrix, and generates the corresponding unitary operation.
 
-The encode-value handlers follow the existing annotation model by exposing the generated register as a linking output.
-They do not introduce a separate ancilla-management mechanism or new uncomputation logic.
+In these cases, the classical input is only used during backend generation and is not represented as an ``@leqo.input`` qubit register.
+The generated quantum register is exposed with ``@leqo.output`` so that the result can be passed to following nodes.
 
-.. list-table:: Encode-value handlers and generated outputs
-    :header-rows: 1
-    :widths: 25 35 40
+For measurement-related enrichments, additional basis-change operations may be generated when the measurement basis differs from the default computational basis.
 
-    * - Handler
-      - Classical input
-      - Generated quantum output
-    * - Amplitude encoding
-      - Constant array interpreted as an amplitude vector
-      - State-preparation circuit generated with Qiskit `StatePreparation` and exposed as `@leqo.output`
-    * - Matrix encoding
-      - Constant flat array interpreted as a unitary matrix
-      - Unitary operation generated with Qiskit `UnitaryGate` and exposed as `@leqo.output`
+
+.. list-table:: Generated enrichment outputs and metadata
+   :header-rows: 1
+   :widths: 25 35 40
+
+   * - Enrichment
+     - Model-level input
+     - Generated output or metadata
+   * - Angle encoding
+     - Classical scalar or array values
+     - Rotation-based encoding operations exposed through the generated output register
+   * - Amplitude encoding
+     - Classical array interpreted as an amplitude vector
+     - State-preparation circuit exposed as ``@leqo.output``
+   * - Matrix encoding
+     - Flat classical array interpreted as a unitary matrix
+     - Generated unitary operation exposed as ``@leqo.output``
+   * - Measurement basis
+     - Measurement basis selected in the model
+     - Generated measurement structure with required basis-change operations
 
 Generated Encoding and State Preparation Snippets
 -------------------------------------------------
