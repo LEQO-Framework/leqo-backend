@@ -121,7 +121,7 @@ def test_gate_impl_type_mismatch() -> None:
 
 @pytest.mark.parametrize(
     "gate_name",
-    ["s", "sdg", "sx", "tdg"],
+    ["s", "sdg", "sx", "tdg", "id"],
 )
 def test_supported_single_qubit_lcm_gates_are_mapped_to_qasm(
     gate_name: str,
