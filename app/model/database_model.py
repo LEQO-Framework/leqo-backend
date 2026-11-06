@@ -4,8 +4,20 @@ Database schema for everything stored in the database.
 
 import uuid
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import UUID, ForeignKey, LargeBinary, String, Text
+from sqlalchemy import (
+    JSON,
+    UUID,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.model.StatusResponse import StatusType
@@ -127,4 +139,44 @@ class SingleEnrichResult(Base):
 
     enrich_result: Mapped["EnrichResult"] = relationship(
         "EnrichResult", back_populates="results"
+    )
+
+
+class ExecutionRecord(Base):
+    """
+    Store one run of the QUBO algorithm selection workflow.
+
+    The structural features (``num_variables``, ``density``, ``variable_names``)
+    are stored separately from the input so similar QUBOs can be found by query.
+    ``succeeded`` stays ``None`` until the outcome of solving the QUBO with the
+    selected algorithm is reported. ``candidate_qualities`` maps candidate labels
+    (e.g. ``"QAOA p=1"``) to the solution quality reached with them; only records
+    with qualities are used as history.
+    """
+
+    __tablename__ = "execution_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    input_qubo: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    num_variables: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    density: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    variable_names: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    selected_algorithm: Mapped[str] = mapped_column(String, nullable=False)
+    selected_layers: Mapped[int] = mapped_column(Integer, nullable=False)
+    generated_qasm: Mapped[str] = mapped_column(Text, nullable=False)
+    selected_qpu: Mapped[str | None] = mapped_column(String, nullable=True)
+    selected_provider: Mapped[str | None] = mapped_column(String, nullable=True)
+    error_chance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reasoning: Mapped[str] = mapped_column(Text, nullable=False)
+    candidate_evaluations: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON, nullable=False
+    )
+    succeeded: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    candidate_qualities: Mapped[dict[str, float]] = mapped_column(
+        JSON, nullable=False, default=dict
     )

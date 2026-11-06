@@ -1,5 +1,10 @@
-import pytest
+import cmath
 
+import pytest
+from qiskit import QuantumCircuit
+from qiskit.quantum_info import Statevector
+
+from app.algorithm_selection.qasm_service import program_to_qasm2
 from app.enricher import Constraints
 from app.enricher.qaoa import QAOAEnricherStrategy
 from app.model.CompileRequest import QAOANode
@@ -163,3 +168,83 @@ async def test_qaoa_max2sat_with_polarity_cnf():
 
     # sign_u * sign_v (1 * -1 = -1)
     assert "rz(-0.4) q_polar[1];" in qasm
+
+
+QUBO_MATRIX = [[-1.0, 2.0, 0.0], [0.0, 1.0, -3.0], [0.0, 0.0, 0.5]]
+
+
+def qubo_node(p: int, gamma: str, beta: str) -> QAOANode:
+    return QAOANode(
+        id="qaoa-qubo",
+        type="qaoa",
+        p=p,
+        problem="QUBO",
+        optimizer="COBYLA",
+        edges="[[0, 1, 2.0], [1, 2, -3.0]]",
+        linear="[-1.0, 1.0, 0.5]",
+        gamma=gamma,
+        beta=beta,
+        outputIdentifier="q",
+    )
+
+
+def qubo_value(x: list[int]) -> float:
+    n = len(QUBO_MATRIX)
+    return sum(QUBO_MATRIX[i][j] * x[i] * x[j] for i in range(n) for j in range(n))
+
+
+@pytest.mark.asyncio
+async def test_qaoa_qubo_cost_layer_has_qubo_phases():
+    """
+    Tests if the QUBO cost layer applies the phase exp(-i gamma f(x)) to every basis state |x>,
+    up to a global phase, so that the circuit encodes the weights and linear terms of the QUBO.
+    """
+    gamma = 0.3
+    strategy = QAOAEnricherStrategy()
+    results = strategy._enrich_impl(
+        qubo_node(1, str(gamma), "0"), Constraints(requested_inputs={})
+    )
+    circuit = QuantumCircuit.from_qasm_str(
+        program_to_qasm2(results[0].enriched_node.implementation)
+    )
+    circuit.remove_final_measurements()
+    amplitudes = Statevector(circuit).data
+
+    n = len(QUBO_MATRIX)
+    for k, amplitude in enumerate(amplitudes):
+        x = [(k >> i) & 1 for i in range(n)]
+        expected = cmath.exp(-1j * gamma * (qubo_value(x) - qubo_value([0] * n)))
+        assert amplitude / amplitudes[0] == pytest.approx(expected)
+
+
+@pytest.mark.asyncio
+async def test_qaoa_qubo_gate_structure():
+    """
+    Tests if every QUBO layer has one ZZ interaction per coupling, one RZ per local field
+    and the mixer rx(2 beta).
+    """
+    layers = 2
+    strategy = QAOAEnricherStrategy()
+    results = strategy._enrich_impl(
+        qubo_node(layers, "0.5, 0.6", "0.2, 0.3"), Constraints(requested_inputs={})
+    )
+    qasm = leqo_dumps(results[0].enriched_node.implementation)
+
+    assert "qubit[3] q;" in qasm
+    assert qasm.count("cx ") == 2 * 2 * layers
+    # J_01 = 2 / 4 -> rz(2 * 0.5 * 0.5)
+    assert "rz(0.5) q[1];" in qasm
+    # h_0 = 1 / 2 - 2 / 4 = 0 needs no gate, h_1 = -1 / 2 - 2 / 4 + 3 / 4 and h_2 = -1 / 4 + 3 / 4
+    assert qasm.count("rz(") == (2 + 2) * layers
+    assert "rx(0.4) q[0];" in qasm
+    assert "rx(0.6) q[2];" in qasm
+
+
+@pytest.mark.parametrize(
+    ("edges", "linear"),
+    [("[[0, 1]]", "[1, 1]"), ("[[0, 0, 1.0]]", ""), ("[[0, 1, 1.0]]", "nope")],
+)
+def test_qaoa_qubo_rejects_malformed_input(edges: str, linear: str):
+    node = qubo_node(1, "", "").model_copy(update={"edges": edges, "linear": linear})
+    with pytest.raises(ValueError, match="QUBO"):
+        QAOAEnricherStrategy()._enrich_impl(node, Constraints(requested_inputs={}))

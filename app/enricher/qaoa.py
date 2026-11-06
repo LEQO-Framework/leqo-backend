@@ -164,16 +164,87 @@ def _build_maxcut_gates(
     ]
 
 
+def _parse_qubo(
+    edges_str: str, linear_str: str
+) -> tuple[list[tuple[int, int, float]], list[float], int]:
+    """Extracts weighted couplings ``[i, j, w]``, linear coefficients and register width of a QUBO."""
+    try:
+        couplings = [
+            (int(i), int(j), float(w)) for i, j, w in ast.literal_eval(edges_str)
+        ]
+        linear = [float(a) for a in ast.literal_eval(linear_str)] if linear_str else []
+    except (ValueError, TypeError, SyntaxError) as exc:
+        raise ValueError(
+            "Malformed QUBO provided for QAOA: expected edges '[[i, j, w], ...]' "
+            "and linear coefficients '[a_0, a_1, ...]'."
+        ) from exc
+
+    if any(i < 0 or j < 0 or i == j for i, j, _ in couplings):
+        raise ValueError("QUBO couplings must connect two different qubits.")
+
+    num_qubits = max(
+        [len(linear), *(max(i, j) + 1 for i, j, _ in couplings)], default=0
+    )
+    if num_qubits == 0:
+        raise ValueError("QUBO has no variables.")
+    return couplings, linear, num_qubits
+
+
+def _qubo_to_ising(
+    couplings: list[tuple[int, int, float]], linear: list[float], num_qubits: int
+) -> tuple[list[tuple[int, int, float]], list[float]]:
+    """
+    Ising coefficients of ``sum_i a_i x_i + sum_(i,j) w_ij x_i x_j``.
+
+    With ``x = (1 - z) / 2`` the QUBO equals ``sum J_ij z_i z_j + sum h_i z_i`` up to a constant,
+    where ``J_ij = w_ij / 4`` and ``h_i = -a_i / 2 - sum_j w_ij / 4``.
+    """
+    fields = [-a / 2 for a in linear] + [0.0] * (num_qubits - len(linear))
+    for i, j, w in couplings:
+        fields[i] -= w / 4
+        fields[j] -= w / 4
+    return [(i, j, w / 4) for i, j, w in couplings], fields
+
+
+def _build_qubo_gates(
+    q_reg: Identifier,
+    ising_couplings: list[tuple[int, int, float]],
+    fields: list[float],
+    gamma_float: float,
+) -> list[QuantumGate]:
+    """Generates the cost layer ``exp(-i gamma H_C)`` of the Ising Hamiltonian of a QUBO."""
+    statements: list[QuantumGate] = []
+    for u, v, coupling in ising_couplings:
+        statements.extend(
+            _build_maxcut_gates(q_reg, u, v, FloatLiteral(2.0 * gamma_float * coupling))
+        )
+    statements.extend(
+        QuantumGate(
+            modifiers=[],
+            name=Identifier("rz"),
+            arguments=[FloatLiteral(2.0 * gamma_float * field)],
+            qubits=[_get_q(q_reg, q)],
+        )
+        for q, field in enumerate(fields)
+        if field != 0
+    )
+    return statements
+
+
 class QAOAEnricherStrategy(EnricherStrategy):
     @override
-    def _enrich_impl(
+    def _enrich_impl(  # noqa: PLR0912
         self, node: FrontendNode, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
         if not isinstance(node, QAOANode):
             return []
 
         problem_type = getattr(node, "problem", "MaxCut")
-        edges, num_qubits, is_dimacs = _parse_edges(node.edges, problem_type)
+        if problem_type == "QUBO":
+            couplings, linear, num_qubits = _parse_qubo(node.edges, node.linear)
+            ising_couplings, fields = _qubo_to_ising(couplings, linear, num_qubits)
+        else:
+            edges, num_qubits, is_dimacs = _parse_edges(node.edges, problem_type)
 
         # Parse Gamma and Beta inputs
         try:
@@ -220,7 +291,12 @@ class QAOAEnricherStrategy(EnricherStrategy):
             beta_val = FloatLiteral(betas[i])
 
             # Cost Hamiltonian
-            if problem_type == "Max2SAT":
+            if problem_type == "QUBO":
+                beta_val = FloatLiteral(2.0 * betas[i])
+                statements.extend(
+                    _build_qubo_gates(q_reg, ising_couplings, fields, gammas[i])
+                )
+            elif problem_type == "Max2SAT":
                 for u, v in edges:
                     statements.extend(
                         _build_max2sat_gates(q_reg, u, v, gammas[i], is_dimacs)
