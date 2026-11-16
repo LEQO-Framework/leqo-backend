@@ -1,4 +1,5 @@
 import re
+from math import sqrt
 
 import pytest
 import pytest_asyncio
@@ -110,7 +111,9 @@ async def test_insert_enrichtment(engine: AsyncEngine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
+async def test_enrich_amplitude_encode_value_rejects_float_input(
+    engine: AsyncEngine,
+) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -124,8 +127,8 @@ async def test_enrich_amplitude_encode_value(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichments(result, "amplitude_impl", 1, 1)
+    with pytest.raises(InputTypeMismatch):
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
 
 
 @pytest.mark.asyncio
@@ -148,7 +151,9 @@ async def test_enrich_angle_encode_value(engine: AsyncEngine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enrich_matrix_encode_value(engine: AsyncEngine) -> None:
+async def test_enrich_matrix_encode_value_rejects_non_array_input(
+    engine: AsyncEngine,
+) -> None:
     node = FrontendEncodeValueNode(
         id="1",
         label=None,
@@ -162,8 +167,38 @@ async def test_enrich_matrix_encode_value(engine: AsyncEngine) -> None:
         optimizeWidth=True,
     )
 
-    result = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
-    assert_enrichments(result, "matrix_impl", 3, 3)
+    with pytest.raises(InputTypeMismatch):
+        await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
+
+
+@pytest.mark.asyncio
+async def test_enrich_matrix_encode_value_dispatches_to_handler(
+    engine: AsyncEngine,
+) -> None:
+    node = FrontendEncodeValueNode(
+        id="1",
+        label=None,
+        type="encode",
+        encoding="matrix",
+        bounds=1,
+    )
+    constraints = Constraints(
+        requested_inputs={0: ArrayType.with_size(1, 4)},
+        requested_input_values={0: [0, 1, 1, 0]},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    results = await EncodeValueEnricherStrategy(engine).enrich(node, constraints)
+    result = next(iter(results))
+
+    implementation_str = leqo_dumps(result.enriched_node.implementation)
+
+    assert 'include "stdgates.inc";' in implementation_str
+    assert "qubit[1] encoded;" in implementation_str
+    assert "@leqo.output 0" in implementation_str
+    assert "let out = encoded;" in implementation_str
+    assert result.meta_data.width == 1
 
 
 @pytest.mark.asyncio
@@ -456,12 +491,12 @@ async def test_enrich_angle_encode_value_node_not_in_db(engine: AsyncEngine) -> 
 
     assert "@leqo.input 0" in implementation_str
     assert "int[32] value;" in implementation_str
-    assert "qubit[32] encoded;" in implementation_str
-    assert implementation_str.count("ry(3.141592653589793)") == ENCODE_REGISTER_SIZE
+    assert "qubit[1] encoded;" in implementation_str
+    assert implementation_str.count("ry(3.141592653589793)") == 1
     assert "@leqo.output 0" in implementation_str
     assert "let out = encoded;" in implementation_str
-    assert result.meta_data.width == ENCODE_REGISTER_SIZE
-    assert result.meta_data.depth == ENCODE_REGISTER_SIZE
+    assert result.meta_data.width == 1
+    assert result.meta_data.depth == 1
 
 
 @pytest.mark.asyncio
@@ -579,12 +614,11 @@ async def test_enrich_angle_encode_value_array_literal(engine: AsyncEngine) -> N
     assert "array[int[3], 2] value;" not in implementation_str
     assert "if" not in implementation_str
     assert f"qubit[{array_type.length}] encoded;" in implementation_str
-    mask_limit = (1 << array_type.element_type.size) - 1
-    expected_rotations = [
-        2 * float(value & mask_limit)
-        for value in array_values
-        if (value & mask_limit) != 0
-    ]
+
+    float_values = [float(value) for value in array_values]
+    norm = sqrt(sum(value**2 for value in float_values))
+    expected_rotations = [2 * value / norm for value in float_values if value != 0.0]
+
     rotation_args = [
         arg.strip() for arg in re.findall(r"ry\(([^)]+)\)", implementation_str)
     ]
@@ -641,3 +675,90 @@ async def test_enrich_angle_encode_value_array_input(engine: AsyncEngine) -> Non
     assert "@leqo.output 0" in implementation_str
     assert result.meta_data.width == array_type.length
     assert result.meta_data.depth == array_type.length
+
+
+@pytest.mark.asyncio
+async def test_enrich_encode_value_float_precision(engine: AsyncEngine) -> None:
+    async with AsyncSession(engine) as session:
+        await session.execute(
+            delete(EncodeValueNode).where(
+                EncodeValueNode.encoding == EncodingType.BASIS
+            )
+        )
+        await session.commit()
+
+    node = FrontendEncodeValueNode(
+        id="1",
+        label=None,
+        type="encode",
+        encoding="basis",
+        bounds=1,
+        decimalPrecision=2,
+    )
+    constraints = Constraints(
+        requested_inputs={0: FloatType(size=32)},
+        requested_input_values={0: -2.1},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    results = list(await EncodeValueEnricherStrategy(engine).enrich(node, constraints))
+    assert len(results) == 1
+
+    implementation = results[0].enriched_node.implementation
+    implementation_str = (
+        implementation
+        if isinstance(implementation, str)
+        else leqo_dumps(implementation)
+    )
+
+    assert "@leqo.twos_complement true" in implementation_str
+    assert "@leqo.length 1" in implementation_str
+    assert "@leqo.fractional_bits 7" in implementation_str
+    assert "qubit[10] encoded;" in implementation_str
+
+
+@pytest.mark.asyncio
+async def test_enrich_encode_value_float_array_precision(
+    engine: AsyncEngine,
+) -> None:
+    async with AsyncSession(engine) as session:
+        await session.execute(
+            delete(EncodeValueNode).where(
+                EncodeValueNode.encoding == EncodingType.BASIS
+            )
+        )
+        await session.commit()
+
+    node = FrontendEncodeValueNode(
+        id="1",
+        label=None,
+        type="encode",
+        encoding="basis",
+        bounds=1,
+        decimalPrecision=2,
+    )
+    array_type = ArrayType.with_size(32, 3, is_float=True)
+    expected_width = 33
+    constraints = Constraints(
+        requested_inputs={0: array_type},
+        requested_input_values={0: [-2.1, 0.4, 6.9]},
+        optimizeDepth=True,
+        optimizeWidth=True,
+    )
+
+    results = list(await EncodeValueEnricherStrategy(engine).enrich(node, constraints))
+    assert len(results) == 1
+
+    implementation = results[0].enriched_node.implementation
+    implementation_str = (
+        implementation
+        if isinstance(implementation, str)
+        else leqo_dumps(implementation)
+    )
+
+    assert "@leqo.twos_complement true" in implementation_str
+    assert "@leqo.length 3" in implementation_str
+    assert "@leqo.fractional_bits 7" in implementation_str
+    assert f"qubit[{expected_width}] encoded;" in implementation_str
+    assert results[0].meta_data.width == expected_width

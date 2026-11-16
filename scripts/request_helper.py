@@ -102,7 +102,15 @@ def polling_send_json(
         method="POST",
     )
     with request.urlopen(submit_request) as response:
-        status_url = _with_flags(response.url, flags)
+        # Check if we stayed on the /compile endpoint or were redirected (like /enrich)
+        if response.url == submit_url or response.url.endswith(endpoint):
+            # Read the JSON to extract the status URL manually
+            initial_payload = json.loads(response.read().decode("utf-8"))
+            status_url = initial_payload["links"]["status"]
+            status_url = _with_flags(status_url, flags)
+        else:
+            # Urllib automatically followed a 303 Redirect
+            status_url = _with_flags(response.url, flags)
 
     result_url: str | None = None
     for _ in range(MAX_ATTEMPTS):

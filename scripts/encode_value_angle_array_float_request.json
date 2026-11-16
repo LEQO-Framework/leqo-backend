@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "version": "1.0.1",
+    "name": "Float Array Test",
+    "description": "Testing the fix for float arrays in angle encoding.",
+    "author": "Mihails-Kica"
+  },
+  "compilation_target": "qasm",
+  "nodes": [
+    {
+      "id": "literal",
+      "type": "array",
+      "label": "Float Input",
+      "values": [0.5, 1.5],
+      "elementType": "float"
+    },
+    {
+      "id": "encode",
+      "type": "encode",
+      "label": "Angle Encoder",
+      "encoding": "angle",
+      "bounds": 0
+    },
+    {
+      "id": "measure",
+      "type": "measure",
+      "label": "Readout",
+      "indices": [0, 1]
+    }
+  ],
+  "edges": [
+    { "source": ["literal", 0], "target": ["encode", 0] },
+    { "source": ["encode", 0], "target": ["measure", 0] }
+  ]
+}

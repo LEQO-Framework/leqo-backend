@@ -28,7 +28,8 @@ expected_result: |
       "id": "newNode0",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit q0;\n@leqo.input 0\nqubit q1;\n"
+      "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\n@leqo.input 0\nqubit q0;\n@leqo.input 0\nqubit q1;\n",
+      "language": "openqasm"
     },
     "inputIndex": null
   }

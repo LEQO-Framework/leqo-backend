@@ -5,6 +5,7 @@ It provides classes to model metadata, node data, and the complete compile reque
 
 from __future__ import annotations
 
+import ast
 import re
 from abc import ABC
 from collections.abc import Iterable
@@ -16,10 +17,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.openqasm3.stdgates import (
     OneQubitGate,
     OneQubitGateWithAngle,
+    OneQubitGateWithParams,
     ThreeQubitGate,
     TwoQubitGate,
     TwoQubitGateWithAngle,
     TwoQubitGateWithParam,
+    TwoQubitGateWithParams,
 )
 
 
@@ -96,7 +99,13 @@ class ImplementationNode(BaseNode):
     type: Literal["implementation"] = "implementation"
 
     implementation: str
-    """Raw OpenQASM code associated with the node."""
+    """Raw code associated with the node."""
+
+    language: Literal["openqasm", "python"] = "openqasm"
+    """
+    Language of :attr:`implementation`.
+    Python implementations can only be compiled into a workflow (as external service task).
+    """
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -114,6 +123,12 @@ class EncodeValueNode(BaseNode):
 
     bounds: int = Field(ge=0, default=0, le=1)
     """Indicates whether values are clamped (0 or 1)."""
+
+    decimalPrecision: int | None = Field(default=None, ge=0)
+    """User-defined number of decimal places for float encoding."""
+
+    errorTolerance: float = Field(default=0.001, gt=0)
+    """Fallback tolerance if decimal precision is not provided."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -149,6 +164,7 @@ class PrepareStateNode(BaseNode):
                 state_name = node_data.get("quantumStateName")
                 if state_name is not None:
                     normalized["quantumState"] = str(state_name)
+
             if "size" not in normalized:
                 size_value = node_data.get("size")
                 if size_value is not None:
@@ -203,6 +219,12 @@ class MeasurementNode(BaseNode):
     indices: list[Annotated[int, Field(ge=0)]]
     """List of qubit indices to measure."""
 
+    basis: str = "Z"
+    """Measurement basis or composite Pauli basis string. Defaults to Z-basis."""
+
+    pauliStrings: list[str] = Field(default_factory=list)
+    """Optional list of Pauli strings to measure in one measurement node."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
     @model_validator(mode="before")
@@ -227,7 +249,106 @@ class MeasurementNode(BaseNode):
         if indices is not None:
             normalized["indices"] = indices
 
+        basis = cls._parse_basis(normalized.get("basis"))
+        if basis is None and node_dict is not None:
+            basis = cls._parse_basis(
+                cls._first_existing_value(
+                    node_dict,
+                    (
+                        "basis",
+                        "measurementBasis",
+                        "basisType",
+                        "measurementBasisType",
+                    ),
+                )
+            )
+
+        if basis is not None:
+            normalized["basis"] = basis
+
+        pauli_strings = cls._parse_pauli_strings(normalized.get("pauliStrings"))
+        if pauli_strings is None:
+            pauli_strings = cls._parse_pauli_strings(normalized.get("pauli_strings"))
+
+        if pauli_strings is None and node_dict is not None:
+            pauli_strings = cls._parse_pauli_strings(
+                cls._first_existing_value(
+                    node_dict,
+                    (
+                        "pauliStrings",
+                        "pauli_strings",
+                        "pauliString",
+                        "pauli_string",
+                        "measurementPauliStrings",
+                    ),
+                )
+            )
+
+        if pauli_strings is not None:
+            normalized["pauliStrings"] = pauli_strings
+
         return normalized
+
+    @staticmethod
+    def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
+        for key in keys:
+            value = data.get(key)
+            if value is not None:
+                return value
+
+        return None
+
+    @staticmethod
+    def _parse_basis(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+
+        normalized = value.strip().upper()
+        alias = normalized.replace("_", " ").replace("-", " ")
+
+        match alias:
+            case "X BASIS":
+                return "X"
+            case "Y BASIS":
+                return "Y"
+            case "Z BASIS":
+                return "Z"
+
+        compact = normalized.replace(" ", "")
+        if compact and all(char in {"I", "X", "Y", "Z"} for char in compact):
+            return compact
+
+        return None
+
+    @classmethod
+    def _parse_pauli_strings(cls, value: Any) -> list[str] | None:
+        if isinstance(value, list):
+            parsed_strings: list[str] = []
+            for item in value:
+                parsed = cls._parse_basis(item)
+                if parsed is None:
+                    return None
+                parsed_strings.append(parsed)
+
+            return parsed_strings or None
+
+        if isinstance(value, str):
+            parts = [
+                part.strip()
+                for part in value.replace(";", ",").split(",")
+                if part.strip()
+            ]
+
+            parsed_parts: list[str] = []
+            for part in parts:
+                parsed = cls._parse_basis(part)
+                if parsed is None:
+                    return None
+                parsed_parts.append(parsed)
+
+            return parsed_parts or None
+
+        return None
 
     @staticmethod
     def _coerce_indices(values: Iterable[Any]) -> list[int]:
@@ -236,11 +357,13 @@ class MeasurementNode(BaseNode):
             if isinstance(raw, int):
                 coerced.append(raw)
                 continue
+
             if isinstance(raw, str):
                 stripped = raw.strip()
                 if stripped:
                     with suppress(ValueError):
                         coerced.append(int(stripped))
+
         return coerced
 
     @classmethod
@@ -248,18 +371,22 @@ class MeasurementNode(BaseNode):
         if isinstance(value, list):
             parsed = cls._coerce_indices(value)
             return parsed or None
+
         if isinstance(value, str):
             segments = [segment.strip() for segment in value.split(",")]
             parsed = cls._coerce_indices(segments)
             return parsed or None
+
         if isinstance(value, int):
             return [value]
+
         return None
 
     @staticmethod
     def _infer_indices_from_inputs(value: Any) -> list[int] | None:
         if not isinstance(value, list):
             return None
+
         logical_inputs = [
             entry
             for entry in value
@@ -297,21 +424,137 @@ class GateNode(BaseNode):
     gate: OneQubitGate | TwoQubitGate | ThreeQubitGate | Literal["cnot", "toffoli"]
     """The gate to apply (e.g., "x", "cnot", etc.)."""
 
+    controlCount: int = Field(default=0, ge=0)
+    """Number of control qubits used for controlled gate application."""
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 class ParameterizedGateNode(BaseNode):
     """
-    Node representing a gate that requires a parameter (e.g., angle rotation).
+    Node representing a gate that requires one or more parameters.
     """
 
     type: Literal["gate-with-param"] = "gate-with-param"
 
-    gate: OneQubitGateWithAngle | TwoQubitGateWithParam | TwoQubitGateWithAngle
+    gate: (
+        OneQubitGateWithAngle
+        | OneQubitGateWithParams
+        | TwoQubitGateWithParam
+        | TwoQubitGateWithAngle
+        | TwoQubitGateWithParams
+    )
     """The parameterized gate to apply."""
 
-    parameter: float
-    """Value of the gate's parameter."""
+    parameter: float | None = None
+    """Single parameter value for one-parameter gates."""
+
+    parameters: list[float] | None = None
+    """Ordered angles in radians: u2 [phi, lambda], u3 [theta, phi, lambda],
+    cu [theta, phi, lambda, gamma]. Also accepts [lambda] for u1.
+    """
+
+    controlCount: int = Field(default=0, ge=0)
+    """Number of control qubits used for controlled gate application."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class MCMTGateNode(BaseNode):
+    """
+    Node representing a Multi-Controlled Multi-Target (MCMT) gate.
+    """
+
+    type: Literal["mcmt-gate"] = "mcmt-gate"
+
+    baseGate: Literal["x", "y", "z", "h", "rx", "ry", "rz", "s", "sdg", "t", "tdg"]
+    """The base gate to be controlled and applied to targets."""
+
+    numControls: int = Field(gt=0)
+    """Number of control qubits."""
+
+    numTargets: int = Field(gt=0)
+    """Number of target qubits."""
+
+    parameter: float | None = None
+    """Parameter for rotation gates (rx, ry, rz)."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class QFTNode(BaseNode):
+    """
+    Node representing the Quantum Fourier Transform on a qubit register.
+    """
+
+    type: Literal["qft"] = "qft"
+
+    size: int | None = Field(default=None, gt=0)
+    """Number of qubits the QFT acts on."""
+
+    inverse: bool = False
+    """Whether to generate the inverse Quantum Fourier Transform."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class QAOANode(BaseNode):
+    """
+    Node representing a Quantum Approximate Optimization Algorithm (QAOA) Ansatz generator.
+    """
+
+    type: Literal["qaoa"] = "qaoa"
+
+    p: int = Field(gt=0)
+    """Number of layers in the QAOA ansatz."""
+
+    problem: Literal["MaxCut", "Max2SAT", "GraphColoring"] = "MaxCut"
+    """The optimization problem to solve (defines the Cost Hamiltonian)."""
+
+    optimizer: Literal["COBYLA", "SPSA", "NELDER_MEAD"]
+    """Classical optimizer intended for downstream execution."""
+
+    edges: str
+    """String representation of the graph edge list, e.g., '[[0,1], [1,2]]'."""
+
+    gamma: str = ""
+    beta: str = ""
+    """Optimizer parameters."""
+
+    outputIdentifier: str
+    """The identifier for the generated quantum register."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class QPENode(BaseNode):
+    """
+    Node representing a first Quantum Phase Estimation implementation.
+    """
+
+    type: Literal["qpe"] = "qpe"
+
+    estimationSize: int = Field(gt=0)
+    """Number of qubits in the phase estimation register."""
+
+    phase: float = Field(ge=0, lt=1)
+    """Eigenphase used for the controlled phase unitary in QPE V1."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class ControlledUNode(BaseNode):
+    """
+    Node representing a controlled unitary matrix operation.
+    """
+
+    type: Literal["controlled-u"] = "controlled-u"
+
+    matrix: list[list[float]]
+    """Unitary matrix applied to the target qubits."""
+
+    controlValue: Literal[0, 1] = 1
+    """Control value that activates the unitary operation."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -359,10 +602,18 @@ class IntLiteralNode(BaseNode):
 
     @model_validator(mode="after")
     def _default_bit_size(self) -> IntLiteralNode:
-        int_v = int(self.value)
-        self.value = int_v
-        if self.bitSize is None:
-            self.bitSize = _infer_int_bit_size(int_v)
+        try:
+            int_v = int(self.value)
+            self.value = int_v
+
+            if self.bitSize is None:
+                self.bitSize = _infer_int_bit_size(int_v)
+
+        except (ValueError, TypeError):
+            # Not an integer literal (e.g. "a")
+            # Leave value as-is and don't infer bitSize
+            pass
+
         return self
 
     model_config = ConfigDict(use_attribute_docstrings=True)
@@ -393,16 +644,19 @@ class FloatLiteralNode(BaseNode):
 
 class ArrayLiteralNode(BaseNode):
     """
-    Node representing an array of integers.
+    Node representing an array of values (integers or floats).
     """
 
     type: Literal["array"] = "array"
 
-    values: list[int]
-    """Ordered list of integer values in the array."""
+    values: list[int | float | list[int | float]]
+    """Ordered list of values in the array (flattened for OpenQASM compatibility)."""
 
     elementBitSize: int | None = Field(default=None, ge=1)
-    """Bit width of each element in the array (optional)."""
+    """Bit width of each element in the array (only used for integers)."""
+
+    elementType: Literal["int", "float"] | None = None
+    """Explicitly declare the type of the array elements."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -414,32 +668,118 @@ class ArrayLiteralNode(BaseNode):
 
         normalized = data.copy()
         raw_values = normalized.get("values", normalized.get("value"))
+
+        def parse_num(s: Any) -> int | float:
+            str_s = str(s).strip()
+            if not str_s:
+                return 0
+            return float(str_s) if "." in str_s else int(str_s)
+
+        # Process elements while preserving 2D structures
+        def process_element(val: Any) -> Any:
+            if isinstance(val, (list, tuple)):
+                # Keep the inner list structure intact, just parse its numbers
+                return [process_element(item) for item in val]
+            if isinstance(val, (int, float, str)):
+                return parse_num(val)
+            return val
+
         if isinstance(raw_values, str):
-            parts = [
-                part.strip()
-                for part in raw_values.replace(";", ",").split(",")
-                if part.strip() != ""
-            ]
-            normalized["values"] = [int(part) for part in parts]
-        elif isinstance(raw_values, Iterable):
-            normalized["values"] = [int(value) for value in raw_values]
-        elif raw_values is not None:
-            normalized["values"] = [int(raw_values)]
+            try:
+                parsed = ast.literal_eval(raw_values)
+                processed = process_element(parsed)
+            except (ValueError, SyntaxError):
+                # Fallback for comma-separated single strings
+                parts = [
+                    p.strip()
+                    for p in raw_values.replace(";", ",").split(",")
+                    if p.strip()
+                ]
+                processed = [parse_num(p) for p in parts]
+        elif isinstance(raw_values, Iterable) and not isinstance(
+            raw_values, (str, bytes)
+        ):
+            processed = [process_element(v) for v in raw_values]
         else:
-            normalized.setdefault("values", [])
+            processed = [process_element(raw_values)] if raw_values is not None else []
+
+        normalized["values"] = processed
+
+        if "elementType" not in normalized and processed:
+
+            def has_float(v: Any) -> bool:
+                if isinstance(v, list):
+                    return any(has_float(i) for i in v)
+                return isinstance(v, float)
+
+            normalized["elementType"] = "float" if has_float(processed) else "int"
 
         return normalized
 
     @model_validator(mode="after")
     def _default_bit_size(self) -> ArrayLiteralNode:
-        if self.elementBitSize is None:
-            bit_size = (
-                max((_infer_int_bit_size(value) for value in self.values), default=1)
-                if self.values
-                else 1
-            )
-            self.elementBitSize = bit_size
+        if self.elementType != "float" and self.elementBitSize is None:
+            if self.values:
+                # Make sure we only calculate bit_size for ints, ignoring floats
+                ints_only = [v for v in self.values if isinstance(v, int)]
+                if ints_only:
+                    self.elementBitSize = max(
+                        (_infer_int_bit_size(v) for v in ints_only), default=1
+                    )
+                else:
+                    self.elementBitSize = 1
+            else:
+                self.elementBitSize = 1
         return self
+
+
+class FileLiteralNode(BaseNode):
+    """
+    Node representing a file as a url.
+    """
+
+    type: Literal["file"] = "file"
+
+    value: str
+    """The url navigating to the file."""
+
+
+class EditableNode(BaseNode):
+    """
+    Node representing an editable node for domain profiles.
+    """
+
+    type: Literal["editableNode"] = "editableNode"
+
+    label: str | None = None
+    """label of node"""
+
+    propertyValues: dict[str, Any] = {}
+    """Possible properties"""
+
+    mapping: list[list[Any]] = [[]]  # is actually a nested list of lists of string
+    """Possible mappings to valid other nodes"""
+
+    isDataType: bool = True
+    """true if node is a data type, false if it is an operator node"""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class StringLiteralNode(BaseNode):
+    """
+    Node representing a string literal.
+    """
+
+    type: Literal["string"] = "string"
+
+    bitSize: int = Field(default=32, ge=1)
+    """"Bit size of the string (optional)."""
+
+    value: str
+    """String value."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
 
 
 LiteralNode = (
@@ -448,6 +788,8 @@ LiteralNode = (
     | IntLiteralNode
     | FloatLiteralNode
     | ArrayLiteralNode
+    | StringLiteralNode
+    | FileLiteralNode
 )
 # endregion
 
@@ -461,6 +803,179 @@ class AncillaNode(BaseNode):
 
     size: int = Field(default=1, ge=1)
     """Number of ancilla qubits allocated."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class DeutschJozsaNode(BaseNode):
+    """
+    Node representing the Deutsch-Jozsa algorithm with a parameterized oracle.
+    """
+
+    type: Literal["deutsch-jozsa"] = "deutsch-jozsa"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """The number of query qubits (n) for the oracle."""
+
+    oracleType: Literal["constant", "balanced"]
+    """The type of hidden oracle to generate."""
+
+    constantValue: Literal[0, 1] | None = None
+    """The value to return if the oracle is constant."""
+
+    balancedMask: Annotated[int, Field(ge=1)] | None = None
+    """Integer mask dictating CNOT controls for a balanced oracle."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="after")
+    def _validate_oracle_params(self) -> DeutschJozsaNode:
+        if self.oracleType == "constant" and self.constantValue is None:
+            raise ValueError("constantValue must be 0 or 1 for constant oracles.")
+
+        if self.oracleType == "balanced":
+            if self.balancedMask is None:
+                raise ValueError("balancedMask must be provided for balanced oracles.")
+            # Ensure the mask isn't larger than the available qubits can handle
+            if self.balancedMask >= (1 << self.numQubits):
+                raise ValueError(
+                    f"balancedMask {self.balancedMask} is too large for {self.numQubits} query qubits."
+                )
+
+        return self
+
+
+class UniversalOracleNode(BaseNode):
+    """
+    Arbitrary Oracle defined by a Truth Table.
+    """
+
+    type: Literal["universal-oracle"] = "universal-oracle"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """Number of query qubits (n). The truth table must be length 2^n."""
+
+    targetStates: list[int]
+    """List of integer indices representing the states where f(x)=1."""
+
+    mode: Literal["boolean", "phase"]
+    """
+    'boolean': Flips a target qubit if f(x)=1 (Used for Deutsch-Jozsa).
+    'phase': Flips the phase of the state if f(x)=1 (Used for Grover).
+    """
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _parse_target_states(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            ts = data.get("targetStates", "")
+            if isinstance(ts, str):
+                if not ts.strip():
+                    data["targetStates"] = []
+                else:
+                    data["targetStates"] = [
+                        int(x.strip()) for x in ts.split(",") if x.strip().isdigit()
+                    ]
+        return data
+
+    @model_validator(mode="after")
+    def _validate_bounds(self) -> UniversalOracleNode:
+        max_val = (1 << self.numQubits) - 1
+        for state in self.targetStates:
+            if state < 0 or state > max_val:
+                raise ValueError(
+                    f"Target state {state} is out of bounds for {self.numQubits} qubits (max {max_val})."
+                )
+        return self
+
+
+class GroverDiffuserNode(BaseNode):
+    """
+    Standard Grover Diffuser (Inversion about the mean).
+    """
+
+    type: Literal["grover-diffuser"] = "grover-diffuser"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """Number of qubits to apply the diffuser to."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class GroverNode(BaseNode):
+    """
+    Complete Grover's Algorithm node (State Prep + Oracle + Diffuser).
+    """
+
+    type: Literal["grover"] = "grover"
+
+    numQubits: Annotated[int, Field(gt=0)]
+    """Number of query qubits (n)."""
+
+    targetStates: list[int]
+    """Truth table representing the target states to search for."""
+
+    numIterations: int | None = None
+    """Number of times to repeat the Oracle and Diffuser. If None, optimally computed."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _parse_target_states(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            ts = data.get("targetStates", "")
+            if isinstance(ts, str):
+                if not ts.strip():
+                    data["targetStates"] = []
+                else:
+                    data["targetStates"] = [
+                        int(x.strip()) for x in ts.split(",") if x.strip().isdigit()
+                    ]
+
+            # Handle optional iterations from frontend empty string
+            iters = data.get("numIterations")
+            if iters in {"", "Auto"}:
+                data["numIterations"] = None
+        return data
+
+    @model_validator(mode="after")
+    def _validate_bounds(self) -> GroverNode:
+        max_val = (1 << self.numQubits) - 1
+        for state in self.targetStates:
+            if state < 0 or state > max_val:
+                raise ValueError(
+                    f"Target state {state} is out of bounds for {self.numQubits} qubits."
+                )
+        return self
+
+
+class VQENode(BaseNode):
+    """
+    Models a Variational Quantum Eigensolver (VQE) node.
+    """
+
+    type: Literal["vqe"] = "vqe"
+
+    numQubits: Annotated[int, Field(gt=0)]
+
+    ansatz: str
+
+    """e.g., "HardwareEfficient", "RyRz" """
+    layers: Annotated[int, Field(gt=0)]
+
+    parameters: str
+    """Comma-separated list of initial theta values """
+
+    observable: str
+    """e.g., "Z0", "Z0Z1" """
+
+    optimizer: str
+    """e.g., "ParameterShift", "COBYLA" """
+
+    outputIdentifier: str = "vqe_reg"
 
     model_config = ConfigDict(use_attribute_docstrings=True)
 
@@ -506,13 +1021,26 @@ class RepeatNode(BaseNode):
 
     type: Literal["repeat"] = "repeat"
 
-    iterations: int = Field(gt=0)
+    iterations: int | None = Field(default=None, gt=0)
     """Number of loop iterations."""
+
+    condition: str | None = None
+    """
+    Loop condition (e.g. ``a >= 1``), the block is repeated while it holds.
+    Only supported for the workflow target, used instead of ``iterations``.
+    """
 
     block: NestedBlock
     """Code block to repeat."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
+
+    @model_validator(mode="after")
+    def _iterations_or_condition(self) -> RepeatNode:
+        if self.iterations is None and not self.condition:
+            msg = "RepeatNode needs either iterations or a condition."
+            raise ValueError(msg)
+        return self
 
 
 class WhileNode(BaseNode):
@@ -563,6 +1091,7 @@ class OperatorNode(BaseNode):
     """
 
     type: Literal["operator"] = "operator"
+
     operator: Literal[
         "+",
         "-",
@@ -587,15 +1116,102 @@ class OperatorNode(BaseNode):
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
+class PluginNode(BaseNode):
+    """
+    Node representing a plugin.
+    """
+
+    type: Literal["plugin"] = "plugin"
+
+    pluginName: str
+    """Name of the plugin"""
+
+    clusteringAlgorithm: str | None = None
+    """Selected clustering algorithm of the ML Node."""
+
+    variant: str | None = None
+
+    initEnum: str | None = None
+
+    algorithmEnum: str | None = None
+
+    methodEnum: str | None = None
+
+    metricEnum: str | None = None
+
+    inputs: list[Any] = []
+    """Possible inputs."""
+
+    outputs: list[Any] = []
+    """Possible outputs."""
+
+
+class ApiConnectorOutput(BaseModel):
+    """
+    Output of an :class:`ApiConnectorNode`, extracted from the HTTP response.
+    """
+
+    name: str
+    """Name of the process variable the output is stored in."""
+
+    script: str
+    """Script extracting the output from the connector variable ``response``."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class ApiConnectorNode(BaseNode):
+    """
+    Custom operator implemented by an external HTTP API.
+    Becomes a service task with a Camunda http-connector in the workflow.
+    """
+
+    type: Literal["api-connector"] = "api-connector"
+
+    method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"] = "POST"
+    """HTTP method of the request."""
+
+    url: str
+    """URL of the API, absolute or relative to the deployment (e.g. ``/execution-service``)."""
+
+    headers: dict[str, str] = {}
+    """HTTP headers of the request."""
+
+    payload: str | None = None
+    """Script building the request body from the process variables (None = no body)."""
+
+    outputs: list[ApiConnectorOutput] = []
+    """Outputs extracted from the response, in order of the output ports."""
+
+    scriptFormat: str = "groovy"
+    """Script language of :attr:`payload` and the output scripts."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
 NestableNode = (
     ImplementationNode
     | BoundaryNode
     | GateNode
+    | QFTNode
+    | QAOANode
+    | QPENode
+    | ControlledUNode
     | ParameterizedGateNode
+    | MCMTGateNode
     | LiteralNode
     | AncillaNode
     | OperatorNode
+    | DeutschJozsaNode
+    | UniversalOracleNode
+    | GroverDiffuserNode
+    | GroverNode
+    | PluginNode
+    | ApiConnectorNode
+    | EditableNode
+    | VQENode
 )
+
 Node = NestableNode | QubitNode | ControlFlowNode
 
 
@@ -638,14 +1254,17 @@ class Edge(BaseModel):
                 node_id = value
                 index = 0
                 handle = normalized.get(handle_field)
+
                 if isinstance(handle, str):
                     if handle.endswith(node_id):
                         prefix = handle[: -len(node_id)]
                     else:
                         prefix = handle
+
                     match = re.search(r"(\d+)(?!.*\d)", prefix)
                     if match is not None:
                         index = int(match.group(1))
+
                 normalized[field] = (node_id, index)
 
         _convert_endpoint("source", "sourceHandle")
@@ -659,6 +1278,74 @@ class Edge(BaseModel):
                     normalized["size"] = int(stripped)
 
         return normalized
+
+
+def _normalize_schmidt_encoding_name(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip().lower().replace("_", " ").replace("-", " ")
+
+    if normalized in {"schmidt", "schmidt decomposition"}:
+        return "schmidt"
+
+    return None
+
+
+def _first_existing_value(data: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        value = data.get(key)
+        if value is not None:
+            return value
+
+    return None
+
+
+def _normalize_state_preparation_node(converted: dict[str, Any]) -> None:
+    data_field = converted.get("data")
+
+    if isinstance(data_field, dict):
+        encoding = _normalize_schmidt_encoding_name(data_field.get("encodingType"))
+        if encoding is not None:
+            converted["type"] = "encode"
+            converted["encoding"] = encoding
+            converted.setdefault("label", data_field.get("label"))
+            return
+
+    converted["type"] = "prepare"
+
+
+def _normalize_data_type_node(converted: dict[str, Any]) -> None:
+    data_field = converted.get("data")
+    if not isinstance(data_field, dict):
+        return
+
+    data_type = data_field.get("dataType")
+    if not isinstance(data_type, str):
+        return
+
+    match data_type.lower():
+        case "array":
+            converted["type"] = "array"
+            converted.setdefault("label", data_field.get("label"))
+
+            if "values" not in converted and "value" in data_field:
+                converted["values"] = data_field["value"]
+
+            if "elementBitSize" not in converted and "bitSize" in data_field:
+                converted["elementBitSize"] = data_field["bitSize"]
+
+        case "qubit":
+            converted["type"] = "qubit"
+            converted.setdefault("label", data_field.get("label"))
+
+            if "size" not in converted:
+                size_value = _first_existing_value(
+                    data_field,
+                    ("size", "numberQubits", "numberOutputs", "value"),
+                )
+                if size_value is not None:
+                    converted["size"] = size_value
 
 
 class CompileRequest(BaseModel):
@@ -688,38 +1375,28 @@ class CompileRequest(BaseModel):
 
         normalized = data.copy()
         nodes = normalized.get("nodes")
-        if isinstance(nodes, list):
-            converted_nodes: list[Any] = []
-            for node in nodes:
-                if isinstance(node, dict):
-                    converted = node.copy()
-                    node_type = converted.get("type")
-                    if node_type == "statePreparationNode":
-                        converted["type"] = "prepare"
-                    elif node_type == "measurementNode":
-                        converted["type"] = "measure"
-                    elif node_type == "dataTypeNode":
-                        data_field = converted.get("data")
-                        if isinstance(data_field, dict):
-                            data_type = data_field.get("dataType")
-                            if (
-                                isinstance(data_type, str)
-                                and data_type.lower() == "array"
-                            ):
-                                converted["type"] = "array"
-                                converted.setdefault("label", data_field.get("label"))
-                                if "values" not in converted and "value" in data_field:
-                                    converted["values"] = data_field["value"]
-                                if (
-                                    "elementBitSize" not in converted
-                                    and "bitSize" in data_field
-                                ):
-                                    converted["elementBitSize"] = data_field["bitSize"]
-                    converted_nodes.append(converted)
-                else:
-                    converted_nodes.append(node)
-            normalized["nodes"] = converted_nodes
+        if not isinstance(nodes, list):
+            return normalized
 
+        converted_nodes: list[Any] = []
+        for node in nodes:
+            if not isinstance(node, dict):
+                converted_nodes.append(node)
+                continue
+
+            converted = node.copy()
+            node_type = converted.get("type")
+
+            if node_type == "statePreparationNode":
+                _normalize_state_preparation_node(converted)
+            elif node_type == "measurementNode":
+                converted["type"] = "measure"
+            elif node_type == "dataTypeNode":
+                _normalize_data_type_node(converted)
+
+            converted_nodes.append(converted)
+
+        normalized["nodes"] = converted_nodes
         return normalized
 
 
@@ -727,10 +1404,20 @@ EnrichableNode = (
     BoundaryNode
     | GateNode
     | ParameterizedGateNode
+    | MCMTGateNode
+    | QFTNode
+    | QAOANode
+    | QPENode
+    | ControlledUNode
     | LiteralNode
     | AncillaNode
     | OperatorNode
     | QubitNode
+    | DeutschJozsaNode
+    | UniversalOracleNode
+    | GroverDiffuserNode
+    | GroverNode
+    | VQENode
 )
 
 
@@ -749,7 +1436,9 @@ class SingleInsert(BaseModel):
     """
 
     node: Annotated[EnrichableNode, Field(discriminator="type")]
+
     implementation: str
+
     metadata: SingleInsertMetaData
 
 

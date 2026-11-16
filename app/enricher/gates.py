@@ -6,7 +6,16 @@ Provides enricher strategy for gate nodes
 
 from typing import get_args, override
 
-from openqasm3.ast import Expression, FloatLiteral, Identifier, Include, QuantumGate
+from openqasm3.ast import (
+    Expression,
+    FloatLiteral,
+    GateModifierName,
+    Identifier,
+    Include,
+    IntegerLiteral,
+    QuantumGate,
+    QuantumGateModifier,
+)
 
 from app.enricher import (
     Constraints,
@@ -33,11 +42,17 @@ from app.model.exceptions import (
 from app.openqasm3.stdgates import (
     OneQubitGate,
     OneQubitGateWithAngle,
+    OneQubitGateWithParams,
     ThreeQubitGate,
     TwoQubitGate,
     TwoQubitGateWithAngle,
     TwoQubitGateWithParam,
+    TwoQubitGateWithParams,
 )
+
+_CU_PARAMETER_COUNT = 4
+_SINGLE_PARAMETER_COUNT = 1
+_U_PARAMETER_COUNTS = {"u2": 2, "u3": 3}
 
 
 def _validate_constraints(
@@ -84,6 +99,44 @@ def _validate_constraints(
     return size
 
 
+def _control_modifiers(control_count: int) -> list[QuantumGateModifier]:
+    if control_count == 0:
+        return []
+
+    if control_count == 1:
+        return [
+            QuantumGateModifier(
+                modifier=GateModifierName.ctrl,
+                argument=None,
+            )
+        ]
+
+    return [
+        QuantumGateModifier(
+            modifier=GateModifierName.ctrl,
+            argument=IntegerLiteral(control_count),
+        )
+    ]
+
+
+def _parameter_literals(
+    node: ParameterizedGateNode,
+    expected_parameter_count: int,
+) -> list[FloatLiteral]:
+    parameters = getattr(node, "parameters", None)
+
+    if parameters is None:
+        if node.parameter is None:
+            raise GateNotSupported(node)
+
+        parameters = [node.parameter]
+
+    if len(parameters) != expected_parameter_count:
+        raise GateNotSupported(node)
+
+    return [FloatLiteral(parameter) for parameter in parameters]
+
+
 def enrich_gate(
     node: Node,
     constraints: Constraints | None,
@@ -97,29 +150,31 @@ def enrich_gate(
     :param node: Node that defined the gate. (Used as context for errors etc.)
     :param constraints: Constraints that should be applied.
     :param gate_name: Name of the gate to generate.
-    :param input_count: Count of expected inputs.
+    :param input_count: Count of expected target inputs for the base gate.
     :param arguments: Optional arguments passed to the gate.
     :return: Final enrichment result.
     """
 
-    size = _validate_constraints(constraints, node, input_count)
+    control_count = getattr(node, "controlCount", 0)
+    total_input_count = input_count + control_count
+    size = _validate_constraints(constraints, node, total_input_count)
 
     return EnrichmentResult(
         implementation(
             node,
             [
                 Include("stdgates.inc"),
-                *(leqo_input(f"q{i}", i, size) for i in range(input_count)),
+                *(leqo_input(f"q{i}", i, size) for i in range(total_input_count)),
                 QuantumGate(
-                    modifiers=[],
+                    modifiers=_control_modifiers(control_count),
                     name=Identifier(gate_name),
                     arguments=list(arguments),
-                    qubits=[Identifier(f"q{i}") for i in range(input_count)],
+                    qubits=[Identifier(f"q{i}") for i in range(total_input_count)],
                     duration=None,
                 ),
                 *(
                     leqo_output(f"q{i}_out", i, Identifier(f"q{i}"))
-                    for i in range(input_count)
+                    for i in range(total_input_count)
                 ),
             ],
         ),
@@ -181,12 +236,29 @@ class GateEnricherStrategy(EnricherStrategy):
 
         if node.gate in get_args(OneQubitGateWithAngle):
             return enrich_gate(
-                node, constraints, node.gate, 1, FloatLiteral(node.parameter)
+                node,
+                constraints,
+                node.gate,
+                1,
+                *_parameter_literals(node, _SINGLE_PARAMETER_COUNT),
+            )
+
+        if node.gate in get_args(OneQubitGateWithParams):
+            return enrich_gate(
+                node,
+                constraints,
+                node.gate,
+                1,
+                *_parameter_literals(node, _U_PARAMETER_COUNTS[node.gate]),
             )
 
         if node.gate in get_args(TwoQubitGateWithAngle):
             return enrich_gate(
-                node, constraints, node.gate, 2, FloatLiteral(node.parameter)
+                node,
+                constraints,
+                node.gate,
+                2,
+                *_parameter_literals(node, _SINGLE_PARAMETER_COUNT),
             )
 
         # Gates with generic params are currently handled exactly like gates with angles
@@ -194,7 +266,20 @@ class GateEnricherStrategy(EnricherStrategy):
 
         if node.gate in get_args(TwoQubitGateWithParam):
             return enrich_gate(
-                node, constraints, node.gate, 2, FloatLiteral(node.parameter)
+                node,
+                constraints,
+                node.gate,
+                2,
+                *_parameter_literals(node, _SINGLE_PARAMETER_COUNT),
+            )
+
+        if node.gate in get_args(TwoQubitGateWithParams):
+            return enrich_gate(
+                node,
+                constraints,
+                node.gate,
+                2,
+                *_parameter_literals(node, _CU_PARAMETER_COUNT),
             )
 
         raise GateNotSupported(node)

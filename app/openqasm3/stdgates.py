@@ -6,10 +6,12 @@ https://openqasm.com/language/standard_library.html#api-documentation
 
 from typing import Literal
 
-OneQubitGate = Literal["x", "y", "z", "h", "s", "sdg", "t", "tdg", "sx"]
+OneQubitGate = Literal["x", "y", "z", "h", "s", "sdg", "t", "tdg", "sx", "id"]
 TwoQubitGate = Literal["cx", "cy", "cz", "ch", "swap"]
-ThreeQubitGate = Literal["ccx"]
+ThreeQubitGate = Literal["ccx", "cswap"]
 
-OneQubitGateWithAngle = Literal["rx", "ry", "rz"]
+OneQubitGateWithAngle = Literal["rx", "ry", "rz", "p", "u1"]
+OneQubitGateWithParams = Literal["u2", "u3"]
 TwoQubitGateWithParam = Literal["cp"]
+TwoQubitGateWithParams = Literal["cu"]
 TwoQubitGateWithAngle = Literal["crx", "cry", "crz"]

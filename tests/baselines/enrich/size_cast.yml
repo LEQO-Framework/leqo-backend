@@ -36,30 +36,35 @@ expected_result: |
       "id": "newNode0",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n",
+      "language": "openqasm"
     },
     {
       "id": "newNode1",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n",
+      "language": "openqasm"
     },
     {
       "id": "newNode2",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n"
+      "implementation": "OPENQASM 3.1;\nqubit[1] literal;\n@leqo.output 0\nlet out = literal;\n",
+      "language": "openqasm"
     },
     {
       "id": "newNode3",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[1] merger_input_0;\n@leqo.input 1\nqubit[1] merger_input_1;\n@leqo.input 2\nqubit[1] merger_input_2;\n@leqo.output 0\nlet merger_output = merger_input_0 ++ merger_input_1 ++ merger_input_2;\n"
+      "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[1] merger_input_0;\n@leqo.input 1\nqubit[1] merger_input_1;\n@leqo.input 2\nqubit[1] merger_input_2;\n@leqo.output 0\nlet merger_output = merger_input_0 ++ merger_input_1 ++ merger_input_2;\n",
+      "language": "openqasm"
     },
     {
       "id": "newNode5",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[5] q;"
+      "implementation": "OPENQASM 3.1;\n@leqo.input 0\nqubit[5] q;",
+      "language": "openqasm"
     }
   ]

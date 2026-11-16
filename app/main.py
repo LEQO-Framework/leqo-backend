@@ -475,6 +475,26 @@ async def put_service_deployment_models_payload(
     return Response(status_code=204)
 
 
+async def store_generated_service_deployment_models(
+    engine: AsyncEngine, uuid: UUID, workflow_processor: WorkflowProcessor
+) -> None:
+    """
+    Persist the service deployment models generated for python implementations.
+    """
+    content = workflow_processor.service_deployment_models
+    if content is None:
+        return
+    await store_service_deployment_models(
+        engine,
+        uuid,
+        StoredFilePayload(
+            content=content,
+            filename=f"service_deployment_models_{uuid}.zip",
+            content_type="application/zip",
+        ),
+    )
+
+
 async def process_compile_request(
     uuid: UUID,
     createdAt: datetime,
@@ -497,14 +517,33 @@ async def process_compile_request(
         result: str | list[ImplementationNode]
         if target == "workflow":
             original_request = getattr(processor, "original_request", None)
-            if original_request is not None:
-                contains_placeholder = getattr(
+            contains_plugin = False
+            if original_request is not None and hasattr(original_request, "nodes"):
+                contains_plugin = any(
+                    getattr(n, "type", None) == "plugin" for n in original_request.nodes
+                )
+            contains_placeholder = (
+                getattr(
                     getattr(original_request, "metadata", None),
                     "containsPlaceholder",
                     False,
                 )
-                print("Contains placeholder:", contains_placeholder)
-            qasm = "" if contains_placeholder else await processor.process()
+                if original_request is not None
+                else False
+            )
+            contains_editableNode = any(
+                getattr(n, "type", None) == "editableNode"
+                for n in original_request.nodes
+            )
+            print("Contains placeholder:", contains_placeholder)
+            print("Contains plugin:", contains_plugin)
+            print("Contains editable node:", contains_editableNode)
+            # python implementations and API connectors become service tasks and are not compiled
+            qasm_processor = processor.without_service_nodes()
+            if contains_plugin or contains_editableNode or qasm_processor is None:
+                qasm = ""
+            else:
+                qasm = "" if contains_placeholder else await qasm_processor.process()
             print("QASM")
             print(qasm)
             print("Requets")
@@ -521,6 +560,9 @@ async def process_compile_request(
 
             bpmn_xml = await workflow_processor.process()
             print(f"[INFO] BPMN XML generated ({len(bpmn_xml)} chars)")
+            await store_generated_service_deployment_models(
+                engine, uuid, workflow_processor
+            )
             status = SuccessStatus(
                 uuid=uuid,
                 createdAt=createdAt,
@@ -627,7 +669,38 @@ async def post_debug_compile(
             print(original_request)
             metadata = getattr(processor, "containsPlaceholder", None)
             print(metadata)
-            qasm = await processor.process()
+            # qasm = await processor.process()
+            contains_plugin = False
+            if original_request is not None and hasattr(original_request, "nodes"):
+                contains_plugin = any(
+                    getattr(n, "type", None) == "plugin" for n in original_request.nodes
+                )
+            contains_placeholder = (
+                getattr(
+                    getattr(original_request, "metadata", None),
+                    "containsPlaceholder",
+                    False,
+                )
+                if original_request is not None
+                else False
+            )
+            contains_editableNode = any(
+                getattr(n, "type", None) == "editableNode"
+                for n in original_request.nodes
+            )
+            print("Contains placeholder:", contains_placeholder)
+            print("Contains plugin:", contains_plugin)
+            # python implementations and API connectors become service tasks and are not compiled
+            qasm_processor = processor.without_service_nodes()
+            if (
+                contains_plugin
+                or contains_placeholder
+                or contains_editableNode
+                or qasm_processor is None
+            ):
+                qasm = ""
+            else:
+                qasm = await qasm_processor.process()
             workflow_processor = WorkflowProcessor(
                 processor.enricher,
                 processor.frontend_graph,
@@ -676,6 +749,9 @@ async def post_debug_workflow(
         workflow_processor.target = "workflow"
         result = await workflow_processor.process()
         request_uuid = uuid4()
+        await store_generated_service_deployment_models(
+            engine, request_uuid, workflow_processor
+        )
 
         created_status = CreatedStatus.init_status(request_uuid)
         metadata = getattr(processor.original_request, "metadata", None)

@@ -73,6 +73,95 @@ Annotations can be emulated in openqasm2 by using special comments.
     The `whole line <https://openqasm.com/language/directives.html#annotations#:~:text=continue%20to%20the%20end%20of%20the%20line>`_ will be interpreted like an annotation.
     Therefore you cannot use inline-comments on annotations!
 
+
+
+
+Generated Encode-Value Snippets
+-------------------------------
+
+Some backend enrichments generate OpenQASM snippets from classical values rather than from already existing input qubits.
+Amplitude encoding and matrix encoding are examples of this case.
+The amplitude encoding handler accepts a constant classical array, generates a quantum state-preparation circuit from this array, and exposes the generated quantum register as an output of the snippet.
+The matrix encoding handler accepts a constant flat array, interprets it as a unitary matrix, generates a corresponding unitary operation, and also exposes the generated quantum register as an output of the snippet.
+
+In these cases, the classical array is not represented as an ``@leqo.input`` qubit register.
+Instead, it is used by the backend during snippet generation.
+The generated quantum register is marked with ``@leqo.output`` so that the prepared or transformed state can be passed to following nodes in the model.
+
+The encode-value handlers follow the existing annotation model by exposing the generated register as a linking output.
+They do not introduce a separate ancilla-management mechanism or new uncomputation logic.
+
+.. list-table:: Encode-value handlers and generated outputs
+    :header-rows: 1
+    :widths: 25 35 40
+
+    * - Handler
+      - Classical input
+      - Generated quantum output
+    * - Amplitude encoding
+      - Constant array interpreted as an amplitude vector
+      - State-preparation circuit generated with Qiskit `StatePreparation` and exposed as `@leqo.output`
+    * - Matrix encoding
+      - Constant flat array interpreted as a unitary matrix
+      - Unitary operation generated with Qiskit `UnitaryGate` and exposed as `@leqo.output`
+
+Generated Encoding and State Preparation Snippets
+-------------------------------------------------
+In addition to the encode-value handlers, the backend generates specific OpenQASM snippets for other data encodings and quantum state preparations. These also typically expose the resulting quantum registers as linking outputs.
+
+.. list-table:: Encoding and State Preparation Handlers
+    :header-rows: 1
+    :widths: 20 30 50
+
+    * - Handler
+      - Classical/Quantum Input
+      - Generated Behavior
+    * - Angle Encoding
+      - Classical scalar or array
+      - Normalizes values and applies rotation gates (e.g., ``Ry(2θ)``) to encode classical data into quantum amplitudes. The register is exposed via ``@leqo.output``.
+    * - Basis Encoding
+      - Classical integer or array
+      - Maps classical values to the computational basis using Pauli-X gates in Little-Endian format. Generates metadata annotations like ``@leqo.twos_complement`` for fixed-point precision.
+    * - W-State
+      - Register size (integer)
+      - Deterministically generates a polynomial-depth quantum circuit to prepare a W-state across the requested number of qubits.
+
+Generated Algorithmic and Structural Snippets
+---------------------------------------------
+The backend dynamically synthesizes complex algorithmic building blocks and control-flow structures based on user configurations and input constraints.
+
+.. list-table:: Algorithmic and Structural Handlers
+    :header-rows: 1
+    :widths: 20 30 50
+
+    * - Handler
+      - Input Constraints
+      - Generated Behavior
+    * - Deutsch-Jozsa (DJ)
+      - Binary mask or oracle type
+      - Synthesizes a complete constant or balanced multi-qubit oracle circuit dynamically.
+    * - Universal Oracle
+      - Array of marked states
+      - Generates a phase-flip oracle corresponding to the explicitly provided marked states.
+    * - Grover Diffuser
+      - Quantum register
+      - Generates the amplitude amplification (inversion about the mean) operator across the target register.
+    * - QAOA
+      - Graph topology, parameters
+      - Generates cost and mixer Hamiltonians based on the classical graph structure. Resolves parameter array padding automatically.
+    * - VQE
+      - Layers, parameters, observables
+      - Generates a parameterized hardware-efficient ansatz. Relies on annotations to bind Pauli observables for downstream execution and expectation value computation.
+    * - MCMT
+      - Control count, target register
+      - Applies native OpenQASM 3 control modifiers (e.g., ``ctrl @``) and unrolls target arrays for multi-controlled multi-target operations.
+    * - If / Else
+      - Classical boolean expression
+      - Maps a nested visual subgraph directly into native OpenQASM 3 ``if`` and ``else`` conditional branching statements.
+    * - Repeat
+      - Iteration count (integer)
+      - Statically unrolls the contained subgraph for the specified number of iterations, successfully isolating generated identifiers to prevent variable collisions.
+
 .. _input-anker:
 
 Input
