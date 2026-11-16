@@ -38,9 +38,16 @@ dev = [
     "sphinxcontrib-datatemplates>=0.11.0",
     
 ]
-# ıf we need to do quantum circuit simulation in the backend 
+# ıf we need to do quantum circuit simulation in the backend
 sim = [
     "qiskit-aer>=0.17.2",
+]
+
+# Optional, test-only dependency for the Amazon Braket export provider.
+# Not a core runtime dependency: the backend only needs it to execute the
+# generated Braket programs (the gated exec proof-of-concept test).
+braket = [
+    "amazon-braket-sdk>=1.80.0",
 ]
 
 

@@ -1,0 +1,29 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "Non-Bit Measurement Initializer Qiskit",
+      "description": "Measurement initializers outside the bit-targeted form are rejected by the Qiskit exporter.",
+      "author": ""
+    },
+    "compilation_target": "qiskit",
+    "nodes": [
+      {
+        "id": "impl",
+        "type": "implementation",
+        "implementation": "OPENQASM 3.0;\ninclude \"stdgates.inc\";\nqubit[1] q;\nbool flag = measure q[0];\n"
+      }
+    ],
+    "edges": []
+  }
+expected_status: 500
+expected_result: |
+  {
+    "type": "NotImplementedError",
+    "title": "Internal Server Error",
+    "status": 500,
+    "detail": "Measurement initializers are only supported for bit declarations.\n",
+    "instance": null,
+    "node": null,
+    "inputIndex": null
+  }

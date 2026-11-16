@@ -1,0 +1,29 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "Array Input Qiskit",
+      "description": "Array-typed runtime input is rejected by the Qiskit exporter as outside the supported executable subset.",
+      "author": ""
+    },
+    "compilation_target": "qiskit",
+    "nodes": [
+      {
+        "id": "impl",
+        "type": "implementation",
+        "implementation": "OPENQASM 3.1;\ninclude \"stdgates.inc\";\n@leqo.input 0\ninput array[uint[8], 2] beta;\nqubit[1] q;\nrx(0.5) q[0];\n"
+      }
+    ],
+    "edges": []
+  }
+expected_status: 500
+expected_result: |
+  {
+    "type": "NotImplementedError",
+    "title": "Internal Server Error",
+    "status": 500,
+    "detail": "Array inputs and outputs are not part of the supported executable subset.\n",
+    "instance": null,
+    "node": null,
+    "inputIndex": null
+  }

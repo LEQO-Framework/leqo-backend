@@ -1,0 +1,43 @@
+request: |
+  {
+    "metadata": {
+      "version": "1.0.0",
+      "name": "While Loop Qiskit with Signed Integer Guard",
+      "description": "Frontend while-loop model that lowers through signed int state and is rejected by the Qiskit exporter.",
+      "author": ""
+    },
+    "compilation_target": "qiskit",
+    "nodes": [
+      { "id": "q0", "type": "qubit" },
+      { "id": "int_val", "type": "int", "value": 0 },
+      {
+        "id": "while_node",
+        "type": "while",
+        "condition": "counter < 5",
+        "block": {
+          "nodes": [
+            { "id": "gate_x", "type": "gate", "gate": "x" }
+          ],
+          "edges": [
+            { "source": ["while_node", 1], "target": ["gate_x", 0] },
+            { "source": ["gate_x", 0], "target": ["while_node", 1] }
+          ]
+        }
+      }
+    ],
+    "edges": [
+      { "source": ["int_val", 0], "target": ["while_node", 0], "identifier": "counter" },
+      { "source": ["q0", 0], "target": ["while_node", 1] }
+    ]
+  }
+expected_status: 500
+expected_result: |
+  {
+    "type": "NotImplementedError",
+    "title": "Internal Server Error",
+    "status": 500,
+    "detail": "Signed OpenQASM int is not supported by the Qiskit classical type system target.\n",
+    "instance": null,
+    "node": null,
+    "inputIndex": null
+  }

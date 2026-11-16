@@ -633,6 +633,12 @@ class FloatLiteralNode(BaseNode):
     value: int | str | float
     """Float value."""
 
+    @model_validator(mode="after")
+    def _default_bit_size(self) -> FloatLiteralNode:
+        if self.bitSize is None:
+            self.bitSize = 32
+        return self
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 
@@ -1037,7 +1043,45 @@ class RepeatNode(BaseNode):
         return self
 
 
-ControlFlowNode = IfThenElseNode | RepeatNode
+class WhileNode(BaseNode):
+    """
+    Node representing a native classical while loop structure.
+    """
+    type: Literal["while"] = "while"
+
+    condition: str
+    """Condition expression used to evaluate loop continuation."""
+
+    block: NestedBlock
+    """Code block to execute as long as the condition is true."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+
+class ForNode(BaseNode):
+    """
+    Node representing a native classical for loop structure.
+    """
+    type: Literal["for"] = "for"
+
+    iterator: str
+    """The iterator variable name (e.g., 'i')."""
+
+    range_start: int
+    """Start of the loop range."""
+
+    range_end: int
+    """End of the loop range."""
+
+    step: int = Field(default=1)
+    """Step size for the loop."""
+
+    block: NestedBlock
+    """Code block to execute for each iteration."""
+
+    model_config = ConfigDict(use_attribute_docstrings=True)
+
+ControlFlowNode = IfThenElseNode | RepeatNode | WhileNode | ForNode
 # endregion
 
 
@@ -1312,8 +1356,8 @@ class CompileRequest(BaseModel):
     metadata: MetaData
     """General information and optimization preferences."""
 
-    compilation_target: Literal["qasm", "workflow"] = "qasm"
-    """Compilation target. Either "qasm" (default) or "workflow"."""
+    compilation_target: Literal["qasm", "workflow", "qiskit", "braket"] = "qasm"
+    """Compilation target. Either "qasm" (default), "workflow" or "qiskit"."""
 
     nodes: list[Annotated[Node, Field(discriminator="type")]]
     """List of all nodes forming the program graph."""

@@ -1,5 +1,5 @@
 """
-Provides the ore logic of the backend.
+Provides the core logic of the backend.
 """
 
 from __future__ import annotations
@@ -23,6 +23,8 @@ from app.model.CompileRequest import (
     EncodeValueNode,
     FloatLiteralNode,
     IfThenElseNode,
+    WhileNode,
+    ForNode,
     ImplementationNode,
     InsertRequest,
     IntLiteralNode,
@@ -35,6 +37,9 @@ from app.model.CompileRequest import (
 from app.model.CompileRequest import Node as FrontendNode
 from app.model.data_types import IntType, LeqoSupportedType
 from app.openqasm3.printer import leqo_dumps
+from app.openqasm3.universal_transpiler import UniversalTranspiler
+from app.openqasm3.qiskit_provider import QiskitProvider
+from app.openqasm3.braket_provider import BraketProvider
 from app.services import get_db_engine, get_enricher, get_settings
 from app.transformation_manager.bpmn_builder import BpmnBuilder
 from app.transformation_manager.frontend_graph import FrontendGraph, TBaseNode
@@ -47,6 +52,8 @@ from app.transformation_manager.graph import (
 )
 from app.transformation_manager.merge import merge_nodes
 from app.transformation_manager.nested.if_then_else import enrich_if_then_else
+from app.transformation_manager.nested.while_loop import enrich_while_loop
+from app.transformation_manager.nested.for_loop import enrich_for_loop
 from app.transformation_manager.nested.repeat import unroll_repeat
 from app.transformation_manager.nested.utils import generate_pass_node_implementation
 from app.transformation_manager.optimize import optimize
@@ -123,7 +130,7 @@ class CommonProcessor:
     enricher: Enricher
     optimize: OptimizeSettings
     frontend_to_processed: dict[str, ProcessedProgramNode]
-    target: Literal["qasm", "workflow"] = "qasm"
+    target: Literal["qasm", "workflow", "qiskit", "braket"] = "qasm"
     original_request: CompileRequest | None = None
     result: str | None = None
     qrms: Any | None = None
@@ -358,6 +365,28 @@ class MergingProcessor(CommonProcessor):
                         frontend_name_to_index,
                         self._build_inner_graph,
                     )
+                elif isinstance(frontend_node, WhileNode):
+                    frontend_name_to_index: dict[str, int] = {}
+                    requested_inputs, requested_values = self._resolve_inputs(
+                        node, frontend_name_to_index
+                    )
+                    enriched_node = await enrich_while_loop(
+                        frontend_node,
+                        requested_inputs,
+                        frontend_name_to_index,
+                        self._build_inner_graph,
+                    )
+                elif isinstance(frontend_node, ForNode):
+                    frontend_name_to_index: dict[str, int] = {}
+                    requested_inputs, requested_values = self._resolve_inputs(
+                        node, frontend_name_to_index
+                    )
+                    enriched_node = await enrich_for_loop(
+                        frontend_node,
+                        requested_inputs,
+                        frontend_name_to_index,
+                        self._build_inner_graph,
+                    )
                 else:
                     requested_inputs, requested_values = self._resolve_inputs(node)
                     enriched_node = await self.enricher.enrich(
@@ -455,26 +484,42 @@ class MergingProcessor(CommonProcessor):
         :return: The final QASM program as a string.
         """
         print("process gestartet")
-        await self.process_nodes()
-        print("nodes")
+        try:
+            await self.process_nodes()
+            print("nodes")
 
-        if self.optimize.optimizeWidth is not None:
-            optimize(self.graph)
+            if self.optimize.optimizeWidth is not None:
+                optimize(self.graph)
 
-        literal_nodes: set[str]
-        used_literal_nodes: set[str]
-        # if self.qiskit_compat and self.target == "qasm":
-        literal_nodes, used_literal_nodes = self._collect_literal_nodes()
+            literal_nodes: set[str]
+            used_literal_nodes: set[str]
+            # if self.qiskit_compat and self.target == "qasm":
+            literal_nodes, used_literal_nodes = self._collect_literal_nodes()
 
-        merged_program = merge_nodes(self.graph)
-        processed_program = postprocess(
-            merged_program,
-            qiskit_compat=self.qiskit_compat,
-            literal_nodes=literal_nodes,
-            literal_nodes_with_consumers=used_literal_nodes,
-        )
-        print("final programm")
-        return leqo_dumps(processed_program)
+            merged_program = merge_nodes(self.graph)
+            processed_program = postprocess(
+                merged_program,
+                qiskit_compat=self.qiskit_compat,
+                literal_nodes=literal_nodes,
+                literal_nodes_with_consumers=used_literal_nodes,
+            )
+
+            if self.target == "qiskit":
+                provider = QiskitProvider()
+                transpiler = UniversalTranspiler(provider)
+                return transpiler.visit_Program(processed_program)
+
+            if self.target == "braket":
+                provider = BraketProvider()
+                transpiler = UniversalTranspiler(provider)
+                return transpiler.visit_Program(processed_program)
+
+            print("final programm")
+            return leqo_dumps(processed_program)
+        except Exception as e:
+            print(f"Compilation Failed: {e}")
+            traceback.print_exc()
+            raise e
 
 
 class EnrichingProcessor(CommonProcessor):
@@ -555,6 +600,14 @@ class EnrichingProcessor(CommonProcessor):
                             border_node, block
                         ):
                             yield enriched_node
+                case WhileNode() | ForNode():
+                    # Similar to IfThenElse, dummy node and then process the inner block
+                    border_node = self._get_dummy_enrichment(node, requested_inputs)
+                    self._process_node(border_node, requested_inputs)
+                    async for enriched_node in self._enrich_inner_block(
+                            border_node, frontend_node.block
+                    ):
+                        yield enriched_node
                 case _:
                     enriched = await self.enricher.enrich(
                         frontend_node,
