@@ -14,6 +14,7 @@ from openqasm3.ast import (
     Statement,
 )
 
+from app.model.CompileRequest import Edge, NestedBlock
 from app.model.data_types import ClassicalType, LeqoSupportedType, QubitType
 from app.transformation_manager.pre import converter
 
@@ -61,3 +62,31 @@ def generate_pass_node_implementation(
         statements.append(alias)
 
     return Program(statements, version=converter.TARGET_QASM_VERSION)
+
+
+def generate_missing_qubit_pass_throughs(
+    block: NestedBlock,
+    node_id: str,
+    requested_inputs: dict[int, LeqoSupportedType],
+) -> list[Edge]:
+    """
+    Generate identity edges for the qubit inputs a nested block doesn't route out.
+
+    The frontend modeler can't draw a node-less pass-through inside a nested block,
+    so a qubit without such an edge would leave the node as a freshly allocated one.
+
+    :param block: The nested block to check.
+    :param node_id: The id of the node the block belongs to.
+    :param requested_inputs: The inputs of that node.
+    :return: An edge from each unrouted qubit input to the output with the same index.
+    """
+    qubit_ports = {
+        index
+        for index, input_type in requested_inputs.items()
+        if isinstance(input_type, QubitType)
+    }
+    routed_out = {e.target[1] for e in block.edges if e.target[0] == node_id}
+    return [
+        Edge(source=(node_id, port), target=(node_id, port))
+        for port in sorted(qubit_ports - routed_out)
+    ]

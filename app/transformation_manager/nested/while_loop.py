@@ -16,7 +16,10 @@ from app.openqasm3.rename import simple_rename
 from app.transformation_manager.frontend_graph import FrontendGraph
 from app.transformation_manager.graph import ProgramGraph, ProgramNode
 from app.transformation_manager.merge import merge_while_nodes
-from app.transformation_manager.nested.utils import generate_pass_node_implementation
+from app.transformation_manager.nested.utils import (
+    generate_missing_qubit_pass_throughs,
+    generate_pass_node_implementation,
+)
 from app.transformation_manager.post import postprocess
 
 
@@ -53,7 +56,11 @@ async def enrich_while_loop(
         id=endwhile_id, implementation=pass_node_impl
     )
 
-    for edge in node.block.edges:
+    edges = [
+        *node.block.edges,
+        *generate_missing_qubit_pass_throughs(node.block, node.id, requested_inputs),
+    ]
+    for edge in edges:
         if edge.source[0] == node.id:
             edge.source = (while_front_node.id, edge.source[1])
         if edge.target[0] == node.id:
@@ -62,7 +69,7 @@ async def enrich_while_loop(
     loop_graph = await build_graph(
         FrontendGraph.create(
             (*node.block.nodes, while_front_node, endwhile_front_node),
-            node.block.edges,
+            edges,
         )
     )
 

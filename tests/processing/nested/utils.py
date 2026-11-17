@@ -20,6 +20,18 @@ x q;
 @leqo.output 0
 let _out = q;
 """
+# Flips the input only if the ancilla starts clean, as it is left dirty.
+X_VIA_ANCILLA_IMPL = """
+OPENQASM 3.1;
+include "stdgates.inc";
+@leqo.input 0
+qubit[1] q;
+qubit[1] anc;
+x anc;
+cx anc, q;
+@leqo.output 0
+let _out = q;
+"""
 
 
 class DummyOptimizeSettings(OptimizeSettings):

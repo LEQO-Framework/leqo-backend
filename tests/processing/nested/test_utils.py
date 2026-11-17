@@ -1,6 +1,10 @@
+from app.model.CompileRequest import Edge, NestedBlock
 from app.model.data_types import BitType, BoolType, IntType, QubitType
 from app.openqasm3.printer import leqo_dumps
-from app.transformation_manager.nested.utils import generate_pass_node_implementation
+from app.transformation_manager.nested.utils import (
+    generate_missing_qubit_pass_throughs,
+    generate_pass_node_implementation,
+)
 from app.transformation_manager.utils import normalize_qasm_string
 
 
@@ -28,3 +32,21 @@ def test_pass_node_impl() -> None:
         let pass_node_alias_3 = pass_node_declaration_3;
         """
     assert normalize_qasm_string(expected) == normalize_qasm_string(leqo_dumps(actual))
+
+
+def test_missing_qubit_pass_throughs() -> None:
+    block = NestedBlock(
+        nodes=[],
+        edges=[
+            Edge(source=("node", 0), target=("h", 0)),
+            Edge(source=("h", 0), target=("node", 0)),
+        ],
+    )
+
+    actual = generate_missing_qubit_pass_throughs(
+        block, "node", {0: QubitType(1), 1: IntType(32), 2: QubitType(1)}
+    )
+
+    assert actual == [Edge(source=("node", 2), target=("node", 2))], (
+        "Only a qubit input the block doesn't route out needs a pass-through edge."
+    )

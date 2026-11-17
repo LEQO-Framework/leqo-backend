@@ -259,3 +259,29 @@ async def test_complexer() -> None:
             ],
         ),
     )
+
+
+@pytest.mark.asyncio
+async def test_unwired_qubit_passes_through() -> None:
+    requested_inputs: dict[int, LeqoSupportedType] = {0: QubitType(1), 1: QubitType(1)}
+    node_id = "repeat_node"
+
+    def repeat_node(*pass_throughs: Edge) -> RepeatNode:
+        return RepeatNode(
+            id=node_id,
+            iterations=2,
+            block=NestedBlock(
+                nodes=[ImplementationNode(id="h_node", implementation=H_IMPL)],
+                edges=[
+                    Edge(source=(node_id, 0), target=("h_node", 0)),
+                    Edge(source=("h_node", 0), target=(node_id, 0)),
+                    *pass_throughs,
+                ],
+            ),
+        )
+
+    # An unwired qubit must behave like the explicit pass-through in test_empty_repeat.
+    _entry_node, _exit_node, expected = unroll_repeat(
+        repeat_node(Edge(source=(node_id, 1), target=(node_id, 1))), requested_inputs
+    )
+    await assert_unroll_repeat(repeat_node(), requested_inputs, expected)
