@@ -73,7 +73,7 @@ async def test_basic() -> None:
           x leqo_40da8ad6eead5c82b58a503771301f03_q;
           let leqo_40da8ad6eead5c82b58a503771301f03__out = leqo_40da8ad6eead5c82b58a503771301f03_q;
         }
-        bit[1] leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_0;
+        let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_0 = leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_alias_0;
         @leqo.output 0
         let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_alias_0 = leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_0;
         let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_1 = leqo_0d7d0680d06d59c09b9b91da17539e91_if_reg[{0}];
@@ -135,13 +135,13 @@ async def test_complex_condition() -> None:
           x leqo_40da8ad6eead5c82b58a503771301f03_q;
           let leqo_40da8ad6eead5c82b58a503771301f03__out = leqo_40da8ad6eead5c82b58a503771301f03_q;
         }
-        int[32] leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_0;
+        let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_0 = leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_alias_0;
         @leqo.output 0
         let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_alias_0 = leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_0;
-        int[32] leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_1;
+        let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_1 = leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_alias_1;
         @leqo.output 1
         let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_alias_1 = leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_1;
-        int[32] leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_2;
+        let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_2 = leqo_0d7d0680d06d59c09b9b91da17539e91_pass_node_alias_2;
         @leqo.output 2
         let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_alias_2 = leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_2;
         let leqo_7dae0626857c5efa9c4298cb0eac4124_pass_node_declaration_3 = leqo_0d7d0680d06d59c09b9b91da17539e91_if_reg[{0}];

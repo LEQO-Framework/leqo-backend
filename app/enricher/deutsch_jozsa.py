@@ -30,7 +30,6 @@ class DeutschJozsaEnricherStrategy(EnricherStrategy):
     def _enrich_impl(
         self, node: FrontendNode, constraints: Constraints | None
     ) -> list[EnrichmentResult]:
-
         # Guard clause: only process if it is a DJ node
         if not isinstance(node, DeutschJozsaNode):
             return []

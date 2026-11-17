@@ -9,7 +9,10 @@ from app.model.CompileRequest import RepeatNode
 from app.model.data_types import LeqoSupportedType
 from app.transformation_manager.frontend_graph import FrontendGraph
 from app.transformation_manager.graph import ProgramNode
-from app.transformation_manager.nested.utils import generate_pass_node_implementation
+from app.transformation_manager.nested.utils import (
+    generate_missing_qubit_pass_throughs,
+    generate_pass_node_implementation,
+)
 from app.transformation_manager.utils import ProcessingException
 
 
@@ -39,6 +42,12 @@ def unroll_repeat(
     try:
         parent_id = ProgramNode(node.id).id
         pass_node_impl = generate_pass_node_implementation(requested_inputs)
+        edges = [
+            *node.block.edges,
+            *generate_missing_qubit_pass_throughs(
+                node.block, node.id, requested_inputs
+            ),
+        ]
 
         result = FrontendGraph()
         entry_node = ParsedImplementationNode(
@@ -64,7 +73,7 @@ def unroll_repeat(
                 iter_node = deepcopy(n)
                 iter_node.id = new_id(iter_node.id)
                 result.append_node(iter_node)
-            for e in node.block.edges:
+            for e in edges:
                 iter_edge = deepcopy(e)
                 source_id = iter_edge.source[0]
                 target_id = iter_edge.target[0]

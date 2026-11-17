@@ -1,4 +1,5 @@
-"""Compare Qiskit's OpenQASM 3 importer against the universal exporter on a corpus.
+"""
+Compare Qiskit's OpenQASM 3 importer against the universal exporter on a corpus.
 
 Qiskit's OpenQASM 3 importer (``qiskit.qasm3.loads``, backed by
 ``qiskit_qasm3_import``) accepts only a subset of OpenQASM 3. The universal
@@ -77,6 +78,8 @@ def test_exporter_produces_valid_qiskit_code(path: Path) -> None:
 @pytest.mark.parametrize("path", CORPUS_CASES)
 def test_importer_accept_reject_split(path: Path) -> None:
     """qiskit.qasm3.loads accepts the supported corpus cases and rejects the rest."""
+    # qiskit.qasm3.loads needs the optional qiskit_qasm3_import package.
+    pytest.importorskip("qiskit_qasm3_import")
     source = path.read_text(encoding="utf-8")
     slug = _slug(path)
     if slug in IMPORTER_ACCEPTS:

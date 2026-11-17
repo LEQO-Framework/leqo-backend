@@ -14,7 +14,10 @@ from app.model.data_types import LeqoSupportedType
 from app.transformation_manager.frontend_graph import FrontendGraph
 from app.transformation_manager.graph import ProgramGraph, ProgramNode
 from app.transformation_manager.merge import merge_for_nodes
-from app.transformation_manager.nested.utils import generate_pass_node_implementation
+from app.transformation_manager.nested.utils import (
+    generate_missing_qubit_pass_throughs,
+    generate_pass_node_implementation,
+)
 from app.transformation_manager.post import postprocess
 
 
@@ -41,7 +44,11 @@ async def enrich_for_loop(
         id=endfor_id, implementation=pass_node_impl
     )
 
-    for edge in node.block.edges:
+    edges = [
+        *node.block.edges,
+        *generate_missing_qubit_pass_throughs(node.block, node.id, requested_inputs),
+    ]
+    for edge in edges:
         if edge.source[0] == node.id:
             edge.source = (for_front_node.id, edge.source[1])
         if edge.target[0] == node.id:
@@ -50,7 +57,7 @@ async def enrich_for_loop(
     loop_graph = await build_graph(
         FrontendGraph.create(
             (*node.block.nodes, for_front_node, endfor_front_node),
-            node.block.edges,
+            edges,
         )
     )
 
@@ -58,15 +65,11 @@ async def enrich_for_loop(
     range_def = RangeDefinition(
         start=IntegerLiteral(node.range_start),
         end=IntegerLiteral(node.range_end),
-        step=IntegerLiteral(node.step) if node.step != 1 else None
+        step=IntegerLiteral(node.step) if node.step != 1 else None,
     )
 
     implementation, _out_size = merge_for_nodes(
-        for_prog_node,
-        endfor_prog_node,
-        loop_graph,
-        iterator_id,
-        range_def
+        for_prog_node, endfor_prog_node, loop_graph, iterator_id, range_def
     )
     implementation = postprocess(implementation)
     return ParsedImplementationNode(

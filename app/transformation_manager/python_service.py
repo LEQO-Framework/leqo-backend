@@ -49,6 +49,8 @@ def normalize_annotations(code: str) -> str:
     Turn annotations written without ``#`` (``@input a`` at line start) into comments.
     """
     return _BARE_ANNOTATION_REGEX.sub(r"\1# \2", code)
+
+
 _IDENTIFIER_SEPARATOR_REGEX = re.compile(r"[\s,]+")
 
 _PACKAGE_ALIASES = {
@@ -533,8 +535,7 @@ def generate_service_zip(node: ImplementationNode) -> bytes:
     inner = _zip(
         {
             "service.py": generate_service_code(node.id, topic, parsed),
-            "requirements.txt": "\n".join(detect_requirements(parsed.code))
-            + "\n",
+            "requirements.txt": "\n".join(detect_requirements(parsed.code)) + "\n",
         }
     )
     return _zip(

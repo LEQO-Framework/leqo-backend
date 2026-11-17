@@ -605,7 +605,7 @@ class EnrichingProcessor(CommonProcessor):
                     border_node = self._get_dummy_enrichment(node, requested_inputs)
                     self._process_node(border_node, requested_inputs)
                     async for enriched_node in self._enrich_inner_block(
-                            border_node, frontend_node.block
+                        border_node, frontend_node.block
                     ):
                         yield enriched_node
                 case _:

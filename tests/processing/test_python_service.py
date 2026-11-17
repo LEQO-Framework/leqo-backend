@@ -349,8 +349,7 @@ def test_workflow_contains_service_task() -> None:
         "${execution.setVariable('Task_lit_variable', 7)}"
     )
     params = {
-        param.get("name"): param.text
-        for param in task.iter(f"{CAMUNDA}inputParameter")
+        param.get("name"): param.text for param in task.iter(f"{CAMUNDA}inputParameter")
     }
     assert params == {"threshold": "${execution.getVariable('Task_lit_variable')}"}
     fields = {field.get("id"): field for field in root.iter(f"{CAMUNDA}formField")}

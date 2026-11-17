@@ -18,10 +18,11 @@ from openqasm3.ast import (
     Pragma,
     Program,
     QASMNode,
+    QuantumReset,
     QubitDeclaration,
     RangeDefinition,
     Statement,
-    WhileLoop
+    WhileLoop,
 )
 
 from app.openqasm3.ast import CommentStatement
@@ -29,6 +30,7 @@ from app.openqasm3.visitor import LeqoTransformer
 from app.transformation_manager.graph import (
     ClassicalIOInstance,
     IOConnection,
+    ProcessedProgramNode,
     ProgramGraph,
     ProgramNode,
 )
@@ -96,6 +98,23 @@ def graph_to_statements(
     return result
 
 
+def _connect_classical_pass_throughs(
+    graph: ProgramGraph,
+    start_node: ProcessedProgramNode,
+    end_node: ProcessedProgramNode,
+) -> None:
+    """
+    Connect every classical input of **end_node** to the same index of **start_node**.
+
+    The nested body can't change classical values, so they leave it unchanged.
+    """
+    for index, end_input in end_node.io.inputs.items():
+        if isinstance(end_input, ClassicalIOInstance):
+            graph.append_edge(
+                IOConnection((start_node.raw, index), (end_node.raw, index))
+            )
+
+
 def merge_if_nodes(
     if_node_raw: ProgramNode,
     endif_node_raw: ProgramNode,
@@ -108,7 +127,8 @@ def merge_if_nodes(
 
     There are two known limitations of this implementation:
 
-    - Classical outputs are not supported.
+    - Classical outputs from inside the arms are not supported,
+        classical inputs leave the if-then-else unchanged.
         This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-then-else,
         meaning they can not pass their value to the **endif_node**, which is outside.
         This would be required for classical outputs to work.
@@ -157,6 +177,9 @@ def merge_if_nodes(
 
     endif_node_in_else = deepcopy(endif_node)
     else_graph.node_data[endif_node_raw] = endif_node_in_else
+
+    for graph in (then_graph, else_graph):
+        _connect_classical_pass_throughs(graph, if_node, endif_node)
 
     reg_name = f"leqo_{if_node.id.hex}_{IF_REG_NAME}"
     then_size = connect_qubits(then_graph, reg_name, if_node)
@@ -235,11 +258,53 @@ def merge_nodes(graph: ProgramGraph) -> Program:
     return Program(all_statements, version=OPENQASM_VERSION)
 
 
+def _connect_loop(
+    loop_graph: ProgramGraph,
+    reg_name: str,
+    start_node: ProcessedProgramNode,
+    end_node: ProcessedProgramNode,
+) -> int:
+    """
+    Apply the connections of a loop, see :func:`connect_qubits`.
+
+    The body can't change classical values, so every classical input of the
+    **end_node** is connected to the same index of the **start_node**.
+
+    :param loop_graph: The sub-graph of the loop, including both border nodes.
+    :param reg_name: The name of the loop register.
+    :param start_node: The border node that leads into the loop.
+    :param end_node: The border node that leads out of the loop.
+    :raises NotImplementedError: If the body returns a qubit at another index than
+        it came in, as every iteration runs on the same qubits.
+    :return: Total amount of qubits used by the loop.
+    """
+    _connect_classical_pass_throughs(loop_graph, start_node, end_node)
+
+    # Connecting a copy of the end node straight to the start node gives the
+    # qubits the body has to return, at the same indexes they came in.
+    expected_end_node = deepcopy(end_node)
+    identity_graph = ProgramGraph()
+    identity_graph.append_nodes(start_node, expected_end_node)
+    identity_graph.append_edges(
+        *(
+            IOConnection((start_node.raw, index), (end_node.raw, index))
+            for index in end_node.io.inputs
+        )
+    )
+    connect_qubits(identity_graph, reg_name, start_node)
+
+    loop_size = connect_qubits(loop_graph, reg_name, start_node)
+    if end_node != expected_end_node:
+        msg = "Future Work: loop body has to return each qubit at the index it came in"
+        raise NotImplementedError(msg)
+    return loop_size
+
+
 def merge_while_nodes(
-        while_node_raw: ProgramNode,
-        endwhile_node_raw: ProgramNode,
-        loop_graph: ProgramGraph,
-        condition: Expression,
+    while_node_raw: ProgramNode,
+    endwhile_node_raw: ProgramNode,
+    loop_graph: ProgramGraph,
+    condition: Expression,
 ) -> tuple[Program, int]:
     """
     Construct a single program with a WhileLoop from a sub-graph.
@@ -248,15 +313,22 @@ def merge_while_nodes(
     endwhile_node = loop_graph.node_data[endwhile_node_raw]
 
     forbidden_classic_input_indexes = [
-        k for k, v in endwhile_node.io.inputs.items() if isinstance(v, ClassicalIOInstance)
+        k
+        for k, v in endwhile_node.io.inputs.items()
+        if isinstance(v, ClassicalIOInstance)
     ]
     for e in loop_graph.in_edges(endwhile_node.raw):
         for edge in loop_graph.edge_data[e]:
-            if isinstance(edge, IOConnection) and edge.target[1] in forbidden_classic_input_indexes:
-                raise NotImplementedError("Future Work: can't return classical output from while-loop node")
+            if (
+                isinstance(edge, IOConnection)
+                and edge.target[1] in forbidden_classic_input_indexes
+            ):
+                raise NotImplementedError(
+                    "Future Work: can't return classical output from while-loop node"
+                )
 
     reg_name = f"leqo_{while_node.id.hex}_loop_reg"
-    loop_size = connect_qubits(loop_graph, reg_name, while_node)
+    loop_size = _connect_loop(loop_graph, reg_name, while_node, endwhile_node)
 
     all_statements = cast_to_program(
         RemoveAnnotationTransformer(inputs=False, outputs=True).visit(
@@ -266,13 +338,17 @@ def merge_while_nodes(
 
     input_size = sum([len(ids) for ids in while_node.qubit.declaration_to_ids.values()])
     ancillae_size = loop_size - input_size
+    reset_ancillae: list[Statement] = []
     if ancillae_size > 0:
+        ancillae_name = f"leqo_{while_node.id.hex}_{ANCILLAES_NAME}"
         all_statements.append(
             QubitDeclaration(
-                Identifier(f"leqo_{while_node.id.hex}_{ANCILLAES_NAME}"),
+                Identifier(ancillae_name),
                 IntegerLiteral(ancillae_size),
             ),
         )
+        # Every iteration runs on the same ancillae, so clean what the last one left.
+        reset_ancillae.append(QuantumReset(Identifier(ancillae_name)))
 
     concat: Identifier | Concatenation | None = None
     for declaration in [d for d in all_statements if isinstance(d, QubitDeclaration)]:
@@ -286,7 +362,10 @@ def merge_while_nodes(
     all_statements.append(
         WhileLoop(
             while_condition=condition,
-            block=graph_to_statements(loop_graph, while_node.raw, endwhile_node.raw),
+            block=[
+                *reset_ancillae,
+                *graph_to_statements(loop_graph, while_node.raw, endwhile_node.raw),
+            ],
         ),
     )
 
@@ -301,11 +380,11 @@ def merge_while_nodes(
 
 
 def merge_for_nodes(
-        for_node_raw: ProgramNode,
-        endfor_node_raw: ProgramNode,
-        loop_graph: ProgramGraph,
-        iterator_id: Identifier,
-        range_def: RangeDefinition,
+    for_node_raw: ProgramNode,
+    endfor_node_raw: ProgramNode,
+    loop_graph: ProgramGraph,
+    iterator_id: Identifier,
+    range_def: RangeDefinition,
 ) -> tuple[Program, int]:
     """
     Construct a single program with a ForInLoop from a sub-graph.
@@ -314,15 +393,22 @@ def merge_for_nodes(
     endfor_node = loop_graph.node_data[endfor_node_raw]
 
     forbidden_classic_input_indexes = [
-        k for k, v in endfor_node.io.inputs.items() if isinstance(v, ClassicalIOInstance)
+        k
+        for k, v in endfor_node.io.inputs.items()
+        if isinstance(v, ClassicalIOInstance)
     ]
     for e in loop_graph.in_edges(endfor_node.raw):
         for edge in loop_graph.edge_data[e]:
-            if isinstance(edge, IOConnection) and edge.target[1] in forbidden_classic_input_indexes:
-                raise NotImplementedError("Future Work: can't return classical output from for-loop node")
+            if (
+                isinstance(edge, IOConnection)
+                and edge.target[1] in forbidden_classic_input_indexes
+            ):
+                raise NotImplementedError(
+                    "Future Work: can't return classical output from for-loop node"
+                )
 
     reg_name = f"leqo_{for_node.id.hex}_loop_reg"
-    loop_size = connect_qubits(loop_graph, reg_name, for_node)
+    loop_size = _connect_loop(loop_graph, reg_name, for_node, endfor_node)
 
     all_statements = cast_to_program(
         RemoveAnnotationTransformer(inputs=False, outputs=True).visit(
@@ -332,13 +418,17 @@ def merge_for_nodes(
 
     input_size = sum([len(ids) for ids in for_node.qubit.declaration_to_ids.values()])
     ancillae_size = loop_size - input_size
+    reset_ancillae: list[Statement] = []
     if ancillae_size > 0:
+        ancillae_name = f"leqo_{for_node.id.hex}_{ANCILLAES_NAME}"
         all_statements.append(
             QubitDeclaration(
-                Identifier(f"leqo_{for_node.id.hex}_{ANCILLAES_NAME}"),
+                Identifier(ancillae_name),
                 IntegerLiteral(ancillae_size),
             ),
         )
+        # Every iteration runs on the same ancillae, so clean what the last one left.
+        reset_ancillae.append(QuantumReset(Identifier(ancillae_name)))
 
     concat: Identifier | Concatenation | None = None
     for declaration in [d for d in all_statements if isinstance(d, QubitDeclaration)]:
@@ -354,7 +444,10 @@ def merge_for_nodes(
             type=IntType(),
             identifier=iterator_id,
             set_declaration=range_def,
-            block=graph_to_statements(loop_graph, for_node.raw, endfor_node.raw),
+            block=[
+                *reset_ancillae,
+                *graph_to_statements(loop_graph, for_node.raw, endfor_node.raw),
+            ],
         ),
     )
     all_statements.extend(

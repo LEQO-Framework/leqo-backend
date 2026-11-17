@@ -10,6 +10,7 @@ Run with: uv run python scripts/generate_qiskit_baselines.py
 
 import os
 import sys
+import traceback
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -17,7 +18,6 @@ from openqasm3.parser import parse
 
 from app.openqasm3.qiskit_provider import QiskitProvider
 from app.openqasm3.universal_transpiler import UniversalTranspiler
-
 
 # Representative QASM outputs that the pipeline produces for each test scenario.
 # Fed directly into the transpiler to obtain the Qiskit output.
@@ -33,7 +33,6 @@ x q0_after_h;
 let q0_after_x = q0_after_h;
 bit[1] result = measure q0_after_x[{0}];
 """,
-
     "parameterized_gates": """\
 OPENQASM 3.1;
 include "stdgates.inc";
@@ -43,7 +42,6 @@ rx(0.5) q0;
 let q0_after_rx = q0;
 rz(1.2) q0_after_rx;
 """,
-
     "if_else": """\
 OPENQASM 3.1;
 include "stdgates.inc";
@@ -57,7 +55,6 @@ if (result == 1) {
   x q0_after_measure;
 }
 """,
-
     "for_loop": """\
 OPENQASM 3.1;
 include "stdgates.inc";
@@ -67,7 +64,6 @@ for uint i in [0:3] {
   h q0;
 }
 """,
-
     "while_loop": """\
 OPENQASM 3.1;
 include "stdgates.inc";
@@ -98,7 +94,6 @@ def main() -> None:
             print(_transpile(qasm_source))
         except Exception as exc:
             print(f"ERROR: {exc}")
-            import traceback
             traceback.print_exc()
 
         print(f"{'=' * 60}")

@@ -33,7 +33,8 @@ expected_result: |
       "id": "newNode1",
       "label": null,
       "type": "implementation",
-      "implementation": "OPENQASM 3.1;\nint[1] leqo_15b97591d2d252d4932c57137d560388_literal = 1;\n@leqo.output 0\nlet leqo_15b97591d2d252d4932c57137d560388_out = leqo_15b97591d2d252d4932c57137d560388_literal;\n"
+      "implementation": "OPENQASM 3.1;\nint[1] leqo_15b97591d2d252d4932c57137d560388_literal = 1;\n@leqo.output 0\nlet leqo_15b97591d2d252d4932c57137d560388_out = leqo_15b97591d2d252d4932c57137d560388_literal;\n",
+      "language": "openqasm"
     },
     "inputIndex": null
   }

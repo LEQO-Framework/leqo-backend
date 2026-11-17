@@ -18,7 +18,7 @@ def _transpile_braket(source: str) -> str:
 
 
 def test_bell_state_uses_index_register_and_braket_gates() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[2] leqo_reg;
@@ -26,7 +26,7 @@ def test_bell_state_uses_index_register_and_braket_gates() -> None:
     cx leqo_reg[0], leqo_reg[1];
     measure leqo_reg[0];
     measure leqo_reg[1];
-    '''
+    """
 
     code = _transpile_braket(source)
 
@@ -38,13 +38,13 @@ def test_bell_state_uses_index_register_and_braket_gates() -> None:
 
 
 def test_two_qubit_parameterized_gate_orders_qubits_before_angle() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input angle theta;
     qubit[2] leqo_reg;
     cphaseshift(theta) leqo_reg[0], leqo_reg[1];
-    '''
+    """
 
     code = _transpile_braket(source)
 
@@ -53,12 +53,12 @@ def test_two_qubit_parameterized_gate_orders_qubits_before_angle() -> None:
 
 
 def test_two_qubit_fixed_gate_passes_two_scalar_operands() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[2] leqo_reg;
     swap leqo_reg[0], leqo_reg[1];
-    '''
+    """
 
     code = _transpile_braket(source)
 
@@ -66,7 +66,7 @@ def test_two_qubit_fixed_gate_passes_two_scalar_operands() -> None:
 
 
 def test_gate_name_mapping_translates_qiskit_names_to_braket() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[3] leqo_reg;
@@ -75,7 +75,7 @@ def test_gate_name_mapping_translates_qiskit_names_to_braket() -> None:
     sdg leqo_reg[0];
     tdg leqo_reg[1];
     sx leqo_reg[2];
-    '''
+    """
 
     code = _transpile_braket(source)
 
@@ -88,14 +88,14 @@ def test_gate_name_mapping_translates_qiskit_names_to_braket() -> None:
 
 
 def test_parameter_input_uses_free_parameter_and_suppresses_run() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input angle theta;
     qubit[1] leqo_reg;
     rx(theta) leqo_reg[0];
     measure leqo_reg[0];
-    '''
+    """
 
     code = _transpile_braket(source)
 
@@ -107,14 +107,14 @@ def test_parameter_input_uses_free_parameter_and_suppresses_run() -> None:
 
 
 def test_float_input_uses_free_parameter() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input float theta;
     qubit[1] leqo_reg;
     rz(theta) leqo_reg[0];
     measure leqo_reg[0];
-    '''
+    """
 
     code = _transpile_braket(source)
 
@@ -123,7 +123,7 @@ def test_float_input_uses_free_parameter() -> None:
 
 
 def test_fully_bound_circuit_emits_run_block() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[2] leqo_reg;
@@ -131,7 +131,7 @@ def test_fully_bound_circuit_emits_run_block() -> None:
     cx leqo_reg[0], leqo_reg[1];
     measure leqo_reg[0];
     measure leqo_reg[1];
-    '''
+    """
 
     code = _transpile_braket(source)
 
@@ -141,14 +141,14 @@ def test_fully_bound_circuit_emits_run_block() -> None:
 
 
 def test_for_loop_is_kept_as_host_side_python_loop() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[1] leqo_reg;
     for uint i in [0:2] {
         h leqo_reg[0];
     }
-    '''
+    """
 
     code = _transpile_braket(source)
 
@@ -157,12 +157,12 @@ def test_for_loop_is_kept_as_host_side_python_loop() -> None:
 
 
 def test_circuit_without_measurement_has_no_run_block() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[1] leqo_reg;
     h leqo_reg[0];
-    '''
+    """
 
     code = _transpile_braket(source)
 
@@ -172,19 +172,19 @@ def test_circuit_without_measurement_has_no_run_block() -> None:
 
 
 def test_reset_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[1] leqo_reg;
     reset leqo_reg[0];
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="reset"):
         _transpile_braket(source)
 
 
 def test_if_block_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[1] leqo_reg;
@@ -193,14 +193,14 @@ def test_if_block_fails_loudly() -> None:
     if (c[0]) {
         x leqo_reg[0];
     }
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="branching"):
         _transpile_braket(source)
 
 
 def test_while_loop_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[1] leqo_reg;
@@ -209,34 +209,34 @@ def test_while_loop_fails_loudly() -> None:
         x leqo_reg[0];
         n += 1;
     }
-    '''
+    """
 
     with pytest.raises(NotImplementedError):
         _transpile_braket(source)
 
 
 def test_typed_classical_declaration_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     uint[8] counter = 0;
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="classical"):
         _transpile_braket(source)
 
 
 def test_declared_output_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     output bit result;
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="output"):
         _transpile_braket(source)
 
 
 def test_measurement_driven_while_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[1] leqo_reg;
@@ -246,18 +246,18 @@ def test_measurement_driven_while_fails_loudly() -> None:
         x leqo_reg[0];
         measure leqo_reg[0] -> c[0];
     }
-    '''
+    """
 
     with pytest.raises(NotImplementedError):
         _transpile_braket(source)
 
 
 def test_unknown_gate_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     qubit[1] leqo_reg;
     totally_made_up_gate leqo_reg[0];
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="Braket"):
         _transpile_braket(source)
@@ -267,7 +267,7 @@ def test_fully_bound_bell_executes_on_local_simulator() -> None:
     """Proof-of-concept: the generated Braket program runs on the LocalSimulator."""
     pytest.importorskip("braket")
 
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[2] leqo_reg;
@@ -275,7 +275,7 @@ def test_fully_bound_bell_executes_on_local_simulator() -> None:
     cx leqo_reg[0], leqo_reg[1];
     measure leqo_reg[0];
     measure leqo_reg[1];
-    '''
+    """
 
     code = _transpile_braket(source)
     namespace: dict = {}
@@ -283,6 +283,6 @@ def test_fully_bound_bell_executes_on_local_simulator() -> None:
         exec(code, namespace, namespace)
 
     counts = namespace["counts"]
-    assert sum(counts.values()) == 500
+    assert sum(counts.values()) == 500  # noqa: PLR2004
     # An ideal Bell state only ever yields the correlated 00/11 outcomes.
     assert set(counts.keys()) <= {"00", "11"}

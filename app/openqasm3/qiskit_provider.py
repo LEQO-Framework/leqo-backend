@@ -1,7 +1,10 @@
 import ast
-from typing import Any, List, Optional, Union
+from typing import Any
+
 import openqasm3.ast as qast
+
 from app.openqasm3.universal_transpiler import BaseSDKProvider
+
 
 class QiskitProvider(BaseSDKProvider):
     """
@@ -9,64 +12,84 @@ class QiskitProvider(BaseSDKProvider):
     Generates Python AST nodes compatible with Qiskit 2.x and Qiskit Aer.
     """
 
-    def __init__(self):
-        self.used_imports = set()
+    def __init__(self) -> None:
+        self.used_imports: set[str] = set()
         self.has_measurements = False
         self.has_parameters = False
         self.has_runtime_inputs = False
-        self.classical_expr_names = set()
-        self.bool_names = set()
+        self.classical_expr_names: set[str] = set()
+        self.bool_names: set[str] = set()
 
-    def start_program(self) -> List[ast.stmt]:
-        self.used_imports.add("from qiskit import QuantumCircuit, QuantumRegister, transpile")
-        
+    def start_program(self) -> list[ast.stmt]:
+        self.used_imports.add(
+            "from qiskit import QuantumCircuit, QuantumRegister, transpile"
+        )
+
         return [
             ast.Assign(
-                targets=[ast.Name(id='qc', ctx=ast.Store())],
-                value=ast.Call(func=ast.Name(id='QuantumCircuit', ctx=ast.Load()), args=[], keywords=[])
+                targets=[ast.Name(id="qc", ctx=ast.Store())],
+                value=ast.Call(
+                    func=ast.Name(id="QuantumCircuit", ctx=ast.Load()),
+                    args=[],
+                    keywords=[],
+                ),
             ),
             ast.Assign(
-                targets=[ast.Name(id='inputs_list', ctx=ast.Store())],
-                value=ast.List(elts=[], ctx=ast.Load())
-            )
+                targets=[ast.Name(id="inputs_list", ctx=ast.Store())],
+                value=ast.List(elts=[], ctx=ast.Load()),
+            ),
         ]
 
-    def declare_qubit(self, name: str, size: int) -> List[ast.stmt]:
+    def declare_qubit(self, name: str, size: int) -> list[ast.stmt]:
         return [
             ast.Assign(
                 targets=[ast.Name(id=name, ctx=ast.Store())],
                 value=ast.Call(
-                    func=ast.Name(id='QuantumRegister', ctx=ast.Load()),
+                    func=ast.Name(id="QuantumRegister", ctx=ast.Load()),
                     args=[ast.Constant(value=size), ast.Constant(value=name)],
-                    keywords=[]
+                    keywords=[],
+                ),
+            ),
+            ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Name(id="qc", ctx=ast.Load()),
+                        attr="add_register",
+                        ctx=ast.Load(),
+                    ),
+                    args=[ast.Name(id=name, ctx=ast.Load())],
+                    keywords=[],
                 )
             ),
-            ast.Expr(value=ast.Call(
-                func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='add_register', ctx=ast.Load()),
-                args=[ast.Name(id=name, ctx=ast.Load())],
-                keywords=[]
-            ))
         ]
 
-    def declare_bit(self, name: str, size: int) -> List[ast.stmt]:
+    def declare_bit(self, name: str, size: int) -> list[ast.stmt]:
         self.used_imports.add("from qiskit import ClassicalRegister")
         return [
             ast.Assign(
                 targets=[ast.Name(id=name, ctx=ast.Store())],
                 value=ast.Call(
-                    func=ast.Name(id='ClassicalRegister', ctx=ast.Load()),
+                    func=ast.Name(id="ClassicalRegister", ctx=ast.Load()),
                     args=[ast.Constant(value=size), ast.Constant(value=name)],
-                    keywords=[]
+                    keywords=[],
+                ),
+            ),
+            ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Name(id="qc", ctx=ast.Load()),
+                        attr="add_register",
+                        ctx=ast.Load(),
+                    ),
+                    args=[ast.Name(id=name, ctx=ast.Load())],
+                    keywords=[],
                 )
             ),
-            ast.Expr(value=ast.Call(
-                func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='add_register', ctx=ast.Load()),
-                args=[ast.Name(id=name, ctx=ast.Load())],
-                keywords=[]
-            ))
         ]
 
-    def declare_classical_var(self, name: str, ast_type: Any, init_expr: Optional[ast.expr] = None) -> List[ast.stmt]:
+    def declare_classical_var(
+        self, name: str, ast_type: Any, init_expr: ast.expr | None = None
+    ) -> list[ast.stmt]:
         self.used_imports.add("from qiskit.circuit.classical import types")
         self.used_imports.add("import qiskit.circuit.classical.expr as expr")
         self.classical_expr_names.add(name)
@@ -75,8 +98,12 @@ class QiskitProvider(BaseSDKProvider):
         q_type = self._map_classical_type(ast_type)
         typed_var = ast.Call(
             func=ast.Attribute(
-                value=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr='Var', ctx=ast.Load()),
-                attr='new',
+                value=ast.Attribute(
+                    value=ast.Name(id="expr", ctx=ast.Load()),
+                    attr="Var",
+                    ctx=ast.Load(),
+                ),
+                attr="new",
                 ctx=ast.Load(),
             ),
             args=[ast.Constant(value=name), q_type],
@@ -89,50 +116,76 @@ class QiskitProvider(BaseSDKProvider):
                     targets=[ast.Name(id=name, ctx=ast.Store())],
                     value=typed_var,
                 ),
-                ast.Expr(value=ast.Call(
-                    func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='add_uninitialized_var', ctx=ast.Load()),
-                    args=[ast.Name(id=name, ctx=ast.Load())],
-                    keywords=[],
-                )),
+                ast.Expr(
+                    value=ast.Call(
+                        func=ast.Attribute(
+                            value=ast.Name(id="qc", ctx=ast.Load()),
+                            attr="add_uninitialized_var",
+                            ctx=ast.Load(),
+                        ),
+                        args=[ast.Name(id=name, ctx=ast.Load())],
+                        keywords=[],
+                    )
+                ),
             ]
 
         return [
             ast.Assign(
                 targets=[ast.Name(id=name, ctx=ast.Store())],
                 value=ast.Call(
-                    func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='add_var', ctx=ast.Load()),
+                    func=ast.Attribute(
+                        value=ast.Name(id="qc", ctx=ast.Load()),
+                        attr="add_var",
+                        ctx=ast.Load(),
+                    ),
                     args=[typed_var, init_expr],
                     keywords=[],
                 ),
             )
         ]
 
-    def gate(self, name: str, qubits: List[ast.expr], args: List[ast.expr]) -> ast.stmt:
+    def gate(self, name: str, qubits: list[ast.expr], args: list[ast.expr]) -> ast.stmt:
         call_args = args + qubits
-        return ast.Expr(value=ast.Call(
-            func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr=name, ctx=ast.Load()),
-            args=call_args,
-            keywords=[]
-        ))
+        return ast.Expr(
+            value=ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id="qc", ctx=ast.Load()), attr=name, ctx=ast.Load()
+                ),
+                args=call_args,
+                keywords=[],
+            )
+        )
 
     def reset(self, qubit: ast.expr) -> ast.stmt:
-        return ast.Expr(value=ast.Call(
-            func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='reset', ctx=ast.Load()),
-            args=[qubit],
-            keywords=[],
-        ))
+        return ast.Expr(
+            value=ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id="qc", ctx=ast.Load()),
+                    attr="reset",
+                    ctx=ast.Load(),
+                ),
+                args=[qubit],
+                keywords=[],
+            )
+        )
 
-    def measure(self, qubit: ast.expr, clbit: Optional[ast.expr] = None) -> ast.stmt:
+    def measure(self, qubit: ast.expr, clbit: ast.expr | None = None) -> ast.stmt:
         self.has_measurements = True
         args = [qubit]
         if clbit:
             args.append(clbit)
-        
-        return ast.Expr(value=ast.Call(
-            func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='measure', ctx=ast.Load()),
-            args=args,
-            keywords=[]
-        ))
+
+        return ast.Expr(
+            value=ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id="qc", ctx=ast.Load()),
+                    attr="measure",
+                    ctx=ast.Load(),
+                ),
+                args=args,
+                keywords=[],
+            )
+        )
 
     def _lower_classical_condition(self, condition: ast.expr) -> ast.expr:
         """
@@ -147,124 +200,182 @@ class QiskitProvider(BaseSDKProvider):
         if isinstance(condition, (ast.Subscript, ast.Name)):
             self.used_imports.add("import qiskit.circuit.classical.expr as expr")
             return ast.Call(
-                func=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr='lift', ctx=ast.Load()),
+                func=ast.Attribute(
+                    value=ast.Name(id="expr", ctx=ast.Load()),
+                    attr="lift",
+                    ctx=ast.Load(),
+                ),
                 args=[condition],
                 keywords=[],
             )
         return condition
 
-    def if_block(self, condition: ast.expr, then_body: List[ast.stmt], else_body: Optional[List[ast.stmt]] = None) -> Union[ast.stmt, List[ast.stmt]]:
+    def if_block(
+        self,
+        condition: ast.expr,
+        then_body: list[ast.stmt],
+        else_body: list[ast.stmt] | None = None,
+    ) -> ast.stmt | list[ast.stmt]:
         self.used_imports.add("import qiskit.circuit.classical.expr as expr")
         condition = self._lower_classical_condition(condition)
 
         with_item = ast.withitem(
             context_expr=ast.Call(
-                func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='if_test', ctx=ast.Load()),
+                func=ast.Attribute(
+                    value=ast.Name(id="qc", ctx=ast.Load()),
+                    attr="if_test",
+                    ctx=ast.Load(),
+                ),
                 args=[condition],
-                keywords=[]
+                keywords=[],
             ),
-            optional_vars=ast.Name(id='_else', ctx=ast.Store()) if else_body else None
+            optional_vars=ast.Name(id="_else", ctx=ast.Store()) if else_body else None,
         )
-        
+
         main_if = ast.With(items=[with_item], body=then_body)
-        
+
         if else_body:
             else_with = ast.With(
-                items=[ast.withitem(context_expr=ast.Name(id='_else', ctx=ast.Load()))],
-                body=else_body
+                items=[ast.withitem(context_expr=ast.Name(id="_else", ctx=ast.Load()))],
+                body=else_body,
             )
             return [main_if, else_with]
 
         return main_if
 
-    def while_loop(self, condition: ast.expr, body: List[ast.stmt]) -> ast.stmt:
+    def while_loop(self, condition: ast.expr, body: list[ast.stmt]) -> ast.stmt:
         condition = self._lower_classical_condition(condition)
         with_item = ast.withitem(
             context_expr=ast.Call(
-                func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='while_loop', ctx=ast.Load()),
+                func=ast.Attribute(
+                    value=ast.Name(id="qc", ctx=ast.Load()),
+                    attr="while_loop",
+                    ctx=ast.Load(),
+                ),
                 args=[condition],
-                keywords=[]
+                keywords=[],
             )
         )
         return ast.With(items=[with_item], body=body)
 
-    def for_loop(self, iterator: str, range_obj: ast.expr, body: List[ast.stmt]) -> ast.stmt:
+    def for_loop(
+        self, iterator: str, range_obj: ast.expr, body: list[ast.stmt]
+    ) -> ast.stmt:
         with_item = ast.withitem(
             context_expr=ast.Call(
-                func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='for_loop', ctx=ast.Load()),
+                func=ast.Attribute(
+                    value=ast.Name(id="qc", ctx=ast.Load()),
+                    attr="for_loop",
+                    ctx=ast.Load(),
+                ),
                 args=[range_obj],
-                keywords=[]
+                keywords=[],
             ),
-            optional_vars=ast.Name(id=iterator, ctx=ast.Store())
+            optional_vars=ast.Name(id=iterator, ctx=ast.Store()),
         )
         return ast.With(items=[with_item], body=body)
 
     def alias(self, name: str, value: ast.expr) -> ast.stmt:
-        return ast.Assign(
-            targets=[ast.Name(id=name, ctx=ast.Store())],
-            value=value
-        )
+        return ast.Assign(targets=[ast.Name(id=name, ctx=ast.Store())], value=value)
 
-    def classical_assignment(self, lvalue: ast.expr, rvalue: ast.expr, op: str) -> ast.stmt:
+    def classical_assignment(
+        self, lvalue: ast.expr, rvalue: ast.expr, op: str
+    ) -> ast.stmt:
         self.used_imports.add("import qiskit.circuit.classical.expr as expr")
         if op == "=":
-            return ast.Expr(value=ast.Call(
-                func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='store', ctx=ast.Load()),
-                args=[lvalue, rvalue],
-                keywords=[]
-            ))
-        
+            return ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Name(id="qc", ctx=ast.Load()),
+                        attr="store",
+                        ctx=ast.Load(),
+                    ),
+                    args=[lvalue, rvalue],
+                    keywords=[],
+                )
+            )
+
         op_map = {
-            "+=": "add", "-=": "sub", "*=": "mul", "/=": "div",
-            "&=": "bit_and", "|=": "bit_or", "^=": "bit_xor",
+            "+=": "add",
+            "-=": "sub",
+            "*=": "mul",
+            "/=": "div",
+            "&=": "bit_and",
+            "|=": "bit_or",
+            "^=": "bit_xor",
         }
         func_name = op_map.get(op)
         if func_name:
             calc = ast.Call(
-                func=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr=func_name, ctx=ast.Load()),
+                func=ast.Attribute(
+                    value=ast.Name(id="expr", ctx=ast.Load()),
+                    attr=func_name,
+                    ctx=ast.Load(),
+                ),
                 args=[lvalue, rvalue],
-                keywords=[]
+                keywords=[],
             )
-            return ast.Expr(value=ast.Call(
-                func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='store', ctx=ast.Load()),
-                args=[lvalue, calc],
-                keywords=[]
-            ))
+            return ast.Expr(
+                value=ast.Call(
+                    func=ast.Attribute(
+                        value=ast.Name(id="qc", ctx=ast.Load()),
+                        attr="store",
+                        ctx=ast.Load(),
+                    ),
+                    args=[lvalue, calc],
+                    keywords=[],
+                )
+            )
 
         raise NotImplementedError(f"Unsupported classical assignment operator: {op}")
 
-    def io_declaration(self, name: str, io_type: str, ast_type: Any) -> List[ast.stmt]:
+    def io_declaration(self, name: str, io_type: str, ast_type: Any) -> list[ast.stmt]:
         if io_type == "input":
             if isinstance(ast_type, (qast.AngleType, qast.FloatType)):
                 self.has_parameters = True
                 self.used_imports.add("from qiskit.circuit import Parameter")
-                return [ast.Assign(
-                    targets=[ast.Name(id=name, ctx=ast.Store())],
-                    value=ast.Call(func=ast.Name(id='Parameter', ctx=ast.Load()), args=[ast.Constant(value=name)], keywords=[])
-                )]
-            else:
-                self.has_runtime_inputs = True
-                self.classical_expr_names.add(name)
-                if isinstance(ast_type, qast.BoolType):
-                    self.bool_names.add(name)
-                self.used_imports.add("from qiskit.circuit.classical import types")
-                q_type = self._map_classical_type(ast_type)
                 return [
                     ast.Assign(
                         targets=[ast.Name(id=name, ctx=ast.Store())],
                         value=ast.Call(
-                            func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='add_input', ctx=ast.Load()),
-                            args=[ast.Constant(value=name), q_type],
-                            keywords=[]
-                        )
-                    ),
-                    ast.Expr(value=ast.Call(
-                        func=ast.Attribute(value=ast.Name(id='inputs_list', ctx=ast.Load()), attr='append', ctx=ast.Load()),
-                        args=[ast.Name(id=name, ctx=ast.Load())],
-                        keywords=[]
-                    ))
+                            func=ast.Name(id="Parameter", ctx=ast.Load()),
+                            args=[ast.Constant(value=name)],
+                            keywords=[],
+                        ),
+                    )
                 ]
-        elif io_type == "output":
+            self.has_runtime_inputs = True
+            self.classical_expr_names.add(name)
+            if isinstance(ast_type, qast.BoolType):
+                self.bool_names.add(name)
+            self.used_imports.add("from qiskit.circuit.classical import types")
+            q_type = self._map_classical_type(ast_type)
+            return [
+                ast.Assign(
+                    targets=[ast.Name(id=name, ctx=ast.Store())],
+                    value=ast.Call(
+                        func=ast.Attribute(
+                            value=ast.Name(id="qc", ctx=ast.Load()),
+                            attr="add_input",
+                            ctx=ast.Load(),
+                        ),
+                        args=[ast.Constant(value=name), q_type],
+                        keywords=[],
+                    ),
+                ),
+                ast.Expr(
+                    value=ast.Call(
+                        func=ast.Attribute(
+                            value=ast.Name(id="inputs_list", ctx=ast.Load()),
+                            attr="append",
+                            ctx=ast.Load(),
+                        ),
+                        args=[ast.Name(id=name, ctx=ast.Load())],
+                        keywords=[],
+                    )
+                ),
+            ]
+        if io_type == "output":
             self.classical_expr_names.add(name)
             if isinstance(ast_type, qast.BoolType):
                 self.bool_names.add(name)
@@ -275,16 +386,30 @@ class QiskitProvider(BaseSDKProvider):
                 ast.Assign(
                     targets=[ast.Name(id=name, ctx=ast.Store())],
                     value=ast.Call(
-                        func=ast.Attribute(value=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr='Var', ctx=ast.Load()), attr='new', ctx=ast.Load()),
+                        func=ast.Attribute(
+                            value=ast.Attribute(
+                                value=ast.Name(id="expr", ctx=ast.Load()),
+                                attr="Var",
+                                ctx=ast.Load(),
+                            ),
+                            attr="new",
+                            ctx=ast.Load(),
+                        ),
                         args=[ast.Constant(value=name), q_type],
-                        keywords=[]
+                        keywords=[],
+                    ),
+                ),
+                ast.Expr(
+                    value=ast.Call(
+                        func=ast.Attribute(
+                            value=ast.Name(id="qc", ctx=ast.Load()),
+                            attr="add_uninitialized_var",
+                            ctx=ast.Load(),
+                        ),
+                        args=[ast.Name(id=name, ctx=ast.Load())],
+                        keywords=[],
                     )
                 ),
-                ast.Expr(value=ast.Call(
-                    func=ast.Attribute(value=ast.Name(id='qc', ctx=ast.Load()), attr='add_uninitialized_var', ctx=ast.Load()),
-                    args=[ast.Name(id=name, ctx=ast.Load())],
-                    keywords=[]
-                ))
             ]
         return []
 
@@ -296,11 +421,17 @@ class QiskitProvider(BaseSDKProvider):
             "/": ("div", ast.Div()),
         }
         if op in arithmetic_ops:
-            if self._expression_uses_classical_expr(lhs) or self._expression_uses_classical_expr(rhs):
+            if self._expression_uses_classical_expr(
+                lhs
+            ) or self._expression_uses_classical_expr(rhs):
                 self.used_imports.add("import qiskit.circuit.classical.expr as expr")
-                func_name, _ = arithmetic_ops[op]
+                arithmetic_func_name, _ = arithmetic_ops[op]
                 return ast.Call(
-                    func=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr=func_name, ctx=ast.Load()),
+                    func=ast.Attribute(
+                        value=ast.Name(id="expr", ctx=ast.Load()),
+                        attr=arithmetic_func_name,
+                        ctx=ast.Load(),
+                    ),
                     args=[lhs, rhs],
                     keywords=[],
                 )
@@ -311,34 +442,84 @@ class QiskitProvider(BaseSDKProvider):
         self.used_imports.add("from qiskit.circuit.classical import types")
 
         op_funcs = {
-            "==": "equal", "!=": "not_equal", "<": "less", "<=": "less_equal",
-            ">": "greater", ">=": "greater_equal", "&&": "logic_and", "||": "logic_or",
-            "&": "bit_and", "|": "bit_or", "^": "bit_xor"
+            "==": "equal",
+            "!=": "not_equal",
+            "<": "less",
+            "<=": "less_equal",
+            ">": "greater",
+            ">=": "greater_equal",
+            "&&": "logic_and",
+            "||": "logic_or",
+            "&": "bit_and",
+            "|": "bit_or",
+            "^": "bit_xor",
         }
 
         if op in ["<", "<=", ">", ">=", "==", "!="]:
-            is_boolean_comparison = self._expression_is_boolean(lhs) or self._expression_is_boolean(rhs)
+            is_boolean_comparison = self._expression_is_boolean(
+                lhs
+            ) or self._expression_is_boolean(rhs)
             if not is_boolean_comparison:
-                if not (isinstance(lhs, ast.Call) and getattr(lhs.func, 'attr', '') == 'cast'):
+                if not (
+                    isinstance(lhs, ast.Call)
+                    and getattr(lhs.func, "attr", "") == "cast"
+                ):
                     lhs = ast.Call(
-                        func=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr='cast', ctx=ast.Load()),
-                        args=[lhs, ast.Call(func=ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()), attr='Uint', ctx=ast.Load()), args=[ast.Constant(value=32)], keywords=[])],
-                        keywords=[]
+                        func=ast.Attribute(
+                            value=ast.Name(id="expr", ctx=ast.Load()),
+                            attr="cast",
+                            ctx=ast.Load(),
+                        ),
+                        args=[
+                            lhs,
+                            ast.Call(
+                                func=ast.Attribute(
+                                    value=ast.Name(id="types", ctx=ast.Load()),
+                                    attr="Uint",
+                                    ctx=ast.Load(),
+                                ),
+                                args=[ast.Constant(value=32)],
+                                keywords=[],
+                            ),
+                        ],
+                        keywords=[],
                     )
-                if not (isinstance(rhs, ast.Call) and getattr(rhs.func, 'attr', '') == 'cast'):
+                if not (
+                    isinstance(rhs, ast.Call)
+                    and getattr(rhs.func, "attr", "") == "cast"
+                ):
                     rhs = ast.Call(
-                        func=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr='cast', ctx=ast.Load()),
-                        args=[rhs, ast.Call(func=ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()), attr='Uint', ctx=ast.Load()), args=[ast.Constant(value=32)], keywords=[])],
-                        keywords=[]
+                        func=ast.Attribute(
+                            value=ast.Name(id="expr", ctx=ast.Load()),
+                            attr="cast",
+                            ctx=ast.Load(),
+                        ),
+                        args=[
+                            rhs,
+                            ast.Call(
+                                func=ast.Attribute(
+                                    value=ast.Name(id="types", ctx=ast.Load()),
+                                    attr="Uint",
+                                    ctx=ast.Load(),
+                                ),
+                                args=[ast.Constant(value=32)],
+                                keywords=[],
+                            ),
+                        ],
+                        keywords=[],
                     )
-            
+
         func_name = op_funcs.get(op)
         if func_name is None:
             raise NotImplementedError(f"Unsupported binary operator: {op}")
         return ast.Call(
-            func=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr=func_name, ctx=ast.Load()),
+            func=ast.Attribute(
+                value=ast.Name(id="expr", ctx=ast.Load()),
+                attr=func_name,
+                ctx=ast.Load(),
+            ),
             args=[lhs, rhs],
-            keywords=[]
+            keywords=[],
         )
 
     def unary_expression(self, expression: ast.expr, op: str) -> ast.expr:
@@ -348,7 +529,11 @@ class QiskitProvider(BaseSDKProvider):
                 if op == "+":
                     return expression
                 return ast.Call(
-                    func=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr='mul', ctx=ast.Load()),
+                    func=ast.Attribute(
+                        value=ast.Name(id="expr", ctx=ast.Load()),
+                        attr="mul",
+                        ctx=ast.Load(),
+                    ),
                     args=[ast.Constant(value=-1), expression],
                     keywords=[],
                 )
@@ -361,20 +546,30 @@ class QiskitProvider(BaseSDKProvider):
         if func_name is None:
             raise NotImplementedError(f"Unsupported unary operator: {op}")
         return ast.Call(
-            func=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr=func_name, ctx=ast.Load()),
+            func=ast.Attribute(
+                value=ast.Name(id="expr", ctx=ast.Load()),
+                attr=func_name,
+                ctx=ast.Load(),
+            ),
             args=[expression],
-            keywords=[]
+            keywords=[],
         )
 
     def cast_expression(self, expression: ast.expr, ast_type: Any) -> ast.expr:
         if isinstance(ast_type, qast.IntType):
-            raise NotImplementedError("Signed OpenQASM int is not supported by the Qiskit classical type system target.")
+            raise NotImplementedError(
+                "Signed OpenQASM int is not supported by the Qiskit classical type system target."
+            )
 
         if self._expression_uses_classical_expr(expression):
             self.used_imports.add("import qiskit.circuit.classical.expr as expr")
             self.used_imports.add("from qiskit.circuit.classical import types")
             return ast.Call(
-                func=ast.Attribute(value=ast.Name(id='expr', ctx=ast.Load()), attr='cast', ctx=ast.Load()),
+                func=ast.Attribute(
+                    value=ast.Name(id="expr", ctx=ast.Load()),
+                    attr="cast",
+                    ctx=ast.Load(),
+                ),
                 args=[expression, self._map_classical_type(ast_type)],
                 keywords=[],
             )
@@ -385,31 +580,48 @@ class QiskitProvider(BaseSDKProvider):
             builtin = "float"
         else:
             builtin = "int"
-        return ast.Call(func=ast.Name(id=builtin, ctx=ast.Load()), args=[expression], keywords=[])
+        return ast.Call(
+            func=ast.Name(id=builtin, ctx=ast.Load()), args=[expression], keywords=[]
+        )
 
-    def end_program(self) -> List[ast.stmt]:
+    def end_program(self) -> list[ast.stmt]:
         if not self.has_measurements:
             return []
 
         self.used_imports.add("from qiskit_aer import AerSimulator")
-        
+
         boilerplate = [
             ast.Expr(value=ast.Constant(value=" --- EXECUTION ---")),
             ast.Assign(
-                targets=[ast.Name(id='simulator', ctx=ast.Store())],
-                value=ast.Call(func=ast.Name(id='AerSimulator', ctx=ast.Load()), args=[], keywords=[])
+                targets=[ast.Name(id="simulator", ctx=ast.Store())],
+                value=ast.Call(
+                    func=ast.Name(id="AerSimulator", ctx=ast.Load()),
+                    args=[],
+                    keywords=[],
+                ),
             ),
             ast.Assign(
-                targets=[ast.Name(id='compiled_circuit', ctx=ast.Store())],
+                targets=[ast.Name(id="compiled_circuit", ctx=ast.Store())],
                 value=ast.Call(
-                    func=ast.Name(id='transpile', ctx=ast.Load()),
-                    args=[ast.Name(id='qc', ctx=ast.Load()), ast.Name(id='simulator', ctx=ast.Load())],
-                    keywords=[]
-                )
-            )
+                    func=ast.Name(id="transpile", ctx=ast.Load()),
+                    args=[
+                        ast.Name(id="qc", ctx=ast.Load()),
+                        ast.Name(id="simulator", ctx=ast.Load()),
+                    ],
+                    keywords=[],
+                ),
+            ),
         ]
 
-        boilerplate.append(ast.Expr(value=ast.Call(func=ast.Name(id='print', ctx=ast.Load()), args=[ast.Name(id='compiled_circuit', ctx=ast.Load())], keywords=[])))
+        boilerplate.append(
+            ast.Expr(
+                value=ast.Call(
+                    func=ast.Name(id="print", ctx=ast.Load()),
+                    args=[ast.Name(id="compiled_circuit", ctx=ast.Load())],
+                    keywords=[],
+                )
+            )
+        )
 
         if self.has_parameters or self.has_runtime_inputs:
             missing_values = []
@@ -417,39 +629,68 @@ class QiskitProvider(BaseSDKProvider):
                 missing_values.append("parameter bindings")
             if self.has_runtime_inputs:
                 missing_values.append("runtime inputs")
-            boilerplate.append(ast.Expr(value=ast.Constant(value=f"Note: External {' and '.join(missing_values)} detected. Provide explicit values before execution.")))
+            boilerplate.append(
+                ast.Expr(
+                    value=ast.Constant(
+                        value=f"Note: External {' and '.join(missing_values)} detected. Provide explicit values before execution."
+                    )
+                )
+            )
             return boilerplate
 
-        run_args = [ast.Name(id='compiled_circuit', ctx=ast.Load())]
-        run_keywords = [ast.keyword(arg='shots', value=ast.Constant(value=500))]
+        run_args: list[ast.expr] = [ast.Name(id="compiled_circuit", ctx=ast.Load())]
+        run_keywords = [ast.keyword(arg="shots", value=ast.Constant(value=500))]
 
-        boilerplate.extend([
-            ast.Assign(
-                targets=[ast.Name(id='job', ctx=ast.Store())],
-                value=ast.Call(
-                    func=ast.Attribute(value=ast.Name(id='simulator', ctx=ast.Load()), attr='run', ctx=ast.Load()),
-                    args=run_args,
-                    keywords=run_keywords
-                )
-            ),
-            ast.Assign(
-                targets=[ast.Name(id='result_data', ctx=ast.Store())],
-                value=ast.Call(func=ast.Attribute(value=ast.Name(id='job', ctx=ast.Load()), attr='result', ctx=ast.Load()), args=[], keywords=[])
-            ),
-            ast.Assign(
-                targets=[ast.Name(id='counts', ctx=ast.Store())],
-                value=ast.Call(
-                    func=ast.Attribute(value=ast.Name(id='result_data', ctx=ast.Load()), attr='get_counts', ctx=ast.Load()),
-                    args=[ast.Name(id='qc', ctx=ast.Load())],
-                    keywords=[]
-                )
-            ),
-            ast.Expr(value=ast.Call(
-                func=ast.Name(id='print', ctx=ast.Load()),
-                args=[ast.Constant(value='Simulation Results (500 shots):'), ast.Name(id='counts', ctx=ast.Load())],
-                keywords=[]
-            ))
-        ])
+        boilerplate.extend(
+            [
+                ast.Assign(
+                    targets=[ast.Name(id="job", ctx=ast.Store())],
+                    value=ast.Call(
+                        func=ast.Attribute(
+                            value=ast.Name(id="simulator", ctx=ast.Load()),
+                            attr="run",
+                            ctx=ast.Load(),
+                        ),
+                        args=run_args,
+                        keywords=run_keywords,
+                    ),
+                ),
+                ast.Assign(
+                    targets=[ast.Name(id="result_data", ctx=ast.Store())],
+                    value=ast.Call(
+                        func=ast.Attribute(
+                            value=ast.Name(id="job", ctx=ast.Load()),
+                            attr="result",
+                            ctx=ast.Load(),
+                        ),
+                        args=[],
+                        keywords=[],
+                    ),
+                ),
+                ast.Assign(
+                    targets=[ast.Name(id="counts", ctx=ast.Store())],
+                    value=ast.Call(
+                        func=ast.Attribute(
+                            value=ast.Name(id="result_data", ctx=ast.Load()),
+                            attr="get_counts",
+                            ctx=ast.Load(),
+                        ),
+                        args=[ast.Name(id="qc", ctx=ast.Load())],
+                        keywords=[],
+                    ),
+                ),
+                ast.Expr(
+                    value=ast.Call(
+                        func=ast.Name(id="print", ctx=ast.Load()),
+                        args=[
+                            ast.Constant(value="Simulation Results (500 shots):"),
+                            ast.Name(id="counts", ctx=ast.Load()),
+                        ],
+                        keywords=[],
+                    )
+                ),
+            ]
+        )
 
         return boilerplate
 
@@ -459,30 +700,50 @@ class QiskitProvider(BaseSDKProvider):
             size = self._resolve_size(ast_type.size)
 
         if isinstance(ast_type, qast.IntType):
-            raise NotImplementedError("Signed OpenQASM int is not supported by the Qiskit classical type system target.")
+            raise NotImplementedError(
+                "Signed OpenQASM int is not supported by the Qiskit classical type system target."
+            )
 
         if isinstance(ast_type, qast.BoolType):
-            return ast.Call(func=ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()), attr='Bool', ctx=ast.Load()), args=[], keywords=[])
+            return ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id="types", ctx=ast.Load()),
+                    attr="Bool",
+                    ctx=ast.Load(),
+                ),
+                args=[],
+                keywords=[],
+            )
 
         if isinstance(ast_type, qast.BitType):
             bit_size = 1 if getattr(ast_type, "size", None) is None else size
             return ast.Call(
-                func=ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()), attr='Uint', ctx=ast.Load()),
+                func=ast.Attribute(
+                    value=ast.Name(id="types", ctx=ast.Load()),
+                    attr="Uint",
+                    ctx=ast.Load(),
+                ),
                 args=[ast.Constant(value=bit_size)],
-                keywords=[]
+                keywords=[],
             )
 
         if isinstance(ast_type, (qast.FloatType, qast.AngleType)):
             return ast.Call(
-                func=ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()), attr='Float', ctx=ast.Load()),
+                func=ast.Attribute(
+                    value=ast.Name(id="types", ctx=ast.Load()),
+                    attr="Float",
+                    ctx=ast.Load(),
+                ),
                 args=[],
-                keywords=[]
+                keywords=[],
             )
 
         return ast.Call(
-            func=ast.Attribute(value=ast.Name(id='types', ctx=ast.Load()), attr='Uint', ctx=ast.Load()),
+            func=ast.Attribute(
+                value=ast.Name(id="types", ctx=ast.Load()), attr="Uint", ctx=ast.Load()
+            ),
             args=[ast.Constant(value=size)],
-            keywords=[]
+            keywords=[],
         )
 
     def _resolve_size(self, node: Any) -> int:
@@ -490,19 +751,12 @@ class QiskitProvider(BaseSDKProvider):
             return node
         if isinstance(node, qast.UnaryExpression):
             inner = self._resolve_size(node.expression)
-            op_str = str(node.op).split('.')[-1]
-            if op_str == '-':
+            op_str = str(node.op).split(".")[-1]
+            if op_str == "-":
                 return -inner
             return inner
-        if isinstance(node, qast.BitstringLiteral):
-            val = node.value
-            if isinstance(val, str):
-                try:
-                    return int(val, 0)
-                except ValueError:
-                    return int(val, 2)
-            return int(val)
-        if hasattr(node, 'value'):
+        # Also covers BitstringLiteral, whose value the parser already stores as an int.
+        if hasattr(node, "value"):
             val = node.value
             if isinstance(val, str):
                 try:
@@ -510,25 +764,25 @@ class QiskitProvider(BaseSDKProvider):
                 except ValueError:
                     return int(val)
             return int(val)
-        raise NotImplementedError(
-            f"Unsupported size expression: {type(node).__name__}"
-        )
+        raise NotImplementedError(f"Unsupported size expression: {type(node).__name__}")
 
-    def get_imports(self) -> List[ast.stmt]:
-        from_imports = {
+    def get_imports(self) -> list[ast.stmt]:
+        from_imports: dict[str, set[str]] = {
             "qiskit": set(),
             "qiskit.circuit": set(),
             "qiskit.circuit.classical": set(),
             "qiskit_aer": set(),
         }
-        plain_imports = []
+        plain_imports: list[str] = []
 
         for imp in self.used_imports:
             if imp.startswith("from ") and " import " in imp:
                 prefix, names = imp.split(" import ", 1)
                 module = prefix.removeprefix("from ")
                 if module in from_imports:
-                    from_imports[module].update(name.strip() for name in names.split(","))
+                    from_imports[module].update(
+                        name.strip() for name in names.split(",")
+                    )
                     continue
             if imp.startswith("import"):
                 plain_imports.append(imp)
@@ -540,30 +794,31 @@ class QiskitProvider(BaseSDKProvider):
             "qiskit_aer",
         ]
 
-        sorted_imports = []
+        sorted_imports: list[ast.stmt] = []
         for module in ordered_modules:
-            names = sorted(from_imports[module])
-            if names:
+            imported_names = sorted(from_imports[module])
+            if imported_names:
                 sorted_imports.append(
                     ast.ImportFrom(
                         module=module,
-                        names=[ast.alias(name=name) for name in names],
+                        names=[ast.alias(name=name) for name in imported_names],
                         level=0,
                     )
                 )
 
-        for imp in sorted(plain_imports):
-            sorted_imports.append(ast.parse(imp).body[0])
+        sorted_imports.extend(ast.parse(imp).body[0] for imp in sorted(plain_imports))
 
         return sorted_imports
 
-    def _expression_uses_classical_expr(self, node: ast.AST) -> bool:
+    def _expression_uses_classical_expr(self, node: ast.AST) -> bool:  # noqa: PLR0911 dispatch over AST node kinds
         if isinstance(node, ast.Name):
             return node.id in self.classical_expr_names
         if isinstance(node, ast.Subscript):
             return self._expression_uses_classical_expr(node.value)
         if isinstance(node, ast.BinOp):
-            return self._expression_uses_classical_expr(node.left) or self._expression_uses_classical_expr(node.right)
+            return self._expression_uses_classical_expr(
+                node.left
+            ) or self._expression_uses_classical_expr(node.right)
         if isinstance(node, ast.UnaryOp):
             return self._expression_uses_classical_expr(node.operand)
         if isinstance(node, ast.Call):
@@ -571,7 +826,9 @@ class QiskitProvider(BaseSDKProvider):
         if isinstance(node, ast.Attribute):
             return self._expression_uses_classical_expr(node.value)
         if isinstance(node, ast.List):
-            return any(self._expression_uses_classical_expr(element) for element in node.elts)
+            return any(
+                self._expression_uses_classical_expr(element) for element in node.elts
+            )
         return False
 
     def _expression_is_boolean(self, node: ast.AST) -> bool:
@@ -583,11 +840,14 @@ class QiskitProvider(BaseSDKProvider):
             return self._expression_is_boolean(node.value)
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
             return node.func.attr in {
-                "equal", "not_equal", "less", "less_equal", "greater", "greater_equal",
-                "logic_and", "logic_or", "logic_not",
+                "equal",
+                "not_equal",
+                "less",
+                "less_equal",
+                "greater",
+                "greater_equal",
+                "logic_and",
+                "logic_or",
+                "logic_not",
             }
         return False
-
-
-
-

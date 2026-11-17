@@ -1,4 +1,5 @@
-"""One-off regen helper for compile_braket baselines.
+"""
+One-off regen helper for compile_braket baselines.
 
 Run only when the Amazon Braket exporter output deliberately changes:
 

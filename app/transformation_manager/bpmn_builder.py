@@ -753,7 +753,8 @@ class BpmnBuilder:
         literal_edges = [
             (edge, self.literal_variables[edge["source"][0]][1])
             for edge in self.original_request.get("edges", [])
-            if edge["target"][0] == node_id and edge["source"][0] in self.literal_variables
+            if edge["target"][0] == node_id
+            and edge["source"][0] in self.literal_variables
         ]
 
         inputs: dict[str, str] = {}
@@ -2090,7 +2091,6 @@ class BpmnBuilder:
     def _create_agentic_process(
         self, task_id: str, name: str, mapping: list[list[str]], node_id: str
     ) -> None:
-
         # main agentic process
         attrs = {
             "id": task_id,
@@ -3131,7 +3131,6 @@ class BpmnBuilder:
         return str(value)
 
     def _add_zeeb_header(self, body: str):
-
         prefix = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n <bpmn:definitions 
         xmlns:bpmn=\"http://www.omg.org/spec/BPMN/20100524/MODEL\" xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\" 
         xmlns:dc=\"http://www.omg.org/spec/DD/20100524/DC\" xmlns:zeebe=\"http://camunda.org/schema/zeebe/1.0\" 

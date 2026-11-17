@@ -2,8 +2,8 @@ import json
 import os
 from collections.abc import Iterator
 from contextlib import redirect_stdout
-from json import JSONDecodeError, dumps
 from io import StringIO
+from json import JSONDecodeError, dumps
 from pathlib import Path
 from time import sleep
 from typing import Any, TypeVar
@@ -234,9 +234,7 @@ def test_compile_braket(test: tuple[str, Baseline], client: TestClient) -> None:
     find_files(Baseline, TEST_DIR / "compile_qiskit_errors"),
     ids=lambda test: test[0],
 )
-def test_compile_qiskit_errors(
-    test: tuple[str, Baseline], client: TestClient
-) -> None:
+def test_compile_qiskit_errors(test: tuple[str, Baseline], client: TestClient) -> None:
     _file, base = test
     response = handle_endpoints(client, base.request, "/compile")
 
