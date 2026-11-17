@@ -426,21 +426,14 @@ class UniversalTranspiler:
         return ast.Name(id=node.name, ctx=ast.Load())
 
     def visit_IndexedIdentifier(self, node: qast.IndexedIdentifier) -> ast.expr:
-        replacement = self._lookup_identifier_replacement(node.name.name)
-        if replacement is not None:
-            name_node = copy.deepcopy(replacement)
-        else:
-            name_node = ast.Name(id=node.name.name, ctx=ast.Load())
-        idx_element = node.indices[0]
-
-        idx_node: qast.Expression | qast.RangeDefinition
-        if isinstance(idx_element, qast.DiscreteSet):
-            idx_node = idx_element.values[0]
-        else:
-            idx_node = idx_element[0]
-
-        index_val = self._visit_expression(idx_node)
-        return ast.Subscript(value=name_node, slice=index_val, ctx=ast.Load())
+        """Translate an indexed operand, keeping every qubit of a set or range index."""
+        index = node.indices[0]
+        if isinstance(index, qast.DiscreteSet) and len(index.values) == 1:
+            # A single-element set addresses one qubit, so translate q[{0}] like q[0].
+            index = [index.values[0]]
+        return self.visit_IndexExpression(
+            qast.IndexExpression(collection=node.name, index=index)
+        )
 
     def visit_QuantumMeasurement(self, node: qast.QuantumMeasurement) -> ast.expr:
         raise NotImplementedError(

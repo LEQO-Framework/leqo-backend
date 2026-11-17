@@ -235,6 +235,23 @@ def test_indexed_measurement_target_uses_subscripted_bits_and_executes() -> None
     assert namespace["counts"] == {"01": 500}
 
 
+def test_discrete_set_measurement_measures_every_selected_qubit_and_executes() -> None:
+    source = """
+    OPENQASM 3.0;
+    include "stdgates.inc";
+    qubit[2] q;
+    x q[1];
+    bit[2] c = measure q[{0, 1}];
+    """
+
+    _, namespace = _execute_qiskit(source)
+
+    assert namespace["counts"] == {"10": 500}, (
+        "Measuring q[{0, 1}] has to read both qubits; '00' means only q[0] was "
+        "measured into both bits."
+    )
+
+
 def test_uninitialized_integer_then_assignment_uses_store() -> None:
     source = """
     OPENQASM 3.0;
