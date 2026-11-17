@@ -16,7 +16,12 @@ from app.model.data_types import (
 from app.openqasm3.printer import leqo_dumps
 from app.transformation_manager.nested.while_loop import enrich_while_loop
 from app.transformation_manager.utils import normalize_qasm_string
-from tests.processing.nested.utils import H_IMPL, X_IMPL, build_graph
+from tests.processing.nested.utils import (
+    H_IMPL,
+    X_IMPL,
+    X_VIA_ANCILLA_IMPL,
+    build_graph,
+)
 
 
 async def assert_while_loop_enrichment(
@@ -64,7 +69,7 @@ async def test_basic_while() -> None:
           x leqo_40da8ad6eead5c82b58a503771301f03_q;
           let leqo_40da8ad6eead5c82b58a503771301f03__out = leqo_40da8ad6eead5c82b58a503771301f03_q;
         }
-        int[32] leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0;
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_0;
         @leqo.output 0
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_0 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0;
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1 = leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg[{0}];
@@ -116,13 +121,13 @@ async def test_complex_condition_while() -> None:
           h leqo_0f22e31da1be57ea8479533ced7f8788_q;
           let leqo_0f22e31da1be57ea8479533ced7f8788__out = leqo_0f22e31da1be57ea8479533ced7f8788_q;
         }
-        int[32] leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0;
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_0;
         @leqo.output 0
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_0 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0;
-        int[32] leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1;
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_1;
         @leqo.output 1
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_1 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1;
-        int[32] leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_2;
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_2 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_2;
         @leqo.output 2
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_2 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_2;
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_3 = leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg[{0}];
@@ -178,7 +183,7 @@ async def test_while_multi_node_body() -> None:
           let leqo_a0e038f8360a54fe962f8d87eb01051a_q0_out = leqo_a0e038f8360a54fe962f8d87eb01051a_q0;
           let leqo_a0e038f8360a54fe962f8d87eb01051a_q1_out = leqo_a0e038f8360a54fe962f8d87eb01051a_q1;
         }
-        int[32] leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0;
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_0;
         @leqo.output 0
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_0 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0;
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1 = leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg[{0}];
@@ -222,7 +227,7 @@ async def test_while_bit_condition() -> None:
           x leqo_40da8ad6eead5c82b58a503771301f03_q;
           let leqo_40da8ad6eead5c82b58a503771301f03__out = leqo_40da8ad6eead5c82b58a503771301f03_q;
         }
-        bit[1] leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0;
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_0;
         @leqo.output 0
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_0 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0;
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1 = leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg[{0}];
@@ -230,3 +235,127 @@ async def test_while_bit_condition() -> None:
         let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_1 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1;
         """,
     )
+
+
+@pytest.mark.asyncio
+async def test_while_unwired_qubit_passes_through() -> None:
+    """Test that a qubit the body doesn't wire through leaves the loop unchanged."""
+    await assert_while_loop_enrichment(
+        WhileNode(
+            id="while-node",
+            condition="i < 5",
+            block=NestedBlock(
+                nodes=[ImplementationNode(id="x-node", implementation=X_IMPL)],
+                edges=[
+                    Edge(source=("while-node", 1), target=("x-node", 0)),
+                    Edge(source=("x-node", 0), target=("while-node", 1)),
+                ],
+            ),
+        ),
+        requested_inputs={0: IntType(32), 1: QubitType(1), 2: QubitType(1)},
+        frontend_name_to_index={"i": 0},
+        expected="""\
+        OPENQASM 3.1;
+        @leqo.input 0
+        int[32] leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_0;
+        let leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_0 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_0;
+        @leqo.input 1
+        qubit[1] leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_1;
+        let leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_1 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_1;
+        @leqo.input 2
+        qubit[1] leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_2;
+        let leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_2 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_2;
+        let leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_1 ++ leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_2;
+        while (leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_0 < 5) {
+          let leqo_40da8ad6eead5c82b58a503771301f03_q = leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg[{0}];
+          x leqo_40da8ad6eead5c82b58a503771301f03_q;
+          let leqo_40da8ad6eead5c82b58a503771301f03__out = leqo_40da8ad6eead5c82b58a503771301f03_q;
+        }
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_0;
+        @leqo.output 0
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_0 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0;
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1 = leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg[{0}];
+        @leqo.output 1
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_1 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1;
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_2 = leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg[{1}];
+        @leqo.output 2
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_2 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_2;
+        """,
+    )
+
+
+@pytest.mark.asyncio
+async def test_while_resets_ancillae_every_iteration() -> None:
+    """Test that every iteration starts with clean ancillae."""
+    await assert_while_loop_enrichment(
+        WhileNode(
+            id="while-node",
+            condition="i < 5",
+            block=NestedBlock(
+                nodes=[
+                    ImplementationNode(id="anc-node", implementation=X_VIA_ANCILLA_IMPL)
+                ],
+                edges=[
+                    Edge(source=("while-node", 1), target=("anc-node", 0)),
+                    Edge(source=("anc-node", 0), target=("while-node", 1)),
+                ],
+            ),
+        ),
+        requested_inputs={0: IntType(32), 1: QubitType(1)},
+        frontend_name_to_index={"i": 0},
+        expected="""\
+        OPENQASM 3.1;
+        include "stdgates.inc";
+        @leqo.input 0
+        int[32] leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_0;
+        let leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_0 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_0;
+        @leqo.input 1
+        qubit[1] leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_1;
+        let leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_1 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_1;
+        qubit[1] leqo_7b8143e0b0a65b73992d570b848c7838_ancillae;
+        let leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_1 ++ leqo_7b8143e0b0a65b73992d570b848c7838_ancillae;
+        while (leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_declaration_0 < 5) {
+          reset leqo_7b8143e0b0a65b73992d570b848c7838_ancillae;
+          let leqo_4b0a268cdda95590a39932dc668f0205_q = leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg[{0}];
+          let leqo_4b0a268cdda95590a39932dc668f0205_anc = leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg[{1}];
+          x leqo_4b0a268cdda95590a39932dc668f0205_anc;
+          cx leqo_4b0a268cdda95590a39932dc668f0205_anc, leqo_4b0a268cdda95590a39932dc668f0205_q;
+          let leqo_4b0a268cdda95590a39932dc668f0205__out = leqo_4b0a268cdda95590a39932dc668f0205_q;
+        }
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0 = leqo_7b8143e0b0a65b73992d570b848c7838_pass_node_alias_0;
+        @leqo.output 0
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_0 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_0;
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1 = leqo_7b8143e0b0a65b73992d570b848c7838_loop_reg[{0}];
+        @leqo.output 1
+        let leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_alias_1 = leqo_d2bd13e2358e5e23b629272de4a52899_pass_node_declaration_1;
+        """,
+    )
+
+
+@pytest.mark.asyncio
+async def test_while_rejects_crossed_qubit_wiring() -> None:
+    """Test that the body has to return each qubit at the index it came in."""
+    node = WhileNode(
+        id="while-node",
+        condition="i < 5",
+        block=NestedBlock(
+            nodes=[
+                ImplementationNode(id="h-node", implementation=H_IMPL),
+                ImplementationNode(id="x-node", implementation=X_IMPL),
+            ],
+            edges=[
+                Edge(source=("while-node", 1), target=("h-node", 0)),
+                Edge(source=("h-node", 0), target=("while-node", 2)),
+                Edge(source=("while-node", 2), target=("x-node", 0)),
+                Edge(source=("x-node", 0), target=("while-node", 1)),
+            ],
+        ),
+    )
+
+    with pytest.raises(NotImplementedError, match="index it came in"):
+        await enrich_while_loop(
+            node,
+            {0: IntType(32), 1: QubitType(1), 2: QubitType(1)},
+            {"i": 0},
+            build_graph,
+        )

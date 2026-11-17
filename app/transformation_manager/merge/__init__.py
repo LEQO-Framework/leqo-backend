@@ -98,6 +98,23 @@ def graph_to_statements(
     return result
 
 
+def _connect_classical_pass_throughs(
+    graph: ProgramGraph,
+    start_node: ProcessedProgramNode,
+    end_node: ProcessedProgramNode,
+) -> None:
+    """
+    Connect every classical input of **end_node** to the same index of **start_node**.
+
+    The nested body can't change classical values, so they leave it unchanged.
+    """
+    for index, end_input in end_node.io.inputs.items():
+        if isinstance(end_input, ClassicalIOInstance):
+            graph.append_edge(
+                IOConnection((start_node.raw, index), (end_node.raw, index))
+            )
+
+
 def merge_if_nodes(
     if_node_raw: ProgramNode,
     endif_node_raw: ProgramNode,
@@ -110,7 +127,8 @@ def merge_if_nodes(
 
     There are two known limitations of this implementation:
 
-    - Classical outputs are not supported.
+    - Classical outputs from inside the arms are not supported,
+        classical inputs leave the if-then-else unchanged.
         This is because :class:`openqasm3.ast.AliasStatement` are scoped inside the if-then-else,
         meaning they can not pass their value to the **endif_node**, which is outside.
         This would be required for classical outputs to work.
@@ -159,6 +177,9 @@ def merge_if_nodes(
 
     endif_node_in_else = deepcopy(endif_node)
     else_graph.node_data[endif_node_raw] = endif_node_in_else
+
+    for graph in (then_graph, else_graph):
+        _connect_classical_pass_throughs(graph, if_node, endif_node)
 
     reg_name = f"leqo_{if_node.id.hex}_{IF_REG_NAME}"
     then_size = connect_qubits(then_graph, reg_name, if_node)
@@ -257,11 +278,7 @@ def _connect_loop(
         it came in, as every iteration runs on the same qubits.
     :return: Total amount of qubits used by the loop.
     """
-    for index, end_input in end_node.io.inputs.items():
-        if isinstance(end_input, ClassicalIOInstance):
-            loop_graph.append_edge(
-                IOConnection((start_node.raw, index), (end_node.raw, index))
-            )
+    _connect_classical_pass_throughs(loop_graph, start_node, end_node)
 
     # Connecting a copy of the end node straight to the start node gives the
     # qubits the body has to return, at the same indexes they came in.

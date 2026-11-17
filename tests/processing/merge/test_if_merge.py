@@ -753,7 +753,7 @@ def test_unconnected_classical_output_ignored() -> None:
           let e0_i = if_o0;
           e0_i = e0_i + 2;
         }
-        int endif_i;
+        let endif_i = if_o0;
         @leqo.output 0
         let endif_o0 = endif_i;
         """,
