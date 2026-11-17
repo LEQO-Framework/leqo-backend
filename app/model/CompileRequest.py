@@ -1047,6 +1047,7 @@ class WhileNode(BaseNode):
     """
     Node representing a native classical while loop structure.
     """
+
     type: Literal["while"] = "while"
 
     condition: str
@@ -1062,6 +1063,7 @@ class ForNode(BaseNode):
     """
     Node representing a native classical for loop structure.
     """
+
     type: Literal["for"] = "for"
 
     iterator: str
@@ -1080,6 +1082,7 @@ class ForNode(BaseNode):
     """Code block to execute for each iteration."""
 
     model_config = ConfigDict(use_attribute_docstrings=True)
+
 
 ControlFlowNode = IfThenElseNode | RepeatNode | WhileNode | ForNode
 # endregion

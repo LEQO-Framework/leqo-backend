@@ -25,7 +25,7 @@ def _execute_qiskit(source: str) -> tuple[str, dict]:
 
 
 def test_internal_integer_state_uses_typed_classical_var() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     uint[32] counter = 0;
@@ -34,7 +34,7 @@ def test_internal_integer_state_uses_typed_classical_var() -> None:
         x q;
         counter += 1;
     }
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -44,7 +44,7 @@ def test_internal_integer_state_uses_typed_classical_var() -> None:
 
 
 def test_boolean_state_uses_boolean_semantics() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     bool flag = false;
@@ -54,7 +54,7 @@ def test_boolean_state_uses_boolean_semantics() -> None:
     } else {
         h q;
     }
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -65,10 +65,10 @@ def test_boolean_state_uses_boolean_semantics() -> None:
 
 
 def test_bit_declaration_uses_classical_register_storage() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     bit c;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -77,12 +77,12 @@ def test_bit_declaration_uses_classical_register_storage() -> None:
 
 
 def test_measurement_declaration_uses_register_path_and_executes() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit q;
     bit c = measure q;
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -92,13 +92,13 @@ def test_measurement_declaration_uses_register_path_and_executes() -> None:
 
 
 def test_scalar_bit_measurement_target_uses_register_and_executes() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit q;
     bit c;
     measure q -> c;
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -107,13 +107,15 @@ def test_scalar_bit_measurement_target_uses_register_and_executes() -> None:
     assert namespace["counts"] == {"0": 500}
 
 
-def test_register_measurement_declaration_measures_whole_register_and_executes() -> None:
-    source = '''
+def test_register_measurement_declaration_measures_whole_register_and_executes() -> (
+    None
+):
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[2] q;
     bit[2] c = measure q;
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -123,13 +125,13 @@ def test_register_measurement_declaration_measures_whole_register_and_executes()
 
 
 def test_register_measurement_statement_measures_whole_register_and_executes() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[2] q;
     bit[2] c;
     measure q -> c;
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -139,12 +141,12 @@ def test_register_measurement_statement_measures_whole_register_and_executes() -
 
 
 def test_indexed_gate_application_uses_subscripted_qubit() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[2] q;
     x q[1];
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -152,7 +154,7 @@ def test_indexed_gate_application_uses_subscripted_qubit() -> None:
 
 
 def test_custom_gate_definition_is_expanded_at_call_site_and_executes() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     gate twist(phi) a, b {
@@ -164,7 +166,7 @@ def test_custom_gate_definition_is_expanded_at_call_site_and_executes() -> None:
     bit[1] out;
     twist(pi / 8) q[0], q[1];
     out[0] = measure q[1];
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -173,11 +175,11 @@ def test_custom_gate_definition_is_expanded_at_call_site_and_executes() -> None:
     assert "/ 2" in code
     assert "qc.h(q[0])" in code
     assert "qc.cx(q[0], q[1])" in code
-    assert sum(namespace["counts"].values()) == 500
+    assert sum(namespace["counts"].values()) == 500  # noqa: PLR2004
 
 
 def test_parameterized_custom_gate_preserves_external_parameter_binding() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input angle theta;
@@ -189,7 +191,7 @@ def test_parameterized_custom_gate_preserves_external_parameter_binding() -> Non
     bit c;
     cleanup(theta / 2) q;
     measure q -> c;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -201,7 +203,7 @@ def test_parameterized_custom_gate_preserves_external_parameter_binding() -> Non
 
 
 def test_quantum_reset_lowers_to_qiskit_reset_and_executes() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[1] q;
@@ -209,7 +211,7 @@ def test_quantum_reset_lowers_to_qiskit_reset_and_executes() -> None:
     x q[0];
     reset q[0];
     measure q[0] -> c[0];
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -218,14 +220,14 @@ def test_quantum_reset_lowers_to_qiskit_reset_and_executes() -> None:
 
 
 def test_indexed_measurement_target_uses_subscripted_bits_and_executes() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[2] q;
     bit[2] c;
     x q[1];
     measure q[1] -> c[0];
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -234,11 +236,11 @@ def test_indexed_measurement_target_uses_subscripted_bits_and_executes() -> None
 
 
 def test_uninitialized_integer_then_assignment_uses_store() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     uint[8] x;
     x = 3;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -248,10 +250,10 @@ def test_uninitialized_integer_then_assignment_uses_store() -> None:
 
 
 def test_float_internal_state_uses_float_type() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     float[32] theta = 1.25;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -260,10 +262,10 @@ def test_float_internal_state_uses_float_type() -> None:
 
 
 def test_bitstring_literal_is_lowered_to_integer_value() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     uint[2] x = 0b01;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -271,11 +273,11 @@ def test_bitstring_literal_is_lowered_to_integer_value() -> None:
 
 
 def test_annotation_derived_quantum_input_is_exposed_in_program_inputs() -> None:
-    source = '''
+    source = """
     OPENQASM 3.1;
     @leqo.input 0
     qubit q;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -283,14 +285,14 @@ def test_annotation_derived_quantum_input_is_exposed_in_program_inputs() -> None
 
 
 def test_annotation_derived_alias_input_is_exposed_in_program_inputs() -> None:
-    source = '''
+    source = """
     OPENQASM 3.1;
     qubit[2] reg;
     @leqo.input 0
     let port_a = reg[0];
     @leqo.input 1
     let port_b = reg[1];
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -298,14 +300,14 @@ def test_annotation_derived_alias_input_is_exposed_in_program_inputs() -> None:
 
 
 def test_annotation_derived_inputs_are_sorted_by_index() -> None:
-    source = '''
+    source = """
     OPENQASM 3.1;
     qubit[2] reg;
     @leqo.input 1
     let second = reg[1];
     @leqo.input 0
     let first = reg[0];
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -314,12 +316,12 @@ def test_annotation_derived_inputs_are_sorted_by_index() -> None:
 
 
 def test_annotation_derived_classical_output_is_exposed_in_program_outputs() -> None:
-    source = '''
+    source = """
     OPENQASM 3.1;
     uint[8] value = 1;
     @leqo.output 0
     let out = value;
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -328,14 +330,14 @@ def test_annotation_derived_classical_output_is_exposed_in_program_outputs() -> 
 
 
 def test_annotation_derived_outputs_are_sorted_by_index() -> None:
-    source = '''
+    source = """
     OPENQASM 3.1;
     qubit[2] q;
     @leqo.output 1
     let second = q[1];
     @leqo.output 0
     let first = q[0];
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -344,7 +346,7 @@ def test_annotation_derived_outputs_are_sorted_by_index() -> None:
 
 
 def test_qaoa_maxcut_3q_p1_kernel_preserves_parameterized_structure() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input angle gamma;
@@ -364,22 +366,22 @@ def test_qaoa_maxcut_3q_p1_kernel_preserves_parameterized_structure() -> None:
     rx(beta) q[1];
     rx(beta) q[2];
     measure q -> c;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
     assert 'Parameter("gamma")' in code or "Parameter('gamma')" in code
     assert 'Parameter("beta")' in code or "Parameter('beta')" in code
-    assert code.count("qc.h(q[") == 3
-    assert code.count("qc.cx(") == 4
-    assert code.count("qc.rz(gamma,") == 2
-    assert code.count("qc.rx(beta,") == 3
+    assert code.count("qc.h(q[") == 3  # noqa: PLR2004
+    assert code.count("qc.cx(") == 4  # noqa: PLR2004
+    assert code.count("qc.rz(gamma,") == 2  # noqa: PLR2004
+    assert code.count("qc.rx(beta,") == 3  # noqa: PLR2004
     assert "qc.measure(q, c)" in code
     assert "simulator.run" not in code
 
 
 def test_qaoa_scaled_parameter_expressions_preserve_python_arithmetic() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input angle gamma;
@@ -394,18 +396,18 @@ def test_qaoa_scaled_parameter_expressions_preserve_python_arithmetic() -> None:
     rx(2 * beta) q[0];
     rx(2 * beta) q[1];
     measure q -> c;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
     assert "expr.mul" not in code
     assert "qc.rz(2 * gamma, q[1])" in code
-    assert code.count("qc.rx(2 * beta,") == 2
+    assert code.count("qc.rx(2 * beta,") == 2  # noqa: PLR2004
     assert "simulator.run" not in code
 
 
 def test_qaoa_maxcut_3q_p1_fixed_angles_executes() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[3] q;
@@ -423,24 +425,24 @@ def test_qaoa_maxcut_3q_p1_fixed_angles_executes() -> None:
     rx(0.4) q[1];
     rx(0.4) q[2];
     measure q -> c;
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
     assert "qc.measure(q, c)" in code
-    assert sum(namespace["counts"].values()) == 500
-    assert all(len(bitstring) == 3 for bitstring in namespace["counts"])
+    assert sum(namespace["counts"].values()) == 500  # noqa: PLR2004
+    assert all(len(bitstring) == 3 for bitstring in namespace["counts"])  # noqa: PLR2004
 
 
 def test_parameter_inputs_remain_external_instead_of_placeholder_bound() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input float theta;
     qubit q;
     rx(theta) q;
     bit c = measure q;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -451,7 +453,7 @@ def test_parameter_inputs_remain_external_instead_of_placeholder_bound() -> None
 
 
 def test_vqe_hwe_2q_ansatz_preserves_parameterized_structure() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input angle theta0;
@@ -466,7 +468,7 @@ def test_vqe_hwe_2q_ansatz_preserves_parameterized_structure() -> None:
     rz(theta2) q[0];
     rz(theta3) q[1];
     measure q -> c;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -482,7 +484,7 @@ def test_vqe_hwe_2q_ansatz_preserves_parameterized_structure() -> None:
 
 
 def test_vqe_xx_measurement_kernel_applies_basis_rotations_before_measurement() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input angle theta0;
@@ -495,24 +497,24 @@ def test_vqe_xx_measurement_kernel_applies_basis_rotations_before_measurement() 
     h q[0];
     h q[1];
     measure q -> c;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
     assert "qc.ry(theta0, q[0])" in code
     assert "qc.ry(theta1, q[1])" in code
     assert "qc.cx(q[0], q[1])" in code
-    assert code.count("qc.h(q[") == 2
+    assert code.count("qc.h(q[") == 2  # noqa: PLR2004
     assert "qc.measure(q, c)" in code
     assert "simulator.run" not in code
 
 
 def test_classical_add_expression_uses_qiskit_expr_arithmetic() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     uint[8] value = 1;
     value = value + 2;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -520,10 +522,10 @@ def test_classical_add_expression_uses_qiskit_expr_arithmetic() -> None:
 
 
 def test_cast_expression_uses_python_cast_for_non_classical_domain() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     float[32] theta = float[32](1);
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -531,31 +533,31 @@ def test_cast_expression_uses_python_cast_for_non_classical_domain() -> None:
 
 
 def test_array_declaration_supports_indexed_gate_arguments() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     array[angle[32], 2] beta = {0.1, 0.2};
     qubit q;
     rx(beta[1]) q;
     bit c = measure q;
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
     assert "beta = [0.1, 0.2]" in code
     assert "qc.rx(beta[1], q)" in code
-    assert sum(namespace["counts"].values()) == 500
+    assert sum(namespace["counts"].values()) == 500  # noqa: PLR2004
 
 
 def test_angle_input_is_parameterized_and_blocks_auto_execution() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input angle theta;
     qubit q;
     rz(theta) q;
     bit c = measure q;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -565,7 +567,7 @@ def test_angle_input_is_parameterized_and_blocks_auto_execution() -> None:
 
 
 def test_runtime_inputs_are_not_forced_to_zero_placeholders() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input uint[16] x;
@@ -574,18 +576,21 @@ def test_runtime_inputs_are_not_forced_to_zero_placeholders() -> None:
         x q;
     }
     bit c = measure q;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
-    assert "qc.add_input('x', types.Uint(16))" in code or 'qc.add_input("x", types.Uint(16))' in code
+    assert (
+        "qc.add_input('x', types.Uint(16))" in code
+        or 'qc.add_input("x", types.Uint(16))' in code
+    )
     assert "Defaulting to 0" not in code
     assert "input_map" not in code
     assert "simulator.run" not in code
 
 
 def test_input_bit_uses_uint1_type() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input bit flag;
@@ -594,21 +599,24 @@ def test_input_bit_uses_uint1_type() -> None:
         x q;
     }
     bit c = measure q;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
-    assert "qc.add_input('flag', types.Uint(1))" in code or 'qc.add_input("flag", types.Uint(1))' in code
+    assert (
+        "qc.add_input('flag', types.Uint(1))" in code
+        or 'qc.add_input("flag", types.Uint(1))' in code
+    )
     assert "simulator.run" not in code
 
 
 def test_output_declaration_uses_typed_var_and_store() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     output bool result;
     input uint[16] x;
     result = x == 1;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -619,11 +627,11 @@ def test_output_declaration_uses_typed_var_and_store() -> None:
 
 
 def test_bit_output_uses_uint1_type() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     output bit result;
     result = 1;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -632,14 +640,14 @@ def test_bit_output_uses_uint1_type() -> None:
 
 
 def test_negative_step_for_loop_translates_to_inclusive_python_range() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit q;
     for uint i in [3:-1:0] {
         x q;
     }
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -647,14 +655,14 @@ def test_negative_step_for_loop_translates_to_inclusive_python_range() -> None:
 
 
 def test_discrete_set_for_loop_translates_to_python_list() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit q;
     for uint i in {1, 3, 5} {
         x q;
     }
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -662,7 +670,7 @@ def test_discrete_set_for_loop_translates_to_python_list() -> None:
 
 
 def test_compound_runtime_condition_preserves_logic_structure() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     input uint[16] x;
@@ -672,7 +680,7 @@ def test_compound_runtime_condition_preserves_logic_structure() -> None:
         x q;
     }
     bit c = measure q;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -684,11 +692,11 @@ def test_compound_runtime_condition_preserves_logic_structure() -> None:
 
 
 def test_bitwise_assignment_uses_expr_bit_and() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     uint[8] mask = 3;
     mask &= 1;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -697,14 +705,14 @@ def test_bitwise_assignment_uses_expr_bit_and() -> None:
 
 
 def test_unary_not_condition_uses_logic_not() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     bool flag = false;
     qubit q;
     if (!flag) {
         x q;
     }
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -712,11 +720,11 @@ def test_unary_not_condition_uses_logic_not() -> None:
 
 
 def test_alias_slice_translates_to_python_slice() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     qubit[3] q;
     let tail = q[1:2];
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -724,11 +732,11 @@ def test_alias_slice_translates_to_python_slice() -> None:
 
 
 def test_alias_discrete_set_translates_to_python_list_of_qubits() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     qubit[3] q;
     let edge = q[{0, 2}];
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -736,12 +744,12 @@ def test_alias_discrete_set_translates_to_python_list_of_qubits() -> None:
 
 
 def test_concatenation_alias_translates_to_python_add() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     qubit[1] a;
     qubit[1] b;
     let both = a ++ b;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -749,11 +757,11 @@ def test_concatenation_alias_translates_to_python_add() -> None:
 
 
 def test_sub_assignment_uses_expr_sub() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     uint[8] value = 5;
     value -= 2;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -761,11 +769,11 @@ def test_sub_assignment_uses_expr_sub() -> None:
 
 
 def test_bitwise_or_assignment_uses_expr_bit_or() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     uint[8] value = 1;
     value |= 2;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -773,7 +781,7 @@ def test_bitwise_or_assignment_uses_expr_bit_or() -> None:
 
 
 def test_nested_if_inside_for_loop_translates_to_qiskit_constructs() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit q;
@@ -784,7 +792,7 @@ def test_nested_if_inside_for_loop_translates_to_qiskit_constructs() -> None:
         }
     }
     measure q -> c;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -796,7 +804,7 @@ def test_nested_if_inside_for_loop_translates_to_qiskit_constructs() -> None:
 
 
 def test_nested_while_inside_if_translates_to_qiskit_constructs() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit q;
@@ -807,7 +815,7 @@ def test_nested_while_inside_if_translates_to_qiskit_constructs() -> None:
             n += 1;
         }
     }
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -818,7 +826,7 @@ def test_nested_while_inside_if_translates_to_qiskit_constructs() -> None:
 
 
 def test_for_loop_with_output_store_combines_loop_and_classical_assignment() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit q;
@@ -829,7 +837,7 @@ def test_for_loop_with_output_store_combines_loop_and_classical_assignment() -> 
     }
     @leqo.output 0
     let result = count;
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -840,7 +848,7 @@ def test_for_loop_with_output_store_combines_loop_and_classical_assignment() -> 
 
 
 def test_empty_if_block_emits_pass_to_preserve_indentation() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit q;
@@ -850,7 +858,7 @@ def test_empty_if_block_emits_pass_to_preserve_indentation() -> None:
     } else {
         x q;
     }
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
@@ -861,7 +869,7 @@ def test_empty_if_block_emits_pass_to_preserve_indentation() -> None:
 
 
 def test_bare_bit_if_condition_is_lifted_to_bool_expression_and_executes() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[2] q;
@@ -875,16 +883,16 @@ def test_bare_bit_if_condition_is_lifted_to_bool_expression_and_executes() -> No
         z q[1];
     }
     out[0] = measure q[1];
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
     assert "with qc.if_test(expr.lift(c[0]))" in code
-    assert sum(namespace["counts"].values()) == 500
+    assert sum(namespace["counts"].values()) == 500  # noqa: PLR2004
 
 
 def test_bare_bit_while_condition_is_lifted_to_bool_expression_and_executes() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[1] q;
@@ -897,7 +905,7 @@ def test_bare_bit_while_condition_is_lifted_to_bool_expression_and_executes() ->
         c[0] = measure q[0];
     }
     out[0] = measure q[0];
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -906,7 +914,7 @@ def test_bare_bit_while_condition_is_lifted_to_bool_expression_and_executes() ->
 
 
 def test_measurement_driven_while_loop_uses_qc_while_loop() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit[1] q;
@@ -916,18 +924,18 @@ def test_measurement_driven_while_loop_uses_qc_while_loop() -> None:
         x q;
         measure q -> c;
     }
-    '''
+    """
 
     code = _transpile_qiskit(source)
 
     assert "with qc.while_loop(" in code
     assert "expr.equal(" in code
     assert "expr.cast(c, types.Uint(32))" in code
-    assert code.count("qc.measure(q, c)") == 2
+    assert code.count("qc.measure(q, c)") == 2  # noqa: PLR2004
 
 
 def test_bit_non_measurement_initializer_uses_qiskit_store() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     include "stdgates.inc";
     qubit q;
@@ -936,7 +944,7 @@ def test_bit_non_measurement_initializer_uses_qiskit_store() -> None:
         x q;
     }
     measure q -> c;
-    '''
+    """
 
     code, namespace = _execute_qiskit(source)
 
@@ -947,7 +955,7 @@ def test_bit_non_measurement_initializer_uses_qiskit_store() -> None:
 
 
 def test_unsupported_switch_statement_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     uint[8] x = 1;
     switch (x) {
@@ -955,108 +963,120 @@ def test_unsupported_switch_statement_fails_loudly() -> None:
             uint[8] y = 2;
         }
     }
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="SwitchStatement"):
         _transpile_qiskit(source)
 
 
 def test_unsupported_break_statement_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     while (true) {
         break;
     }
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="BreakStatement"):
         _transpile_qiskit(source)
 
 
 def test_unsupported_continue_statement_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     while (true) {
         continue;
     }
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="ContinueStatement"):
         _transpile_qiskit(source)
 
 
 def test_non_bit_measurement_initializer_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     qubit q;
     bool flag = measure q;
-    '''
+    """
 
-    with pytest.raises(NotImplementedError, match="Measurement initializers are only supported for bit declarations"):
+    with pytest.raises(
+        NotImplementedError,
+        match="Measurement initializers are only supported for bit declarations",
+    ):
         _transpile_qiskit(source)
 
 
 def test_array_input_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     input array[uint[8], 2] beta;
-    '''
+    """
 
-    with pytest.raises(NotImplementedError, match="Array inputs and outputs are not part of the supported executable subset"):
+    with pytest.raises(
+        NotImplementedError,
+        match="Array inputs and outputs are not part of the supported executable subset",
+    ):
         _transpile_qiskit(source)
 
 
 def test_array_output_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     output array[uint[8], 2] beta;
-    '''
+    """
 
-    with pytest.raises(NotImplementedError, match="Array inputs and outputs are not part of the supported executable subset"):
+    with pytest.raises(
+        NotImplementedError,
+        match="Array inputs and outputs are not part of the supported executable subset",
+    ):
         _transpile_qiskit(source)
 
 
 def test_for_loop_over_array_expression_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     array[angle[32], 2] beta = {0.1, 0.2};
     qubit q;
     for uint i in beta {
         rx(i) q;
     }
-    '''
+    """
 
-    with pytest.raises(NotImplementedError, match="For-in loops are only supported over ranges and discrete sets"):
+    with pytest.raises(
+        NotImplementedError,
+        match="For-in loops are only supported over ranges and discrete sets",
+    ):
         _transpile_qiskit(source)
 
 
 def test_signed_integer_internal_state_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     int[8] value = 1;
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="Signed OpenQASM int"):
         _transpile_qiskit(source)
 
 
 def test_signed_integer_runtime_input_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     input int[16] x;
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="Signed OpenQASM int"):
         _transpile_qiskit(source)
 
 
 def test_signed_integer_cast_fails_loudly() -> None:
-    source = '''
+    source = """
     OPENQASM 3.0;
     uint[8] value = 1;
     float[32] theta = 0.0;
     theta = int[8](value);
-    '''
+    """
 
     with pytest.raises(NotImplementedError, match="Signed OpenQASM int"):
         _transpile_qiskit(source)

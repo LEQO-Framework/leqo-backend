@@ -2,10 +2,10 @@ import pytest
 
 from app.model.CompileRequest import (
     Edge,
+    ForNode,
     GateNode,
     ImplementationNode,
     NestedBlock,
-    ForNode,
 )
 from app.model.data_types import (
     LeqoSupportedType,

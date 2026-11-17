@@ -95,7 +95,9 @@ def condition_variables(node: RepeatNode) -> list[str]:
     for match in _IDENTIFIER_REGEX.finditer(condition):
         name = match.group(0)
         start = match.start()
-        if start > 0 and (condition[start - 1].isdigit() or condition[start - 1] == "."):
+        if start > 0 and (
+            condition[start - 1].isdigit() or condition[start - 1] == "."
+        ):
             continue  # e.g. exponent of 1e5 or attribute access
         if name not in _EXPRESSION_KEYWORDS and name not in names:
             names.append(name)

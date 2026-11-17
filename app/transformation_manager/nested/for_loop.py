@@ -58,15 +58,11 @@ async def enrich_for_loop(
     range_def = RangeDefinition(
         start=IntegerLiteral(node.range_start),
         end=IntegerLiteral(node.range_end),
-        step=IntegerLiteral(node.step) if node.step != 1 else None
+        step=IntegerLiteral(node.step) if node.step != 1 else None,
     )
 
     implementation, _out_size = merge_for_nodes(
-        for_prog_node,
-        endfor_prog_node,
-        loop_graph,
-        iterator_id,
-        range_def
+        for_prog_node, endfor_prog_node, loop_graph, iterator_id, range_def
     )
     implementation = postprocess(implementation)
     return ParsedImplementationNode(

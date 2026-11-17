@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import os
 import sys
-from io import StringIO
 from contextlib import redirect_stdout
+from io import StringIO
 from typing import Any
 
 import numpy as np
@@ -92,7 +92,8 @@ def run_poc(
     seed: int = 42,
 ) -> dict[str, Any]:
     """Execute the host-side workflow and return reproducible metrics."""
-    from qiskit_aer import AerSimulator
+    # qiskit-aer only comes with the optional `sim` dependency group.
+    from qiskit_aer import AerSimulator  # noqa: PLC0415
 
     qc = export_circuit()
 
@@ -103,7 +104,9 @@ def run_poc(
     best_params: tuple[float, float] = (0.0, 0.0)
     for gamma_val in gammas:
         for beta_val in betas:
-            expectation = _expected_cut_from_statevector(qc, float(gamma_val), float(beta_val))
+            expectation = _expected_cut_from_statevector(
+                qc, float(gamma_val), float(beta_val)
+            )
             if expectation > best_expected:
                 best_expected = expectation
                 best_params = (float(gamma_val), float(beta_val))

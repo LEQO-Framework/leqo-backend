@@ -21,7 +21,7 @@ from openqasm3.ast import (
     QubitDeclaration,
     RangeDefinition,
     Statement,
-    WhileLoop
+    WhileLoop,
 )
 
 from app.openqasm3.ast import CommentStatement
@@ -236,10 +236,10 @@ def merge_nodes(graph: ProgramGraph) -> Program:
 
 
 def merge_while_nodes(
-        while_node_raw: ProgramNode,
-        endwhile_node_raw: ProgramNode,
-        loop_graph: ProgramGraph,
-        condition: Expression,
+    while_node_raw: ProgramNode,
+    endwhile_node_raw: ProgramNode,
+    loop_graph: ProgramGraph,
+    condition: Expression,
 ) -> tuple[Program, int]:
     """
     Construct a single program with a WhileLoop from a sub-graph.
@@ -248,12 +248,19 @@ def merge_while_nodes(
     endwhile_node = loop_graph.node_data[endwhile_node_raw]
 
     forbidden_classic_input_indexes = [
-        k for k, v in endwhile_node.io.inputs.items() if isinstance(v, ClassicalIOInstance)
+        k
+        for k, v in endwhile_node.io.inputs.items()
+        if isinstance(v, ClassicalIOInstance)
     ]
     for e in loop_graph.in_edges(endwhile_node.raw):
         for edge in loop_graph.edge_data[e]:
-            if isinstance(edge, IOConnection) and edge.target[1] in forbidden_classic_input_indexes:
-                raise NotImplementedError("Future Work: can't return classical output from while-loop node")
+            if (
+                isinstance(edge, IOConnection)
+                and edge.target[1] in forbidden_classic_input_indexes
+            ):
+                raise NotImplementedError(
+                    "Future Work: can't return classical output from while-loop node"
+                )
 
     reg_name = f"leqo_{while_node.id.hex}_loop_reg"
     loop_size = connect_qubits(loop_graph, reg_name, while_node)
@@ -301,11 +308,11 @@ def merge_while_nodes(
 
 
 def merge_for_nodes(
-        for_node_raw: ProgramNode,
-        endfor_node_raw: ProgramNode,
-        loop_graph: ProgramGraph,
-        iterator_id: Identifier,
-        range_def: RangeDefinition,
+    for_node_raw: ProgramNode,
+    endfor_node_raw: ProgramNode,
+    loop_graph: ProgramGraph,
+    iterator_id: Identifier,
+    range_def: RangeDefinition,
 ) -> tuple[Program, int]:
     """
     Construct a single program with a ForInLoop from a sub-graph.
@@ -314,12 +321,19 @@ def merge_for_nodes(
     endfor_node = loop_graph.node_data[endfor_node_raw]
 
     forbidden_classic_input_indexes = [
-        k for k, v in endfor_node.io.inputs.items() if isinstance(v, ClassicalIOInstance)
+        k
+        for k, v in endfor_node.io.inputs.items()
+        if isinstance(v, ClassicalIOInstance)
     ]
     for e in loop_graph.in_edges(endfor_node.raw):
         for edge in loop_graph.edge_data[e]:
-            if isinstance(edge, IOConnection) and edge.target[1] in forbidden_classic_input_indexes:
-                raise NotImplementedError("Future Work: can't return classical output from for-loop node")
+            if (
+                isinstance(edge, IOConnection)
+                and edge.target[1] in forbidden_classic_input_indexes
+            ):
+                raise NotImplementedError(
+                    "Future Work: can't return classical output from for-loop node"
+                )
 
     reg_name = f"leqo_{for_node.id.hex}_loop_reg"
     loop_size = connect_qubits(loop_graph, reg_name, for_node)

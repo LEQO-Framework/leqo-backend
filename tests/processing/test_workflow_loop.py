@@ -63,9 +63,7 @@ def _workflow(loop: dict[str, Any]) -> ET.Element:
             },
             "compilation_target": "workflow",
             "nodes": [_repeat(loop), {"id": "lit", "type": "int", "value": 1}],
-            "edges": [
-                {"source": ["lit", 0], "target": ["loop", 0], "identifier": "a"}
-            ],
+            "edges": [{"source": ["lit", 0], "target": ["loop", 0], "identifier": "a"}],
         }
     )
     graph = FrontendGraph.create(request.nodes, request.edges)
@@ -155,7 +153,12 @@ def test_condition_variable_missing_in_model_is_asked() -> None:
     loop = _repeat({"condition": "threshold > 0"})
     root_request = CompileRequest.model_validate(
         {
-            "metadata": {"version": "1.0.0", "name": "loop", "description": "", "author": ""},
+            "metadata": {
+                "version": "1.0.0",
+                "name": "loop",
+                "description": "",
+                "author": "",
+            },
             "compilation_target": "workflow",
             "nodes": [loop],
             "edges": [],
@@ -163,7 +166,11 @@ def test_condition_variable_missing_in_model_is_asked() -> None:
     )
     graph = FrontendGraph.create(root_request.nodes, root_request.edges)
     workflow = WorkflowProcessor(
-        Enricher(), graph, root_request.metadata, result="", original_request=root_request
+        Enricher(),
+        graph,
+        root_request.metadata,
+        result="",
+        original_request=root_request,
     )
     root = ET.fromstring(asyncio.run(workflow.process()))
     start_event = root.find(f".//{BPMN}startEvent")

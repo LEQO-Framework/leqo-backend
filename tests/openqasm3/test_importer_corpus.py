@@ -1,4 +1,5 @@
-"""Compare Qiskit's OpenQASM 3 importer against the universal exporter on a corpus.
+"""
+Compare Qiskit's OpenQASM 3 importer against the universal exporter on a corpus.
 
 Qiskit's OpenQASM 3 importer (``qiskit.qasm3.loads``, backed by
 ``qiskit_qasm3_import``) accepts only a subset of OpenQASM 3. The universal

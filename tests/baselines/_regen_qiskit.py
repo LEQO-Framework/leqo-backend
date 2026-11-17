@@ -1,4 +1,5 @@
-"""One-off regen helper for compile_qiskit baselines.
+"""
+One-off regen helper for compile_qiskit baselines.
 
 Run only when the qiskit exporter output deliberately changes:
 
