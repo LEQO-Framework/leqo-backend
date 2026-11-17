@@ -22,7 +22,8 @@ dev = [
     "myst-parser>=4.0.0",
     "openqasm-pygments>=0.1.2",
     "pytest>=8.3.4",
-    "ruff>=0.9.4",
+    # Pinned so CI (ruff-action reads this version) lints/formats like `uv run ruff`.
+    "ruff==0.14.1",
     "types-networkx>=3.4.2",
     "testcontainers[postgres]>=4.10.0",
     "sphinx>=8.1.3",
@@ -50,6 +51,9 @@ braket = [
     "amazon-braket-sdk>=1.80.0",
 ]
 
+
+[tool.ruff]
+extend-exclude = ["demo"]
 
 # https://github.com/DSD-DBS/py-capellambse/blob/b0d63fac33c90d15f0d2d4c6c111184a5801ce6c/pyproject.toml#L174-L204
 [tool.ruff.lint]
@@ -94,6 +98,7 @@ ignore = ["UP047"] # ignore this warning so that we can use TypeVar("...", bound
 [tool.mypy]
 ignore_missing_imports = true
 plugins = "sqlalchemy.ext.mypy.plugin"
+exclude = ["^demo/"]
 
 [[tool.mypy.overrides]]
 module = "qiskit.qasm3"
