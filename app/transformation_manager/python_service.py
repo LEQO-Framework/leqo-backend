@@ -60,6 +60,9 @@ _PACKAGE_ALIASES = {
     "PIL": "pillow",
     "bs4": "beautifulsoup4",
     "dateutil": "python-dateutil",
+    "neal": "dwave-neal",
+    # TODO: only for testing until loading requirements.txt works
+    "sigmod23_jo": "sigmod23-jo @ https://github.com/mehmet802/sigmod23-reproduction/archive/v0.1.0.zip",
 }
 
 
@@ -300,6 +303,7 @@ import base64
 import json
 import os
 import threading
+import time
 import traceback
 
 import requests
@@ -428,7 +432,7 @@ def poll():
         print("Exception during polling!")
         traceback.print_exc()
 
-    threading.Timer(3, poll).start()
+
 
 
 camunda_endpoint = os.environ["CAMUNDA_ENDPOINT"]
@@ -436,14 +440,16 @@ polling_endpoint = camunda_endpoint + "/external-task"
 topic = os.environ.get("CAMUNDA_TOPIC", __TOPIC__)
 
 if __name__ == "__main__":
-    poll()
+    while True:
+        poll()
+        time.sleep(3)
 '''
 
 _DOCKERFILE_TEMPLATE = """FROM python:3.12-slim
 
 COPY service.zip /tmp/service.zip
 
-RUN apt-get update && apt-get install -y unzip && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends unzip gcc libc6-dev && rm -rf /var/lib/apt/lists/*
 RUN unzip /tmp/service.zip -d /service
 RUN pip install --no-cache-dir -r /service/requirements.txt
 
