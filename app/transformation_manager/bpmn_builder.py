@@ -18,6 +18,17 @@ from app.transformation_manager.python_service import (
     python_service_task_id,
     python_service_topic,
 )
+from app.transformation_manager.qaoa_optimization import (
+    MAX_EVALUATIONS,
+    find_qaoa_node,
+    is_dimacs_problem,
+    loop_condition,
+    max_iterations_variable,
+    model_for_group,
+    optimizer_node,
+    set_parameters_script,
+    variable_prefix,
+)
 from app.transformation_manager.workflow_loop import (
     condition_variables,
     is_workflow_loop,
@@ -136,6 +147,12 @@ class BpmnBuilder:
             if is_workflow_loop(node):
                 self.all_nodes.update({n.id: n for n in node.block.nodes})
         self.loops: dict[str, tuple[str, str, str]] = {}  # gateway, first, last task
+        # quantum groups with a QAOA node are optimized in a loop (camunda 7 only):
+        # group id -> (qaoa node, generated optimizer node)
+        self.qaoa_groups = {} if self.is_agentic_flow else self._collect_qaoa_groups()
+        for _, optimizer in self.qaoa_groups.values():
+            self.all_nodes[optimizer.id] = optimizer
+        self.qaoa_loop_backs: set[tuple[str, str]] = set()  # for the diagram
         # data type nodes: node id -> (task id, variable name, value), camunda 7 only
         self.literal_variables = (
             {} if self.is_agentic_flow else self._collect_literal_variables()
@@ -240,6 +257,10 @@ class BpmnBuilder:
             if is_workflow_loop(node):
                 print("creating loop flow")
                 self._create_loop_flow(start_node)
+                continue
+            if start_node in self.qaoa_groups:
+                print("creating qaoa optimization flow")
+                self._create_qaoa_flow(start_node)
                 continue
 
             self.containsPlugin = getattr(node, "type", None) == "plugin"
@@ -570,6 +591,161 @@ class BpmnBuilder:
         self.flow_map_per_node[start_node] = flow_map
 
         self.chain_level += 2  # the body occupies the row below the gateway
+
+    def _collect_qaoa_groups(self) -> dict[str, tuple[Any, Any]]:
+        """
+        Finds the quantum groups with a QAOA node and creates their optimizer nodes.
+
+        :return: group id -> (qaoa node, generated python node of the optimizer)
+        """
+        request_nodes = self.original_request.get("nodes", [])
+        groups = {}
+        for group_id in self.nodes:
+            member_ids = {
+                node_id
+                for node_id, data in self.metadata.items()
+                if isinstance(data, dict) and data.get("quantum_group") == group_id
+            }
+            if not member_ids:
+                continue
+            qaoa = find_qaoa_node(
+                [node for node in request_nodes if node.get("id") in member_ids]
+            )
+            if qaoa is not None:
+                groups[group_id] = (qaoa, optimizer_node(group_id, qaoa))
+        return groups
+
+    def _create_qaoa_flow(self, start_node: str) -> None:
+        """
+        Creates the optimization loop of a quantum group with a QAOA node: the placeholder
+        chain (compile, execute) with the current parameters, followed by the optimizer,
+        which leads back to the start of the chain until the optimization converged.
+        See :mod:`app.transformation_manager.qaoa_optimization`.
+        """
+        qaoa, optimizer = self.qaoa_groups[start_node]
+        member_ids = {
+            node_id
+            for node_id, data in self.metadata.items()
+            if isinstance(data, dict) and data.get("quantum_group") == start_node
+        }
+        model = model_for_group(self.original_request, member_ids, qaoa)
+
+        self._create_chain_placeholder(
+            start_node,
+            set_vars_script=set_parameters_script(model, qaoa),
+            set_vars_name="Set QAOA Parameters",
+        )
+        optimizer_task_id = self._create_python_task(optimizer.id)
+        gateway_id = f"Task_{start_node}_gateway_optimize"
+        self._create_exclusive_gateway(
+            gateway_id, "Converged or max iterations reached?"
+        )
+
+        # workflow input: maximum number of iterations of the loop
+        if self.start_form is not None:
+            ET.SubElement(
+                self.start_form,
+                self.qn(CAMUNDA_NS, "formField"),
+                {
+                    "id": max_iterations_variable(qaoa.id),
+                    "label": "Max Iterations (QAOA)",
+                    "type": "string",
+                    "defaultValue": str(MAX_EVALUATIONS),
+                },
+            )
+
+        setvars1_id = self.inserted_chains[start_node][0]
+        human_id = self.human_tasks[start_node]
+
+        # Layout: optimizer and gateway between "Set Variables" and "Analyze Results"
+        positions = self._calculate_placeholder_layout(start_node)
+        human_x, y = positions[human_id]
+        positions[optimizer_task_id] = (human_x, y)
+        positions[human_id] = (human_x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
+        self._place_gateway_between(
+            optimizer_task_id, human_id, gateway_id, positions
+        )
+        self.task_positions_per_node[start_node] = positions
+
+        # Connect Flows
+        flow_map = self._connect_placeholder_flows(
+            start_node, results_target=optimizer_task_id
+        )
+        optimize_flows = [
+            (self.new_flow(), optimizer_task_id, gateway_id),
+            (self.new_flow(), gateway_id, setvars1_id),
+            (self.new_flow(), gateway_id, human_id),
+        ]
+        for fid, src, tgt in optimize_flows:
+            self._create_sequence_flow(fid, src, tgt)
+        flow_map.extend(optimize_flows)
+        self.flow_map_per_node[start_node] = flow_map
+
+        # neither converged nor max iterations reached: back to the start of the loop
+        # with the new parameters, otherwise (default flow) analyze the results
+        gateway = self.process.find(f".//*[@id='{gateway_id}']")
+        gateway.set("default", optimize_flows[2][0])
+        loop_back = self.process.find(f".//*[@id='{optimize_flows[1][0]}']")
+        cond = ET.SubElement(
+            loop_back,
+            self.qn(BPMN2_NS, "conditionExpression"),
+            {self.qn(XSI_NS, "type"): "bpmn:tFormalExpression"},
+        )
+        cond.text = loop_condition(qaoa.id)
+        loop_back.set("name", "no")
+        self.process.find(f".//*[@id='{optimize_flows[2][0]}']").set("name", "yes")
+        self.qaoa_loop_backs.add((gateway_id, setvars1_id))
+
+        # "Analyze Results" shows the solution (e.g. maximum cut and partition)
+        human = self.process.find(f".//*[@id='{human_id}']")
+        form = ET.SubElement(
+            ET.SubElement(human, self.qn(BPMN2_NS, "extensionElements")),
+            self.qn(CAMUNDA_NS, "formData"),
+        )
+        prefix = variable_prefix(qaoa.id)
+        bitstring_label, value_label, partition_label = {
+            "MaxCut": (
+                "Maximum cut bitstring (character i = node i)",
+                "Cut value (cut edges)",
+                "Partition (nodes with 0 / nodes with 1)",
+            ),
+            "Max2SAT": (
+                "Assignment (character i = qubit i, 1 = true)",
+                "Satisfied clauses",
+                "Variables (false / true)",
+            ),
+            "GraphColoring": (
+                "Coloring (character i = node i)",
+                "Conflicts (edges with the same color)",
+                "Color classes (color 0 / color 1)",
+            ),
+        }[qaoa.problem]
+        if qaoa.problem == "Max2SAT" and is_dimacs_problem(qaoa):
+            bitstring_label = "Assignment (character i = variable i+1, 1 = true)"
+            partition_label = "Variables (false / true)"
+        for name, label in [
+            ("optimizer", "Optimizer"),
+            ("solution_bitstring", bitstring_label),
+            ("solution_value", value_label),
+            ("partition", partition_label),
+            ("best_cost", "Best expected cost"),
+            ("gamma", "Gamma"),
+            ("beta", "Beta"),
+            ("iteration", "Iterations"),
+            ("converged", "Converged"),
+            ("max_iterations_reached", "Max iterations reached"),
+        ]:
+            field = ET.SubElement(
+                form,
+                self.qn(CAMUNDA_NS, "formField"),
+                {"id": prefix + name, "label": label, "type": "string"},
+            )
+            validation = ET.SubElement(field, self.qn(CAMUNDA_NS, "validation"))
+            ET.SubElement(
+                validation, self.qn(CAMUNDA_NS, "constraint"), {"name": "readonly"}
+            )
+
+        self.chain_level += 1
 
     def _finish_loops(self) -> None:
         """
@@ -1242,8 +1418,13 @@ class BpmnBuilder:
 
         return flow_map
 
-    def _connect_placeholder_flows(self, start_node):
-        """Creates a sequence flow for plugin chains. Connecting the chains will be separately."""
+    def _connect_placeholder_flows(self, start_node, results_target: str | None = None):
+        """
+        Creates a sequence flow for placeholder chains. Connecting the chains will be separately.
+
+        :param results_target: Element after the results are set, defaults to the
+            "Analyze Results" user task.
+        """
         chain = self.inserted_chains[start_node]
         human_id = self.human_tasks[start_node]
         altend1_id = self.alt_ends[start_node][0]
@@ -1288,7 +1469,7 @@ class BpmnBuilder:
         flow_map.append((self.new_flow(), gateway3_id, getjobres_id))
         flow_map.append((self.new_flow(), getjobres_id, gateway4_id))
         flow_map.append((self.new_flow(), gateway4_id, setvars2_id))
-        flow_map.append((self.new_flow(), setvars2_id, human_id))
+        flow_map.append((self.new_flow(), setvars2_id, results_target or human_id))
         flow_map.append((self.new_flow(), gateway4_id, gateway3_id))
         flow_map.append((self.new_flow(), gateway4_id, analyzefailedjob_id))
         flow_map.append((self.new_flow(), analyzefailedjob_id, altend2_id))
@@ -1556,6 +1737,7 @@ class BpmnBuilder:
 
         loop_entries = {(gw, first) for gw, first, _ in self.loops.values()}
         loop_backs = {(last, gw) for gw, _, last in self.loops.values()}
+        loop_backs |= self.qaoa_loop_backs  # drawn above the chain like loops
 
         for fid, src, tgt in all_flows:
             edge = ET.SubElement(
@@ -1619,6 +1801,9 @@ class BpmnBuilder:
 
             if self.is_agentic_flow:
                 offset = 80  # bigger up-offset since agentic nodes are bigger
+            elif (src, tgt) in self.qaoa_loop_backs:
+                # above the "Update Variables" task of the placeholder chain
+                offset = 2 * BPMN_TASK_HEIGHT
             else:
                 offset = 40
             if src.endswith("feedback") or tgt.endswith("feedback"):
@@ -2575,8 +2760,18 @@ class BpmnBuilder:
                 print("inserted nodes", inserted_nodes)
         self.inserted_chains[start_node] = tuple(inserted_nodes)
 
-    def _create_chain_placeholder(self, start_node: str) -> None:
-        """Creates the placeholder execution chain (BackendReq -> Poll -> Retrieve -> Common)."""
+    def _create_chain_placeholder(
+        self,
+        start_node: str,
+        set_vars_script: str | None = None,
+        set_vars_name: str = "Set Variables",
+    ) -> None:
+        """
+        Creates the placeholder execution chain (BackendReq -> Poll -> Retrieve -> Common).
+
+        :param set_vars_script: Script of the first task that writes the model to compile,
+            defaults to the model with the placeholder values.
+        """
         setvars1_id = f"Task_{start_node}_set_vars_1"
         backendreq_id = f"Task_{start_node}_backend_req"
         pollstat_id = f"Task_{start_node}_poll_status"
@@ -2605,8 +2800,9 @@ class BpmnBuilder:
         # Specific parts
         self._create_script_task(
             setvars1_id,
-            "Set Variables",
-            GroovyScript.SCRIPT_SET_VARS_PLACEHOLDER.format(jsonModel=self.model_json),
+            set_vars_name,
+            set_vars_script
+            or GroovyScript.SCRIPT_SET_VARS_PLACEHOLDER.format(jsonModel=self.model_json),
             result_variable="matrix",
         )
 

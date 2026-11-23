@@ -65,6 +65,7 @@ from app.transformation_manager.python_service import (
     generate_service_deployment_models,
     is_python_implementation,
 )
+from app.transformation_manager.qaoa_optimization import find_qaoa_node, optimizer_node
 from app.transformation_manager.workflow_loop import is_workflow_loop
 from app.utils import not_none
 import xml.etree.ElementTree as ET
@@ -637,7 +638,18 @@ class EnrichingProcessor(CommonProcessor):
         return [x async for x in self.enrich()]
 
 
-CLASSICAL_TYPES = {"int", "float", "angle", "boolean", "bit", "file", "string"}
+# data type nodes: not part of quantum groups (no circuit is executed for them)
+CLASSICAL_TYPES = {
+    "int",
+    "float",
+    "angle",
+    "boolean",
+    "bool",
+    "bit",
+    "file",
+    "string",
+    "array",
+}
 
 
 class WorkflowProcessor(CommonProcessor):
@@ -707,8 +719,14 @@ class WorkflowProcessor(CommonProcessor):
 
         # Generate service deployment models for python implementations
         # (before the BPMN, so invalid annotations are not swallowed below)
+        # incl. the optimizer services of quantum groups with a QAOA node
+        qaoa_optimizers = [
+            optimizer_node(group_id, qaoa)
+            for group_id, group_nodes in quantum_groups.items()
+            if (qaoa := find_qaoa_node(group_nodes)) is not None
+        ]
         self.service_deployment_models = generate_service_deployment_models(
-            list(nodes_dict.values())
+            list(nodes_dict.values()) + qaoa_optimizers
         )
 
         # Generate BPMN XML

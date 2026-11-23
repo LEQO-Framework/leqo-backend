@@ -299,11 +299,12 @@ Fetches tasks of the topic in CAMUNDA_TOPIC, runs the implementation of the node
 import base64
 import json
 import os
-import threading
+import time
 import traceback
 
 import requests
 
+POLL_INTERVAL = 3
 WORKER_ID = __WORKER_ID__
 INPUTS = __INPUTS__
 REQUIRED_INPUTS = __REQUIRED_INPUTS__
@@ -428,7 +429,15 @@ def poll():
         print("Exception during polling!")
         traceback.print_exc()
 
-    threading.Timer(3, poll).start()
+
+def main():
+    # Poll in the main thread: if the main thread ended and polling continued in
+    # timer threads, the interpreter would already be shutting down and imports of
+    # the user code (e.g. scipy -> concurrent.futures) would fail with
+    # "can't register atexit after shutdown".
+    while True:
+        poll()
+        time.sleep(POLL_INTERVAL)
 
 
 camunda_endpoint = os.environ["CAMUNDA_ENDPOINT"]
@@ -436,7 +445,7 @@ polling_endpoint = camunda_endpoint + "/external-task"
 topic = os.environ.get("CAMUNDA_TOPIC", __TOPIC__)
 
 if __name__ == "__main__":
-    poll()
+    main()
 '''
 
 _DOCKERFILE_TEMPLATE = """FROM python:3.12-slim
