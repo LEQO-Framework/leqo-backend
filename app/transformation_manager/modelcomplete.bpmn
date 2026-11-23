@@ -47,7 +47,7 @@ return uuid;</camunda:script>
     <bpmn:startEvent id="Event_0yc3yni">
       <bpmn:extensionElements>
         <camunda:formData>
-          <camunda:formField id="ipAdress" label="IP Adresse" type="string" defaultValue="" />
+          <camunda:formField id="ipAdress" label="IP Address" type="string" defaultValue="" />
         </camunda:formData>
       </bpmn:extensionElements>
       <bpmn:outgoing>Flow_0ocyus2</bpmn:outgoing>

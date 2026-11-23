@@ -107,6 +107,12 @@ class ImplementationNode(BaseNode):
     Python implementations can only be compiled into a workflow (as external service task).
     """
 
+    requirements: str | None = Field(default=None, exclude=True)
+    """
+    Content of a pip requirements file for python implementations.
+    Merged with the packages detected from the imports of :attr:`implementation`.
+    """
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 

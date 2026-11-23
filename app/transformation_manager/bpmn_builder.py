@@ -2089,7 +2089,7 @@ class BpmnBuilder:
                 self.qn(CAMUNDA_NS, "formField"),
                 {
                     "id": "ipAdress",
-                    "label": "IP Adresse",
+                    "label": "IP Address",
                     "type": "string",
                     "defaultValue": "",
                 },
