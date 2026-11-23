@@ -662,9 +662,7 @@ class BpmnBuilder:
         human_x, y = positions[human_id]
         positions[optimizer_task_id] = (human_x, y)
         positions[human_id] = (human_x + 2 * (BPMN_TASK_WIDTH + BPMN_GAP_X), y)
-        self._place_gateway_between(
-            optimizer_task_id, human_id, gateway_id, positions
-        )
+        self._place_gateway_between(optimizer_task_id, human_id, gateway_id, positions)
         self.task_positions_per_node[start_node] = positions
 
         # Connect Flows
@@ -2802,7 +2800,9 @@ class BpmnBuilder:
             setvars1_id,
             set_vars_name,
             set_vars_script
-            or GroovyScript.SCRIPT_SET_VARS_PLACEHOLDER.format(jsonModel=self.model_json),
+            or GroovyScript.SCRIPT_SET_VARS_PLACEHOLDER.format(
+                jsonModel=self.model_json
+            ),
             result_variable="matrix",
         )
 
