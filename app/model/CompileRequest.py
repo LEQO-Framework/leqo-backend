@@ -113,6 +113,18 @@ class ImplementationNode(BaseNode):
     Merged with the packages detected from the imports of :attr:`implementation`.
     """
 
+    propertyValues: dict[str, Any] | None = Field(default=None, exclude=True)
+    """
+    Values of the ``@property`` variables of a python implementation, set in the model.
+    Properties without value become variables of the workflow.
+    """
+
+    environment: dict[str, Any] | str | None = Field(default=None, exclude=True)
+    """
+    Environment variables of the service container of a python implementation,
+    as dict or as content of a ``.env`` file (``NAME=VALUE`` lines).
+    """
+
     model_config = ConfigDict(use_attribute_docstrings=True)
 
 

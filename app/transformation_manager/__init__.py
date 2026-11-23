@@ -61,6 +61,7 @@ from app.transformation_manager.post import postprocess
 from app.transformation_manager.pre import preprocess
 from app.transformation_manager.pre.utils import PreprocessingException
 from app.transformation_manager.api_connector import is_api_connector
+from app.transformation_manager.python_merge import prepare_python_nodes
 from app.transformation_manager.python_service import (
     generate_service_deployment_models,
     is_python_implementation,
@@ -269,6 +270,8 @@ class MergingProcessor(CommonProcessor):
         enricher: Annotated[Enricher, Depends(get_enricher)],
         settings: Annotated[Settings, Depends(get_settings)],
     ) -> MergingProcessor:
+        # properties of python nodes, python nodes that pass objects run in one service
+        request = prepare_python_nodes(request)
         graph = FrontendGraph.create(request.nodes, request.edges)
         processor = MergingProcessor(
             enricher,
@@ -660,6 +663,8 @@ class WorkflowProcessor(CommonProcessor):
         request: CompileRequest,
         enricher: Annotated[Enricher, Depends(get_enricher)],
     ) -> "WorkflowProcessor":
+        # properties of python nodes, python nodes that pass objects run in one service
+        request = prepare_python_nodes(request)
         graph = FrontendGraph.create(request.nodes, request.edges)
         processor = WorkflowProcessor(
             enricher, graph, request.metadata, original_request=request
