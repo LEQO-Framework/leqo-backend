@@ -21,6 +21,7 @@ from starlette.responses import (
     Response,
 )
 
+from app.algorithm_selection.router import router as algorithm_selection_router
 from app.config import Settings
 from app.model.CompileRequest import ImplementationNode
 from app.model.exceptions import LeqoProblemDetails
@@ -81,6 +82,8 @@ app.add_middleware(
     allow_methods=get_settings().cors_allow_methods,
     allow_headers=get_settings().cors_allow_headers,
 )
+
+app.include_router(algorithm_selection_router)
 
 
 def _get_processor_target(processor: object) -> Literal["qasm", "workflow"]:

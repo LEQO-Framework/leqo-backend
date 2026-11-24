@@ -8,6 +8,9 @@ services:
       - postgres
     ports:
       - "8000:80"
+    extra_hosts:
+      # reach the NISQ Analyzer published on the host (NISQ_ANALYZER_URL)
+      - "host.docker.internal:host-gateway"
   postgres:
     image: postgres:17.2
     shm_size: 128mb

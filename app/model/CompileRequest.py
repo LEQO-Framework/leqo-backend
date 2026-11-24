@@ -508,14 +508,20 @@ class QAOANode(BaseNode):
     p: int = Field(gt=0)
     """Number of layers in the QAOA ansatz."""
 
-    problem: Literal["MaxCut", "Max2SAT", "GraphColoring"] = "MaxCut"
+    problem: Literal["MaxCut", "Max2SAT", "GraphColoring", "QUBO"] = "MaxCut"
     """The optimization problem to solve (defines the Cost Hamiltonian)."""
 
     optimizer: Literal["COBYLA", "SPSA", "NELDER_MEAD"]
     """Classical optimizer intended for downstream execution."""
 
     edges: str
-    """String representation of the graph edge list, e.g., '[[0,1], [1,2]]'."""
+    """
+    String representation of the graph edge list, e.g., '[[0,1], [1,2]]'.
+    For 'QUBO' the weighted couplings '[[i, j, w], ...]' with ``w = Q[i][j] + Q[j][i]``.
+    """
+
+    linear: str = ""
+    """Linear QUBO coefficients '[Q[0][0], Q[1][1], ...]', only used by 'QUBO'."""
 
     gamma: str = ""
     beta: str = ""
